@@ -84,4 +84,8 @@ The [recorded checkout verification](docs/verification.md) covers the independen
 
 ## Copyright and third-party material
 
-© 2026 Yiming Shen. A general license for the original project code has not been selected; this repository does not grant an MIT or other open-source license for that code. Third-party components retain their own terms, including SimNIBS GPL-3.0-only and the Ernie example data's CC BY-NC 4.0 terms. Attribution, source links, and modification descriptions are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+© 2026 Yiming Shen.
+
+EEG Layout Lab is a community-oriented research software project supporting EEG research, education, and scientific collaboration.
+
+A general license for the original project code has not been selected. Third-party components retain their own terms, including SimNIBS GPL-3.0-only and the Ernie example data's CC BY-NC 4.0 terms. Attribution, source links, and modification descriptions are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

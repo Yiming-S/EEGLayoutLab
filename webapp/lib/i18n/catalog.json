@@ -5536,8 +5536,8 @@
     "en": "Third-Party Licenses"
   },
   "copyright.introduction": {
-    "source": "EEG Layout Lab 是用于脑电电极布局设计、数学仿真与性能比较的研究软件，研究电极数量、空间分布和区域范围与脑电采集能力之间的关系。",
-    "en": "EEG Layout Lab is research software for EEG electrode layout design, mathematical simulation, and performance comparison. It investigates how electrode count, spatial distribution, and placement regions relate to EEG acquisition capability."
+    "source": "EEG Layout Lab 是面向科研社区的研究软件项目，支持脑电研究、教育与科研协作。软件用于脑电电极布局设计、数学仿真与性能比较，研究电极数量、空间分布和区域范围与脑电采集能力之间的关系。",
+    "en": "EEG Layout Lab is a community-oriented research software project supporting EEG research, education, and scientific collaboration. It supports EEG electrode layout design, mathematical simulation, and performance comparison, investigating how electrode count, spatial distribution, and placement regions relate to EEG acquisition capability."
   },
   "copyright.original_heading": {
     "source": "原创内容",

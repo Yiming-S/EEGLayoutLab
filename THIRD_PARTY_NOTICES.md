@@ -1,6 +1,10 @@
 # Copyright and third-party notices
 
-© 2026 Yiming Shen for original EEG Layout Lab code and documentation. A general license for that original material has not been selected. No MIT or other open-source license is granted for it by this repository. Third-party rights and licenses are separate and are not replaced by this notice.
+© 2026 Yiming Shen for original EEG Layout Lab code and documentation.
+
+EEG Layout Lab is a community-oriented research software project supporting EEG research, education, and scientific collaboration.
+
+A general license for the original project code has not been selected. Third-party rights and licenses are separate and are not replaced by this notice.
 
 ## SimNIBS
 

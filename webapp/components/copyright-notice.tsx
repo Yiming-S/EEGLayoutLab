@@ -11,7 +11,7 @@ export function CopyrightNotice() {
         <h2 id="copyright-heading" className="text-xl font-semibold">EEG Layout Lab — {tx('关于与版权')}</h2>
         <p className="mt-2 text-sm text-[#53686e]">{COPYRIGHT_NOTICE}</p>
       </div>
-      <p className="text-base leading-7">{tx('EEG Layout Lab 是用于脑电电极布局设计、数学仿真与性能比较的研究软件，研究电极数量、空间分布和区域范围与脑电采集能力之间的关系。')}</p>
+      <p className="text-base leading-7">{tx('EEG Layout Lab 是面向科研社区的研究软件项目，支持脑电研究、教育与科研协作。软件用于脑电电极布局设计、数学仿真与性能比较，研究电极数量、空间分布和区域范围与脑电采集能力之间的关系。')}</p>
       <div className="space-y-3">
         <h3 className="text-lg font-semibold">{tx('原创内容')}</h3>
         <p className="text-base leading-7">{tx('本版权声明适用于项目中由 Yiming Shen 创作的源代码、界面设计、说明文档及其他原创内容。第三方软件、头部模型、数据和其他引用材料不包含在上述原创内容范围内。')}</p>
