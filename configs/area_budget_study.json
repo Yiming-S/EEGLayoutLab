@@ -1,0 +1,36 @@
+{
+  "schema_version": "compact-eeg-area-budget-study/1",
+  "campaign": "stage5_single_head_fixed_union_area",
+  "physical_electrode_count": 64,
+  "region_counts": [1, 2, 3, 4, 6],
+  "union_area_caps_cm2": [60, 120, 180],
+  "domains": {
+    "whole_scalp_free": "whole_scalp_control_approx",
+    "low_hair_free": "approx_low_hair_proxy_unvalidated"
+  },
+  "spacing_mm": 4,
+  "search": {
+    "seed": 2026090805,
+    "main_center_limit": 8,
+    "master_center_limit": 16,
+    "geometry_restarts": 2,
+    "coordinate_sweeps": 1,
+    "proposals_per_electrode": 12,
+    "representative_region_counts": [2, 6],
+    "representative_area_cm2": 120,
+    "nested_center_limits": [4, 8, 16],
+    "coarse_candidate_fraction": 0.5,
+    "objectives": ["field20", "min_field_sensitivity20"]
+  },
+  "evaluation": {
+    "source_moment_am": 1e-8,
+    "snr_db": 20,
+    "localization_noise_seed": 2026090805,
+    "localization_noise_repetitions": 16,
+    "localization_role": "post_search_diagnostic_not_optimized",
+    "formal_population_ar": false
+  },
+  "geometry_definition": "ROI-constrained mesh-edge shortest-path disks, common radius per center set fitted to a native-vertex barycentric UNION-area cap; overlap counted once",
+  "search_claim": "best_found_under_finite_recorded_budget_not_global_optimum_or_continuous_geodesic_area_minimum",
+  "stage5_scope": "single_Ernie_head_only_independent_head_validation_is_separate_unstarted_stage"
+}

@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools==84.0.0", "wheel==0.48.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "compact-eeg"
+version = "0.1.0"
+description = "EEGLayoutLab fixed-64 EEG layout research application"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+  "matplotlib==3.10.8",
+  "numpy==2.3.0",
+  "scipy==1.17.1",
+  "threadpoolctl==3.6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest==9.0.2"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "scripts"]
+markers = ["data_bundle: requires the separately restored scientific data bundle"]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

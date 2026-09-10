@@ -1,0 +1,146 @@
+{
+  "workspace0": {
+    "source": "文档",
+    "en": "Documentation"
+  },
+  "workspace1": {
+    "source": "工作区工具",
+    "en": "Workspace tools"
+  },
+  "workspace2": {
+    "source": "布局记录",
+    "en": "Layout Records"
+  },
+  "workspace3": {
+    "source": "区域设计",
+    "en": "Region Design"
+  },
+  "workspace4": {
+    "source": "坐标导入",
+    "en": "Coordinate Import"
+  },
+  "workspace5": {
+    "source": "当前布局",
+    "en": "Current layout"
+  },
+  "workspace6": {
+    "source": "更换布局",
+    "en": "Change layout"
+  },
+  "workspace7": {
+    "source": "查看来源",
+    "en": "View source"
+  },
+  "workspace8": {
+    "source": "编辑当前布局",
+    "en": "Edit layout"
+  },
+  "workspace9": {
+    "source": "对比当前布局",
+    "en": "Compare layout"
+  },
+  "workspace10": {
+    "source": "仿真当前布局",
+    "en": "Simulate signals"
+  },
+  "workspace11": {
+    "source": "电极",
+    "en": "electrodes"
+  },
+  "workspace12": {
+    "source": "区域",
+    "en": "regions"
+  },
+  "workspace13": {
+    "source": "电极编辑副本 · 与原布局分开评价",
+    "en": "Electrode-edit copy · evaluated separately from its source"
+  },
+  "workspace14": {
+    "source": "当前草稿 · 尚无匹配的布局评价",
+    "en": "Current draft · no matching layout evaluation"
+  },
+  "workspace15": {
+    "source": "已保存的布局评价",
+    "en": "Saved layout evaluation"
+  },
+  "workspace16": {
+    "source": "当前记录无法读取",
+    "en": "Current record could not be loaded"
+  },
+  "workspace17": {
+    "source": "正在读取当前布局",
+    "en": "Loading current layout"
+  },
+  "workspace18": {
+    "source": "尚未选择布局",
+    "en": "No layout selected"
+  },
+  "workspace19": {
+    "source": "编辑结果不进入固定64点信号协议",
+    "en": "Edited results use a separate protocol from fixed-64 signal simulation"
+  },
+  "workspace20": {
+    "source": "坐标导入与评价",
+    "en": "Coordinate Import & Evaluation"
+  },
+  "workspace21": {
+    "source": "导入已有64点坐标，评价后保存为独立布局；不运行区域布局搜索。",
+    "en": "Import 64 electrode coordinates and evaluate them as a separate layout, without running a region-layout search."
+  },
+  "workspace22": {
+    "source": "位置偏移测试",
+    "en": "Position Displacement Test"
+  },
+  "workspace23": {
+    "source": "固定所选布局，检查网格位置偏移前后的重建表现；外部坐标在布局设计的坐标导入中评价。",
+    "en": "Keep the selected layout fixed and compare reconstruction before and after grid displacements. Evaluate external coordinates under Layout Design → Coordinate Import."
+  },
+  "workspace24": {
+    "source": "导入外部电极坐标 →",
+    "en": "Import external electrode coordinates →"
+  },
+  "workspace25": {
+    "source": "指定记录不支持此工具，请重新选择布局。",
+    "en": "The specified record is not supported by this tool. Select another layout."
+  },
+  "workspace26": {
+    "source": "已恢复本标签页的电极草稿；尚未重新评价。",
+    "en": "Restored this tab’s electrode draft; it has not been re-evaluated."
+  },
+  "workspace27": {
+    "source": "已恢复坐标草稿；尚未重新评价。",
+    "en": "Coordinate draft restored; it has not been re-evaluated."
+  },
+  "workspace28": {
+    "source": "从结果库查看已有实验；在布局设计中设置区域、编辑电极或导入坐标；在信号仿真中比较接收波形。使用指南与建模原理分别阅读。",
+    "en": "Explore existing experiments in Results Library; define regions, edit electrodes or import coordinates in Layout Design; compare received waveforms in Signal Simulation. The User Guide and Models & Methods remain separate documents."
+  },
+  "workspace29": {
+    "source": "坐标导入只执行当前坐标评价；位置偏移测试位于结果库的方案对比。",
+    "en": "Coordinate Import evaluates the current coordinates. Position displacement tests are available under Results Library → Layout Comparison."
+  },
+  "workspace30": {
+    "source": "坐标草稿无法恢复，请重新导入文件。",
+    "en": "The coordinate draft could not be restored. Import the file again."
+  },
+  "workspace31": {
+    "source": "当前标签页无法暂存坐标；离开前请保留原始文件。",
+    "en": "This tab cannot keep a temporary coordinate draft. Keep the original file before leaving."
+  },
+  "workspace32": {
+    "source": "电极草稿无法恢复，已载入原布局。",
+    "en": "The electrode draft could not be restored. The original layout has been loaded."
+  },
+  "workspace33": {
+    "source": "当前标签页无法暂存电极草稿；请手动保存后离开。",
+    "en": "This tab cannot keep a temporary electrode draft. Save it manually before leaving."
+  },
+  "workspace34": {
+    "source": "在结果库的“方案对比”中选择A、B，核对协议、实际面积与允许位置范围，再设置各项性能要求。可导出Markdown报告、完整JSON及64点CSV坐标。外部坐标文件在布局设计的“坐标导入”中评价；位置偏移测试保留在方案对比。",
+    "en": "Select layouts A and B under Results Library → Layout Comparison, check their protocols, actual areas and placement constraints, then set each performance requirement. Export a Markdown report, full JSON or 64-point CSV coordinates. Evaluate external coordinate files under Layout Design → Coordinate Import; position displacement tests remain in Layout Comparison."
+  },
+  "workspace35": {
+    "source": "已有电极坐标时，可直接进入坐标导入，上传CSV或JSON并评价；不必先运行区域布局搜索。",
+    "en": "If you already have electrode coordinates, open Coordinate Import, upload CSV or JSON and evaluate them directly, without first running a region-layout search."
+  }
+}

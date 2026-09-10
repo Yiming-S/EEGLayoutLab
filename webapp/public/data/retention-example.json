@@ -1,0 +1,19 @@
+{
+  "description": "Frozen numerical excerpt underlying the retention guide; not an importable user job or a new experiment.",
+  "source_record_id": "d474e3b2006437767104367a8860d792e0b942963d08594ced8c82d96a2d722d",
+  "source_cache_sha256": "730a32adafa7420eb382458b75ccd06f3092e066cda4a62340ed9b06b1ae1b9a",
+  "metrics": {
+    "field_relative": 0.57151477388236,
+    "field_absolute": 0.56757062169407,
+    "reference_field_absolute": 0.9930987747499561,
+    "sensitivity_tail": 0.12504365995217767,
+    "localization_relative": 0.18542696104991171,
+    "conditional_global": 0.12504365995217767,
+    "median_mm": 21.98380485308453,
+    "p90_mm": 58.8346141906012,
+    "reference_median_mm": 10.924877260771844,
+    "reference_p90_mm": 20.594093975491354,
+    "localization_utility": 0.09662716771042167,
+    "reference_localization_utility": 0.5211063545630366
+  }
+}

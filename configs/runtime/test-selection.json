@@ -1,0 +1,119 @@
+{
+  "schema": "eeglayoutlab-selected-tests/1",
+  "selection_scope": "App workers, source-reception compatibility, immutable runtime/cache identities, coordinate export, fixed-64 layout search, scientific metrics and small native FEM operators.",
+  "original_tests": [
+    {
+      "path": "tests/test_area_budget_study.py",
+      "sha256": "7a8f8affde5e7003e664fd3aadbd38e56ae6b7ec621ca4515a7aaaef7fe76892"
+    },
+    {
+      "path": "tests/test_artifacts.py",
+      "sha256": "6eee2e880ecbf0fd1db75917cc199248c198b291c85ed76a33053b4dd7a1dfa2"
+    },
+    {
+      "path": "tests/test_cortical_fem.py",
+      "sha256": "822425091bee022f90a8c715ad3f0497bc74f8c3942d4d9d89d327064ba055e8"
+    },
+    {
+      "path": "tests/test_design_evaluation.py",
+      "sha256": "9b3a352dd138e06263255eefad09b173dcb3dd5915c931b38135ca1761eca63b"
+    },
+    {
+      "path": "tests/test_electrode_editor.py",
+      "sha256": "6b8a174a112ecea9b30d07894b4d53a1fc93dc5c709f1b0c7d876d92db3f9d1c"
+    },
+    {
+      "path": "tests/test_export_history_coordinates.py",
+      "sha256": "bf35c438131eef13e5830b1e4443da94f0d92a8a2bac4c8dd1cb218b306d1435"
+    },
+    {
+      "path": "tests/test_fem_pilot.py",
+      "sha256": "0732f6aeb54edc2788ba12f93104b4aa2c41a7562bb66844eab23d7ae28746cd"
+    },
+    {
+      "path": "tests/test_forward_pilot.py",
+      "sha256": "42ccf06928df6c45f651a1e7cfee072218b6dfcc332829844f19f74385e37ad8"
+    },
+    {
+      "path": "tests/test_frozen_validation.py",
+      "sha256": "5f58a7d86f8f53eb3df2f722e3daeef1a5c0acffe2462ed0adf02e517ca003d1"
+    },
+    {
+      "path": "tests/test_gmsh_v2.py",
+      "sha256": "799048554c20ac98a909f7a2b1a858bcc4b6bc63f56e52c4a474a2df75e1c741"
+    },
+    {
+      "path": "tests/test_inverse_pilot.py",
+      "sha256": "147f4506bf8d55fc39b43db809a79b6cb709b32e959a60b0b34473d350fb1a42"
+    },
+    {
+      "path": "tests/test_layout_search_metrics.py",
+      "sha256": "a88209d1c5c7b8fc084b7280e27f8737f5a0a98cfceb5f73aa7d4664a0b3a300"
+    },
+    {
+      "path": "tests/test_local_radius_compute.py",
+      "sha256": "25df0b7bf03403bf28b1be6c095f0fc8fcbde1a89af63f36a6ca9f0378fd98ce"
+    },
+    {
+      "path": "tests/test_metrics.py",
+      "sha256": "1b1a4d3d0c00e3b8a610923ca565a1529fb94aff43344b6c04f4409df4511ab9"
+    },
+    {
+      "path": "tests/test_multiregion_search.py",
+      "sha256": "b9fd86e62adf1dbce1e7363ca4449a3cea46a6aeaa781f85ed6466acf3e1ae7e"
+    },
+    {
+      "path": "tests/test_prototype_localization.py",
+      "sha256": "df37a1401bb20ade470673049f422373166292af4f81baf69cf0979a67bb475e"
+    },
+    {
+      "path": "tests/test_prototype_metrics.py",
+      "sha256": "70dc8086a4fe4907a7a867a3fedb0d28a970294049beef1f07435b5ad0a962a6"
+    },
+    {
+      "path": "tests/test_reception_forward_provider.py",
+      "sha256": "e87923f25a88ae3f186ffa2db60f5540acde799e91edfb1d6e9ed2cc4cb413e8"
+    },
+    {
+      "path": "tests/test_refined_localization.py",
+      "sha256": "b7a962f05595b760c6e717126a38d7032d8b18b66bec00e70daa40b3819001b6"
+    },
+    {
+      "path": "tests/test_result_index.py",
+      "sha256": "50bab52acac284265ebf4ee0eff71983c18de5c5c9dbec0690887f48fc51e3cd"
+    },
+    {
+      "path": "tests/test_robustness_metrics.py",
+      "sha256": "11572b8e67449c810f8d967baf6fc03487e394b2dab8a529db83bc90e25c4f88"
+    },
+    {
+      "path": "tests/test_source_reception.py",
+      "sha256": "8c216a48212704984b71be43ab9b43762a4a8dd992b48d6686443d7489aa925d"
+    },
+    {
+      "path": "tests/test_source_reception_v2.py",
+      "sha256": "289e1641eda4470e1dc7a7b08ee3515a8d2da2e5a08742f9a8041346ac183663"
+    },
+    {
+      "path": "tests/test_surface.py",
+      "sha256": "64e92efc59dfff761040cb17c3a278b70599bfae032d60324d3caee2f6161fd4"
+    },
+    {
+      "path": "tests/test_surface_admissibility.py",
+      "sha256": "ea8a56e7bc125c696bc53d80228be1e23f28f61b819551908c46fe6da669dfd3"
+    },
+    {
+      "path": "tests/test_volume_qc.py",
+      "sha256": "2e36600d264d8776c143073ac2ecd49e020242dffbd2689a4dabfb0d2ed0a8d1"
+    },
+    {
+      "path": "tests/test_workflow_structure.py",
+      "sha256": "81f6d0d153270ed218aeae3a129c76b7c84d60e3095bd1115f53c27536bed063"
+    }
+  ],
+  "additional_tests": [
+    "tests/test_runtime_contract.py"
+  ],
+  "external_data_policy": "Two original historical-data regressions are marked data_bundle and skip only when the historical pointer is absent; once restored, missing or corrupt referenced files fail. Existing opt-in real-bank tests keep their original environment flags.",
+  "omitted_scope": "Tests requiring unshared offline campaign runners, report generators, volume qualification scripts, or their large experimental archives are omitted. This selected suite is not the full original campaign validation suite."
+}

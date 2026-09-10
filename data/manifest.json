@@ -1,0 +1,218 @@
+{
+  "schema_version": "eeglayoutlab-data-bundle/1",
+  "bundle_id": "eeglayoutlab-data-v1",
+  "description": "Selected frozen data for the complete local application; a file allowlist, not a full campaign archive.",
+  "total_size_bytes": 406226293,
+  "original_payload_file_count": 20,
+  "original_payload_size_bytes": 406223080,
+  "original_json_audit": {
+    "files_inspected": 12,
+    "absolute_filesystem_path_hits": 0,
+    "rewritten": false,
+    "retained_environment_metadata": [
+      "Python and numerical package versions",
+      "conda record SHA256 map",
+      "runtime library and executable SHA256 values",
+      "original generator script hashes and run IDs"
+    ],
+    "scope": "All original JSON values and keys; filesystem path pattern scan. The archive preserves original bytes."
+  },
+  "sources": [
+    {
+      "id": "simnibs_example_v4_1",
+      "name": "SimNIBS example dataset v4.1, Ernie",
+      "provider": "SimNIBS Developers",
+      "copyright": "© SimNIBS developers 2024",
+      "license": "CC-BY-NC-4.0",
+      "license_basis": "Explicit example-data statement on the v4.1 release page; distinct from the repository code license.",
+      "release_url": "https://github.com/simnibs/example-dataset/releases/tag/v4.1",
+      "archive_url": "https://github.com/simnibs/example-dataset/releases/download/v4.1/simnibs4_examples.zip",
+      "documentation_url": "https://simnibs.github.io/simnibs/build/html/dataset.html",
+      "license_url": "https://creativecommons.org/licenses/by-nc/4.0/legalcode",
+      "included_upstream_member": "m2m_ernie/ernie.msh",
+      "bytes_modified": false
+    },
+    {
+      "id": "ernie_derived",
+      "name": "Original research workspace frozen application results derived from Ernie",
+      "upstream_source_id": "simnibs_example_v4_1",
+      "third_party_conditions": "Retain SimNIBS attribution and CC BY-NC 4.0 conditions for Ernie-derived data.",
+      "original_contribution_license": "No new license assigned by this packaging manifest.",
+      "scope": "Selected original result bytes only; no full campaign, private jobs, cache history or development archive."
+    },
+    {
+      "id": "bundle_declaration",
+      "name": "Offline data packaging and source declaration"
+    }
+  ],
+  "files": [
+    {
+      "path": "data/external/simnibs4_examples_partial/m2m_ernie/ernie.msh",
+      "size_bytes": 174021639,
+      "sha256": "847707671cc93db548948b46b715c4c67513e1cb7fbed289b6609963174e67cc",
+      "role": "unmodified_upstream_fem_mesh",
+      "source_id": "simnibs_example_v4_1",
+      "original_bytes": true
+    },
+    {
+      "path": "data/SOURCES.md",
+      "size_bytes": 3213,
+      "sha256": "bb4160f3239227fa84ab46c854e5ab3a0a1f47fd5e7ed5495c3c247b33fb3fa5",
+      "role": "source_and_license_declaration",
+      "source_id": "bundle_declaration",
+      "original_bytes": false
+    },
+    {
+      "path": "results/v2/campaigns/stage1_simnibs_ernie_qualification/runs/stage1_4a7766eb1e41d70a96b084cb6ed97a91a5761aa81ef8c84a110950179f230be8/batches/20260907T040402.541307Z/external_scalp_source_node_indices.npy",
+      "size_bytes": 419408,
+      "sha256": "ad51f3488298ec6ed7fcf2f4d075fa23ffb5911a69b7da88a98fc02af9728433",
+      "role": "original_scalp_node_mapping",
+      "source_id": "ernie_derived",
+      "original_bytes": true
+    },
+    {
+      "path": "results/v2/campaigns/stage1_simnibs_ernie_qualification/runs/stage1_4a7766eb1e41d70a96b084cb6ed97a91a5761aa81ef8c84a110950179f230be8/batches/20260907T040402.541307Z/external_scalp_triangles.npy",
+      "size_bytes": 2516864,
+      "sha256": "4c157d35e438f2519423d462644fb5fa7dcd3a34a2096421191be09425e9e18c",
+      "role": "qualified_native_scalp_array",
+      "source_id": "ernie_derived",
+      "original_bytes": true
+    },
+    {
+      "path": "results/v2/campaigns/stage1_simnibs_ernie_qualification/runs/stage1_4a7766eb1e41d70a96b084cb6ed97a91a5761aa81ef8c84a110950179f230be8/batches/20260907T040402.541307Z/external_scalp_vertices_m.npy",
+      "size_bytes": 1257968,
+      "sha256": "74043c4d1b895806d720fe9a6305bd22f385c2b99fbb8f060a00971ad1cedb8c",
+      "role": "qualified_native_scalp_array",
+      "source_id": "ernie_derived",
+      "original_bytes": true
+    },
+    {
+      "path": "results/v2/campaigns/stage2_ernie_cortical_input_qualification/runs/corticalinputs_aeed5b1d803e058e26de1879006fdca51c217e314998517df5f4cab80c7a330e/batches/20260908T034503.646432Z/cortical_input_arrays.npz",
+      "size_bytes": 2625448,
+      "sha256": "cc46a7f19f5b36151bbf334a9e9d8bf3b84262109cd6038c53e315cd8be8b0f4",
+      "role": "frozen_4096_dictionary_and_256_generation_sources",
+      "source_id": "ernie_derived",
+      "original_bytes": true
+    },
+    {
+      "path": "results/v2/campaigns/stage4_ernie_candidate_geometry/runs/multiregioncandidates_fa44345304899650c7d86bddb6f493bbb1cacd1d8e82d5abbaac653ed33cbfda/batches/20260908T045054.093690Z/candidate_report.json",
+      "size_bytes": 2237,
+      "sha256": "d61b889da06634f5260ea1f7b986289755625d72970f92bc237e7cca32075fd5",
+      "role": "frozen_report",
+      "source_id": "ernie_derived",
+      "original_bytes": true
+    },
+    {
+      "path": "results/v2/campaigns/stage4_ernie_candidate_geometry/runs/multiregioncandidates_fa44345304899650c7d86bddb6f493bbb1cacd1d8e82d5abbaac653ed33cbfda/batches/20260908T045054.093690Z/multiregion_candidates.npz",
+      "size_bytes": 2147252,
+      "sha256": "8691f4dc9b72ca8d0198e3c16f0d210ca91553ebcffffa8a9f9d5ae7a5944fb3",
+      "role": "frozen_array",
+      "source_id": "ernie_derived",
+      "original_bytes": true
+    },
+    {
+      "path": "results/v2/campaigns/stage4_ernie_forward_candidate_bank/runs/multiregionbank_a7df80d38fa88c6f31c1bbdc26106212ab9c47804dd77f1b4fb4b88ccaed7318/batches/20260908T045157.987506Z/forward_bank_report.json",
+      "size_bytes": 4742,
+      "sha256": "e0b6121d3971bccaadf987a2869d332d8bd6b4fbc8ef6d8115b9f2efd4b41677",
+      "role": "frozen_report",
+      "source_id": "ernie_derived",
+      "original_bytes": true
+    },
+    {
+      "path": "results/v2/campaigns/stage4_ernie_forward_candidate_bank/runs/multiregionbank_a7df80d38fa88c6f31c1bbdc26106212ab9c47804dd77f1b4fb4b88ccaed7318/batches/20260908T045157.987506Z/multiregion_forward_bank.npz",
+      "size_bytes": 182197693,
+      "sha256": "acf015aa3043723a8694d5e212cebda2e3114f4dbcad0ed3192d56ebc46a0788",
+      "role": "frozen_array",
+      "source_id": "ernie_derived",
+      "original_bytes": true
+    },
+    {
+      "path": "results/v2/campaigns/stage4_ernie_forward_candidate_bank/runs/multiregionbank_a7df80d38fa88c6f31c1bbdc26106212ab9c47804dd77f1b4fb4b88ccaed7318/run_manifest.json",
+      "size_bytes": 24102,
+      "sha256": "4daab98fa25fc678fed2205a24ccb5d152ad05ca1ff16922ab754e8b81d40d2d",
+      "role": "frozen_bank_runtime_and_source_provenance",
+      "source_id": "ernie_derived",
+      "original_bytes": true
+    },
+    {
+      "path": "results/v2/campaigns/stage4_ernie_single_head_multiregion_optimization/runs/singleheadopt_2b38b3396d2727dce13f3b6ecc6eef25e550cdc337fc301a6b2243a63ff104ba/batches/20260908T050222.497308Z/optimization_report.json",
+      "size_bytes": 33236448,
+      "sha256": "c30cce531e4f9310f43fb1566cea37c8ed4c0f307f0870e5b88b3db8d2642ad3",
+      "role": "frozen_report",
+      "source_id": "ernie_derived",
+      "original_bytes": true
+    },
+    {
+      "path": "results/v2/campaigns/stage5_single_head_strict_fixed_union_area_exterior_v3/runs/fixedunionarea_b77328779119525c0cd0d1c4efe3028968464015ab845ab6e29ae0049dce884c/batches/20260909T033258.453009Z/area_budget_report.json",
+      "size_bytes": 4800115,
+      "sha256": "90a9df3402aba72974b9fe6fa6a1c880ccd756dded33ec89d5af9b6afb0e86db",
+      "role": "frozen_report",
+      "source_id": "ernie_derived",
+      "original_bytes": true
+    },
+    {
+      "path": "results/v2/campaigns/stage5_single_head_strict_fixed_union_area_v2/runs/fixedunionarea_34c9ea48b5b1491ad00842ca2f1a28d1bfce22ac54331fcc09cbacd780a93282/batches/20260908T070832.817456Z/area_budget_report.json",
+      "size_bytes": 2845262,
+      "sha256": "aca604c86c4410c4c55c6282e7e50d7eb72cdadd1165c70bd59006934f240be5",
+      "role": "frozen_report",
+      "source_id": "ernie_derived",
+      "original_bytes": true
+    },
+    {
+      "path": "results/v2/current_multiregion_bank.json",
+      "size_bytes": 720,
+      "sha256": "edf1e30911f353c8a6931a3ae0e4d3bc060a73b58298ad055f2ae6794473974f",
+      "role": "frozen_application_pointer",
+      "source_id": "ernie_derived",
+      "original_bytes": true
+    },
+    {
+      "path": "results/v2/current_multiregion_candidates.json",
+      "size_bytes": 500,
+      "sha256": "1ba303592f38fe8bbce9618a90009a74eb6818e317d1bab867c9f55dd7889112",
+      "role": "frozen_application_pointer",
+      "source_id": "ernie_derived",
+      "original_bytes": true
+    },
+    {
+      "path": "results/v2/current_single_head_optimization.json",
+      "size_bytes": 300,
+      "sha256": "e342770c58e7de249816419b2dbf0a8d4de4c1a99bad8139ef1a56989ce03f52",
+      "role": "frozen_application_pointer",
+      "source_id": "ernie_derived",
+      "original_bytes": true
+    },
+    {
+      "path": "results/v2/current_strict_area_budget_study.json",
+      "size_bytes": 306,
+      "sha256": "3c63604cd73568c4c6d0d96777b94a4c9ba7b423d6993896e78fb91443030e03",
+      "role": "frozen_application_pointer",
+      "source_id": "ernie_derived",
+      "original_bytes": true
+    },
+    {
+      "path": "results/v2/current_surface_admissibility.json",
+      "size_bytes": 1897,
+      "sha256": "92305116025b4d671ad167a5f361d084d13009ec15b660c12b6c31574d78dea0",
+      "role": "frozen_application_pointer",
+      "source_id": "ernie_derived",
+      "original_bytes": true
+    },
+    {
+      "path": "results/v2/historical_strict_area_budget_study.json",
+      "size_bytes": 297,
+      "sha256": "df9dbf1878bda2dbad2826a4831e390c00cad28b1f4a067cbc272ca7fdc4557e",
+      "role": "frozen_application_pointer",
+      "source_id": "ernie_derived",
+      "original_bytes": true
+    },
+    {
+      "path": "results/v2/surface_admissibility/exposure_7c0dfdc0e9f1cae12cf53aa32c10b7ddd00c8f23e3c6d5c5045b1dd14f8fd57b/admissibility.npz",
+      "size_bytes": 119882,
+      "sha256": "2fd40572ab35d243a83c98b46506aa99bddd52e822f0a712c01ad6273ca37fb2",
+      "role": "frozen_array",
+      "source_id": "ernie_derived",
+      "original_bytes": true
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+import type { SavedSummary } from './local-library';
+
+// Display vocabulary only: preserve calculation keys, record IDs and raw data.
+export const metricPercent = (value: number | null | undefined, missing = '尚未计算') =>
+  value === undefined ? missing : value === null || !Number.isFinite(value) ? '指标无法计算' : `${(value * 100).toFixed(2)}%`;
+export const metricDistance = (value: number | null | undefined) =>
+  value === undefined ? '尚未计算' : value === null || !Number.isFinite(value) ? '指标无法计算' : `${value.toFixed(2)} mm`;
+export const PAGES = [
+  { id: 'compare', path: '/', label: '结果库' },
+  { id: 'design', path: '/design', label: '布局设计' },
+  { id: 'electrodes', path: '/electrodes', label: '电极编辑' },
+  { id: 'decision', path: '/decision', label: '方案对比' },
+  { id: 'reception', path: '/reception', label: '信号仿真' },
+  { id: 'guide', path: '/guide', label: '使用指南' },
+  { id: 'method', path: '/method', label: '建模与原理' },
+] as const;
+export type PageId = (typeof PAGES)[number]['id'] | 'library' | 'results' | 'coordinates';
+export const MASK_NAMES: Record<string, string> = {
+  PL: '左耳后邻近区', PR: '右耳后邻近区', AL: '左耳周扩展区', AR: '右耳周扩展区',
+  FL: '左前额', FM: '中部前额', FR: '右前额', OL: '左眶周上外侧', OR: '右眶周上外侧',
+};
+export const DOMAIN_NAMES = { whole: '全头候选区', lowHair: '少毛发候选区（模型近似）' };
+export function protocolName(id: string) {
+  if (id === 'design_evaluation') return '已评价坐标布局';
+  if (id === 'historical_area') return '历史面积实验（原坐标范围）';
+  return id === 'strict_area' ? '总面积上限约束实验' : id === 'cache' ? '每区半径约束计算' : '历史半径实验（区域可相交）';
+}
+export function recordTitle(record: SavedSummary) {
+  if (record.dataset_id === 'design_evaluation') return `${record.region_count}个区域 · ${record.label} · 已评价坐标`;
+  if (record.dataset_id === 'offline_radius') return record.label;
+  const masks = record.request?.mask_codes;
+  const location = masks?.length ? masks.map((m) => MASK_NAMES[m] ?? m).join(' + ')
+    : record.mode.includes('whole') ? DOMAIN_NAMES.whole : DOMAIN_NAMES.lowHair;
+  const size = ['strict_area', 'historical_area'].includes(record.dataset_id)
+    ? `总面积 ≤ ${record.area_cap_cm2} cm²`
+    : `每区半径 ≤ ${record.radius_cap_mm ?? record.request?.radius_mm} mm`;
+  return `${record.region_count}个区域 · ${location} · ${size}`;
+}
+export function safeReturnHref(value: string | null | undefined, fallback: string) {
+  if (!value?.startsWith('/') || value.startsWith('//')) return fallback;
+  try {
+    const url = new URL(value, 'http://localhost');
+    const allowed = ['/', '/design', '/electrodes', '/decision', '/coordinates', '/library', '/reception', '/results', '/pilot-results'];
+    return url.origin === 'http://localhost' && allowed.includes(url.pathname)
+      ? url.pathname + url.search + url.hash : fallback;
+  } catch { return fallback; }
+}
+export const LIBRARY_FILTERS = ['all', 'current', 'strict_area', 'cache', 'offline_radius', 'historical_area', 'design_evaluation'] as const;
+export function parseLibraryView(q: URLSearchParams) {
+  const f = q.get('filter'), r = Number(q.get('regions')), p = Number(q.get('page'));
+  return {
+    filter: LIBRARY_FILTERS.includes(f as typeof LIBRARY_FILTERS[number]) ? f! : q.get('history') === '1' ? 'offline_radius' : 'all',
+    region: [1, 2, 3, 4, 6].includes(r) ? r : 0,
+    search: q.get('q') ?? '',
+    page: Number.isInteger(p) && p > 0 ? p - 1 : 0,
+  };
+}
+export function libraryViewLink(ar: number, id: string, view: { filter: string; region: number; search: string; page: number }) {
+  const q = new URLSearchParams({ ar: String(ar) });
+  if (id) q.set('record', id);
+  if (view.filter !== 'all') q.set('filter', view.filter);
+  if (view.filter === 'offline_radius') q.set('history', '1');
+  if (view.region) q.set('regions', String(view.region));
+  if (view.search) q.set('q', view.search);
+  if (view.page) q.set('page', String(view.page + 1));
+  return '/library?' + q.toString();
+}

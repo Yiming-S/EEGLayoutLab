@@ -1,0 +1,170 @@
+{
+  "documentation0": {
+    "source": "使用指南",
+    "en": "User Guide"
+  },
+  "documentation1": {
+    "source": "建模与原理",
+    "en": "Models & Methods"
+  },
+  "documentation2": {
+    "source": "帮助文档导航",
+    "en": "Documentation navigation"
+  },
+  "documentation3": {
+    "source": "按操作顺序：查看、设计、编辑、仿真、保存。",
+    "en": "Follow the workflow: explore, design, edit, simulate, and save."
+  },
+  "documentation4": {
+    "source": "按计算顺序：脑源、传播、接收、重建、评价。",
+    "en": "Follow the model: sources, propagation, reception, reconstruction, and evaluation."
+  },
+  "documentation5": {
+    "source": "从已有方案开始，完成一次布局设计、结果查看和保存。计算公式与模型说明单独放在“建模与原理”。",
+    "en": "Start with an existing layout, then design, review, and save a layout of your own. Equations and model details are on the separate Models & Methods page."
+  },
+  "documentation6": {
+    "source": "使用指南目录",
+    "en": "User guide contents"
+  },
+  "documentation7": {
+    "source": "建模与原理目录",
+    "en": "Models and methods contents"
+  },
+  "documentation8": {
+    "source": "从脑源与组织传播开始，理解信号接收、重建和评价。首次操作步骤请查看“使用指南”。",
+    "en": "Start with sources and tissue propagation, then examine reception, reconstruction, and evaluation. For first-use instructions, open the User Guide."
+  },
+  "documentation9": {
+    "source": "查看对应计算原理",
+    "en": "Read the corresponding method"
+  },
+  "documentation10": {
+    "source": "返回使用指南，继续操作",
+    "en": "Return to the User Guide"
+  },
+  "documentation11": {
+    "source": "脑源、头模与信号生成",
+    "en": "Sources, head model, and signal generation"
+  },
+  "documentation12": {
+    "source": "组织传播与导联场 H",
+    "en": "Tissue propagation and lead field H"
+  },
+  "documentation13": {
+    "source": "4096、256与当前模拟源",
+    "en": "The 4096-source dictionary, 256 test positions, and active sources"
+  },
+  "documentation14": {
+    "source": "标准64导与布局对照",
+    "en": "Standard-64 and candidate-layout comparison"
+  },
+  "documentation15": {
+    "source": "三项指标与计算公式",
+    "en": "Three metrics and their equations"
+  },
+  "documentation16": {
+    "source": "噪声、心电与眼电干扰",
+    "en": "Noise, ECG, and EOG artifacts"
+  },
+  "documentation17": {
+    "source": "布局搜索与缓存规则",
+    "en": "Layout search and caching"
+  },
+  "documentation18": {
+    "source": "历史实验与后续验证",
+    "en": "Historical experiments and planned validation"
+  },
+  "documentation19": {
+    "source": "参考文献与模型来源",
+    "en": "References and model provenance"
+  },
+  "documentation20": {
+    "source": "1. 这个 App 能做什么？",
+    "en": "1. What can this app do?"
+  },
+  "documentation21": {
+    "source": "2. 查看已有方案",
+    "en": "2. Explore existing layouts"
+  },
+  "documentation22": {
+    "source": "3. 设置并计算布局",
+    "en": "3. Configure and compute a layout"
+  },
+  "documentation23": {
+    "source": "4. 调整具体电极",
+    "en": "4. Edit individual electrodes"
+  },
+  "documentation24": {
+    "source": "5. 对照模拟接收信号",
+    "en": "5. Compare simulated signals"
+  },
+  "documentation25": {
+    "source": "6. 读懂并比较结果",
+    "en": "6. Interpret and compare results"
+  },
+  "documentation26": {
+    "source": "7. 保存、缓存与导出",
+    "en": "7. Save, reuse, and export"
+  },
+  "documentation27": {
+    "source": "开始查看已有结果",
+    "en": "Start with existing results"
+  },
+  "documentation28": {
+    "source": "查看已有结果",
+    "en": "View existing results"
+  },
+  "documentation29": {
+    "source": "打开布局设计",
+    "en": "Open Layout Design"
+  },
+  "documentation30": {
+    "source": "打开电极编辑",
+    "en": "Open Electrode Editor"
+  },
+  "documentation31": {
+    "source": "打开信号仿真",
+    "en": "Open Signal Simulation"
+  },
+  "documentation32": {
+    "source": "打开方案对比",
+    "en": "Open Layout Comparison"
+  },
+  "documentation33": {
+    "source": "打开计算记录",
+    "en": "Open Computation Records"
+  },
+  "documentation34": {
+    "source": "比较电极集中到少数区域后，相对标准全头64导的采集表现。先查看已有结果，再设计布局；已有数据可直接读取，新布局按需计算。",
+    "en": "Compare how electrodes concentrated in a few regions perform relative to standard whole-head 64-channel placement. Explore existing results, then design a layout; saved data are loaded directly and new layouts are computed on demand."
+  },
+  "documentation35": {
+    "source": "选中方案后查看三维点位、实际面积和各项指标。比较前先核对实验协议、面积或半径约束，以及电极总数。",
+    "en": "Select a layout to inspect its 3D positions, actual area, and metrics. Before comparing layouts, check the protocol, area or radius constraint, and total electrode count."
+  },
+  "documentation36": {
+    "source": "依次选择允许布置范围、区域数量和每区半径上限，再点击计算。修改布局参数后，先读取匹配缓存；没有匹配记录时再运行新计算。尚未生成完整布局时，扩大半径或调整区域后重试。",
+    "en": "Choose the allowed placement area, region count, and per-region radius limit, then run the computation. Matching cached results are checked first after parameter changes. If no complete layout is found, increase the radius or change the regions and retry."
+  },
+  "documentation37": {
+    "source": "先选择符合编辑条件的已保存布局，再启用编辑模式。移动或删除电极后重新评价，原布局与编辑结果分别保存。",
+    "en": "Select a saved layout eligible for editing, then enable edit mode. Re-evaluate after moving or removing electrodes; the original layout and edited results are saved separately."
+  },
+  "documentation38": {
+    "source": "先选完整64点布局，再选择单源或多源、波形与干扰强度。比较同一场景下的标准64导、当前布局接收信号和重建结果。没有选择布局时，先完成布局选择；编辑后的减导记录不进入此实验。",
+    "en": "Select a complete 64-electrode layout, then choose single-source or multi-source mode, waveform, and artifact strength. Compare standard-64 signals, candidate observations, and reconstructions under the same scenario. A layout must be selected first; edited reduced-channel records are not eligible for this experiment."
+  },
+  "documentation39": {
+    "source": "先看场重建保留率：全头信号能还原到什么程度；再看最差10%源的幅度保留率：哪些源接收薄弱；最后看定位效用及毫米误差：能否分辨信号来源。",
+    "en": "Read field reconstruction retention first: how well whole-head signals can be recovered. Then inspect amplitude retention for the worst 10% of sources: where reception is weak. Finally, examine localization utility and errors in millimeters: how well source locations can be distinguished."
+  },
+  "documentation40": {
+    "source": "计算记录用于找回布局、参数与结果。方案对比支持报告、JSON和坐标CSV导出；实验包保留复现信息。修改最低保留要求只更新判断，不重新生成布局或信号。",
+    "en": "Use Computation Records to retrieve layouts, parameters, and results. Layout Comparison supports report, JSON, and coordinate CSV exports; experiment bundles retain reproducibility information. Changing minimum required retention updates qualification only, without regenerating layouts or signals."
+  },
+  "documentationMetricsReading": {
+    "source": "同一协议下的标准全头64导作为相对基准。信号重建衡量恢复全头信号的能力；幅度保留率（最差10%）取相对损失最大的10%源面积权重的幅度比；相对定位评分由误差换算。三者分别报告。完整公式和固定示例见“建模与原理”。",
+    "en": "Standard whole-head 64-channel EEG under the same protocol is the relative reference. Field reconstruction measures recovery of whole-head signals; worst-10% amplitude retention averages amplitude ratios over the most affected 10% of source area; localization utility is derived from position errors. Report all three separately. Full equations and the fixed example are in Models & Methods."
+  }
+}

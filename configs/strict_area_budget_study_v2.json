@@ -1,0 +1,57 @@
+{
+  "schema_version": "compact-eeg-area-budget-study/3-strict-merge-limited",
+  "campaign": "stage5_single_head_strict_fixed_union_area_v2",
+  "physical_electrode_count": 64,
+  "region_counts": [
+    1,
+    2,
+    3,
+    4,
+    6
+  ],
+  "union_area_caps_cm2": [
+    60,
+    120,
+    180
+  ],
+  "domains": {
+    "whole_scalp_free": "whole_scalp_control_approx",
+    "low_hair_free": "approx_low_hair_proxy_unvalidated"
+  },
+  "require_disconnected_regions": true,
+  "spacing_mm": 4,
+  "search": {
+    "seed": 2026090805,
+    "main_center_limit": 32,
+    "master_center_limit": 32,
+    "geometry_restarts": 2,
+    "coordinate_sweeps": 1,
+    "proposals_per_electrode": 12,
+    "representative_region_counts": [
+      2,
+      6
+    ],
+    "representative_area_cm2": 120,
+    "nested_center_limits": [
+      8,
+      16,
+      32
+    ],
+    "coarse_candidate_fraction": 0.5,
+    "objectives": [
+      "field20",
+      "min_field_sensitivity20"
+    ]
+  },
+  "evaluation": {
+    "source_moment_am": 1e-8,
+    "snr_db": 20,
+    "localization_noise_seed": 2026090805,
+    "localization_noise_repetitions": 16,
+    "localization_role": "post_search_diagnostic_not_optimized",
+    "formal_population_ar": false
+  },
+  "geometry_definition": "ROI-constrained connected mesh-edge shortest-path disks with common radius fitted to union-area cap; require exactly R disconnected union components and no overlap/touch; grow common radius only until first region merge, so larger area caps never force loss of a valid smaller separated disk",
+  "search_claim": "best_found_under_finite_recorded_budget_not_global_optimum_or_continuous_geodesic_area_minimum",
+  "stage5_scope": "single_Ernie_head_only_independent_head_validation_is_separate_unstarted_stage"
+}

@@ -1,0 +1,46 @@
+# Rebuilt dependency environments and outputs
+.runtime/
+.venv/
+node_modules/
+dist/
+.next/
+.vinext/
+.wrangler/
+*.egg-info/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage*
+coverage/
+*.tsbuildinfo
+
+# Scientific payloads are supplied as a separately verified data bundle.
+data/*
+!data/README.md
+!data/manifest.json
+!data/SOURCES.md
+/results/
+/releases/
+.data-install-*/
+.data-export-*
+
+# Per-user computed jobs, browser captures and temporary output
+outputs/
+work/
+tmp/
+*.log
+.DS_Store
+
+# Credentials, personal machine configuration and old development context
+.env*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+.openai/
+.codex/
+.claude/
+.agents/
+OLD/

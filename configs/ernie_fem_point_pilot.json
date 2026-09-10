@@ -1,0 +1,42 @@
+{
+  "schema_version": "compact-eeg-ernie-fem-pilot-config/1",
+  "campaign": "stage2_ernie_volume_fem_technical_pilot",
+  "scientific_role": "point_electrode_volume_fem_technical_qualification_only",
+  "formal_v2_performance_eligible": false,
+  "simnibs_version": "4.6.0",
+  "mesh_path": "data/external/simnibs4_examples_partial/m2m_ernie/ernie.msh",
+  "mesh_sha256": "847707671cc93db548948b46b715c4c67513e1cb7fbed289b6609963174e67cc",
+  "external_node_mapping_path": "results/v2/campaigns/stage1_simnibs_ernie_qualification/runs/stage1_4a7766eb1e41d70a96b084cb6ed97a91a5761aa81ef8c84a110950179f230be8/batches/20260907T040402.541307Z/external_scalp_source_node_indices.npy",
+  "external_node_mapping_sha256": "ad51f3488298ec6ed7fcf2f4d075fa23ffb5911a69b7da88a98fc02af9728433",
+  "electrodes": [
+    {"id": "reference_superior_test_node", "anchor_mm": [0, 0, 100], "node_number": 122743},
+    {"id": "left_lateral_test_node", "anchor_mm": [-75, -25, 0], "node_number": 471655},
+    {"id": "right_lateral_test_node", "anchor_mm": [75, -25, 0], "node_number": 174707},
+    {"id": "anterior_test_node", "anchor_mm": [0, 85, 30], "node_number": 673278}
+  ],
+  "electrode_interpretation": "Nearest qualified exterior scalp nodes to numerical test anchors, not registered BioSemi64 or frozen anatomical masks.",
+  "coordinate_unit": "mm",
+  "conductivity_unit": "S/m",
+  "isotropic_conductivity_by_tetrahedron_tag": {
+    "1": 0.126, "2": 0.275, "3": 1.654, "5": 0.465, "6": 0.5,
+    "7": 0.008, "8": 0.025, "9": 0.6, "10": 0.16
+  },
+  "conductivity_source": "https://raw.githubusercontent.com/simnibs/simnibs/v4.6.0/simnibs/utils/mesh_element_properties.py",
+  "solver": "mumps",
+  "thread_limit": 4,
+  "current_amperes": 1.0,
+  "current_interpretation": "Pure linear normalization for reciprocity qualification; not a stimulation protocol.",
+  "roi": {"tetrahedron_tag": 2, "count": 256, "selection": "equally_spaced_indices_in_original_GM_element_order"},
+  "tolerances": {
+    "relative_full_system_residual": 0.0000001,
+    "relative_reaction_current_error": 0.0000001,
+    "absolute_net_assembled_current_A": 0.0000001,
+    "matrix_symmetry_relative": 0.000000000001,
+    "constant_nullspace_scaled": 0.000000000001,
+    "relative_reciprocity": 0.00000001,
+    "relative_repeat": 0.0000000001,
+    "relative_reference_transform": 0.00000001,
+    "relative_field_gradient_comparison": 0.0000000001
+  },
+  "not_claimed": ["EEG_forward_validation", "cortical_normal_source_leadfield", "BioSemi64_comparison", "compact_region_performance", "AR", "physical_current_flux_integral"]
+}

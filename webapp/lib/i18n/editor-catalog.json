@@ -1,0 +1,249 @@
+{
+  "editor.nav": { "source": "电极编辑", "en": "Electrode Editor" },
+  "editor.methodIntro": {
+    "source": "自动布局设计固定64点并均衡分配。“电极编辑”可从已有布局删减或移动点位，允许各区数量不同，另存为独立评价。查看模式旋转头部，编辑模式移动电极。",
+    "en": "Automatic layout design uses 64 electrodes with balanced allocation. Electrode Editor can deactivate or move recorded electrodes, allow unequal regional counts, and save separate evaluations. View mode rotates the head; edit mode moves electrodes."
+  },
+  "editor.methodTitle": {
+    "source": "电极编辑：数量与位置的独立评价",
+    "en": "Electrode editing: separate evaluation of count and position"
+  },
+  "editor.methodDomain": {
+    "source": "载入有保存区域边界的真实64点布局。保留稳定编号，移除点位不补点、不重新分配；移动吸附到原区域内已有FEM结果的候选点。原区域面积不随删点改变。",
+    "en": "Load a recorded 64-electrode layout with saved region boundaries. IDs remain stable; deactivation neither replaces nor redistributes electrodes. Movement snaps to candidate points with existing FEM results within the original region. Deactivation does not change its area."
+  },
+  "editor.methodMath": {
+    "source": "编辑后只使用启用点的前向矩阵，并重新计算参考无关对比、重建器及指标。N个启用点提供N−1个参考无关维度，重建目标始终是标准64的63维干净场。噪声仍由标准64标定，不能随删点重新归一化。",
+    "en": "Evaluation uses only active electrodes' forward rows and recomputes reference-free contrasts, the estimator and metrics. N active electrodes provide N−1 reference-free dimensions; the target remains the 63-dimensional clean standard64 field. Noise stays calibrated to standard64 and is not rescaled after deletion."
+  },
+  "editor.methodLoc": {
+    "source": "标准64、原始布局和编辑布局在同一协议下重新评价。定位沿用4096字典源、256离字典生成源和每源16次噪声重复；删点前后按稳定槽位配对噪声。仅有2点时未知振幅定位不可辨识，定位显示不可用。",
+    "en": "Standard64, the original layout and the edited layout are re-evaluated under one protocol. Localization uses 4,096 dictionary sources, 256 off-dictionary sources and 16 noise repetitions per source, paired by stable electrode slots. With only two electrodes, unknown-amplitude localization is unidentifiable and reported as unavailable."
+  },
+  "editor.methodRecords": {
+    "source": "编辑草稿与已评价结果分开保存。修改点位后旧评分失效；评价结果使用独立缓存，不加入固定64点实验曲线。当前编辑记录不接入只支持完整64点的信号仿真入口。",
+    "en": "Drafts and evaluated results are saved separately. Editing invalidates previous scores; evaluations use a separate cache and do not enter fixed64 experiment curves. Edited records are not currently passed to Signal Simulation, which requires a complete 64-electrode layout."
+  },
+  "editor.delta": { "source": "相对原布局变化", "en": "Change from original" },
+  "editor.absolute": {
+    "source": "重建解释率（绝对）",
+    "en": "Explained reconstruction energy (absolute)"
+  },
+  "editor.pp": { "source": "百分点", "en": "pp" },
+  "editor.missingMetric": {
+    "source": "部分指标不可用，不能给出三项共同达标结论",
+    "en": "Some metrics are unavailable; a three-metric pass cannot be determined"
+  },
+  "editor.median": {
+    "source": "定位误差中位数",
+    "en": "Median localization error"
+  },
+  "editor.p90": {
+    "source": "定位误差90分位数",
+    "en": "90th-percentile localization error"
+  },
+  "editor.connection": {
+    "source": "状态连接中断，后台任务尚未确认结束。",
+    "en": "The status connection was lost. The background task has not been confirmed as stopped."
+  },
+  "editor.reconnect": { "source": "重新查询任务", "en": "Reconnect to task" },
+  "editor.subtitle": {
+    "source": "脑电电极布局仿真",
+    "en": "EEG electrode layout simulation"
+  },
+  "editor.open": {
+    "source": "编辑此布局的电极 →",
+    "en": "Edit this layout's electrodes →"
+  },
+  "editor.count": {
+    "source": "启用电极：{{0}}",
+    "en": "Active electrodes: {{0}}"
+  },
+  "editor.drag": {
+    "source": "编辑模式下拖动电极，吸附到原区域候选点；空白处旋转。灰色点已停用。",
+    "en": "In edit mode, drag electrodes to candidate positions within their original region. Drag empty space to rotate. Grey electrodes are inactive."
+  },
+  "editor.title": {
+    "source": "电极编辑：调整点位与启用数量",
+    "en": "Electrode Editor: positions and active channels"
+  },
+  "editor.intro": {
+    "source": "从已有布局创建副本。原区域边界不变，原始64点记录不被覆盖。",
+    "en": "Create a copy of a recorded layout. Keep its original region boundaries and preserve the original 64-electrode record."
+  },
+  "editor.choose": { "source": "选择来源布局", "en": "Choose a source layout" },
+  "editor.load": { "source": "载入编辑器", "en": "Load into editor" },
+  "editor.chooseHint": {
+    "source": "载入后显示真实点位与可移动范围。历史记录若未保存区域边界，需要先在布局设计中生成新版布局。",
+    "en": "Load recorded coordinates and allowed movement regions. Historical records without saved region boundaries require a new layout from Layout Design."
+  },
+  "editor.view": { "source": "查看模式", "en": "View mode" },
+  "editor.edit": { "source": "编辑模式", "en": "Edit mode" },
+  "editor.select": { "source": "选择电极", "en": "Select electrodes" },
+  "editor.selectHint": {
+    "source": "点击点位选择；Shift点击多选。也可在下方按编号选择。拖动仅在编辑模式生效。",
+    "en": "Click an electrode to select it; Shift-click to select several. You can also select by ID below. Dragging electrodes requires edit mode."
+  },
+  "editor.remove": { "source": "移除选中电极", "en": "Deactivate selected" },
+  "editor.restore": { "source": "恢复选中电极", "en": "Restore selected" },
+  "editor.undo": { "source": "撤销", "en": "Undo" },
+  "editor.redo": { "source": "重做", "en": "Redo" },
+  "editor.reset": { "source": "恢复原始布局", "en": "Reset to original" },
+  "editor.saveDraft": {
+    "source": "保存草稿到本机浏览器",
+    "en": "Save draft in this browser"
+  },
+  "editor.restoreDraft": { "source": "读取已存草稿", "en": "Load saved draft" },
+  "editor.savedDraft": {
+    "source": "草稿已保存在此浏览器；尚未生成新评分。",
+    "en": "Draft saved in this browser. No new scores have been generated."
+  },
+  "editor.noDraft": {
+    "source": "此布局没有已存草稿。",
+    "en": "No draft is saved for this layout."
+  },
+  "editor.countError": {
+    "source": "至少保留两个启用电极。",
+    "en": "Keep at least two active electrodes."
+  },
+  "editor.regionError": {
+    "source": "点位必须位于其原区域候选列表内。",
+    "en": "Each electrode must stay within its original region's candidate list."
+  },
+  "editor.spacingError": {
+    "source": "操作未应用：启用电极之间需至少4 mm间距。",
+    "en": "Change not applied: active electrodes must remain at least 4 mm apart."
+  },
+  "editor.evaluate": {
+    "source": "评价并另存此布局",
+    "en": "Evaluate and save as a new layout"
+  },
+  "editor.cancel": { "source": "停止当前任务", "en": "Stop current task" },
+  "editor.progress": { "source": "正在处理布局", "en": "Processing layout" },
+  "editor.operationFailed": {
+    "source": "本次操作未完成",
+    "en": "The operation did not complete"
+  },
+  "editor.details": {
+    "source": "查看诊断详情",
+    "en": "View diagnostic details"
+  },
+  "editor.region": { "source": "原区域 {{0}}", "en": "Original region {{0}}" },
+  "editor.regionCount": {
+    "source": "启用 {{0}} / 原有 {{1}} 点",
+    "en": "{{0}} active / {{1}} original electrodes"
+  },
+  "editor.allRegion": {
+    "source": "选择此区域全部点",
+    "en": "Select all in this region"
+  },
+  "editor.all": { "source": "全选", "en": "Select all" },
+  "editor.clear": { "source": "清空选择", "en": "Clear selection" },
+  "editor.candidate": {
+    "source": "候选点位（编号）",
+    "en": "Candidate position (ID)"
+  },
+  "editor.apply": { "source": "移动到此点", "en": "Move to this position" },
+  "editor.single": {
+    "source": "选择一个电极，可用候选编号精确移动；也可直接拖动。",
+    "en": "Select one electrode to move precisely by candidate ID, or drag it on the head."
+  },
+  "editor.summary": {
+    "source": "当前启用 {{0}} 点 · {{1}} 个有电极区域 / {{2}} 个原区域",
+    "en": "{{0}} active electrodes · {{1}} populated / {{2}} original regions"
+  },
+  "editor.area": {
+    "source": "继承区域总面积 {{0}} cm²；删点不会缩小区域边界。",
+    "en": "Inherited total region area: {{0}} cm². Deactivation does not shrink the region boundaries."
+  },
+  "editor.comparison": {
+    "source": "标准64、原始布局与编辑布局",
+    "en": "Standard64, original and edited layouts"
+  },
+  "editor.protocol": {
+    "source": "三套布局按本次统一协议重新评价：同一头模与源先验、相同物理噪声、固定标准64重建目标。历史定位分数不直接混入此表。",
+    "en": "All three layouts are re-evaluated under one protocol: the same head and source prior, equal physical noise, and the fixed clean standard64 target. Historical localization scores are not mixed into this table."
+  },
+  "editor.pending": {
+    "source": "当前草稿尚未评价。下方原评分不作为编辑后结果。",
+    "en": "This draft has not been evaluated. Previous scores do not describe the edited draft."
+  },
+  "editor.baseline": {
+    "source": "标准全头64导",
+    "en": "Standard full-head 64"
+  },
+  "editor.original": {
+    "source": "原始区域布局 · 64点",
+    "en": "Original regional layout · 64 electrodes"
+  },
+  "editor.current": {
+    "source": "编辑布局 · {{0}}点",
+    "en": "Edited layout · {{0}} electrodes"
+  },
+  "editor.metric": { "source": "评价指标", "en": "Metric" },
+  "editor.locMissing": {
+    "source": "两个电极只有一个参考无关维度；当前未知振幅定位模型无法辨识源位置，不提供三项共同达标结论。",
+    "en": "Two electrodes provide one reference-free dimension. The current unknown-amplitude localization model cannot identify source position; a three-metric pass cannot be determined."
+  },
+  "editor.savedScore": { "source": "已保存评分", "en": "Saved score" },
+  "editor.savedScoreHint": {
+    "source": "载入为草稿，重新评价时检查协议与缓存",
+    "en": "Loads as a draft; evaluation checks the protocol and cache"
+  },
+  "editor.pass": {
+    "source": "三项均达到最低保留要求",
+    "en": "All three metrics meet the minimum required retention"
+  },
+  "editor.fail": {
+    "source": "尚未全部达到最低保留要求",
+    "en": "Not all metrics meet the minimum required retention"
+  },
+  "editor.unavailable": {
+    "source": "定位指标不可用，不能给出三项共同达标结论",
+    "en": "Localization is unavailable; a three-metric pass cannot be determined"
+  },
+  "editor.records": {
+    "source": "独立电极编辑记录",
+    "en": "Electrode editing records"
+  },
+  "editor.recordHint": {
+    "source": "已完成评价单独缓存，不加入固定64点实验曲线。载入后可继续编辑；再次评价相同配置会优先读取有效缓存。",
+    "en": "Completed evaluations are cached separately and kept out of fixed64 experiment curves. Load a record to continue editing; evaluating the same configuration reuses a valid cache."
+  },
+  "editor.noRecords": {
+    "source": "尚无电极编辑评价记录。",
+    "en": "No electrode editing evaluations yet."
+  },
+  "editor.loadRecord": {
+    "source": "载入此编辑记录",
+    "en": "Load this edited layout"
+  },
+  "editor.export": {
+    "source": "导出本次评价JSON",
+    "en": "Export evaluation JSON"
+  },
+  "editor.cached": {
+    "source": "本次评价读取有效缓存",
+    "en": "Evaluation loaded from a valid cache"
+  },
+  "editor.unsaved": {
+    "source": "当前有未保存的编辑，确认切换布局？",
+    "en": "This layout has unsaved edits. Switch layouts?"
+  },
+  "editor.draftStale": {
+    "source": "草稿来源已变化，请重新载入原布局。",
+    "en": "The draft's source has changed. Reload the original layout."
+  },
+  "editor.movement": {
+    "source": "区内候选点吸附 · 最小点距4 mm · 移除不补点 · 原编号保持不变",
+    "en": "Snap within original regions · 4 mm minimum spacing · No automatic replacement · Stable electrode IDs"
+  },
+  "editor.canvasLabel": {
+    "source": "可旋转的头部与电极布局，启用{{0}}点，方向键旋转，加减键缩放",
+    "en": "Rotatable head and electrode layout with {{0}} active electrodes. Arrow keys rotate; plus and minus zoom."
+  },
+  "editor.libraryLink": {
+    "source": "查看可变电极数的独立编辑记录 →",
+    "en": "View separate variable-count editing records →"
+  }
+}

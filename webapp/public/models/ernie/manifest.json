@@ -1,0 +1,2698 @@
+{
+  "schemaVersion": "compact-eeg-anatomical-display/1",
+  "subject": "SimNIBS example subject Ernie",
+  "role": "anatomical visualization only",
+  "scientificForwardUsePermitted": false,
+  "formalArEligible": false,
+  "byteOrder": "little",
+  "binaryCountConvention": "count is the number of scalar typed-array elements",
+  "coordinateSystem": {
+    "unit": "m",
+    "axes": {
+      "x": "right",
+      "y": "anterior",
+      "z": "superior"
+    },
+    "name": "SimNIBS world coordinates in subject space",
+    "sourceUnit": "mm",
+    "sourceMmToStoredM": 0.001,
+    "bakedTransform": "none except mm-to-m conversion and float32 rounding",
+    "sourceMmToStoredMMatrixRowMajor": [
+      [
+        0.001,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0.001,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0.001,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        1
+      ]
+    ],
+    "optionalSharedViewCenterM": [
+      0.0017613555638201425,
+      0.011210234069957754,
+      0.01585232760414005
+    ],
+    "optionalYUpRotationRowMajor": [
+      [
+        1,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        1
+      ],
+      [
+        0,
+        -1,
+        0
+      ]
+    ],
+    "optionalYUpFormula": "x = raw_x - center_x; y = raw_z - center_z; z = -(raw_y - center_y); optional only, not baked",
+    "zUpViewer": "Use camera.up=(0,0,1); same scene scale and transform for both buffers",
+    "documentationUrl": "https://simnibs.github.io/simnibs/build/html/documentation/coordinates.html"
+  },
+  "source": {
+    "registryId": "simnibs_example_dataset_v4_1_ernie_partial",
+    "localPath": "data/external/simnibs4_examples_partial/m2m_ernie/ernie.msh",
+    "sha256": "847707671cc93db548948b46b715c4c67513e1cb7fbed289b6609963174e67cc",
+    "sizeBytes": 174021639,
+    "archiveMember": "m2m_ernie/ernie.msh",
+    "releaseUrl": "https://github.com/simnibs/example-dataset/releases/tag/v4.1",
+    "archiveUrl": "https://github.com/simnibs/example-dataset/releases/download/v4.1/simnibs4_examples.zip",
+    "originalCoordinates": "Original float64 millimetre node coordinates remain unchanged in the source .msh",
+    "tagDefinitionUrl": "https://github.com/simnibs/simnibs/blob/master/simnibs/utils/mesh_element_properties.py"
+  },
+  "license": {
+    "spdx": "CC-BY-NC-4.0",
+    "name": "Creative Commons Attribution-NonCommercial 4.0 International",
+    "url": "https://creativecommons.org/licenses/by-nc/4.0/",
+    "attribution": "Derived from SimNIBS example dataset v4.1, Ernie head model. © SimNIBS developers 2024. CC BY-NC 4.0.",
+    "evidenceUrl": "https://github.com/simnibs/example-dataset/releases/tag/v4.1",
+    "modifications": "Selected one scalp and one gray-matter connected component; compacted indices; converted mm to m; float32 coordinates; computed and quantized vertex normals. No anatomical geometry synthesis, smoothing, decimation, cropping, rotation, or translation."
+  },
+  "limitations": [
+    "Display buffers are not qualified for EEG forward modeling, source localization, or AR computation.",
+    "The input is a partial example dataset containing ernie.msh, not a complete SimNIBS subject directory.",
+    "The original inferior face and neck terminate at the source model boundary; the exporter does not add missing anatomy.",
+    "The retained GM_TH_SURFACE component displays gray-matter anatomy; it is not a separately validated cortical source space or hemisphere parcellation.",
+    "Small disconnected gray-matter and internal scalp components are excluded by the documented selection rules.",
+    "Original mesh coordinates are preserved geometrically to the reported float32 rounding error; exact float64 source coordinates remain in the original .msh."
+  ],
+  "meshes": [
+    {
+      "id": "scalp",
+      "file": "scalp.bin",
+      "byteLength": 1415336,
+      "sha256": "10073bb1b80397c3dd09de2fbbe8677b3188789063a912ade77acefa94dbd686",
+      "vertexCount": 52410,
+      "triangleCount": 104864,
+      "boundsM": {
+        "min": [
+          -0.08385757928378909,
+          -0.0921845997705704,
+          -0.138042201448869
+        ],
+        "max": [
+          0.0849399696193663,
+          0.133674202571959,
+          0.0999297830725151
+        ]
+      },
+      "storedBoundsM": {
+        "min": [
+          -0.08385758101940155,
+          -0.09218460321426392,
+          -0.13804219663143158
+        ],
+        "max": [
+          0.08493997156620026,
+          0.13367420434951782,
+          0.09992977976799011
+        ]
+      },
+      "attributes": {
+        "position": {
+          "type": "Float32Array",
+          "byteOffset": 0,
+          "byteLength": 628920,
+          "count": 157230,
+          "itemSize": 3,
+          "normalized": false
+        },
+        "normal": {
+          "type": "Int8Array",
+          "byteOffset": 628920,
+          "byteLength": 157230,
+          "count": 157230,
+          "itemSize": 3,
+          "normalized": true
+        }
+      },
+      "index": {
+        "type": "Uint16Array",
+        "byteOffset": 786152,
+        "byteLength": 629184,
+        "count": 314592,
+        "itemSize": 1,
+        "normalized": false
+      },
+      "sourceTriangleTag": 1005,
+      "sourceTagMeaning": "SCALP_TH_SURFACE",
+      "triangleWinding": "original source order, unchanged",
+      "signedVolumeM3": 0.004879457287104175,
+      "topology": {
+        "boundaryEdgeCount": 0,
+        "nonmanifoldEdgeCount": 0,
+        "degenerateTriangleCount": 0,
+        "uniqueEdgeCount": 157296
+      },
+      "maximumAbsolutePositionRoundingErrorM": 7.444667854406006e-09,
+      "normalEncoding": "Area-weighted vertex normals, signed normalized int8, divide by 127 and renormalize",
+      "selection": {
+        "rule": "Closed manifold connected component with maximum absolute signed volume",
+        "componentLabeling": "scipy.sparse.csgraph connected_components on ascending source-node compact indices",
+        "selectedComponentLabel": 0,
+        "sourceComponentCount": 22,
+        "sourceTaggedVertexCount": 56020,
+        "sourceTaggedTriangleCount": 112064,
+        "retainedTriangleFraction": 0.9357509994288977,
+        "componentInventory": [
+          {
+            "componentLabel": 0,
+            "vertexCount": 52410,
+            "triangleCount": 104864,
+            "boundsM": {
+              "min": [
+                -0.08385757928378909,
+                -0.0921845997705704,
+                -0.138042201448869
+              ],
+              "max": [
+                0.0849399696193663,
+                0.133674202571959,
+                0.0999297830725151
+              ]
+            },
+            "signedVolumeM3": 0.004879457287104175,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 157296
+            }
+          },
+          {
+            "componentLabel": 1,
+            "vertexCount": 786,
+            "triangleCount": 1596,
+            "boundsM": {
+              "min": [
+                0.0477316591094637,
+                -0.0194655607798156,
+                -0.049736576092014505
+              ],
+              "max": [
+                0.0687856908589949,
+                0.00730008492949409,
+                -0.0158929793380576
+              ]
+            },
+            "signedVolumeM3": -2.012717306608182e-06,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 2394
+            }
+          },
+          {
+            "componentLabel": 2,
+            "vertexCount": 136,
+            "triangleCount": 272,
+            "boundsM": {
+              "min": [
+                -0.0678430063516456,
+                -0.0276481086492306,
+                -0.025100110114789503
+              ],
+              "max": [
+                -0.0601790364302911,
+                -0.017163248082123102,
+                -0.015275890515918301
+              ]
+            },
+            "signedVolumeM3": -1.3716053031317157e-07,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 408
+            }
+          },
+          {
+            "componentLabel": 3,
+            "vertexCount": 1483,
+            "triangleCount": 2994,
+            "boundsM": {
+              "min": [
+                -0.0679148831484243,
+                -0.019646078091798302,
+                -0.0501715523688289
+              ],
+              "max": [
+                -0.0431782784771612,
+                0.00758709343663202,
+                -0.00902391513176468
+              ]
+            },
+            "signedVolumeM3": -5.0505318149402555e-06,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 4491
+            }
+          },
+          {
+            "componentLabel": 4,
+            "vertexCount": 11,
+            "triangleCount": 18,
+            "boundsM": {
+              "min": [
+                -0.00464876318798275,
+                0.0493715957511388,
+                -0.0319931129048822
+              ],
+              "max": [
+                -0.00326421930390453,
+                0.0509579245839473,
+                -0.0307513062395867
+              ]
+            },
+            "signedVolumeM3": -5.51046855136498e-10,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 27
+            }
+          },
+          {
+            "componentLabel": 5,
+            "vertexCount": 12,
+            "triangleCount": 20,
+            "boundsM": {
+              "min": [
+                -0.006001715662325341,
+                0.053328358958435,
+                -0.029577460172150002
+              ],
+              "max": [
+                -0.0039789568592002,
+                0.0556636858956858,
+                -0.0280383472033751
+              ]
+            },
+            "signedVolumeM3": -1.3069428234988724e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 30
+            }
+          },
+          {
+            "componentLabel": 6,
+            "vertexCount": 15,
+            "triangleCount": 26,
+            "boundsM": {
+              "min": [
+                -0.00790435551623986,
+                0.0576624547063404,
+                -0.0326681658881263
+              ],
+              "max": [
+                -0.006325372735851231,
+                0.060637524477280505,
+                -0.0303775857878845
+              ]
+            },
+            "signedVolumeM3": -2.4971445480438284e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 39
+            }
+          },
+          {
+            "componentLabel": 7,
+            "vertexCount": 51,
+            "triangleCount": 98,
+            "boundsM": {
+              "min": [
+                -0.0650616077815193,
+                -0.025145452993937202,
+                -0.033433355691886595
+              ],
+              "max": [
+                -0.0618056159808623,
+                -0.0200502715266196,
+                -0.0268604693580633
+              ]
+            },
+            "signedVolumeM3": -2.9006455598338735e-08,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 147
+            }
+          },
+          {
+            "componentLabel": 8,
+            "vertexCount": 14,
+            "triangleCount": 24,
+            "boundsM": {
+              "min": [
+                0.06475376692411881,
+                0.0013828998453763299,
+                -0.018890706854240498
+              ],
+              "max": [
+                0.06648239236795879,
+                0.00315666749455382,
+                -0.0161571804931484
+              ]
+            },
+            "signedVolumeM3": -2.2072807654307835e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 36
+            }
+          },
+          {
+            "componentLabel": 9,
+            "vertexCount": 20,
+            "triangleCount": 36,
+            "boundsM": {
+              "min": [
+                0.009238555456046271,
+                0.0963003604599809,
+                -0.0284076312082351
+              ],
+              "max": [
+                0.0109780764748377,
+                0.0985713360485899,
+                -0.0249195660615848
+              ]
+            },
+            "signedVolumeM3": -3.284131363598937e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 54
+            }
+          },
+          {
+            "componentLabel": 10,
+            "vertexCount": 103,
+            "triangleCount": 202,
+            "boundsM": {
+              "min": [
+                0.0141928969884573,
+                0.0698344023672155,
+                -0.0488348781879161
+              ],
+              "max": [
+                0.0188430860064502,
+                0.0872862374183342,
+                -0.0380008164279025
+              ]
+            },
+            "signedVolumeM3": -2.0631357140438836e-07,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 303
+            }
+          },
+          {
+            "componentLabel": 11,
+            "vertexCount": 108,
+            "triangleCount": 212,
+            "boundsM": {
+              "min": [
+                0.00653033836981653,
+                0.07936938953579001,
+                -0.0593078904832446
+              ],
+              "max": [
+                0.012221008589632501,
+                0.0886834438747829,
+                -0.0523122429458977
+              ]
+            },
+            "signedVolumeM3": -1.0332467750228769e-07,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 318
+            }
+          },
+          {
+            "componentLabel": 12,
+            "vertexCount": 9,
+            "triangleCount": 14,
+            "boundsM": {
+              "min": [
+                0.0186620867577147,
+                0.0678277849554375,
+                -0.054444053347719706
+              ],
+              "max": [
+                0.0190115278347899,
+                0.0703334548418184,
+                -0.0517103909653768
+              ]
+            },
+            "signedVolumeM3": -4.684994585385909e-10,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 21
+            }
+          },
+          {
+            "componentLabel": 13,
+            "vertexCount": 16,
+            "triangleCount": 28,
+            "boundsM": {
+              "min": [
+                -0.0306041792282192,
+                0.00604619780447528,
+                -0.125812081211717
+              ],
+              "max": [
+                -0.0288059987675526,
+                0.00782244755483958,
+                -0.123465551652774
+              ]
+            },
+            "signedVolumeM3": -2.099724128970138e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 42
+            }
+          },
+          {
+            "componentLabel": 14,
+            "vertexCount": 35,
+            "triangleCount": 66,
+            "boundsM": {
+              "min": [
+                0.0546755732930164,
+                -0.00489433520634681,
+                -0.0540182434411922
+              ],
+              "max": [
+                0.0582158740499488,
+                -0.0011049537356689302,
+                -0.0476521843885078
+              ]
+            },
+            "signedVolumeM3": -2.1592700991808587e-08,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 99
+            }
+          },
+          {
+            "componentLabel": 15,
+            "vertexCount": 19,
+            "triangleCount": 34,
+            "boundsM": {
+              "min": [
+                -0.00914835592060653,
+                0.0702139306444914,
+                -0.0348769938784891
+              ],
+              "max": [
+                -0.00823116012787797,
+                0.0761717585468644,
+                -0.032004930122204005
+              ]
+            },
+            "signedVolumeM3": -3.4714117287092167e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 51
+            }
+          },
+          {
+            "componentLabel": 16,
+            "vertexCount": 121,
+            "triangleCount": 238,
+            "boundsM": {
+              "min": [
+                -0.012734509775942201,
+                0.06677512387284121,
+                -0.048724740663831596
+              ],
+              "max": [
+                -0.0067603166158681305,
+                0.0868900186399533,
+                -0.038789915214128
+              ]
+            },
+            "signedVolumeM3": -2.0324374384735727e-07,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 357
+            }
+          },
+          {
+            "componentLabel": 17,
+            "vertexCount": 48,
+            "triangleCount": 92,
+            "boundsM": {
+              "min": [
+                -0.00880242803708941,
+                0.0633459975079918,
+                -0.042018745935458596
+              ],
+              "max": [
+                0.000732407623312781,
+                0.0676592723565594,
+                -0.037500813909976304
+              ]
+            },
+            "signedVolumeM3": -2.3290353469129236e-08,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 138
+            }
+          },
+          {
+            "componentLabel": 18,
+            "vertexCount": 5,
+            "triangleCount": 6,
+            "boundsM": {
+              "min": [
+                -0.00826548975529086,
+                0.055408159088522195,
+                -0.0580158122000447
+              ],
+              "max": [
+                -0.00802277745525979,
+                0.055962303358144,
+                -0.057556727796136006
+              ]
+            },
+            "signedVolumeM3": -9.908107923454142e-12,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 9
+            }
+          },
+          {
+            "componentLabel": 19,
+            "vertexCount": 603,
+            "triangleCount": 1202,
+            "boundsM": {
+              "min": [
+                0.0506247370306108,
+                -0.0374280489642444,
+                -0.128506901400675
+              ],
+              "max": [
+                0.0551493229000739,
+                -0.0323938159459196,
+                -0.12094405200757499
+              ]
+            },
+            "signedVolumeM3": -3.221878403199309e-08,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 1803
+            }
+          },
+          {
+            "componentLabel": 20,
+            "vertexCount": 6,
+            "triangleCount": 8,
+            "boundsM": {
+              "min": [
+                0.060034933225062,
+                -0.010017264797453301,
+                -0.042543206299036906
+              ],
+              "max": [
+                0.060552655197506,
+                -0.009576728815466099,
+                -0.0417875991120459
+              ]
+            },
+            "signedVolumeM3": -2.68293277635501e-11,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 12
+            }
+          },
+          {
+            "componentLabel": 21,
+            "vertexCount": 9,
+            "triangleCount": 14,
+            "boundsM": {
+              "min": [
+                0.0360802171787646,
+                0.0128849909705683,
+                -0.12246647367406
+              ],
+              "max": [
+                0.0382884596641618,
+                0.0148644983856526,
+                -0.119699760142422
+              ]
+            },
+            "signedVolumeM3": -9.309878035699336e-10,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 21
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "cortex",
+      "file": "cortex.bin",
+      "byteLength": 6035040,
+      "sha256": "b2e903b427dad2e2e76c24edc92605c126b1124fbe2bb0fdf2ef60dc0c030943",
+      "vertexCount": 154967,
+      "triangleCount": 309211,
+      "boundsM": {
+        "min": [
+          -0.06577213519576991,
+          -0.0803611794159475,
+          -0.0506427208835092
+        ],
+        "max": [
+          0.0692948463234102,
+          0.10278164755586301,
+          0.0823473760917893
+        ]
+      },
+      "storedBoundsM": {
+        "min": [
+          -0.06577213853597641,
+          -0.08036118000745773,
+          -0.050642721354961395
+        ],
+        "max": [
+          0.06929484754800797,
+          0.10278164595365524,
+          0.08234737813472748
+        ]
+      },
+      "attributes": {
+        "position": {
+          "type": "Float32Array",
+          "byteOffset": 0,
+          "byteLength": 1859604,
+          "count": 464901,
+          "itemSize": 3,
+          "normalized": false
+        },
+        "normal": {
+          "type": "Int8Array",
+          "byteOffset": 1859604,
+          "byteLength": 464901,
+          "count": 464901,
+          "itemSize": 3,
+          "normalized": true
+        }
+      },
+      "index": {
+        "type": "Uint32Array",
+        "byteOffset": 2324508,
+        "byteLength": 3710532,
+        "count": 927633,
+        "itemSize": 1,
+        "normalized": false
+      },
+      "sourceTriangleTag": 1002,
+      "sourceTagMeaning": "GM_TH_SURFACE",
+      "triangleWinding": "original source order, unchanged",
+      "signedVolumeM3": -0.001322200233690986,
+      "topology": {
+        "boundaryEdgeCount": 1778,
+        "nonmanifoldEdgeCount": 4,
+        "degenerateTriangleCount": 0,
+        "uniqueEdgeCount": 464702
+      },
+      "maximumAbsolutePositionRoundingErrorM": 3.725205741100801e-09,
+      "normalEncoding": "Area-weighted vertex normals, signed normalized int8, divide by 127 and renormalize",
+      "selection": {
+        "rule": "Connected component with maximum triangle count; retain full component without hemisphere splitting",
+        "componentLabeling": "scipy.sparse.csgraph connected_components on ascending source-node compact indices",
+        "selectedComponentLabel": 0,
+        "sourceComponentCount": 79,
+        "sourceTaggedVertexCount": 160159,
+        "sourceTaggedTriangleCount": 319021,
+        "retainedTriangleFraction": 0.9692496732190043,
+        "componentInventory": [
+          {
+            "componentLabel": 0,
+            "vertexCount": 154967,
+            "triangleCount": 309211,
+            "boundsM": {
+              "min": [
+                -0.06577213519576991,
+                -0.0803611794159475,
+                -0.0506427208835092
+              ],
+              "max": [
+                0.0692948463234102,
+                0.10278164755586301,
+                0.0823473760917893
+              ]
+            },
+            "signedVolumeM3": -0.001322200233690986,
+            "topology": {
+              "boundaryEdgeCount": 1778,
+              "nonmanifoldEdgeCount": 4,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 464702
+            }
+          },
+          {
+            "componentLabel": 1,
+            "vertexCount": 75,
+            "triangleCount": 107,
+            "boundsM": {
+              "min": [
+                0.0216680859477146,
+                -0.0137572748329262,
+                0.0039631087584350005
+              ],
+              "max": [
+                0.0352186241819628,
+                -0.007356787094168071,
+                0.018142396999491703
+              ]
+            },
+            "signedVolumeM3": -8.987597351500175e-07,
+            "topology": {
+              "boundaryEdgeCount": 41,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 181
+            }
+          },
+          {
+            "componentLabel": 2,
+            "vertexCount": 321,
+            "triangleCount": 559,
+            "boundsM": {
+              "min": [
+                -0.037283110380040806,
+                -0.00806692087524092,
+                -0.0075202581721375205
+              ],
+              "max": [
+                -0.028875260309010903,
+                0.0229709268986175,
+                0.004060066925930731
+              ]
+            },
+            "signedVolumeM3": -1.3413756393792562e-08,
+            "topology": {
+              "boundaryEdgeCount": 85,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 881
+            }
+          },
+          {
+            "componentLabel": 3,
+            "vertexCount": 32,
+            "triangleCount": 60,
+            "boundsM": {
+              "min": [
+                -0.00161667063646041,
+                0.0298673481934269,
+                -0.0146463385267484
+              ],
+              "max": [
+                0.00166911132397307,
+                0.0336412073858953,
+                -0.0117059719498367
+              ]
+            },
+            "signedVolumeM3": -1.3755176138689004e-08,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 90
+            }
+          },
+          {
+            "componentLabel": 4,
+            "vertexCount": 54,
+            "triangleCount": 104,
+            "boundsM": {
+              "min": [
+                -0.0147531589180425,
+                -0.0698622928384448,
+                -0.0105517479071186
+              ],
+              "max": [
+                -0.013042669769570801,
+                -0.0681861022231774,
+                -0.00742893486409497
+              ]
+            },
+            "signedVolumeM3": 1.267260538772273e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 156
+            }
+          },
+          {
+            "componentLabel": 5,
+            "vertexCount": 145,
+            "triangleCount": 290,
+            "boundsM": {
+              "min": [
+                -0.017102555981957798,
+                -0.0435601864648512,
+                0.00732679575832029
+              ],
+              "max": [
+                -0.0122799339018918,
+                -0.034898960382833,
+                0.00847068029211795
+              ]
+            },
+            "signedVolumeM3": 8.753253373478813e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 435
+            }
+          },
+          {
+            "componentLabel": 6,
+            "vertexCount": 315,
+            "triangleCount": 626,
+            "boundsM": {
+              "min": [
+                -0.0495354531647884,
+                -0.035256179650049804,
+                -0.004662053271506181
+              ],
+              "max": [
+                -0.0450033959833063,
+                -0.0277001013558404,
+                0.000339231698359129
+              ]
+            },
+            "signedVolumeM3": 1.3837572306431439e-08,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 939
+            }
+          },
+          {
+            "componentLabel": 7,
+            "vertexCount": 271,
+            "triangleCount": 538,
+            "boundsM": {
+              "min": [
+                -0.0323988805293125,
+                0.0179154554615824,
+                -0.0158662900747524
+              ],
+              "max": [
+                -0.0274030557842092,
+                0.022538964591134,
+                -0.0105969519203286
+              ]
+            },
+            "signedVolumeM3": 4.999482997952621e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 807
+            }
+          },
+          {
+            "componentLabel": 8,
+            "vertexCount": 245,
+            "triangleCount": 486,
+            "boundsM": {
+              "min": [
+                0.013576679840526401,
+                -0.037565676729865105,
+                0.00983692911281108
+              ],
+              "max": [
+                0.020894453281798397,
+                -0.0312694381536696,
+                0.012215024145504601
+              ]
+            },
+            "signedVolumeM3": 1.0797960129323682e-08,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 729
+            }
+          },
+          {
+            "componentLabel": 9,
+            "vertexCount": 56,
+            "triangleCount": 108,
+            "boundsM": {
+              "min": [
+                0.0149198163305323,
+                -0.0386371483830363,
+                0.011828020973099299
+              ],
+              "max": [
+                0.018398799727635598,
+                -0.0361052835849803,
+                0.0133584350483101
+              ]
+            },
+            "signedVolumeM3": 2.3955546232292436e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 162
+            }
+          },
+          {
+            "componentLabel": 10,
+            "vertexCount": 123,
+            "triangleCount": 229,
+            "boundsM": {
+              "min": [
+                0.0317815728473678,
+                0.0124656166333299,
+                -0.010445542949077
+              ],
+              "max": [
+                0.038745112713645904,
+                0.0240214526327067,
+                -0.00363371866636126
+              ]
+            },
+            "signedVolumeM3": 3.9940438954711064e-08,
+            "topology": {
+              "boundaryEdgeCount": 15,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 351
+            }
+          },
+          {
+            "componentLabel": 11,
+            "vertexCount": 18,
+            "triangleCount": 32,
+            "boundsM": {
+              "min": [
+                -0.0393481710803404,
+                -0.031808048625286,
+                0.0183629571828893
+              ],
+              "max": [
+                -0.0376086027859364,
+                -0.0300035328753376,
+                0.020161823216978403
+              ]
+            },
+            "signedVolumeM3": 1.2880771373189493e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 48
+            }
+          },
+          {
+            "componentLabel": 12,
+            "vertexCount": 94,
+            "triangleCount": 184,
+            "boundsM": {
+              "min": [
+                -0.00894862781740254,
+                -0.052686665128424306,
+                0.00842068841040725
+              ],
+              "max": [
+                -0.00207765492091181,
+                -0.0471878798565127,
+                0.0134444617808939
+              ]
+            },
+            "signedVolumeM3": 2.7183692462300767e-08,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 276
+            }
+          },
+          {
+            "componentLabel": 13,
+            "vertexCount": 44,
+            "triangleCount": 84,
+            "boundsM": {
+              "min": [
+                0.0007624825710833681,
+                0.0339616648348483,
+                -0.0166211871185008
+              ],
+              "max": [
+                0.0036169795141487,
+                0.0362612034834017,
+                -0.0134131138572958
+              ]
+            },
+            "signedVolumeM3": -6.9606531823910095e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 126
+            }
+          },
+          {
+            "componentLabel": 14,
+            "vertexCount": 15,
+            "triangleCount": 17,
+            "boundsM": {
+              "min": [
+                0.0269983260229987,
+                0.027367774823553202,
+                0.004657983131327281
+              ],
+              "max": [
+                0.0297170970842179,
+                0.0305612593319784,
+                0.005812187602716339
+              ]
+            },
+            "signedVolumeM3": -7.908734065156331e-09,
+            "topology": {
+              "boundaryEdgeCount": 11,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 31
+            }
+          },
+          {
+            "componentLabel": 15,
+            "vertexCount": 25,
+            "triangleCount": 46,
+            "boundsM": {
+              "min": [
+                -0.015549539457074,
+                -0.043705856217670105,
+                0.0256201967758541
+              ],
+              "max": [
+                -0.0132062524812237,
+                -0.0418381594878771,
+                0.0272587906573206
+              ]
+            },
+            "signedVolumeM3": 1.661154159221891e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 69
+            }
+          },
+          {
+            "componentLabel": 16,
+            "vertexCount": 106,
+            "triangleCount": 208,
+            "boundsM": {
+              "min": [
+                -0.0134228576869117,
+                -0.055413041280657,
+                0.018643253625752202
+              ],
+              "max": [
+                -0.00490787915611043,
+                -0.0510721556881039,
+                0.0204223833722456
+              ]
+            },
+            "signedVolumeM3": 4.930864890376164e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 312
+            }
+          },
+          {
+            "componentLabel": 17,
+            "vertexCount": 28,
+            "triangleCount": 52,
+            "boundsM": {
+              "min": [
+                -0.0152152125728082,
+                -0.0509808161794985,
+                0.0161343041907448
+              ],
+              "max": [
+                -0.013874693911768899,
+                -0.0490374110808055,
+                0.017849544340606
+              ]
+            },
+            "signedVolumeM3": 9.095475586146932e-10,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 78
+            }
+          },
+          {
+            "componentLabel": 18,
+            "vertexCount": 41,
+            "triangleCount": 78,
+            "boundsM": {
+              "min": [
+                -0.0155931503475564,
+                -0.047619400308633604,
+                0.0149980448081911
+              ],
+              "max": [
+                -0.0138903408154513,
+                -0.0458311488552751,
+                0.0163045943534454
+              ]
+            },
+            "signedVolumeM3": 8.213957396887119e-10,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 117
+            }
+          },
+          {
+            "componentLabel": 19,
+            "vertexCount": 26,
+            "triangleCount": 48,
+            "boundsM": {
+              "min": [
+                -0.012839921409742801,
+                -0.0465245602191484,
+                0.00895609049063566
+              ],
+              "max": [
+                -0.0119328856291056,
+                -0.0454607036873869,
+                0.009817584436336199
+              ]
+            },
+            "signedVolumeM3": 2.2160460431538301e-10,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 72
+            }
+          },
+          {
+            "componentLabel": 20,
+            "vertexCount": 5,
+            "triangleCount": 6,
+            "boundsM": {
+              "min": [
+                -0.0116836508041036,
+                -0.0486396460666023,
+                4.28438389092776e-05
+              ],
+              "max": [
+                -0.0112840332827395,
+                -0.04837262106023531,
+                0.000324985243896919
+              ]
+            },
+            "signedVolumeM3": 6.2183789204031136e-12,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 9
+            }
+          },
+          {
+            "componentLabel": 21,
+            "vertexCount": 54,
+            "triangleCount": 104,
+            "boundsM": {
+              "min": [
+                -0.0136101516518997,
+                -0.0480541466015998,
+                -0.00440008266114211
+              ],
+              "max": [
+                -0.00885260596148069,
+                -0.0450429238397839,
+                0.000306414270207313
+              ]
+            },
+            "signedVolumeM3": 5.4831234192435734e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 156
+            }
+          },
+          {
+            "componentLabel": 22,
+            "vertexCount": 71,
+            "triangleCount": 105,
+            "boundsM": {
+              "min": [
+                -0.0022903424188874203,
+                0.0276428633372677,
+                -0.00286705414016711
+              ],
+              "max": [
+                0.00431310466863181,
+                0.032359134380869105,
+                0.00266663098143133
+              ]
+            },
+            "signedVolumeM3": -1.996586292473808e-09,
+            "topology": {
+              "boundaryEdgeCount": 35,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 175
+            }
+          },
+          {
+            "componentLabel": 23,
+            "vertexCount": 8,
+            "triangleCount": 9,
+            "boundsM": {
+              "min": [
+                -0.020690715723863603,
+                0.0217681914227816,
+                0.00721060862371587
+              ],
+              "max": [
+                -0.0198200850371821,
+                0.0230095593535533,
+                0.00781415024954507
+              ]
+            },
+            "signedVolumeM3": -1.0392030696074196e-09,
+            "topology": {
+              "boundaryEdgeCount": 5,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 16
+            }
+          },
+          {
+            "componentLabel": 24,
+            "vertexCount": 61,
+            "triangleCount": 118,
+            "boundsM": {
+              "min": [
+                0.00563459338366241,
+                -0.0647032216720175,
+                0.004519066870703451
+              ],
+              "max": [
+                0.009576104750111369,
+                -0.06182686866038,
+                0.0074890034490066705
+              ]
+            },
+            "signedVolumeM3": 2.834117327954872e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 177
+            }
+          },
+          {
+            "componentLabel": 25,
+            "vertexCount": 16,
+            "triangleCount": 28,
+            "boundsM": {
+              "min": [
+                -0.00962603117195415,
+                -0.058494977913840604,
+                0.0258949350743004
+              ],
+              "max": [
+                -0.0077728065997445805,
+                -0.0573907916946026,
+                0.0270652489781458
+              ]
+            },
+            "signedVolumeM3": 3.3205779019038463e-10,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 42
+            }
+          },
+          {
+            "componentLabel": 26,
+            "vertexCount": 38,
+            "triangleCount": 72,
+            "boundsM": {
+              "min": [
+                0.032795514545237,
+                0.054321226360547696,
+                0.0233987302220773
+              ],
+              "max": [
+                0.0344268044372322,
+                0.057912404179136505,
+                0.0243703411813962
+              ]
+            },
+            "signedVolumeM3": 1.1064326494865457e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 108
+            }
+          },
+          {
+            "componentLabel": 27,
+            "vertexCount": 15,
+            "triangleCount": 19,
+            "boundsM": {
+              "min": [
+                -0.014862552231185,
+                0.058435165245068,
+                -0.00154780851601521
+              ],
+              "max": [
+                -0.012434536251719001,
+                0.0612304441810499,
+                -0.000671144084485832
+              ]
+            },
+            "signedVolumeM3": -8.601706788555704e-09,
+            "topology": {
+              "boundaryEdgeCount": 9,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 33
+            }
+          },
+          {
+            "componentLabel": 28,
+            "vertexCount": 15,
+            "triangleCount": 16,
+            "boundsM": {
+              "min": [
+                -0.0134952662090814,
+                0.062435385191041595,
+                -0.0023706472899346805
+              ],
+              "max": [
+                -0.011233927795405,
+                0.06597641794202591,
+                -0.0011223868943409901
+              ]
+            },
+            "signedVolumeM3": 1.407437229548346e-09,
+            "topology": {
+              "boundaryEdgeCount": 12,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 30
+            }
+          },
+          {
+            "componentLabel": 29,
+            "vertexCount": 32,
+            "triangleCount": 60,
+            "boundsM": {
+              "min": [
+                0.00725648506875774,
+                -0.052917131817150805,
+                -0.012247211976222
+              ],
+              "max": [
+                0.00886279357472824,
+                -0.050550246614310304,
+                -0.00849216767403513
+              ]
+            },
+            "signedVolumeM3": 2.6399158179887832e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 90
+            }
+          },
+          {
+            "componentLabel": 30,
+            "vertexCount": 65,
+            "triangleCount": 98,
+            "boundsM": {
+              "min": [
+                0.0062057973531567,
+                0.0546440496501168,
+                -0.00340709116520543
+              ],
+              "max": [
+                0.00922921858848999,
+                0.0659076667085577,
+                -0.000346574621512872
+              ]
+            },
+            "signedVolumeM3": 7.409469457050879e-08,
+            "topology": {
+              "boundaryEdgeCount": 30,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 162
+            }
+          },
+          {
+            "componentLabel": 31,
+            "vertexCount": 58,
+            "triangleCount": 112,
+            "boundsM": {
+              "min": [
+                -0.0183594150608665,
+                -0.0507269425985669,
+                -0.0130491525327473
+              ],
+              "max": [
+                -0.0138291922404494,
+                -0.047361655936069,
+                -0.0097602932334909
+              ]
+            },
+            "signedVolumeM3": 7.716174264848017e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 168
+            }
+          },
+          {
+            "componentLabel": 32,
+            "vertexCount": 99,
+            "triangleCount": 194,
+            "boundsM": {
+              "min": [
+                -0.0520793186902942,
+                0.010362435447022601,
+                0.0110051325180145
+              ],
+              "max": [
+                -0.048527455194344905,
+                0.0143694370703337,
+                0.0145433598434111
+              ]
+            },
+            "signedVolumeM3": 5.5663480635415555e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 291
+            }
+          },
+          {
+            "componentLabel": 33,
+            "vertexCount": 10,
+            "triangleCount": 16,
+            "boundsM": {
+              "min": [
+                -0.0347597714482162,
+                0.00146535491189364,
+                0.051481816553418706
+              ],
+              "max": [
+                -0.033572866921146895,
+                0.00221965879789069,
+                0.0523278357929746
+              ]
+            },
+            "signedVolumeM3": 1.9169502177754477e-10,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 24
+            }
+          },
+          {
+            "componentLabel": 34,
+            "vertexCount": 97,
+            "triangleCount": 190,
+            "boundsM": {
+              "min": [
+                -0.035190791156094005,
+                0.022739547974639698,
+                0.0208484377896451
+              ],
+              "max": [
+                -0.029850127193965702,
+                0.0268128326458984,
+                0.0279903138854371
+              ]
+            },
+            "signedVolumeM3": 1.4145058693343587e-08,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 285
+            }
+          },
+          {
+            "componentLabel": 35,
+            "vertexCount": 172,
+            "triangleCount": 340,
+            "boundsM": {
+              "min": [
+                -0.02539953422272,
+                0.014113691252000701,
+                -0.0022342080250652703
+              ],
+              "max": [
+                -0.018716446724980303,
+                0.0184603202079828,
+                0.00175694804155316
+              ]
+            },
+            "signedVolumeM3": 2.6558578988021814e-08,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 510
+            }
+          },
+          {
+            "componentLabel": 36,
+            "vertexCount": 18,
+            "triangleCount": 32,
+            "boundsM": {
+              "min": [
+                -0.0325714120320921,
+                0.010688224078654001,
+                -0.00864112892088312
+              ],
+              "max": [
+                -0.0311733229721407,
+                0.012150450167841002,
+                -0.00688995808164219
+              ]
+            },
+            "signedVolumeM3": 8.470696989586954e-10,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 48
+            }
+          },
+          {
+            "componentLabel": 37,
+            "vertexCount": 31,
+            "triangleCount": 58,
+            "boundsM": {
+              "min": [
+                0.0163931930684932,
+                -0.0663390788568783,
+                -0.0162676308729788
+              ],
+              "max": [
+                0.0191544784466378,
+                -0.0657746294683194,
+                -0.0151122059963217
+              ]
+            },
+            "signedVolumeM3": 7.925536354401742e-10,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 87
+            }
+          },
+          {
+            "componentLabel": 38,
+            "vertexCount": 62,
+            "triangleCount": 85,
+            "boundsM": {
+              "min": [
+                -0.0308598263526662,
+                -0.0162418597911599,
+                0.0067555490989036
+              ],
+              "max": [
+                -0.019385507159049402,
+                -0.0106131242194172,
+                0.016522232805851002
+              ]
+            },
+            "signedVolumeM3": -4.6970445401003675e-07,
+            "topology": {
+              "boundaryEdgeCount": 37,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 146
+            }
+          },
+          {
+            "componentLabel": 39,
+            "vertexCount": 88,
+            "triangleCount": 172,
+            "boundsM": {
+              "min": [
+                -0.0270376428118736,
+                -0.06580981972857271,
+                -0.00880094664108449
+              ],
+              "max": [
+                -0.0235544655265895,
+                -0.06381602715804091,
+                -0.00628230211436895
+              ]
+            },
+            "signedVolumeM3": 4.16115643122397e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 258
+            }
+          },
+          {
+            "componentLabel": 40,
+            "vertexCount": 29,
+            "triangleCount": 54,
+            "boundsM": {
+              "min": [
+                -0.046150306053895696,
+                0.00233936123106663,
+                0.0129107141637204
+              ],
+              "max": [
+                -0.0442930750475495,
+                0.0042718915466110705,
+                0.0137971002876179
+              ]
+            },
+            "signedVolumeM3": 3.300791392981697e-10,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 81
+            }
+          },
+          {
+            "componentLabel": 41,
+            "vertexCount": 87,
+            "triangleCount": 172,
+            "boundsM": {
+              "min": [
+                -0.00810895023551235,
+                0.0792593113908016,
+                0.0358410315514818
+              ],
+              "max": [
+                -0.005731933607678329,
+                0.084953068170357,
+                0.0414112669350954
+              ]
+            },
+            "signedVolumeM3": 4.863882150967924e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 258
+            }
+          },
+          {
+            "componentLabel": 42,
+            "vertexCount": 38,
+            "triangleCount": 72,
+            "boundsM": {
+              "min": [
+                0.00677060274661908,
+                0.0179174325493691,
+                0.048326165455784297
+              ],
+              "max": [
+                0.0092968758165642,
+                0.0211124937067402,
+                0.0494047010928464
+              ]
+            },
+            "signedVolumeM3": 2.538753921903051e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 108
+            }
+          },
+          {
+            "componentLabel": 43,
+            "vertexCount": 496,
+            "triangleCount": 988,
+            "boundsM": {
+              "min": [
+                0.036053415984690904,
+                -0.034936848417423595,
+                0.0169594220198714
+              ],
+              "max": [
+                0.047090896793241396,
+                -0.024218066606906,
+                0.0201008868060274
+              ]
+            },
+            "signedVolumeM3": 2.8598239582169e-08,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 1482
+            }
+          },
+          {
+            "componentLabel": 44,
+            "vertexCount": 87,
+            "triangleCount": 170,
+            "boundsM": {
+              "min": [
+                0.043222233189685,
+                -0.014703200819652701,
+                -0.0062771852922248
+              ],
+              "max": [
+                0.0454860737790353,
+                -0.0111655834572367,
+                -0.00248136191921557
+              ]
+            },
+            "signedVolumeM3": 5.843361327325216e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 255
+            }
+          },
+          {
+            "componentLabel": 45,
+            "vertexCount": 82,
+            "triangleCount": 160,
+            "boundsM": {
+              "min": [
+                0.013341966597112601,
+                0.0784272475512427,
+                0.0204073741575529
+              ],
+              "max": [
+                0.0151577288781827,
+                0.08071240584974229,
+                0.0223194248830187
+              ]
+            },
+            "signedVolumeM3": 1.3884425985217855e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 240
+            }
+          },
+          {
+            "componentLabel": 46,
+            "vertexCount": 24,
+            "triangleCount": 44,
+            "boundsM": {
+              "min": [
+                -0.00562994813316023,
+                0.06639333903628641,
+                0.005852707428461431
+              ],
+              "max": [
+                -0.00456658896091892,
+                0.0679608577137213,
+                0.0067923466543343
+              ]
+            },
+            "signedVolumeM3": 4.1533382503571464e-10,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 66
+            }
+          },
+          {
+            "componentLabel": 47,
+            "vertexCount": 22,
+            "triangleCount": 40,
+            "boundsM": {
+              "min": [
+                0.0372484756881285,
+                0.00217825901073165,
+                -0.000475436204824348
+              ],
+              "max": [
+                0.039136735584055206,
+                0.00460183248684773,
+                0.00123554235051375
+              ]
+            },
+            "signedVolumeM3": 1.873936622488507e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 60
+            }
+          },
+          {
+            "componentLabel": 48,
+            "vertexCount": 5,
+            "triangleCount": 4,
+            "boundsM": {
+              "min": [
+                0.0368928374078441,
+                0.000297467518503581,
+                0.0007994796516199471
+              ],
+              "max": [
+                0.0378649283882485,
+                0.0010938921438542499,
+                0.00157719615835947
+              ]
+            },
+            "signedVolumeM3": -2.2792094314042232e-09,
+            "topology": {
+              "boundaryEdgeCount": 4,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 8
+            }
+          },
+          {
+            "componentLabel": 49,
+            "vertexCount": 136,
+            "triangleCount": 268,
+            "boundsM": {
+              "min": [
+                0.0188026296060372,
+                -0.0669839133358577,
+                0.0124433886654726
+              ],
+              "max": [
+                0.022849269725292002,
+                -0.0631682056524339,
+                0.0163034066663889
+              ]
+            },
+            "signedVolumeM3": 5.496371992180106e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 402
+            }
+          },
+          {
+            "componentLabel": 50,
+            "vertexCount": 60,
+            "triangleCount": 116,
+            "boundsM": {
+              "min": [
+                0.0241534791657183,
+                -0.037604281591515,
+                -0.0034132641738012504
+              ],
+              "max": [
+                0.025278150009354298,
+                -0.0343941573431732,
+                -0.00151136893958471
+              ]
+            },
+            "signedVolumeM3": 1.965856200479339e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 174
+            }
+          },
+          {
+            "componentLabel": 51,
+            "vertexCount": 125,
+            "triangleCount": 246,
+            "boundsM": {
+              "min": [
+                -0.026711382046544198,
+                -0.0228897342355353,
+                0.0037005675469471
+              ],
+              "max": [
+                -0.024503346901409304,
+                -0.018593597451179,
+                0.005369295595462751
+              ]
+            },
+            "signedVolumeM3": 1.84683550139736e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 369
+            }
+          },
+          {
+            "componentLabel": 52,
+            "vertexCount": 26,
+            "triangleCount": 48,
+            "boundsM": {
+              "min": [
+                -0.030164046185678,
+                -0.0270547812640133,
+                -0.0006344100931565891
+              ],
+              "max": [
+                -0.0287660523282777,
+                -0.0246580647343342,
+                1.1630761321157502e-06
+              ]
+            },
+            "signedVolumeM3": 5.928511080488587e-10,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 72
+            }
+          },
+          {
+            "componentLabel": 53,
+            "vertexCount": 53,
+            "triangleCount": 102,
+            "boundsM": {
+              "min": [
+                -0.0287885928832481,
+                -0.0443699307152822,
+                -0.00453164630857282
+              ],
+              "max": [
+                -0.0276894468840602,
+                -0.0405492105559278,
+                -0.00122717552787091
+              ]
+            },
+            "signedVolumeM3": 2.4519607483435126e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 153
+            }
+          },
+          {
+            "componentLabel": 54,
+            "vertexCount": 21,
+            "triangleCount": 38,
+            "boundsM": {
+              "min": [
+                -0.0439264858026273,
+                -0.00310763019280633,
+                0.0144471491845082
+              ],
+              "max": [
+                -0.041991570945685903,
+                -0.0018755374610837099,
+                0.015304285198998199
+              ]
+            },
+            "signedVolumeM3": 4.687697699673757e-10,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 57
+            }
+          },
+          {
+            "componentLabel": 55,
+            "vertexCount": 47,
+            "triangleCount": 90,
+            "boundsM": {
+              "min": [
+                -0.00835952689242767,
+                -0.035732559237536994,
+                0.034377604424604497
+              ],
+              "max": [
+                -0.00655426040872509,
+                -0.0343015016600695,
+                0.0379317915338052
+              ]
+            },
+            "signedVolumeM3": 2.4382183513617736e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 135
+            }
+          },
+          {
+            "componentLabel": 56,
+            "vertexCount": 7,
+            "triangleCount": 10,
+            "boundsM": {
+              "min": [
+                0.023271875362523002,
+                -0.0434206859480441,
+                0.033796387105738505
+              ],
+              "max": [
+                0.024014024926698904,
+                -0.0426962330223757,
+                0.034600226084519
+              ]
+            },
+            "signedVolumeM3": 7.200540106217113e-11,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 15
+            }
+          },
+          {
+            "componentLabel": 57,
+            "vertexCount": 36,
+            "triangleCount": 68,
+            "boundsM": {
+              "min": [
+                -0.0100970305078362,
+                -0.07238476854197999,
+                0.0010241603741666801
+              ],
+              "max": [
+                -0.00874265514555694,
+                -0.0709401378885934,
+                0.00227994426320132
+              ]
+            },
+            "signedVolumeM3": 5.508305046751256e-10,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 102
+            }
+          },
+          {
+            "componentLabel": 58,
+            "vertexCount": 141,
+            "triangleCount": 278,
+            "boundsM": {
+              "min": [
+                0.0248427103897268,
+                -0.0662538439964049,
+                -0.0006929507388725819
+              ],
+              "max": [
+                0.0285997013796265,
+                -0.060356053783955,
+                0.000391402960827293
+              ]
+            },
+            "signedVolumeM3": 3.1754078164936282e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 417
+            }
+          },
+          {
+            "componentLabel": 59,
+            "vertexCount": 20,
+            "triangleCount": 36,
+            "boundsM": {
+              "min": [
+                0.022945913375507398,
+                -0.0662968224883455,
+                -0.00166002690872725
+              ],
+              "max": [
+                0.0236546415462529,
+                -0.0644538083104452,
+                -0.00112782508638162
+              ]
+            },
+            "signedVolumeM3": 3.04858987376876e-10,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 54
+            }
+          },
+          {
+            "componentLabel": 60,
+            "vertexCount": 125,
+            "triangleCount": 246,
+            "boundsM": {
+              "min": [
+                0.00658495888359897,
+                -0.030503164483961398,
+                0.035057050709473604
+              ],
+              "max": [
+                0.0124203803126233,
+                -0.028817413603581202,
+                0.0378475309834802
+              ]
+            },
+            "signedVolumeM3": 5.721841620188802e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 369
+            }
+          },
+          {
+            "componentLabel": 61,
+            "vertexCount": 13,
+            "triangleCount": 22,
+            "boundsM": {
+              "min": [
+                0.0352668964549267,
+                0.060513470280364204,
+                0.0384538615783353
+              ],
+              "max": [
+                0.0362033151301469,
+                0.062045516045170605,
+                0.0393171499013904
+              ]
+            },
+            "signedVolumeM3": 3.8908973835099206e-10,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 33
+            }
+          },
+          {
+            "componentLabel": 62,
+            "vertexCount": 53,
+            "triangleCount": 102,
+            "boundsM": {
+              "min": [
+                0.0182237872998811,
+                -0.0557964628527316,
+                -0.00803386528833749
+              ],
+              "max": [
+                0.0192467685708944,
+                -0.052384887539782196,
+                -0.00532425479113076
+              ]
+            },
+            "signedVolumeM3": 3.3738459522888293e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 153
+            }
+          },
+          {
+            "componentLabel": 63,
+            "vertexCount": 68,
+            "triangleCount": 132,
+            "boundsM": {
+              "min": [
+                0.019865109985148,
+                -0.051557600991490704,
+                -0.008000824218435159
+              ],
+              "max": [
+                0.0216029454130374,
+                -0.0480473083843318,
+                -0.0036850620489261104
+              ]
+            },
+            "signedVolumeM3": 5.697403915421058e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 198
+            }
+          },
+          {
+            "componentLabel": 64,
+            "vertexCount": 30,
+            "triangleCount": 56,
+            "boundsM": {
+              "min": [
+                0.0167366982709545,
+                -0.0530767356624649,
+                -0.0124981119075752
+              ],
+              "max": [
+                0.0173250446622048,
+                -0.0505772148892382,
+                -0.010255027907885699
+              ]
+            },
+            "signedVolumeM3": 1.0915125505747026e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 84
+            }
+          },
+          {
+            "componentLabel": 65,
+            "vertexCount": 8,
+            "triangleCount": 12,
+            "boundsM": {
+              "min": [
+                0.037798274572504,
+                0.0502830804762202,
+                0.0430250815697105
+              ],
+              "max": [
+                0.0384327127738471,
+                0.050957718919830905,
+                0.0433160769543667
+              ]
+            },
+            "signedVolumeM3": 3.848961457312198e-11,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 18
+            }
+          },
+          {
+            "componentLabel": 66,
+            "vertexCount": 135,
+            "triangleCount": 266,
+            "boundsM": {
+              "min": [
+                -0.0302802269104112,
+                -0.00779164139460322,
+                0.054568992415266304
+              ],
+              "max": [
+                -0.0244784363057509,
+                -0.0047709619363107,
+                0.0585939186622465
+              ]
+            },
+            "signedVolumeM3": 5.427981845877985e-09,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 399
+            }
+          },
+          {
+            "componentLabel": 67,
+            "vertexCount": 19,
+            "triangleCount": 24,
+            "boundsM": {
+              "min": [
+                -0.0179767762179649,
+                0.046090495312021,
+                -0.00207391990090051
+              ],
+              "max": [
+                -0.0151872922954131,
+                0.0479836661855817,
+                -0.00038594527596149
+              ]
+            },
+            "signedVolumeM3": 2.074903763364097e-09,
+            "topology": {
+              "boundaryEdgeCount": 12,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 42
+            }
+          },
+          {
+            "componentLabel": 68,
+            "vertexCount": 34,
+            "triangleCount": 64,
+            "boundsM": {
+              "min": [
+                0.024255306521799302,
+                -0.0437736939187073,
+                0.0293699950722646
+              ],
+              "max": [
+                0.024788144857121504,
+                -0.0430522941053492,
+                0.0306949780780461
+              ]
+            },
+            "signedVolumeM3": 2.5328837779314337e-10,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 96
+            }
+          },
+          {
+            "componentLabel": 69,
+            "vertexCount": 18,
+            "triangleCount": 32,
+            "boundsM": {
+              "min": [
+                0.00683199355758894,
+                -0.0541880884357376,
+                -0.014058766357654401
+              ],
+              "max": [
+                0.007359112658658531,
+                -0.05219388341763451,
+                -0.0133501308379201
+              ]
+            },
+            "signedVolumeM3": 1.893396416273134e-10,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 48
+            }
+          },
+          {
+            "componentLabel": 70,
+            "vertexCount": 6,
+            "triangleCount": 8,
+            "boundsM": {
+              "min": [
+                0.00922401924279117,
+                0.0876422299077082,
+                0.0176135873041157
+              ],
+              "max": [
+                0.0095580605472617,
+                0.088147373630814,
+                0.0179913980550165
+              ]
+            },
+            "signedVolumeM3": 2.4907410031355983e-11,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 12
+            }
+          },
+          {
+            "componentLabel": 71,
+            "vertexCount": 11,
+            "triangleCount": 18,
+            "boundsM": {
+              "min": [
+                0.040302833299189704,
+                -0.033965333349991904,
+                -0.0036444377837742403
+              ],
+              "max": [
+                0.041309639156196905,
+                -0.0330597283731432,
+                -0.00269209342100962
+              ]
+            },
+            "signedVolumeM3": 1.9798269203204883e-10,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 27
+            }
+          },
+          {
+            "componentLabel": 72,
+            "vertexCount": 12,
+            "triangleCount": 20,
+            "boundsM": {
+              "min": [
+                0.0410431209605409,
+                -0.0181933260035362,
+                0.025447794758063504
+              ],
+              "max": [
+                0.0421435411501258,
+                -0.017343346965480698,
+                0.0265957233849323
+              ]
+            },
+            "signedVolumeM3": 1.5681731305983478e-10,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 30
+            }
+          },
+          {
+            "componentLabel": 73,
+            "vertexCount": 15,
+            "triangleCount": 26,
+            "boundsM": {
+              "min": [
+                -0.0467652828433103,
+                0.00181673222537843,
+                0.0139195060340147
+              ],
+              "max": [
+                -0.0452573404772559,
+                0.00271300985987227,
+                0.0148459026625696
+              ]
+            },
+            "signedVolumeM3": 2.602628659423529e-10,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 39
+            }
+          },
+          {
+            "componentLabel": 74,
+            "vertexCount": 16,
+            "triangleCount": 28,
+            "boundsM": {
+              "min": [
+                0.0063030416826535905,
+                -0.0551804580443489,
+                -0.0150208592354966
+              ],
+              "max": [
+                0.00678053723769139,
+                -0.0541453577690299,
+                -0.014300809349395
+              ]
+            },
+            "signedVolumeM3": 1.6197973338375655e-10,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 42
+            }
+          },
+          {
+            "componentLabel": 75,
+            "vertexCount": 9,
+            "triangleCount": 14,
+            "boundsM": {
+              "min": [
+                0.0119780405106351,
+                0.0759068966243646,
+                0.0104639197794814
+              ],
+              "max": [
+                0.0129510851231362,
+                0.0765225515472048,
+                0.010742310666969599
+              ]
+            },
+            "signedVolumeM3": 3.7564041802369715e-11,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 21
+            }
+          },
+          {
+            "componentLabel": 76,
+            "vertexCount": 5,
+            "triangleCount": 6,
+            "boundsM": {
+              "min": [
+                0.0485363393870768,
+                0.0114350517808931,
+                0.0518239462181447
+              ],
+              "max": [
+                0.0488298195895069,
+                0.0117200404594664,
+                0.0523128121202643
+              ]
+            },
+            "signedVolumeM3": 4.409141007407017e-12,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 9
+            }
+          },
+          {
+            "componentLabel": 77,
+            "vertexCount": 5,
+            "triangleCount": 6,
+            "boundsM": {
+              "min": [
+                0.0282034925432956,
+                -0.0589676225481338,
+                0.000972339249134023
+              ],
+              "max": [
+                0.028593203259461502,
+                -0.0587473961834114,
+                0.00126112332451086
+              ]
+            },
+            "signedVolumeM3": 4.841425877011277e-12,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 9
+            }
+          },
+          {
+            "componentLabel": 78,
+            "vertexCount": 19,
+            "triangleCount": 34,
+            "boundsM": {
+              "min": [
+                -0.021809936197215697,
+                -0.028198795531073302,
+                0.0009344398122369741
+              ],
+              "max": [
+                -0.0207664901815118,
+                -0.0271339600438923,
+                0.00180051048215375
+              ]
+            },
+            "signedVolumeM3": 2.1228449092839646e-10,
+            "topology": {
+              "boundaryEdgeCount": 0,
+              "nonmanifoldEdgeCount": 0,
+              "degenerateTriangleCount": 0,
+              "uniqueEdgeCount": 51
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "exporter": {
+    "path": "scripts/export_ernie_display.py",
+    "sha256": "6cd6b075fc60bdc737233fa40527028582e09c24672935bc52e6f7d199728b5b",
+    "command": "python3 scripts/export_ernie_display.py --render"
+  },
+  "preview": {
+    "file": "preview.png",
+    "sha256": "d955a90b9518684157da94ac69af4e11e650a4e0696c4d5ea9805413a59fdd0a",
+    "byteLength": 160614
+  },
+  "totalGeometryBytes": 7450376
+}

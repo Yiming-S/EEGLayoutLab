@@ -1,0 +1,377 @@
+{
+  "protocol_version": "2.0.0-draft.2",
+  "status": "design_only_no_results",
+  "date": "2026-09-06",
+  "objective": "With exactly 64 measurement electrodes, optimize a small number of compact anatomical surface regions, their sizes, and all within-region electrode coordinates so that reference-independent BioSemi64 scalp-field reconstruction, whole-cortical-surface normal-source sensitivity, and single-source localization retain as much performance as possible relative to a standard full-head BioSemi64 reference.",
+  "scientific_scope": {
+    "primary_source_domain": "whole_cortical_surface_normal_dipoles",
+    "whole_brain_volume_claim_allowed": false,
+    "deep_or_volume_sources": "secondary_sensitivity_analysis_only_after_a_volume_source_protocol_is_frozen",
+    "task_accuracy_claim_allowed": false
+  },
+  "claims": {
+    "v2_results_available": false,
+    "task_accuracy_claims_allowed": false,
+    "human_equivalence_claims_allowed": false,
+    "current_outputs_are_protocol_design_only": true
+  },
+  "reference_system": {
+    "name": "BioSemi64",
+    "role": "relative_reference_not_ground_truth",
+    "physical_electrodes": 64,
+    "reference_free_dimensions": 63,
+    "reference_transform": "orthonormal_Helmert_contrast",
+    "identity_check_required": true
+  },
+  "design": {
+    "total_measurement_electrodes": 64,
+    "constant_total_electrodes": true,
+    "reference_ground_included": false,
+    "region_counts": [1, 2, 3, 4, 6],
+    "allocation_rule": "balanced_integer_allocation_with_preset_specific_bilateral_symmetry",
+    "balanced_allocations": {
+      "1": [64],
+      "2": [32, 32],
+      "3": [22, 21, 21],
+      "4": [16, 16, 16, 16],
+      "6": [11, 11, 11, 11, 10, 10]
+    },
+    "primary_factors": [
+      "region_count",
+      "anatomical_domain_family",
+      "region_to_mask_assignment",
+      "region_centers",
+      "maximum_actual_region_radius",
+      "within_region_electrode_coordinates"
+    ],
+    "primary_size_estimand": "minimum_verified_maximum_actual_geodesic_disk_radius",
+    "shape_role": "geodesic_disks_primary_equal_area_ellipses_secondary"
+  },
+  "surface_domain": {
+    "mode": "continuous_anatomical_surface_mesh",
+    "candidate_count": "TBD_after_mesh_qualification",
+    "must_include": [
+      "superior_scalp",
+      "inferior_scalp",
+      "left_postauricular",
+      "right_postauricular",
+      "left_periauricular",
+      "right_periauricular",
+      "forehead",
+      "left_periorbital_skin",
+      "right_periorbital_skin"
+    ],
+    "template_head_model": "TBD_after_face_and_ear_surface_qualification",
+    "forward_solver": "TBD_BEM_or_FEM",
+    "candidate_sampling_requirement": "candidate_mesh_spacing_no_greater_than_one_half_of_the_smallest_allowed_electrode_separation",
+    "biosemi64_registration_required": true,
+    "sphere_only_model_allowed_for_final_results": false
+  },
+  "region_model": {
+    "primary_shape": "minimum_enclosing_geodesic_disk",
+    "actual_region_radius": "smallest_a_r_for_which_one_geodesic_disk_contains_all_electrodes_assigned_to_region_r_and_the_disk_is_contained_in_its_named_mask",
+    "primary_layout_size": "a_max_equals_maximum_over_regions_of_a_r",
+    "radius_curve_constraint": "a_r_less_than_or_equal_to_common_radius_cap_a",
+    "reported_size_fields": [
+      "surface_area_cm2",
+      "actual_geodesic_radius_mm",
+      "maximum_geodesic_diameter_mm",
+      "sum_region_area_cm2",
+      "union_region_area_cm2"
+    ],
+    "secondary_shape": "equal_area_bounded_aspect_ratio_geodesic_ellipse",
+    "secondary_shape_parameters": {
+      "comparison_budget": "same_area_equivalent_disk_radius",
+      "maximum_aspect_ratio": "TBD_before_ellipse_sensitivity_run",
+      "orientation_optimized": true,
+      "may_replace_primary_disk_result": false
+    },
+    "region_disk_must_be_contained_in_assigned_mask": true,
+    "region_overlap_allowed": false,
+    "minimum_region_boundary_gap": "same_as_minimum_geodesic_electrode_separation",
+    "electrode_overlap_allowed": false,
+    "minimum_geodesic_separation_mm": "TBD_after_packing_pilot",
+    "published_spacing_benchmark_mm": 10.0,
+    "spacing_benchmark_is_optimality_claim": false,
+    "compactness_escape_paths_forbidden": true
+  },
+  "anatomical_mask_codes": {
+    "PL": "left_strict_postauricular",
+    "PR": "right_strict_postauricular",
+    "AL": "left_expanded_periauricular",
+    "AR": "right_expanded_periauricular",
+    "FL": "left_forehead",
+    "FM": "midline_forehead",
+    "FR": "right_forehead",
+    "OL": "left_lateral_or_supraorbital_skin",
+    "OR": "right_lateral_or_supraorbital_skin"
+  },
+  "low_hair_masks": {
+    "status": "TBD_manual_anatomical_definition_and_mesh_QA",
+    "planned_masks": ["PL", "PR", "AL", "AR", "FL", "FM", "FR", "OL", "OR"],
+    "planned_split_masks": [
+      "PL_superior",
+      "PL_middle",
+      "PL_inferior",
+      "PR_superior",
+      "PR_middle",
+      "PR_inferior",
+      "AL_superior",
+      "AL_middle",
+      "AL_inferior",
+      "AR_superior",
+      "AR_middle",
+      "AR_inferior"
+    ],
+    "mathematical_role": "hard_feasible_set_only_in_the_ideal_equal_noise_model",
+    "contact_quality_benefit_in_primary_model": false
+  },
+  "anatomical_domain_families": [
+    {
+      "id": "reference_full_head_biosemi64",
+      "role": "fixed_reference",
+      "optimized": false
+    },
+    {
+      "id": "whole_surface_free_center_compact",
+      "role": "least_constrained_comparison_family",
+      "center_domain": "qualified_full_head_surface",
+      "interpretation": "its_theoretical_global_optimum_upper_bounds_more_constrained_families_but_its_computed_best_found_value_is_not_a_certified_upper_bound"
+    },
+    {
+      "id": "low_hair_union_free_center",
+      "role": "primary_wearability_constraint",
+      "center_domain": "union_of_qualified_low_hair_masks",
+      "multiple_regions_per_parent_mask_allowed": true,
+      "conditions": [
+        "each_disk_is_contained_in_one_connected_mask",
+        "joint_packing_is_feasible",
+        "disks_do_not_overlap",
+        "boundary_gap_is_at_least_delta",
+        "canonical_center_sorting_removes_label_permutations"
+      ]
+    },
+    {
+      "id": "anatomical_preset_hypotheses",
+      "role": "interpretable_preregistered_hypothesis_tests",
+      "duplicate_parent_mask_allowed": false,
+      "ear_split_presets_require_qualified_nonoverlapping_submasks": true
+    }
+  ],
+  "anatomical_preset_matrix": {
+    "1": [
+      {"id": "midline_forehead_64", "allocation": [64], "masks": ["FM"]},
+      {"id": "strict_postauricular_64_mirror_pair", "allocation": [64], "mirror_variants": [["PL"], ["PR"]]},
+      {"id": "expanded_periauricular_64_mirror_pair", "allocation": [64], "mirror_variants": [["AL"], ["AR"]]}
+    ],
+    "2": [
+      {"id": "bilateral_strict_postauricular_32_32", "allocation": [32, 32], "masks": ["PL", "PR"]},
+      {"id": "bilateral_expanded_periauricular_32_32", "allocation": [32, 32], "masks": ["AL", "AR"]},
+      {"id": "postauricular_forehead_32_32_mirror_pair", "allocation": [32, 32], "mirror_variants": [["PL", "FM"], ["PR", "FM"]]},
+      {"id": "bilateral_forehead_32_32", "allocation": [32, 32], "masks": ["FL", "FR"]},
+      {"id": "bilateral_periorbital_32_32_ocular_sensitivity_only", "allocation": [32, 32], "masks": ["OL", "OR"], "primary_brain_only_acceptance_eligible": false}
+    ],
+    "3": [
+      {"id": "forehead_bilateral_strict_postauricular_22_21_21", "allocation": [22, 21, 21], "masks": ["FM", "PL", "PR"]},
+      {"id": "forehead_bilateral_periauricular_22_21_21", "allocation": [22, 21, 21], "masks": ["FM", "AL", "AR"]},
+      {"id": "three_forehead_22_21_21", "allocation": [22, 21, 21], "masks": ["FM", "FL", "FR"]}
+    ],
+    "4": [
+      {"id": "strict_postauricular_bilateral_forehead_16_each", "allocation": [16, 16, 16, 16], "masks": ["PL", "PR", "FL", "FR"]},
+      {"id": "periauricular_bilateral_forehead_16_each", "allocation": [16, 16, 16, 16], "masks": ["AL", "AR", "FL", "FR"]},
+      {"id": "strict_postauricular_bilateral_periorbital_16_each_ocular_sensitivity", "allocation": [16, 16, 16, 16], "masks": ["PL", "PR", "OL", "OR"]},
+      {"id": "bilateral_ear_superior_inferior_16_each", "allocation": [16, 16, 16, 16], "masks": ["PL_superior", "PR_superior", "PL_inferior", "PR_inferior"], "requires_split_mask_qualification": true}
+    ],
+    "6": [
+      {"id": "strict_postauricular_forehead_periorbital_symmetric", "allocation": [11, 11, 11, 11, 10, 10], "masks": ["PL", "PR", "FL", "FR", "OL", "OR"]},
+      {"id": "periauricular_forehead_periorbital_symmetric", "allocation": [11, 11, 11, 11, 10, 10], "masks": ["AL", "AR", "FL", "FR", "OL", "OR"]},
+      {
+        "id": "bilateral_ear_superior_middle_inferior_symmetric",
+        "allocation": [11, 11, 11, 11, 10, 10],
+        "masks": ["PL_superior", "PR_superior", "PL_middle", "PR_middle", "PL_inferior", "PR_inferior"],
+        "requires_split_mask_qualification": true
+      }
+    ]
+  },
+  "required_prototypes": [
+    {"id": "biosemi64_reference", "regions": null, "allocation": [64], "purpose": "reference_and_identity_check"},
+    {"id": "bilateral_strict_postauricular_32_32", "regions": 2, "allocation": [32, 32], "purpose": "direct_test_of_the_primary_ear_only_question"},
+    {"id": "postauricular_32_forehead_32", "regions": 2, "allocation": [32, 32], "laterality_rule": "evaluate_left_and_right_postauricular_versions", "purpose": "test_cross_head_aperture_against_bilateral_ear_only"},
+    {"id": "bilateral_periauricular_32_32", "regions": 2, "allocation": [32, 32], "purpose": "separate_strict_behind_ear_from_expanded_around_ear"}
+  ],
+  "source_ensemble": {
+    "primary_scope": "whole_cortical_surface_task_agnostic_geometry",
+    "primary_single_source_model": "unit_cortical_surface_normal_dipoles",
+    "surface_weights": "normalized_barycentric_or_Voronoi_vertex_area",
+    "field_reconstruction_covariance": "diagonal_source_covariance_with_normalized_surface_area_weights",
+    "source_energy_renormalization_to_BioSemi64_forbidden": true,
+    "source_grid": "TBD_after_head_model_selection",
+    "source_depth_strata_required_for_secondary_volume_analysis": true,
+    "off_grid_validation_required": true,
+    "multi_source_validation_required": true,
+    "secondary_spatial_prior_strata": [
+      "frontal_weighted",
+      "central_weighted_MI_like",
+      "parietal_weighted_P300_like",
+      "occipital_weighted_SSVEP_like",
+      "temporal_weighted_auditory_like"
+    ],
+    "secondary_strata_are_task_accuracy": false
+  },
+  "noise_model": {
+    "primary": "ideal_equal_physical_electrode_noise_with_one_frozen_scale",
+    "spatial_noise_correlation": "TBD_sensitivity_analysis",
+    "snr_grid_db": "TBD_before_formal_run",
+    "same_latent_sources_across_candidate_and_reference": true,
+    "candidate_and_reference_observation_noise_is_independent_conditional_on_the_source": true,
+    "noise_cross_covariance_is_excluded_from_LMMSE_target_observation_covariance": true,
+    "low_hair_contact_advantage_included": false,
+    "ocular_nuisance_sources": "required_for_periorbital_sensitivity_analysis"
+  },
+  "metrics": {
+    "field_reconstruction": {
+      "clean_target": "z_B_clean_equals_H_B_times_s",
+      "noisy_observation": "y_X_equals_H_X_times_s_plus_epsilon_X",
+      "absolute_score": "F_field_h_equals_one_minus_LMMSE_MSE_divided_by_clean_BioSemi64_field_energy",
+      "relative_retention": "r_field_h_equals_F_field_h_X_divided_by_F_field_h_B",
+      "head_aggregation": "lower_CVaR_10_percent",
+      "clip_relative_retention_to_one": false,
+      "report_absolute_candidate_and_reference_scores": true
+    },
+    "source_sensitivity": {
+      "source_domain": "all_qualified_cortical_surface_normal_unit_dipoles",
+      "per_source_score": "maximum_bipolar_amplitude_X_divided_by_maximum_bipolar_amplitude_B",
+      "source_aggregation": "surface_area_weighted_lower_CVaR_10_percent",
+      "head_aggregation": "lower_CVaR_10_percent",
+      "aggregation_order": "sources_then_heads",
+      "clip_relative_retention_to_one": false,
+      "detectability_quantile_exclusion_allowed": false,
+      "numerical_zero_denominator_rule": "solver_error_bound_only_and_excluded_area_must_not_exceed_0.1_percent"
+    },
+    "source_localization": {
+      "generator": "off_dictionary_cortical_surface_normal_single_dipole_with_model_mismatch_and_noise",
+      "inverse_estimator": "frozen_noise_whitened_single_fixed_normal_dipole_maximum_likelihood_scan_with_coarse_to_fine_continuous_surface_refinement",
+      "primary_error": "Euclidean_source_position_error_mm",
+      "secondary_error": "cortical_geodesic_error_mm",
+      "utility": "max_zero_one_minus_error_divided_by_d_max",
+      "primary_d_max_mm": 50.0,
+      "sensitivity_d_max_mm": [25.0, 75.0],
+      "source_aggregation": "surface_area_weighted_lower_CVaR_10_percent_of_noise_averaged_utility",
+      "head_aggregation": "lower_CVaR_10_percent_of_candidate_to_reference_utility_ratio",
+      "clip_relative_retention_to_one": false,
+      "absolute_outputs": ["median_error_mm", "p90_error_mm", "p95_error_mm", "anatomical_stratum_error_mm"],
+      "local_CRLB_role": "search_diagnostic_not_final_acceptance_endpoint",
+      "multi_source_role": "secondary_robustness_analysis_not_primary_localization_acceptance"
+    },
+    "diagnostics": [
+      "noise_whitened_participation_effective_rank",
+      "smallest_nonzero_singular_values",
+      "condition_number",
+      "per_source_and_per_anatomical_lobe_maps"
+    ],
+    "single_combined_accuracy_allowed": false
+  },
+  "acceptance": {
+    "parameter": "AR",
+    "semantics": "acceptance_threshold_not_accuracy",
+    "valid_interval": "0 < AR <= 1",
+    "display_default_ar": 0.9,
+    "display_default_is_scientific_cutoff": false,
+    "required_metrics": [
+      "field_reconstruction_retention",
+      "cortical_source_sensitivity_retention",
+      "single_source_localization_retention"
+    ],
+    "formal_rule": "one_sided_95_percent_head_bootstrap_lower_confidence_bound_for_every_required_metric_must_reach_AR",
+    "bootstrap_unit": "head_model",
+    "weighted_average_compensation_allowed": false,
+    "report_each_metric_separately": true,
+    "report_absolute_metrics": true,
+    "minimum_test_heads_for_formal_tail_certification": 100,
+    "fewer_heads_rule": "descriptive_estimate_only_no_formal_AR_certification",
+    "no_result_rule": {
+      "packing_failure": "certified_geometric_infeasibility",
+      "strict_performance_bound_below_AR": "certified_performance_infeasibility",
+      "heuristic_best_found_below_AR": "no_passing_layout_found_under_registered_search_budget"
+    }
+  },
+  "optimization": {
+    "problem_class": "nested_continuous_sensor_placement_with_compact_region_constraints",
+    "outer_variables": ["anatomical_domain_or_preset", "region_to_mask_assignment", "region_centers", "region_radius_caps"],
+    "inner_variables": "all_64_surface_electrode_coordinates",
+    "initialization": ["geodesic_Poisson_disk", "centroidal_Voronoi"],
+    "inner_search": ["coordinate_exchange", "point_swap", "repulsion_constrained_local_refinement"],
+    "multiple_deterministic_restarts_required": true,
+    "theoretical_curve": "gamma_R_domain_a_is_the_supremum_over_layouts_with_a_max_no_greater_than_a",
+    "reported_curve": "gamma_hat_R_domain_a_is_the_monotone_best_found_curve_under_the_registered_search_budget",
+    "monotone_implementation_rule": "every_larger_radius_inherits_all_best_layouts_from_smaller_radii",
+    "radius_search": "qualified_coarse_grid_then_refine_verified_pass_transitions; heuristic_nonpass_is_not_a_certified_lower_bracket",
+    "primary_minimum_size_output": "smallest_verified_pass_radius_not_a_global_a_star_without_certificate",
+    "continuous_global_optimum_certificate_claimed": false,
+    "best_found_language_required_without_certificate": true
+  },
+  "validation": {
+    "unit_of_split": "head_model",
+    "training_role": "optimize_centers_sizes_coordinates_and_search_settings",
+    "validation_role": "select_search_settings_and_freeze_one_layout_per_preregistered_comparison",
+    "locked_test_role": "evaluate_each_frozen_layout_once",
+    "same_head_in_multiple_splits_allowed": false,
+    "model_mismatch_required": true,
+    "direct_forward_recalculation_for_finalists_required": true,
+    "reference_invariance_tests_required": true,
+    "candidate_mesh_refinement_tests_required": true,
+    "optimization_restart_stability_required": true,
+    "inverse_estimator_hyperparameters_frozen_before_locked_test": true,
+    "formal_test_head_count": 100,
+    "training_and_validation_head_counts": "TBD_after_pilot_variance_and_compute_benchmark",
+    "multiple_comparison_rule": "layout_selection_occurs_before_locked_test; any_multiple_frozen_hypotheses_require_a_separate_preregistered_adjustment"
+  },
+  "execution_stages": [
+    {"stage": 0, "name": "protocol_and_archive", "status": "complete"},
+    {"stage": 1, "name": "head_surface_and_anatomical_mask_qualification", "status": "not_started"},
+    {"stage": 2, "name": "forward_inverse_and_metric_identity_validation", "status": "not_started"},
+    {"stage": 3, "name": "prototype_pilot_and_radius_curve", "status": "not_started"},
+    {"stage": 4, "name": "full_R_1_2_3_4_6_optimization", "status": "not_started"},
+    {"stage": 5, "name": "locked_unseen_head_and_source_validation", "status": "not_started"},
+    {"stage": 6, "name": "source_prior_robustness_strata", "status": "not_started"}
+  ],
+  "required_outputs": [
+    "gamma_hat_R_domain_radius_cap_curves",
+    "smallest_verified_pass_radius_vs_AR",
+    "region_center_and_actual_size_tables",
+    "all_64_electrode_surface_coordinates",
+    "whole_surface_vs_low_hair_best_found_gap",
+    "strict_postauricular_vs_expanded_periauricular_gap",
+    "bilateral_ear_vs_ear_plus_forehead_gap",
+    "metric_specific_Pareto_fronts",
+    "effective_rank_vs_region_radius",
+    "absolute_localization_error_distributions",
+    "per_source_sensitivity_and_error_maps",
+    "certified_infeasibility_or_search_budget_nonpass_statement_for_each_AR"
+  ],
+  "prohibited_v1_carryovers": [
+    "BioSemi64_only_candidate_domain",
+    "nearest_BioSemi64_nodes_define_a_region",
+    "R_times_m_changes_total_electrode_count",
+    "uint64_subset_mask_as_continuous_layout_identity",
+    "two_by_32_equals_a_new_ear_layout",
+    "old_181582_layout_results",
+    "old_48_electrode_winner",
+    "old_global_identification_results",
+    "tangent_space_as_primary_optimization_space",
+    "whole_brain_claim_from_cortical_surface_only_sources",
+    "heuristic_nonpass_called_infeasible",
+    "computed_best_found_called_a_certified_upper_bound"
+  ],
+  "open_design_gates": [
+    "qualified_anatomical_head_mesh_and_license",
+    "full_head_forward_solver",
+    "low_hair_mask_boundaries_and_split_masks",
+    "minimum_electrode_separation",
+    "primary_and_spatially_correlated_noise_models",
+    "inverse_solver_numerical_tolerances_and_refinement",
+    "formal_AR_reporting_grid_or_continuous_curve",
+    "pilot_based_training_validation_head_counts_and_compute_budget",
+    "ellipse_maximum_aspect_ratio_before_secondary_shape_analysis"
+  ]
+}

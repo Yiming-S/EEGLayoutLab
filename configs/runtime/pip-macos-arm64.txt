@@ -1,0 +1,37 @@
+# Installed versions plus immutable VCS commits and observed GitHub wheel hashes.
+# Install with --no-deps only after conda-osx-arm64.explicit.txt.
+# PyPI versions are pinned; source-build toolchains are not byte-locked.
+BrainNet @ git+https://github.com/simnibs/brainnet@1ee2c2d3dfc47db43b69078c5ce051ba65a99b07
+BrainSynth @ git+https://github.com/simnibs/brainsynth@daaa07b7c3f83fa7b0a5563ec5c1fc6ed78a3b72
+PyQt5-Qt5==5.15.19
+PyQt5==5.15.11
+PyQt5_sip==12.19.0
+cloudpickle==3.1.2
+cortech @ https://github.com/simnibs/cortech/releases/download/v0.1/cortech-0.1-cp311-cp311-macosx_11_0_arm64.whl#sha256=400d9a499faa4b26a89ab33e53befbe3161e621cfb91a009c41d1a30467bf9b2
+filelock==3.32.5
+fmm3dpy @ https://github.com/simnibs/fmm3dpy/releases/download/v1.0.4/fmm3dpy-1.0.4-cp311-cp311-macosx_14_0_arm64.whl#sha256=c5704c04ec5566df1c37da4b1c2e5040ba284ab2ced995f5d0e98831073431a5
+fsspec==2026.7.0
+gmsh==4.14.0
+h5py==3.15.1
+importlib_resources==7.1.0
+joblib==1.6.0
+llvmlite==0.46.0
+ml-dtypes==0.4.1
+mpmath==1.3.0
+narwhals==2.25.0
+networkx==3.6.1
+nibabel==5.3.3
+numba==0.64.0
+pandas==3.0.5
+petsc4py @ https://github.com/simnibs/petsc4py/releases/download/v3.22.2/petsc4py-3.22.2-cp311-cp311-macosx_14_0_arm64.whl#sha256=945f13cf41fbf22bf5fcb55209cd5b37657e243095f1ef6e3d819404476e060c
+pygpc==0.4.4
+pytorch-ignite==0.5.5
+samseg @ https://github.com/oulap/samseg_wheels/releases/download/dev/samseg-0.5a0-cp311-cp311-macosx_14_0_arm64.whl#sha256=d0982b43d28f3605a7f876a00051ba709e49dfe46dc5f118ed3b2227c4dfef4a
+scikit-learn==1.9.0
+simnibs @ https://github.com/simnibs/simnibs/releases/download/v4.6.0/simnibs-4.6.0-cp311-cp311-macosx_11_0_arm64.whl#sha256=fd312341f6de77586f9574458122f4eea2f6d57b9a0ea4ad1b982fee42715dea
+surfa @ git+https://github.com/freesurfer/surfa.git@ec5ddb193fd1caf22ec654c457b5678f6bd8e460
+sympy==1.13.1
+threadpoolctl==3.6.0
+torch==2.6.0
+tqdm==4.70.0
+xxhash==4.0.1
