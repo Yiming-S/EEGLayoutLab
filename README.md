@@ -1,82 +1,30 @@
 # EEG Layout Lab
 
+**[Download for macOS — Apple Silicon](https://drive.google.com/drive/folders/1Ry-neU-oySVoToIt07eFfBnemKrnewmK?usp=sharing)**
+
+For Apple Silicon Macs running **macOS 14 or later**. Download the `.dmg` installer, open it, and drag **EEG Layout Lab** into **Applications**. Then launch the App; the first launch prepares its included environment and model data.
+
+**No separate Python, Node.js, Conda, or model-data installation is required.**
+
+[Installation guide and first-open instructions](desktop/START_HERE.md) · [简体中文安装指南](desktop/START_HERE.zh-CN.md)
+
 EEG Layout Lab is a community-oriented research software project for designing, viewing, and comparing EEG electrode layouts. It includes an interactive 3D head view, layout design, electrode editing, layout comparison, and signal simulation.
 
 [简体中文安装与使用](docs/getting-started.zh-CN.md)
 
-## Requirements
+## Install and open on Mac
 
-- An Apple Silicon Mac running macOS **14 or newer**.
-- Node.js **22.13.0 or newer**, with npm.
-- Python **3.10 or newer**.
-- An Apple Silicon Conda installation with the `conda` command available in Terminal.
-- Git and Apple's Command Line Tools.
-- An internet connection for installing dependencies.
+Use an **Apple Silicon Mac with macOS 14 or newer**.
 
-Use the native Apple Silicon versions of these tools, without Rosetta.
+1. Open the [Google Drive download folder](https://drive.google.com/drive/folders/1Ry-neU-oySVoToIt07eFfBnemKrnewmK?usp=sharing) and download the **`.dmg` desktop installer**.
+2. Open the DMG and drag **EEG Layout Lab.app** into **Applications**. If supplied as a ZIP, extract it and move the App into Applications.
+3. Open **EEG Layout Lab**. The first launch prepares its bundled computation environment and model data, then displays the App.
 
-## First-time setup
+The desktop installer includes the interface, computation environment, model data, and supplied results. No separate Node.js, Python, Conda, or model-data installation is needed. The included simulations run locally, without an internet connection.
 
-### 1. Clone the repository
+For subsequent use, open **EEG Layout Lab** directly from Applications. Quit with **Command + Q**. New results are saved on your Mac.
 
-Open Terminal and run:
-
-```sh
-git clone https://github.com/Yiming-S/EEGLayoutLab.git
-cd EEGLayoutLab
-```
-
-Keep this Terminal window open for the following steps.
-
-### 2. Install the model data
-
-Obtain the matching `eeglayoutlab-data-v1.tar.gz` archive from the project maintainer. The model data is supplied separately from the Git repository.
-
-Create a folder for the archive:
-
-```sh
-mkdir -p releases
-```
-
-Place the archive in that folder, then run from the repository root:
-
-```sh
-python3 scripts/data_bundle.py install releases/eeglayoutlab-data-v1.tar.gz
-python3 scripts/data_bundle.py verify
-```
-
-If the archive is stored elsewhere, replace its path in the install command.
-
-### 3. Install the Python computation environment
-
-From the repository root, run:
-
-```sh
-python3 scripts/bootstrap_runtime.py --execute
-```
-
-Wait for installation and the environment check to finish successfully before continuing. The App selects this environment automatically; no manual Conda activation is needed.
-
-### 4. Install the web dependencies and open the App
-
-```sh
-cd webapp
-npm ci
-npm run dev
-```
-
-Open [http://127.0.0.1:3000](http://127.0.0.1:3000) in your browser. Keep Terminal running while using the App. Press **Control + C** in Terminal to stop it.
-
-## Open the App after installation
-
-From the folder containing your checkout, run:
-
-```sh
-cd EEGLayoutLab/webapp
-npm run dev
-```
-
-Then open [http://127.0.0.1:3000](http://127.0.0.1:3000). You do not need to reinstall the data or dependencies each time.
+See the [desktop quick guide](desktop/START_HERE.md) for installation, first-open system prompts, and saved data.
 
 ## How to use
 
@@ -88,6 +36,10 @@ Then open [http://127.0.0.1:3000](http://127.0.0.1:3000). You do not need to rei
 6. **Documentation → User Guide / Models & Methods:** find instructions and explanations of the displayed metrics.
 
 Use the language control in the upper-right corner to switch between English and Simplified Chinese. **Minimum Required Retention** changes which existing scores meet your requirement; changing it does not start a new calculation. New calculation results are saved locally and can be reopened in the Results Library.
+
+## Work with the source code
+
+For collaborators who want to modify the code, follow the separate [source installation instructions](docs/source-installation.md).
 
 ## Copyright and third-party material
 

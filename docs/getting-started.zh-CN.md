@@ -1,82 +1,30 @@
 # EEG Layout Lab 安装与使用
 
+**[下载 Mac 桌面版 — Apple Silicon](https://drive.google.com/drive/folders/1Ry-neU-oySVoToIt07eFfBnemKrnewmK?usp=sharing)**
+
+适用于 **M 系列芯片 Mac，macOS 14 或更新版本**。下载 `.dmg` 安装包，打开后将 **EEG Layout Lab** 拖入“应用程序”，再双击启动。首次打开会自动准备内置环境和模型数据。
+
+**无需另外安装 Python、Node.js、Conda 或模型数据。**
+
+[安装与首次打开说明](../desktop/START_HERE.zh-CN.md)
+
 EEG Layout Lab 是面向科研社区的研究软件项目，用于设计、查看和比较 EEG 电极布局，提供三维头模、区域设计、电极编辑、方案对比和信号仿真。
 
 [English instructions](../README.md)
 
-## 准备条件
+## 在 Mac 上安装并打开
 
-- Apple Silicon（M 系列芯片）Mac，macOS **14 或更新版本**。
-- Node.js **22.13.0 或更新版本**，以及 npm。
-- Python **3.10 或更新版本**。
-- Apple Silicon 版本的 Conda，且终端中可以运行 `conda` 命令。
-- Git 和 Apple 命令行工具。
-- 安装依赖时需要联网。
+使用 **Apple Silicon（M 系列芯片）Mac，macOS 14 或更新版本**。
 
-使用上述工具的原生 Apple Silicon 版本，不通过 Rosetta 运行。
+1. 打开 [Google Drive 下载文件夹](https://drive.google.com/drive/folders/1Ry-neU-oySVoToIt07eFfBnemKrnewmK?usp=sharing)，下载 **`.dmg` 桌面安装包**。
+2. 打开 DMG，将 **EEG Layout Lab.app** 拖到“应用程序”。如果收到的是 ZIP，解压后将 App 移到“应用程序”。
+3. 打开 **EEG Layout Lab**。首次启动会准备内置计算环境和模型数据，然后显示 App。
 
-## 首次安装
+桌面安装包包含界面、计算环境、模型数据及已有结果，无需另外安装 Node.js、Python、Conda 或模型数据。内置仿真在本机运行，不需要联网。
 
-### 1. 克隆仓库
+以后直接从“应用程序”打开 **EEG Layout Lab**，按 **Command + Q** 退出。新结果保存在这台 Mac 上。
 
-打开终端，运行：
-
-```sh
-git clone https://github.com/Yiming-S/EEGLayoutLab.git
-cd EEGLayoutLab
-```
-
-后续步骤继续在这个终端窗口中操作。
-
-### 2. 安装模型数据
-
-向项目维护者获取匹配的 `eeglayoutlab-data-v1.tar.gz` 数据包。模型数据单独提供，不包含在 Git 仓库中。
-
-先创建存放数据包的文件夹：
-
-```sh
-mkdir -p releases
-```
-
-将数据包放进该文件夹，然后在仓库根目录运行：
-
-```sh
-python3 scripts/data_bundle.py install releases/eeglayoutlab-data-v1.tar.gz
-python3 scripts/data_bundle.py verify
-```
-
-如果数据包在其他位置，将安装命令中的路径替换为实际文件路径。
-
-### 3. 安装 Python 计算环境
-
-在仓库根目录运行：
-
-```sh
-python3 scripts/bootstrap_runtime.py --execute
-```
-
-等待安装和环境检查成功完成，再继续下一步。App 会自动使用该环境，无需手动激活 Conda 环境。
-
-### 4. 安装前端依赖并打开 App
-
-```sh
-cd webapp
-npm ci
-npm run dev
-```
-
-在浏览器打开 [http://127.0.0.1:3000](http://127.0.0.1:3000)。使用期间保持终端运行；结束使用时，在终端按 **Control + C** 停止服务。
-
-## 安装完成后，每次怎么打开
-
-在存放仓库的上一级文件夹中，运行：
-
-```sh
-cd EEGLayoutLab/webapp
-npm run dev
-```
-
-然后在浏览器打开 [http://127.0.0.1:3000](http://127.0.0.1:3000)。不需要每次重新安装数据和依赖。
+安装、首次打开时的系统提示及数据位置，见 [桌面版快速指南](../desktop/START_HERE.zh-CN.md)。
 
 ## 使用顺序
 
@@ -88,6 +36,10 @@ npm run dev
 6. **文档 → 使用指南／建模与原理**：查看操作说明和指标解释。
 
 右上角可切换简体中文和英语。“最低保留要求”用于判断现有评分是否达到要求，修改该值不会启动新计算。新计算结果保存在本机，可从结果库再次打开。
+
+## 修改源代码
+
+需要参与代码开发的合作者，可使用单独的 [源码安装说明](source-installation.zh-CN.md)。
 
 ## 版权与第三方材料
 
