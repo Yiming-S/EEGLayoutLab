@@ -1,63 +1,96 @@
-# EEG Layout Lab 快速开始
+# EEG Layout Lab 安装与使用
 
-EEG Layout Lab 用于在固定头模和源模型下设计、查看和比较 EEG 电极布局。它提供三维头模、区域布局搜索、电极编辑、坐标评价、方案对比和源到电极的信号仿真。
+EEG Layout Lab 是面向科研社区的研究软件项目，用于设计、查看和比较 EEG 电极布局，提供三维头模、区域设计、电极编辑、方案对比和信号仿真。
 
-当前交付为面向 Apple Silicon Mac 的源码协作版，通过本机 Node 服务在浏览器中运行。尚未提供 `.app` 或 DMG，也未完成第二台独立 Mac 的安装验证。
+[English instructions](../README.md)
 
 ## 准备条件
 
-- Node.js 22.13.0 或更新版本，以及 npm。
-- 用于启动安装与数据工具的 Python 3.10 或更新版本。
-- macOS 14 或更新版本、原生 Apple Silicon 进程；固定原生依赖的 wheel 要求该系统版本，安装时不使用 Rosetta。
-- 可运行的 `conda` 命令。
-- Git 和 Apple 命令行构建工具，用于固定版本的源码依赖。
-- 与本仓库 manifest 匹配的 `eeglayoutlab-data-v1.tar.gz`。数据包随本地交付提供或由维护者单独提供，不假定存在公开下载地址。
+- Apple Silicon（M 系列芯片）Mac，macOS **14 或更新版本**。
+- Node.js **22.13.0 或更新版本**，以及 npm。
+- Python **3.10 或更新版本**。
+- Apple Silicon 版本的 Conda，且终端中可以运行 `conda` 命令。
+- Git 和 Apple 命令行工具。
+- 安装依赖时需要联网。
 
-完整计算环境使用 Python 3.11 与 SimNIBS 4.6.0，安装到项目内的 `.runtime/simnibs-4.6.0`。依赖安装需要联网；数据包安装工具仅读取本地归档。
+使用上述工具的原生 Apple Silicon 版本，不通过 Rosetta 运行。
 
-## 安装和启动
+## 首次安装
 
-在仓库根目录运行以下命令。若归档存放在其他位置，将 `releases/eeglayoutlab-data-v1.tar.gz` 替换为实际文件位置。
+### 1. 克隆仓库
+
+打开终端，运行：
+
+```sh
+git clone https://github.com/Yiming-S/EEGLayoutLab.git
+cd EEGLayoutLab
+```
+
+后续步骤继续在这个终端窗口中操作。
+
+### 2. 安装模型数据
+
+向项目维护者获取匹配的 `eeglayoutlab-data-v1.tar.gz` 数据包。模型数据单独提供，不包含在 Git 仓库中。
+
+先创建存放数据包的文件夹：
+
+```sh
+mkdir -p releases
+```
+
+将数据包放进该文件夹，然后在仓库根目录运行：
 
 ```sh
 python3 scripts/data_bundle.py install releases/eeglayoutlab-data-v1.tar.gz
 python3 scripts/data_bundle.py verify
-python3 scripts/bootstrap_runtime.py
+```
+
+如果数据包在其他位置，将安装命令中的路径替换为实际文件路径。
+
+### 3. 安装 Python 计算环境
+
+在仓库根目录运行：
+
+```sh
 python3 scripts/bootstrap_runtime.py --execute
-.runtime/simnibs-4.6.0/bin/python scripts/check_environment.py
-.runtime/simnibs-4.6.0/bin/python scripts/check_environment.py --native
+```
+
+等待安装和环境检查成功完成，再继续下一步。App 会自动使用该环境，无需手动激活 Conda 环境。
+
+### 4. 安装前端依赖并打开 App
+
+```sh
 cd webapp
 npm ci
 npm run dev
 ```
 
-第一次 bootstrap 命令显示安装计划；加上 `--execute` 后创建新环境，不覆盖已有环境。由该工具创建但中断的安装可用 `--execute --resume` 继续，工具会检查原安装身份。`--help` 列出自定义 conda 路径和已有安装资产目录等选项。环境检查不运行新的 FEM 研究仿真，也不构成科学验证。
+在浏览器打开 [http://127.0.0.1:3000](http://127.0.0.1:3000)。使用期间保持终端运行；结束使用时，在终端按 **Control + C** 停止服务。
 
-Node 服务会自动选择当前仓库已安装的 `.runtime/simnibs-4.6.0/bin/python`。在浏览器打开 [http://127.0.0.1:3000](http://127.0.0.1:3000)，使用期间保持终端运行。新任务结果保存在当前仓库的 `results/v2/` 内。
+## 安装完成后，每次怎么打开
 
-开发服务停止后，可在 `webapp` 目录构建并启动本地成品服务：
+在存放仓库的上一级文件夹中，运行：
 
 ```sh
-npm run build
-npm start
+cd EEGLayoutLab/webapp
+npm run dev
 ```
 
-这两个启动入口都包含同源本地计算接口。当前完整功能依赖原生运行环境；不能只安装 NumPy/SciPy 后认定所有编辑与信号仿真入口均可运行。
+然后在浏览器打开 [http://127.0.0.1:3000](http://127.0.0.1:3000)。不需要每次重新安装数据和依赖。
 
 ## 使用顺序
 
-1. 从首页选取已有固定面积记录，查看区域、坐标、指标和数据来源。
-2. 在“布局设计”中设定区域数、位置范围和半径；无匹配记录时明确启动计算。
-3. 在“电极编辑”中修改已保存布局，或在“坐标导入”中提交已配准到 Ernie 原生坐标系的坐标。
-4. 在“方案对比”中查看共同条件下的指标与导出报告。
-5. 在“信号仿真”中固定布局，再选择脑源位置、波形与干扰条件。
+1. **结果库 → 实验总览／布局记录**：选取已保存的布局，查看区域、电极位置和评分。
+2. **布局设计 → 区域设计**：设置区域数量、允许布置范围和最大区域半径，然后启动计算。
+3. **布局设计 → 电极编辑**：打开已保存布局，调整电极位置或启用的电极，再重新计算。使用“坐标导入”可评价已配准到 Ernie 头模坐标系的电极坐标。
+4. **结果库 → 方案对比**：对比所选布局，导出坐标或报告。
+5. **信号仿真**：选择布局，再设置脑源位置、波形和干扰条件，对比接收信号。
+6. **文档 → 使用指南／建模与原理**：查看操作说明和指标解释。
 
-接受阈值 AR 只用于重新判断已有指标，不改变布局或启动新计算。区域数和电极数、几何可行性和性能达标、半径约束和面积约束分别表示不同条件。
+右上角可切换简体中文和英语。“最低保留要求”用于判断现有评分是否达到要求，修改该值不会启动新计算。新计算结果保存在本机，可从结果库再次打开。
 
-## 如何解释结果
+## 版权与第三方材料
 
-当前生产固定面积库包含 30 个条件，使用 4,096 点字典和 256 个生成源。512 个新源的独立复评不替换 App 默认分数。体网格收敛和独立头模验证尚未完成。
+© 2026 Yiming Shen。
 
-标准 64 导的相对值为 100% 是归一化定义。重建保留率、最差 10% 源的幅度保留率和相对定位评分分别评价不同能力，不能解释为 BCI 分类准确率或真实人体采集效果。信号仿真的 ECG/EOG 空间场属于明确设置的假设条件。
-
-详细定义见 [Model and metrics](model-and-metrics.md)，数据管理见 [Data and reproducibility](data-and-reproducibility.md)，测试边界见 [Validation](validation.md)。代码与第三方材料的版权和许可见 [Third-party notices](../THIRD_PARTY_NOTICES.md)。
+项目支持脑电研究、教育与科研协作。原创代码尚未指定通用许可证，第三方软件、头模及数据保留各自的许可条款，详见 [版权与第三方材料说明](../THIRD_PARTY_NOTICES.md)。

@@ -1,32 +1,32 @@
-# EEG Layout Lab web application
+# EEG Layout Lab
 
-The complete setup is in the [root README](../README.md). This directory contains the browser interface and local Node host; Python workers, scientific code, numerical inputs, and new results live in the parent checkout.
+首次安装请按照 [完整安装说明](../README.md) 或 [简体中文指南](../docs/getting-started.zh-CN.md) 完成模型数据和 Python 计算环境的安装。
 
-Node.js 22.13.0 or newer is required. After the data bundle and runtime are installed, run here:
+For first-time setup, follow the [installation instructions](../README.md).
+
+## 首次启动 / First launch
+
+在此 `webapp` 文件夹中运行：
+
+Run from this `webapp` directory:
 
 ```sh
 npm ci
 npm run dev
 ```
 
-Open [http://127.0.0.1:3000](http://127.0.0.1:3000). For a built local application:
+在浏览器打开 / Open in your browser: [http://127.0.0.1:3000](http://127.0.0.1:3000).
+
+## 以后打开 / Subsequent launches
 
 ```sh
-npm run build
-npm start
+npm run dev
 ```
 
-These entry points include the same-origin local computation service. The application uses React, TypeScript, Three.js, and Vinext; it is not a desktop bundle.
+使用期间保持终端运行，结束时按 **Control + C**。
 
-| Directory | Contents |
-| --- | --- |
-| `app/` | Routes |
-| `features/` | Feature workspaces and state controllers |
-| `components/` and `lib/` | Shared views, types, pure logic, and translations |
-| `server/` | Local HTTP and computation services |
-| `scripts/` | Checks, host entry points, and compatibility exports |
-| `public/` | Versioned display geometry and compact data exports |
+Keep Terminal running while using the App. Press **Control + C** to stop it.
 
-Routes include `/` and `/library` for records, `/design` for radius design, `/electrodes` for editing, `/coordinates` for import, `/decision` for comparison, `/reception` for simulation, and `/guide` and `/method` for in-application documentation.
+操作说明见 App 内的“文档 → 使用指南”。右上角可切换简体中文和英语。
 
-See [architecture](../docs/architecture.md) for process boundaries and [contributing](../CONTRIBUTING.md) for unit, type, build, and browser checks.
+In the App, open **Documentation → User Guide** for instructions. Use the upper-right language control to switch between English and Simplified Chinese.
