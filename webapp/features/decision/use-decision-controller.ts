@@ -195,7 +195,7 @@ export function useDecisionController(
   const jobId = job?.id,
     jobStatus = job?.status;
   useEffect(() => {
-    if (!jobId || !jobStatus || !['running', 'cancelling'].includes(jobStatus))
+    if (!jobId || !jobStatus || !['queued', 'running', 'cancelling'].includes(jobStatus))
       return;
     const controller = new AbortController();
     const timer = setInterval(() => {
@@ -221,7 +221,7 @@ export function useDecisionController(
     };
   }, [jobId, jobStatus]);
   const computing =
-    busy || (!!job && ['running', 'cancelling'].includes(job.status));
+    busy || (!!job && ['queued', 'running', 'cancelling'].includes(job.status));
   async function runEvaluation(action: 'evaluate' | 'perturb') {
     if (!design) return;
     const submittedIdentity = JSON.stringify({

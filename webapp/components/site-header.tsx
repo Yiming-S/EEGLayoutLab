@@ -1,4 +1,5 @@
 'use client';
+import { CommunityStatus } from './community-status';
 /* oxlint-disable next/no-html-link-for-pages -- preserve established vinext navigation */
 import { useEffect, useRef, useState } from 'react';
 import { Activity } from 'lucide-react';
@@ -220,6 +221,7 @@ export function SiteHeader({
             </a>
           ))}
         </nav>
+        <CommunityStatus />
         <LanguageSwitch />
       </div>
       <div className="mx-auto max-w-[1500px] px-4 pb-3 sm:px-6 lg:px-8">

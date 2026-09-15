@@ -80,6 +80,7 @@ export type SourceJob = {
   key: string;
   request: SourceRequest;
   status:
+    | 'queued'
     | 'running'
     | 'cancelling'
     | 'completed'

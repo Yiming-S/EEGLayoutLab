@@ -42,7 +42,14 @@ The main Python interfaces are [`local_radius_compute.py`](../src/compact_eeg/lo
 
 The local APIs restrict hosts and origins to loopback, require a session token for writes, and share one computation slot. Workers receive validated inputs rather than shell commands from the browser. Cancellation, timeouts, thread limits, and output limits are enforced by the host and worker entry points.
 
-Input data and outputs currently live under the checkout. The default native Python location is `.runtime/simnibs-4.6.0/bin/python`; `EEG_COMPUTE_PYTHON` selects a server-side Python interpreter for the queue. Native services prefer the project runtime when it exists. This release has no separate user data directory or desktop application bundle.
+For the web source, input data and outputs live under the checkout. The default native Python location is `.runtime/simnibs-4.6.0/bin/python`; `EEG_COMPUTE_PYTHON` selects a server-side Python interpreter for the queue. Native services prefer the project runtime when it exists. The separately packaged desktop wrapper has its own installation and application-data paths.
+
+The web source now uses `community-queue.mjs` for anonymous task ownership and
+a persistent FIFO shared by the four scientific services. Its adapters preserve
+the existing request normalization, cache identity and worker implementations.
+Operational state is stored separately in `results/web-service/`; the header
+shows estimated active browsers and queue counts. See
+[anonymous visitors and scheduling](anonymous-queue.md).
 
 New application records are written to `results/v2/local_app_jobs`, `design_evaluation_jobs`, `electrode_editor_jobs`, `source_reception_jobs`, `source_reception_v2_jobs`, and `reception_forward`. The data bundle supplies frozen inputs and selected records; the application adds its own new outputs locally.
 

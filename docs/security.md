@@ -8,9 +8,14 @@ computation API checks the connecting address, HTTP Host, Origin and Fetch
 Metadata. Mutating requests also require the current session token. Worker
 requests use bounded schemas and a shared execution slot.
 
+Anonymous browser cookies now isolate queue receipts and cancellation rights;
+completed scientific records remain in the existing shared results library.
+See [anonymous visitors and scheduling](anonymous-queue.md) for storage,
+rate limits, IP retention and restart behavior.
+
 Do not expose the local server through port forwarding, a public tunnel or a
-shared network interface. These controls are not a user-account system, and
-neither a public deployment nor multi-user isolation is part of this release.
+shared network interface. Public proxy, HTTPS and origin configuration remain
+a separate deployment step; the current connection checks remain local-only.
 Do not commit environment files, certificates, runtime installations or user jobs.
 
 ## Dependency audit recorded on 2026-09-10

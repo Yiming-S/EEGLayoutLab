@@ -17,7 +17,7 @@ import {
 } from '@/lib/source-reception';
 
 export const running = (job: SourceJob | null) =>
-  Boolean(job && ['running', 'cancelling'].includes(job.status));
+  Boolean(job && ['queued', 'running', 'cancelling'].includes(job.status));
 type SourceResponse = { job: SourceJob; error?: string; hit?: boolean };
 
 export function useReceptionController() {

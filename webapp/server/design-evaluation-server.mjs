@@ -342,6 +342,20 @@ export class DesignEvaluationService {
   normalize(raw) { return normalizeDesignRequest(raw); }
   validate(result, request, admission) { return validateDesignResult(result, request, admission); }
   workerInput(j) { return j.request; }
+  async lookup(raw, context) {
+    const request = this.normalize(raw), ctx = context ?? await this.context(request);
+    const directory = join(this.root, this.directoryName || 'results/v2/design_evaluation_jobs', ctx.key);
+    try {
+      const cache = JSON.parse(await readFile(join(directory, 'cache.json'), 'utf8'));
+      if (cache.key !== ctx.key || hash(cache.result) !== cache.result_sha256) return { hit: false };
+      this.validate(cache.result, request, ctx.admission);
+      return { hit: true, job: this.view({ id: randomUUID(), key: ctx.key, request, ctx,
+        status: 'completed', progress: 1, message: '设计评价已完成', result: cache.result, cached: true }) };
+    } catch (e) {
+      if (['EACCES', 'EPERM'].includes(e.code)) throw e;
+      return { hit: false };
+    }
+  }
   async submit(raw) {
     if (this.disposed) throw new Error('本地服务正在重启');
     const request = this.normalize(raw);

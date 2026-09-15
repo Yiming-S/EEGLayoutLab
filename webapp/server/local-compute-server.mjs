@@ -11,6 +11,8 @@ import { SourceReceptionService } from './source-reception-server.mjs';
 import { experimentBundle } from './experiment-bundle.mjs';
 import { DesignEvaluationService } from './design-evaluation-server.mjs';
 import { ElectrodeEditorService } from './electrode-editor-server.mjs';
+import { CommunityQueue, communityMiddleware } from './community-queue.mjs';
+import { communityAdapters } from './community-adapters.mjs';
 
 export const MASK_CODES = ['PL', 'PR', 'AL', 'AR', 'FL', 'FM', 'FR', 'OL', 'OR'];
 const RUNNING = new Set(['queued', 'running', 'cancelling']);
@@ -360,10 +362,14 @@ export function createLocalComputeService(repositoryRoot) {
   queue.sources = new SourceReceptionService(queue);
   queue.designTests = new DesignEvaluationService(queue);
   queue.editor = new ElectrodeEditorService(queue);
+  const scheduler = new CommunityQueue({ directory: join(repositoryRoot, 'results/web-service'),
+    adapters: communityAdapters(queue, normalizeRequest) });
   return {
     queue,
-    middleware: computeMiddleware(queue),
+    scheduler,
+    middleware: communityMiddleware({ scheduler, queue, legacy: computeMiddleware(queue), guard: loopbackRequest, send, tokenMatches }),
     dispose() {
+      scheduler.dispose();
       queue.sources.dispose();
       queue.designTests.dispose();
       queue.editor.dispose();
