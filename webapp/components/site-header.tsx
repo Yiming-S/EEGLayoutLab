@@ -17,7 +17,6 @@ import {
   routeSelection,
   selectionHref,
   navigationAR,
-  layoutCapabilities,
   type WorkspaceSelection,
 } from '@/lib/workspace-navigation';
 
@@ -133,13 +132,9 @@ export function SiteHeader({
     reception: links.reception,
     docs: group === 'docs' ? here : links.guide,
   };
-  const capabilities = layoutCapabilities(record, selection);
   const channels =
     selection.channels ??
     (selection.phase === 'saved' ? record?.layout?.xyzMm.length : undefined);
-  const regions =
-    selection.regions ??
-    (selection.phase === 'saved' ? record?.region_count : undefined);
   const needsRecord = selection.phase === 'saved' && !!selection.id && !record;
   const blockedLink = (href: string) =>
     needsRecord &&
@@ -180,7 +175,7 @@ export function SiteHeader({
       ref={headerRef}
       className="sticky top-0 z-40 border-b border-[#d6e1df] bg-[#f7faf8]/95 backdrop-blur-xl"
     >
-      <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 sm:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5 sm:px-6 lg:px-8">
         <a
           href={links.compare}
           aria-label={tx('EEG Layout Lab · 返回已有结果')}
@@ -200,7 +195,7 @@ export function SiteHeader({
         </a>
         <nav
           aria-label={tx('主导航')}
-          className="order-3 flex w-full gap-1 overflow-x-auto rounded-xl border border-[#dbe4e1] bg-white/85 p-1 lg:order-none lg:ml-auto lg:w-auto"
+          className="order-3 flex w-full gap-1 overflow-x-auto rounded-lg bg-white/85 p-1 xl:order-none xl:ml-auto xl:w-auto"
         >
           {WORKSPACES.map((p) => (
             <a
@@ -221,14 +216,13 @@ export function SiteHeader({
             </a>
           ))}
         </nav>
-        <CommunityStatus />
-        <LanguageSwitch />
+        <div className="ml-auto flex items-center gap-3 xl:ml-0"><CommunityStatus /><LanguageSwitch /></div>
       </div>
-      <div className="mx-auto max-w-[1500px] px-4 pb-3 sm:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-x-5 gap-y-2 px-4 pb-2 sm:px-6 lg:px-8">
         {WORKSPACE_TABS[group].length > 0 && (
           <nav
             aria-label={tx('工作区工具')}
-            className="mb-2 flex gap-1 overflow-x-auto border-t border-[#dbe4e1] pt-2"
+            className="flex max-w-full shrink-0 gap-1 overflow-x-auto"
           >
             {WORKSPACE_TABS[group].map(([id, label]) => (
               <a
@@ -250,9 +244,9 @@ export function SiteHeader({
         )}
         <div
           aria-label={tx('当前布局')}
-          className="flex flex-wrap items-center justify-between gap-x-5 gap-y-2 rounded-lg border bg-white px-3 py-2 text-sm"
+          className="flex min-w-0 flex-1 items-center justify-end gap-x-3 gap-y-1 text-sm"
         >
-          <div className="min-w-0">
+          <div className="min-w-0 truncate" title={record && selection.phase === 'saved' ? `${localizedRecordTitle(record, locale)} · ${tx(stateLabel)}` : tx(stateLabel)}>
             <span className="font-semibold">{tx('当前布局')} · </span>
             {record && selection.phase === 'saved'
               ? localizedRecordTitle(record, locale)
@@ -263,50 +257,16 @@ export function SiteHeader({
                 · {channels} {tx('电极')}
               </span>
             )}
-            {regions != null && (
-              <span>
-                {' '}
-                · {regions} {tx('区域')}
-              </span>
-            )}
-            {record && selection.phase === 'saved' && (
-              <span className="ml-2 text-muted-foreground">
-                {tx(stateLabel)}
-              </span>
-            )}
             {selection.phase === 'edited' && (
               <span className="ml-2 text-muted-foreground">
                 {tx('编辑结果不进入固定64点信号协议')}
               </span>
             )}
           </div>
-          <div className="flex flex-wrap gap-x-4 gap-y-2">
+          <div className="shrink-0">
             <a className="text-primary underline" href={'/library?ar=' + ar}>
               {tx('更换布局')}
             </a>
-            {selection.id && (
-              <a
-                className="text-primary underline"
-                href={'/library?record=' + selection.id + '&ar=' + ar}
-              >
-                {tx('查看来源')}
-              </a>
-            )}
-            {capabilities.edit && current !== 'electrodes' && (
-              <a className="text-primary underline" href={links.electrodes}>
-                {tx('编辑当前布局')}
-              </a>
-            )}
-            {capabilities.compare && current !== 'decision' && (
-              <a className="text-primary underline" href={links.decision}>
-                {tx('对比当前布局')}
-              </a>
-            )}
-            {capabilities.reception && current !== 'reception' && (
-              <a className="text-primary underline" href={links.reception}>
-                {tx('仿真当前布局')}
-              </a>
-            )}
           </div>
         </div>
       </div>

@@ -98,7 +98,7 @@ export default function MethodPage() {
           <a className="text-primary underline underline-offset-4" href="#simulation-sources">{tx(simulationCopy.modelLink.source)}</a>
           <p className="text-base leading-7">{tx("接收仿真固定使用所选记录的原坐标，不执行新布局优化或表面准入审核。列表中的“历史布局”沿用原坐标协议，其结果不归入当前表面筛选下的布局比较；原记录及原多源分析继续可读。")}</p>
           <Formula>ẑX(t) = AX yX(t)；eX(t) = ẑX(t) − z(t)</Formula>
-          <p className="text-base leading-7">{tx("接收电位采用各布局64通道平均参考。两侧的电极颜色表示这一参考定义下实际坐标处的电位，单位μV；蓝为负、红为正，两侧及全部预览时间共用同一色标。接收图使用各自坐标；重建图和残差图均使用标准64平均参考目标场。点间不插值。黄色标记显示真实源位置，原始法向箭头只在记录包含方向时显示。")}</p>
+          <p className="text-base leading-7">{tx("接收电位采用各布局64通道平均参考。两侧的电极颜色表示这一参考定义下实际坐标处的电位，单位μV；蓝为负、红为正，两侧及全部预览时间共用同一色标。接收图使用各自坐标；重建图和残差图均使用标准64平均参考目标场。点间不插值。")}{' '}{tx('S编号标记为实际源点，颜色与所属源区域一致；选中源的曲线使用同色。')}</p>
           <p className="text-base leading-7">{tx("拖动时间或播放更新同一时刻的电位；点击电极选择通道，点击源选择源波形。动画读取抗混叠降采样后的50Hz、8秒预览，正式评分始终来自200Hz、20秒完整模拟。它展示准静态电位，不表示信号沿头皮传播。")}</p>
           <p className="text-base leading-7">{tx("“方案对比”中的坐标评价完成后，可进入源—接收仿真。新坐标使用已保存的实际评价坐标，首次运行直接求解FEM并归档64×4352前向矩阵。后续源场景复用该矩阵，源或干扰改变时只重算信号。原多源缓存、新源场景缓存与新坐标前向缓存分别保存。")}</p>
           <p className="text-sm leading-6 text-muted-foreground">{tx("流程组织参考 ")}<a className="text-primary underline" href="https://github.com/TBBL-UTHealth/SEPIO">SEPIO</a>{tx("，源—场交互参考 ")}<a className="text-primary underline" href="https://github.com/mne-tools/dipole-simulator">MNE Dipole Simulator</a>{tx("。本项目保持固定64电极的空间集中研究及原指标定义，未移植这两个项目的优化目标或程序代码。")}</p>

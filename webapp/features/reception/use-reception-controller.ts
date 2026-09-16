@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { safeReturnHref } from '@/lib/ui-language';
 import { parseAR } from '@/lib/lab-workflow';
 import type { LocalLibrary } from '@/lib/local-library';
+import { canonicalSourceRegions, type SourceRegionId } from '@/lib/source-regions';
 import {
   BRAIN_REGIONS,
   sourceKey,
@@ -30,10 +31,11 @@ export function useReceptionController() {
     [scale, setScale] = useState(1),
     [seed, setSeed] = useState(2026),
     [ar, setAR] = useState(90);
-  const [mode, setMode] = useState<'multi_source' | 'single_source'>(
+  const [mode, setMode] = useState<'multi_source' | 'single_source' | 'cross_region'>(
     'multi_source',
   );
   const [singleIndex, setSingleIndex] = useState(0);
+  const [crossRegions, setCrossRegions] = useState<SourceRegionId[]>(['frontal', 'occipital']);
   const [catalog, setCatalog] = useState<SourceCatalog | null>(null);
   const [catalogError, setCatalogError] = useState('');
   const [back, setBack] = useState('/design'),
@@ -61,12 +63,13 @@ export function useReceptionController() {
       setScale(1);
       setSeed(2026);
       setSingleIndex(0);
+      setCrossRegions(q.has('sources') ? canonicalSourceRegions((q.get('sources') ?? '').split(',')) : ['frontal', 'occipital']);
       setId(value);
       setAR(parseAR(q.get('ar')));
       setMode(
         q.get('sourceMode') === 'single_source'
           ? 'single_source'
-          : 'multi_source',
+          : q.get('sourceMode') === 'cross_region' ? 'cross_region' : 'multi_source',
       );
       if (
         q.has('source') &&
@@ -127,7 +130,7 @@ export function useReceptionController() {
     return () => c.abort();
   }, [retry]);
   useEffect(() => {
-    if (mode !== 'single_source') return;
+    if (mode === 'multi_source') return;
     const c = new AbortController();
     fetch('/api/source-reception/catalog', {
       signal: c.signal,
@@ -158,12 +161,12 @@ export function useReceptionController() {
   );
   const selected = records.find((r) => r.id === id);
   const request = useMemo<SourceRequest>(() => {
-    const common = { record_id: id, waveform, artifact_scale: scale, seed };
-    return mode === 'single_source'
+    const common = { record_id: id, waveform, artifact_scale: scale, seed, region_definition: 'dk40-six-roi-v1' as const };
+    return mode === 'cross_region'
+      ? { ...common, mode, brain_regions: canonicalSourceRegions(crossRegions) }
+      : mode === 'single_source'
       ? { ...common, mode, source_index: singleIndex }
-      : selected?.dataset_id === 'design_evaluation'
-        ? { ...common, mode, brain_region: region }
-        : { ...common, brain_region: region };
+      : { ...common, mode, brain_region: region };
   }, [
     id,
     region,
@@ -172,9 +175,11 @@ export function useReceptionController() {
     seed,
     mode,
     singleIndex,
+    crossRegions,
     selected?.dataset_id,
   ]);
   const key = sourceKey(request);
+  const validSources = mode !== 'cross_region' || crossRegions.length > 0;
   const job =
     active && sourceKey(active.request) === key
       ? active
@@ -188,12 +193,12 @@ export function useReceptionController() {
       ? job.result
       : null;
   const returnHref = sourceBackLink(back, ar);
-  const here = `/reception?record=${id}&ar=${ar}&region=${region}&wave=${waveform}&scale=${scale}&seed=${seed}&sourceMode=${mode}&source=${singleIndex}&returnTo=${encodeURIComponent(returnHref)}`;
+  const here = `/reception?record=${id}&ar=${ar}&region=${region}&wave=${waveform}&scale=${scale}&seed=${seed}&sourceMode=${mode}&source=${singleIndex}${mode === 'cross_region' ? '&sources=' + encodeURIComponent(canonicalSourceRegions(crossRegions).join(',')) : ''}&returnTo=${encodeURIComponent(returnHref)}`;
   useEffect(() => {
     if (ready) window.history.replaceState(null, '', here);
   }, [ready, here]);
   useEffect(() => {
-    if (!token || !selected || !ready) return;
+    if (!token || !selected || !ready || !validSources) return;
     const c = new AbortController();
     const timer = setTimeout(async () => {
       try {
@@ -229,7 +234,7 @@ export function useReceptionController() {
       clearTimeout(timer);
       c.abort();
     };
-  }, [key, token, selected, ready]);
+  }, [key, token, selected, ready, validSources]);
   const busy = running(active);
   const activeId = active?.id;
   const activeRequestKey = active ? sourceKey(active.request) : '';
@@ -276,7 +281,7 @@ export function useReceptionController() {
     };
   }, [activeId, activeRequestKey, busy]);
   const submit = async () => {
-    if (!selected || busy || submitting || !token) return;
+    if (!selected || busy || submitting || !token || !validSources) return;
     setSubmitting(true);
     setError({ key, message: '' });
     try {
@@ -330,6 +335,9 @@ export function useReceptionController() {
     setAR,
     mode,
     setMode,
+    crossRegions,
+    setCrossRegions,
+    validSources,
     singleIndex,
     setSingleIndex,
     catalog,

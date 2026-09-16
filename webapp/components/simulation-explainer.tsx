@@ -4,6 +4,8 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useLanguage } from '@/components/language-provider';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import copy from '@/lib/i18n/simulation-catalog.json';
+import regionCopy from '@/lib/i18n/source-regions-catalog.json';
+import roiDefinition from '@/public/models/ernie/source-roi-definition.json';
 import { SIMULATION_SECTIONS, type SIMULATION_DETAIL_IDS } from '@/lib/simulation-guide';
 
 type CopyKey = keyof typeof copy;
@@ -99,6 +101,15 @@ export function SimulationExplainer() {
         [tx('信号仿真'), text('waveformUse')],
       ]} />
       <p className="rounded-xl border border-primary/20 bg-primary/5 p-4 font-medium text-foreground">{text('distinction')}</p>
+      <section id="simulation-source-regions" className="scroll-mt-40 space-y-3 rounded-xl border p-4">
+        <h4 className="font-semibold text-foreground">{tx(regionCopy.methodTitle.source)}</h4>
+        <p>{tx(regionCopy.methodBody.source)}</p>
+        <details className="rounded-lg border p-3"><summary className="cursor-pointer font-medium">{tx(regionCopy.atlasTable.source)}</summary>
+          <ModelTable label={tx(regionCopy.atlasTable.source)} headers={[tx(regionCopy.partition.source), tx(regionCopy.atlasLabels.source)]} rows={roiDefinition.groups.map(group => [tx(group.label), group.parcels.join(', ')])} />
+          <p className="text-sm"><a className={linkClass} href="https://doi.org/10.1016/j.neuroimage.2006.01.021">Desikan et al., 2006</a> · <a className={linkClass} href="/models/ernie/source-roi.json" target="_blank" rel="noreferrer">{tx(regionCopy.atlasSource.source)}</a></p>
+        </details>
+        <p>{tx(regionCopy.methodPower.source)}</p>
+      </section>
       <ModelDetails id="simulation-prior-details" title={text('priorDetails')}>
         <p>{text('sourceSampling')}</p>
         <ModelFormula label={text('covarianceLabel')}>

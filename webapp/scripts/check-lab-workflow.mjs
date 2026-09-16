@@ -235,7 +235,9 @@ void test('metric names stay consistent across current and historical scores; un
   for (const v of ['1', '9']) assert.equal(parseAR(v), 90);
   assert.equal(parseAR('10'), 10); assert.equal(parseAR('100'), 100);
   const card = await readFile('components/performance-summary.tsx', 'utf8');
-  assert.ok(card.includes('Number.isFinite(value)'));
+  const reading = await readFile('lib/performance-reading.ts', 'utf8');
+  assert.ok(card.includes('performanceReading(metrics, ar)'));
+  assert.ok(reading.includes('Number.isFinite(value)'));
   assert.ok(card.includes("!valid ? '无法判断'"));
 });
 

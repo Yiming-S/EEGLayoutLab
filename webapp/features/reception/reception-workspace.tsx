@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { SiteHeader } from '@/components/site-header';
 
 import { BRAIN_REGIONS, sourceKey } from '@/lib/source-reception';
+import { SOURCE_REGIONS, canonicalSourceRegions } from '@/lib/source-regions';
 
 import { useReceptionController, running } from './use-reception-controller';
 import { ExperimentResult } from './experiment-result';
@@ -33,6 +34,9 @@ export default function ReceptionPage() {
     setAR,
     mode,
     setMode,
+    crossRegions,
+    setCrossRegions,
+    validSources,
     singleIndex,
     setSingleIndex,
     catalog,
@@ -114,7 +118,10 @@ export default function ReceptionPage() {
               aria-pressed={mode === 'multi_source'}
               onClick={() => setMode('multi_source')}
             >
-              {tx('区域多源场景（原有模式）')}
+              {tx('区域内6源')}
+            </Button>
+            <Button variant={mode === 'cross_region' ? 'default' : 'outline'} aria-pressed={mode === 'cross_region'} onClick={() => setMode('cross_region')}>
+              {tx('跨区域多源（1–6源）')}
             </Button>
             <Button
               variant={mode === 'single_source' ? 'default' : 'outline'}
@@ -126,11 +133,30 @@ export default function ReceptionPage() {
           </div>
           <p className="mt-3 text-sm leading-6">
             {tx(
-              mode === 'single_source'
+              mode === 'cross_region'
+                ? '选择1–6个源区域，每区启用一个固定生成源。源点使用皮层法向；共享节律与各自波动叠加。总源均方能量固定，各源均分，不随选中数量增加。'
+                : mode === 'single_source'
                 ? '从256个已冻结、不同于反演字典网格的生成源中选择一个位置。方向使用原皮层法向，重建器仍使用全脑源先验。每个源单独保存结果，不改变布局的全脑指标。'
-                : '保留原来的区域内6源场景、节律/间歇波形和四组干扰对照。已有前向库布局继续读取原版本缓存。',
+                : '在所选DK图谱研究区内选择6个固定生成源。节律/间歇波形和四组干扰对照保持不变；新分区结果使用独立缓存。',
             )}
           </p>
+          {mode === 'cross_region' && <fieldset className="mt-4">
+            <legend className="text-sm font-medium">{tx('选择发出信号的区域')} · {crossRegions.length}/6</legend>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {SOURCE_REGIONS.map(item => <label key={item.id} className="flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm">
+                <input type="checkbox" className="size-4 accent-primary" checked={crossRegions.includes(item.id)} onChange={e => setCrossRegions(canonicalSourceRegions(e.target.checked ? [...crossRegions, item.id] : crossRegions.filter(id => id !== item.id)))} />
+                <span aria-hidden="true" className="size-3 shrink-0 rounded" style={{ backgroundColor: item.color }} />
+                {tx(item.label)}
+              </label>)}
+            </div>
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">{tx('颜色对应DK图谱标签定义的六个研究区，与透视图中的分区和实际选源一致。')}</p>
+            {!validSources && <output className="mt-2 block text-sm text-amber-800">{tx('至少选择一个源区域才能运行。')}</output>}
+            {catalog?.cross_region_representatives && <details className="mt-2 text-xs leading-6 text-muted-foreground">
+              <summary className="cursor-pointer">{tx('查看所选生成源坐标')}</summary>
+              {catalog.cross_region_representatives.filter(s => crossRegions.includes(s.source_region)).map((s, i) => <p key={s.source_region}>S{i + 1} · {tx(SOURCE_REGIONS.find(r => r.id === s.source_region)!.label)} · {tx('源')}{s.generation_source_index} · ({s.xyz_mm.map(v => v.toFixed(1)).join(', ')}) mm</p>)}
+            </details>}
+            {catalogError && <output className="mt-2 block text-xs"><RuntimeMessage message={catalogError} /></output>}
+          </fieldset>}
           {tx(
             mode === 'single_source' && (
               <label className="lab-label mt-3 block">
@@ -148,7 +174,7 @@ export default function ReceptionPage() {
                       catalog.sources.map((s) => (
                         <option key={s.id} value={s.id}>
                           {tx('源')}
-                          {tx(s.id)} · (
+                          {tx(s.id)} · {tx(SOURCE_REGIONS.find(r => r.id === s.roi_id)?.label ?? '其他皮层或分区边界')} · (
                           {tx(s.xyz_mm.map((v) => v.toFixed(1)).join(', '))}) mm
                         </option>
                       ))
@@ -210,7 +236,7 @@ export default function ReceptionPage() {
               )}
             </select>
           </label>
-          <label className="lab-label" hidden={mode === 'single_source'}>
+          <label className="lab-label" hidden={mode !== 'multi_source'}>
             {tx('2 · 模拟脑源位置')}
             <select
               className="lab-select"
@@ -291,7 +317,7 @@ export default function ReceptionPage() {
           <div className="md:col-span-3 xl:col-span-6 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
             <div className="text-sm text-muted-foreground">
               {tx(
-                lookup.key === key
+                !validSources ? '至少选择一个源区域才能运行。' : lookup.key === key
                   ? lookup.message
                   : selected
                     ? '查询相同源场景的缓存…'
@@ -331,7 +357,7 @@ export default function ReceptionPage() {
               )}
               <Button
                 onClick={submit}
-                disabled={!selected || !ready || !token || busy || submitting}
+                disabled={!selected || !ready || !token || busy || submitting || !validSources}
               >
                 {tx(
                   submitting

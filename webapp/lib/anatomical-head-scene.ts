@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import biosemiReference from '@/lib/biosemi64-reference.json';
 import { mriMmToDisplay, type XYZ } from '@/lib/fixed64-results';
 import { surfacePatchGeometry } from '@/lib/surface-patches';
+import { SOURCE_REGIONS, SOURCE_ROI_DEFINITION, UNASSIGNED_SOURCE_COLOR, sourceRegion } from '@/lib/source-regions';
 
 export type DomainMode = 'whole_surface' | 'low_hair' | 'preset';
 export type ViewName = 'oblique' | 'front' | 'left' | 'right' | 'back' | 'top';
@@ -21,6 +22,7 @@ export type LayoutOptions = {
   radiusCm: number;
   sourceXyzMm?: XYZ[];
   sourceNormals?: XYZ[];
+  sourceRegions?: (string | null)[];
   selectedSource?: number;
   onSourceSelect?: (index: number) => void;
   electrodeValues?: number[];
@@ -56,6 +58,8 @@ type MeshDescriptor = {
   file: string;
   attributes: { position: Attribute; normal: Attribute };
   index: Attribute;
+  sha256?: string;
+  groups?: { start: number; count: number; materialIndex: number }[];
 };
 type Manifest = { meshes: MeshDescriptor[] };
 type SurfacePoint = {
@@ -120,7 +124,12 @@ function anchors(options: LayoutOptions) {
 function releaseGroup(root: THREE.Object3D) {
   const geometries = new Set<THREE.BufferGeometry>();
   const materials = new Set<THREE.Material>();
+  const textures = new Set<THREE.Texture>();
   root.traverse((object) => {
+    if (object instanceof THREE.Sprite) {
+      materials.add(object.material);
+      if (object.material.map) textures.add(object.material.map);
+    }
     if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
       geometries.add(object.geometry);
       (Array.isArray(object.material)
@@ -130,6 +139,7 @@ function releaseGroup(root: THREE.Object3D) {
     }
   });
   geometries.forEach((g) => g.dispose());
+  textures.forEach((t) => t.dispose());
   materials.forEach((m) => m.dispose());
   root.clear();
 }
@@ -137,6 +147,10 @@ async function loadGeometry(descriptor: MeshDescriptor, signal: AbortSignal) {
   const response = await fetch(`/models/ernie/${descriptor.file}`, { signal });
   if (!response.ok) throw new Error('解剖模型文件加载失败');
   const buffer = await response.arrayBuffer();
+  if (descriptor.sha256) {
+    const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', buffer))).map(b => b.toString(16).padStart(2, '0')).join('');
+    if (hash !== descriptor.sha256) throw new Error('Atlas surface checksum mismatch');
+  }
   const geometry = new THREE.BufferGeometry();
   const { position, normal } = descriptor.attributes;
   geometry.setAttribute(
@@ -163,6 +177,7 @@ async function loadGeometry(descriptor: MeshDescriptor, signal: AbortSignal) {
       1,
     ),
   );
+  if (descriptor.groups) applySourceRoiGroups(geometry, descriptor.groups);
   // Source XYZ remain right / anterior / superior. One display unit = 100 mm.
   // Transform positions only; geometry.scale would quantize packed Int8 normals.
   const xyz = geometry.getAttribute('position');
@@ -176,11 +191,13 @@ export async function loadHeadAssets(signal: AbortSignal) {
   const response = await fetch('/models/ernie/manifest.json', { signal });
   if (!response.ok) throw new Error('解剖模型索引加载失败');
   const manifest = (await response.json()) as Manifest;
-  const descriptors = ['scalp', 'cortex'].map((id) => {
-    const descriptor = manifest.meshes.find((mesh) => mesh.id === id);
-    if (!descriptor) throw new Error('解剖模型缺少头皮或脑表面');
-    return descriptor;
-  });
+  const roiResponse = await fetch('/models/ernie/source-roi.json', { signal });
+  if (!roiResponse.ok) throw new Error('Atlas surface index unavailable');
+  const atlas = await roiResponse.json() as { definition_id: string; mesh: MeshDescriptor };
+  if (atlas.definition_id !== SOURCE_ROI_DEFINITION || !atlas.mesh.groups || !atlas.mesh.sha256) throw new Error('Atlas surface definition mismatch');
+  const scalpDescriptor = manifest.meshes.find(mesh => mesh.id === 'scalp');
+  if (!scalpDescriptor) throw new Error('解剖模型缺少头皮或脑表面');
+  const descriptors = [scalpDescriptor, atlas.mesh];
   const results = await Promise.allSettled(
     descriptors.map((descriptor) => loadGeometry(descriptor, signal)),
   );
@@ -197,6 +214,19 @@ export async function loadHeadAssets(signal: AbortSignal) {
     (result) => result.value,
   );
 }
+export function applySourceRoiGroups(geometry: THREE.BufferGeometry, groups: { start: number; count: number; materialIndex: number }[]) {
+  // Whole native triangles have atlas-defined labels. No coordinate partition,
+  // vertex color interpolation, smoothing, or mutation of source positions.
+  let end = 0;
+  if (groups.length !== 7) throw new Error('Atlas requires six ROIs plus unassigned cortex');
+  for (const [index, group] of groups.entries()) {
+    if (group.materialIndex !== index || group.start !== end || !Number.isInteger(group.count) || group.count < 0 || group.count % 3) throw new Error('Invalid atlas mesh groups');
+    end += group.count;
+  }
+  if (end !== geometry.index?.count) throw new Error('Atlas groups do not cover the native mesh');
+  geometry.clearGroups();
+  for (const group of groups) geometry.addGroup(group.start, group.count, group.materialIndex);
+}
 export function createHeadScene(
   host: HTMLDivElement,
   scalpGeometry: THREE.BufferGeometry,
@@ -205,6 +235,10 @@ export function createHeadScene(
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(32, 1, 0.05, 50);
   camera.up.copy(UP);
+  // A fixed overview uses the same scene and renderer, not another asset load
+  // or WebGL context. The main camera remains the only interactive camera.
+  const rearCamera = new THREE.PerspectiveCamera(32, 1, 0.05, 50);
+  rearCamera.up.copy(UP);
   const renderer = new THREE.WebGLRenderer({
     antialias: true,
     alpha: true,
@@ -214,6 +248,7 @@ export function createHeadScene(
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.2;
+  renderer.autoClear = false;
   const canvas = renderer.domElement;
   canvas.setAttribute(
     'aria-label',
@@ -229,6 +264,8 @@ export function createHeadScene(
     touchAction: 'none',
   });
   host.appendChild(canvas);
+  canvas.dataset.referenceShape = 'square';
+  canvas.dataset.layoutShape = 'circle';
   const controls = new OrbitControls(camera, canvas);
   controls.enableDamping = true;
   controls.dampingFactor = 0.09;
@@ -256,11 +293,7 @@ export function createHeadScene(
   const scalp = new THREE.Mesh(scalpGeometry, skinMaterial);
   const cortex = new THREE.Mesh(
     cortexGeometry,
-    new THREE.MeshStandardMaterial({
-      color: '#c8858a',
-      roughness: 0.85,
-      side: THREE.DoubleSide,
-    }),
+    [UNASSIGNED_SOURCE_COLOR, ...SOURCE_REGIONS.map(r => r.color)].map(color => new THREE.MeshStandardMaterial({ color, roughness: 0.85, side: THREE.DoubleSide })),
   );
   cortex.visible = false;
   scene.add(scalp, cortex);
@@ -291,21 +324,27 @@ export function createHeadScene(
     const contact = new THREE.Group(),
       radius = referencePoint ? 0.033 : 0.025;
     const pad = new THREE.Mesh(
-      new THREE.CylinderGeometry(radius * 1.16, radius * 1.16, 0.008, 20),
+      referencePoint
+        ? new THREE.BoxGeometry(radius * 2.32, 0.008, radius * 2.32)
+        : new THREE.CylinderGeometry(radius * 1.16, radius * 1.16, 0.008, 20),
       new THREE.MeshStandardMaterial({ color: '#eee8e1', roughness: 0.82 }),
     );
     const rim = new THREE.Mesh(
-      new THREE.TorusGeometry(radius * 0.75, radius * 0.23, 8, 20),
+      referencePoint
+        ? new THREE.BoxGeometry(radius * 1.75, 0.012, radius * 1.75)
+        : new THREE.TorusGeometry(radius * 0.75, radius * 0.23, 8, 20),
       new THREE.MeshStandardMaterial({
         color,
         roughness: 0.38,
         metalness: referencePoint ? 0.28 : 0.12,
       }),
     );
-    rim.rotation.x = Math.PI / 2;
+    if (!referencePoint) rim.rotation.x = Math.PI / 2;
     rim.position.y = 0.01;
     const center = new THREE.Mesh(
-      new THREE.CylinderGeometry(radius * 0.41, radius * 0.41, 0.012, 16),
+      referencePoint
+        ? new THREE.BoxGeometry(radius, 0.012, radius)
+        : new THREE.CylinderGeometry(radius * 0.41, radius * 0.41, 0.012, 16),
       new THREE.MeshStandardMaterial({
         color: '#f6f9fa',
         roughness: 0.3,
@@ -381,16 +420,32 @@ export function createHeadScene(
   const setLayout = (options: LayoutOptions) => {
     releaseGroup(sources);
     for (const [i, xyz] of (options.sourceXyzMm ?? []).entries()) {
-      const marker = new THREE.Mesh(new THREE.SphereGeometry(.018, 10, 8), new THREE.MeshBasicMaterial({ color: '#ffd14a', depthTest: false, transparent: true, opacity: .9 }));
-      marker.userData.sourceIndex = i;
-      marker.position.set(...mriMmToDisplay(xyz)); marker.renderOrder = 10; sources.add(marker);
+      const color = sourceRegion(options.sourceRegions?.[i])?.color ?? UNASSIGNED_SOURCE_COLOR;
+      const group = new THREE.Group();
+      group.position.set(...mriMmToDisplay(xyz));
+      const marker = new THREE.Mesh(new THREE.SphereGeometry(.025, 12, 10), new THREE.MeshBasicMaterial({ color, depthTest: false, depthWrite: false, transparent: true, opacity: 1 }));
+      marker.renderOrder = 10;
+      group.userData = { sourceIndex: i, marker };
+      group.add(marker);
+      const labelCanvas = document.createElement('canvas');
+      labelCanvas.width = 128; labelCanvas.height = 64;
+      const ctx = labelCanvas.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 128, 64);
+        ctx.strokeStyle = color; ctx.lineWidth = 8; ctx.strokeRect(4, 4, 120, 56);
+        ctx.fillStyle = '#182c3a'; ctx.font = 'bold 38px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(`S${i + 1}`, 64, 34);
+        const texture = new THREE.CanvasTexture(labelCanvas); texture.colorSpace = THREE.SRGBColorSpace;
+        const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, depthTest: false, depthWrite: false, toneMapped: false }));
+        label.position.set(.055, 0, .06); label.scale.set(.14, .07, 1); label.renderOrder = 12;
+        group.add(label);
+      }
       const normal = options.sourceNormals?.[i];
       if (normal) {
-        const origin = mriMmToDisplay(xyz), end = mriMmToDisplay(xyz.map((v, j) => v + normal[j] * 12) as XYZ);
-        const direction = new THREE.Vector3(...end).sub(new THREE.Vector3(...origin)).normalize();
-        const arrow = new THREE.ArrowHelper(direction, new THREE.Vector3(...origin), .12, '#b57808', .035, .018);
-        sources.add(arrow);
+        const direction = new THREE.Vector3(...normal).normalize();
+        const arrow = new THREE.ArrowHelper(direction, new THREE.Vector3(), .12, color, .035, .018);
+        group.add(arrow);
       }
+      sources.add(group);
     }
     const recorded = options.recordedLayout;
     recordedOptions = recorded;
@@ -490,6 +545,7 @@ export function createHeadScene(
       const count = options.allocation[r] ?? 0;
       for (let i = 0; i < count; i++) {
         const point = pointAt(i * golden, 0.86 * Math.sqrt((i + 0.5) / count));
+        regionFocus[r].push(point);
         attachContact(regions, point, color, `区域${r + 1} · ${i + 1}`, false);
         regionPointCount += 1;
       }
@@ -500,10 +556,42 @@ export function createHeadScene(
   let fitDistance = 6,
     initialized = false;
   const target = controls.target.clone();
+  let showRearView = true;
+  let viewportWidth = 1, viewportHeight = 1;
+  let rearViewport = { x: 0, y: 0, width: 1, height: 1 };
+  const render = () => {
+    renderer.setScissorTest(false);
+    renderer.setViewport(0, 0, viewportWidth, viewportHeight);
+    renderer.setClearColor('#f8fafb', 0);
+    renderer.clear();
+    renderer.render(scene, camera);
+    if (showRearView) {
+      const { x, y, width, height } = rearViewport;
+      renderer.setViewport(x, y, width, height);
+      renderer.setScissor(x, y, width, height);
+      renderer.setScissorTest(true);
+      renderer.setClearColor('#eff4f6', 1);
+      renderer.clear();
+      renderer.render(scene, rearCamera);
+      renderer.setScissorTest(false);
+      renderer.setViewport(0, 0, viewportWidth, viewportHeight);
+    }
+  };
   const resize = () => {
     const width = Math.max(host.clientWidth, 1),
       height = Math.max(host.clientHeight, 1);
     renderer.setSize(width, height, false);
+    viewportWidth = width; viewportHeight = height;
+    const insetWidth = Math.min(160, Math.max(96, width * .28));
+    const insetHeight = insetWidth * 1.125;
+    rearViewport = { x: width - insetWidth - 12, y: height - insetHeight - 12, width: insetWidth, height: insetHeight };
+    rearCamera.aspect = insetWidth / insetHeight;
+    const rearHalfVertical = THREE.MathUtils.degToRad(rearCamera.fov / 2);
+    const rearFit = Math.max(1.6 / Math.tan(rearHalfVertical), 1.16 / (Math.tan(rearHalfVertical) * rearCamera.aspect));
+    rearCamera.position.copy(target).addScaledVector(DIRECTIONS.back, rearFit);
+    rearCamera.lookAt(target);
+    rearCamera.updateProjectionMatrix();
+    canvas.dataset.rearView = showRearView ? 'visible' : 'hidden';
     camera.aspect = width / height;
     const halfVertical = THREE.MathUtils.degToRad(camera.fov / 2),
       halfHorizontal = Math.atan(Math.tan(halfVertical) * camera.aspect);
@@ -524,7 +612,7 @@ export function createHeadScene(
     initialized = true;
     // Resizing clears the drawing buffer; repaint in the same callback so
     // fullscreen transitions do not expose an empty canvas between frames.
-    renderer.render(scene, camera);
+    render();
   };
   const setView = (name: ViewName) => {
     controls.target.copy(target);
@@ -566,12 +654,21 @@ export function createHeadScene(
   };
   canvas.addEventListener('keydown', keydown);
   let pointerStart: { x: number; y: number } | null = null;
+  const overRearView = (e: PointerEvent) => {
+    if (!showRearView) return false;
+    const box = canvas.getBoundingClientRect();
+    const x = e.clientX - box.left, y = box.height - (e.clientY - box.top);
+    return x >= rearViewport.x && x <= rearViewport.x + rearViewport.width && y >= rearViewport.y && y <= rearViewport.y + rearViewport.height;
+  };
   const pointRay = (e: PointerEvent) => {
     const box = canvas.getBoundingClientRect();
     raycaster.setFromCamera(new THREE.Vector2((e.clientX-box.left)/box.width*2-1, -(e.clientY-box.top)/box.height*2+1), camera);
   };
   let drag: { slot: number; target: number | null; valid: boolean; position: THREE.Vector3; quaternion: THREE.Quaternion } | null = null;
   const pointerDown = (e: PointerEvent) => {
+    // The overview never ray-picks or edits. Dragging it can still rotate the
+    // main view through the existing OrbitControls listener.
+    if (overRearView(e)) { pointerStart = null; return; }
     pointerStart = { x: e.clientX, y: e.clientY };
     if (!editor?.enabled || !showRegions || e.button !== 0) return;
     pointRay(e);
@@ -613,7 +710,7 @@ export function createHeadScene(
       else if (!d.valid && e.type !== 'pointercancel') editor?.onInvalid();
       pointerStart = null; canvas.style.cursor = 'grab'; return;
     }
-    if (!pointerStart || Math.hypot(e.clientX - pointerStart.x, e.clientY - pointerStart.y) > 5) return;
+    if (overRearView(e) || !pointerStart || Math.hypot(e.clientX - pointerStart.x, e.clientY - pointerStart.y) > 5) return;
     const box = canvas.getBoundingClientRect();
     raycaster.setFromCamera(new THREE.Vector2((e.clientX - box.left) / box.width * 2 - 1, -(e.clientY - box.top) / box.height * 2 + 1), camera);
     const scalpDistance = editor ? raycaster.intersectObject(scalp, false)[0]?.distance ?? Infinity : Infinity;
@@ -649,7 +746,7 @@ export function createHeadScene(
   let frame = 0;
   const animate = () => {
     controls.update();
-    renderer.render(scene, camera);
+    render();
     frame = requestAnimationFrame(animate);
   };
   animate();
@@ -678,12 +775,17 @@ export function createHeadScene(
         (contact.userData.rim.material as THREE.MeshStandardMaterial).color.set(options.selectedElectrode === i ? '#111827' : valid ? color : contact.userData.color);
         contact.scale.setScalar(options.selectedElectrode === i ? 1.35 : 1);
       });
-      for (const object of sources.children) if (Number.isInteger(object.userData.sourceIndex)) object.scale.setScalar(object.userData.sourceIndex === options.selectedSource ? 1.6 : 1);
+      for (const object of sources.children) if (Number.isInteger(object.userData.sourceIndex)) object.userData.marker.scale.setScalar(object.userData.sourceIndex === options.selectedSource ? 1.6 : 1);
       canvas.dataset.potentialCount = valid ? '64' : '0';
       canvas.dataset.potentialLimit = valid ? String(limit) : '';
       canvas.dataset.selectedElectrode = String(options.selectedElectrode ?? '');
     },
     setView,
+    setRearView(value: boolean) {
+      showRearView = value;
+      canvas.dataset.rearView = value ? 'visible' : 'hidden';
+      render();
+    },
     focusRegion(index: number) {
       const points = regionFocus[index];
       if (!points?.length) return;
@@ -712,6 +814,20 @@ export function createHeadScene(
       skinMaterial.depthWrite = !value;
       skinMaterial.needsUpdate = true;
       canvas.dataset.viewMode = value ? 'brain' : 'scalp';
+    },
+    setSourcePartitions(value: boolean) {
+      const palette = [UNASSIGNED_SOURCE_COLOR, ...SOURCE_REGIONS.map(r => r.color)];
+      cortex.material.forEach((material, index) => material.color.set(value ? palette[index] : '#c8858a'));
+      canvas.dataset.sourcePartitions = value ? SOURCE_ROI_DEFINITION : 'off';
+    },
+    focusSourceRegion(id: string) {
+      const region = sourceRegion(id);
+      if (!region) return;
+      const center = new THREE.Vector3(...mriMmToDisplay([...region.anchor] as XYZ));
+      const direction = center.clone().sub(target).normalize();
+      controls.target.copy(center);
+      camera.position.copy(center).addScaledVector(direction, fitDistance * .8);
+      controls.update();
     },
     dispose() {
       cancelAnimationFrame(frame);

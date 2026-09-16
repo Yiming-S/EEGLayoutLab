@@ -2,7 +2,7 @@
 import { useLanguage } from '@/components/language-provider';
 
 /* oxlint-disable next/no-html-link-for-pages -- preserve established vinext navigation */
-import { useId } from 'react';
+import { useId, type ReactNode } from 'react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Button } from '@/components/ui/button';
 import { MASK_NAMES } from '@/lib/ui-language';
@@ -26,24 +26,31 @@ export function LocationRadios({ label, value, onChange, options, compact = fals
   </fieldset>;
 }
 
-export function HomePlacementOptions({ domain, setDomain, ar }: { domain: string; setDomain: (value: string) => void; ar: number }) {
+export function HomePlacementOptions({ domain, setDomain, children }: { domain: string; setDomain: (value: string) => void; children?: ReactNode }) {
   const { tx } = useLanguage();
-  return <section className="lab-panel mb-5 space-y-5" aria-labelledby="placement-options-title">
-    <h2 id="placement-options-title" className="text-lg font-semibold">{tx("允许布置范围")}</h2>
-    <LocationRadios label={tx("查看已有总面积对比")} value={domain} onChange={setDomain} options={[
-      { id: 'whole_scalp_free', label: '全头候选区', description: '不限制毛发位置；算法选择区域。下方显示已有面积对比。' },
-      { id: 'low_hair_free', label: '少毛发候选区（模型近似）', description: '耳后、前额与眶周近似范围；不包含完整扩展耳周。' },
+  return <section className="lab-panel mb-4 space-y-3" aria-labelledby="placement-options-title">
+    <div className="grid items-center gap-4 md:grid-cols-[1fr_2fr]">
+    <div><h2 id="placement-options-title" className="text-base font-semibold">{tx('查看已有结果')}</h2><p className="mt-1 text-xs text-muted-foreground">{tx('总面积约束 · 已计算数据')}</p></div>
+    <LocationRadios label={tx("允许布置范围")} value={domain} onChange={setDomain} options={[
+      { id: 'whole_scalp_free', label: '全头候选区' },
+      { id: 'low_hair_free', label: '少毛发候选区（模型近似）' },
     ]} />
-    <div className="border-t pt-4">
-      <h3 className="text-base font-semibold">{tx("指定位置组合 · 直接进入布局设计")}</h3>
+    </div>
+    {children}
+  </section>;
+}
+
+export function PlacementDesignPresets({ ar }: { ar: number }) {
+  const { tx } = useLanguage();
+  return <section id="create-layout" className="lab-panel mt-6 scroll-mt-[calc(var(--workspace-header-height,160px)+16px)] space-y-4" aria-labelledby="create-layout-title">
+      <div className="flex flex-wrap items-center justify-between gap-2"><h2 id="create-layout-title" className="text-lg font-semibold">{tx('按部位创建布局')}</h2><span className="rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground">{tx('每区半径约束 · 新建设计')}</span></div>
       <p className="mt-1 text-sm leading-6 text-muted-foreground">{tx("以下组合直接填入设计条件，保留AR。每区半径初始为35 mm，可再调整；不沿用上方总面积约束、不自动计算。")}</p>
       <div className="mt-3 space-y-3">{tx(REGION_COUNTS.map((count) => <div key={count} className="grid gap-2 sm:grid-cols-[110px_1fr]">
         <p className="pt-2 text-sm font-semibold">{tx(`${count}个区域`)}<span className="mt-1 block text-xs font-normal text-muted-foreground">{tx(Array.from({ length: count }, (_, i) => Math.floor(64 / count) + Number(i < 64 % count)).join('+'))} {tx(" 电极")}</span></p>
-        <div className="flex flex-wrap gap-2">{tx(placementChoices(protocolData as PlacementProtocol, count, MASK_NAMES).filter((c) => c.mode === 'preset').map((c) => <a key={c.id} href={placementDesignLink(c, count, ar)} className="rounded-lg border bg-card px-3 py-2 text-sm leading-6 text-foreground hover:border-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">{tx(c.label)}<span aria-hidden="true" className="ml-2 text-primary">↗</span></a>))}</div>
+        <div className="flex flex-wrap gap-2">{tx(placementChoices(protocolData as PlacementProtocol, count, MASK_NAMES).filter((c) => c.mode === 'preset').map((c) => <a key={c.id} href={placementDesignLink(c, count, ar)} aria-label={tx(`用此组合创建设计：${c.label}`)} className="rounded-lg border bg-card px-3 py-2 text-sm leading-6 text-foreground hover:border-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"><span className="block">{tx(c.label)}</span><span className="block text-xs text-primary">{tx('创建设计 →')}</span></a>))}</div>
       </div>))}</div>
       <a href={'/design?ar=' + ar} className="mt-4 inline-block text-sm font-semibold text-primary underline underline-offset-4">{tx("不使用预设：逐个区域从9个部位自由组合 →")}</a>
       <p className="mt-2 text-sm leading-6 text-muted-foreground">{tx("位置范围按模型坐标定义。布局构造后评价三项指标；眼电干扰在信号仿真页单独设置。")}</p>
-    </div>
   </section>;
 }
 

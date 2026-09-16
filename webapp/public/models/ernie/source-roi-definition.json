@@ -1,0 +1,15 @@
+{
+  "id": "dk40-six-roi-v1",
+  "atlas": "Desikan-Killiany (SimNIBS aparc_DK40)",
+  "rule": "A face belongs to an ROI only when all three native vertices have labels in the same ROI. Off-dictionary sources inherit their original parent face. Mixed and unassigned faces remain unassigned.",
+  "groups": [
+    {"id":"frontal","label":"额叶研究区","en":"Frontal ROI","hemispheres":[0,1],"parcels":["caudalmiddlefrontal","rostralmiddlefrontal","superiorfrontal","lateralorbitofrontal","medialorbitofrontal","parsopercularis","parsorbitalis","parstriangularis","frontalpole"]},
+    {"id":"central","label":"中央感觉运动区","en":"Sensorimotor ROI","hemispheres":[0,1],"parcels":["precentral","postcentral","paracentral"]},
+    {"id":"parietal","label":"顶叶研究区","en":"Parietal ROI","hemispheres":[0,1],"parcels":["inferiorparietal","superiorparietal","supramarginal","precuneus"]},
+    {"id":"occipital","label":"枕叶研究区","en":"Occipital ROI","hemispheres":[0,1],"parcels":["cuneus","lateraloccipital","lingual","pericalcarine"]},
+    {"id":"temporal_left","label":"左颞叶研究区","en":"Left temporal ROI","hemispheres":[0],"parcels":["bankssts","entorhinal","fusiform","inferiortemporal","middletemporal","parahippocampal","superiortemporal","temporalpole","transversetemporal"]},
+    {"id":"temporal_right","label":"右颞叶研究区","en":"Right temporal ROI","hemispheres":[1],"parcels":["bankssts","entorhinal","fusiform","inferiortemporal","middletemporal","parahippocampal","superiortemporal","temporalpole","transversetemporal"]}
+  ],
+  "ungrouped": ["insula","caudalanteriorcingulate","rostralanteriorcingulate","posteriorcingulate","isthmuscingulate","unknown","corpuscallosum","unlabeled","mixed-ROI boundary faces"],
+  "references": ["https://doi.org/10.1016/j.neuroimage.2006.01.021","https://simnibs.github.io/simnibs/build/html/tutorial/analysis.html#roi-analysis-using-surfaces"]
+}

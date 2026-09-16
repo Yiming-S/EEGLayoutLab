@@ -11,27 +11,31 @@ import {
 import { validateDesignResult } from './design-evaluation-server.mjs';
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const run = promisify(execFile);
+const CROSS_REGIONS = ['frontal', 'central', 'parietal', 'occipital', 'temporal_left', 'temporal_right'];
 export function normalizeReceptionRequest(x) {
   if (x?.mode === undefined) return normalizeSourceRequest(x);
+  if ('region_definition' in x && x.region_definition !== 'dk40-six-roi-v1') throw new Error('Unsupported source ROI definition');
   const single = x.mode === 'single_source';
+  const cross = x.mode === 'cross_region';
   const expected = [
     'record_id',
     'mode',
-    single ? 'source_index' : 'brain_region',
+    single ? 'source_index' : cross ? 'brain_regions' : 'brain_region',
     'waveform',
     'artifact_scale',
     'seed',
+    ...('region_definition' in x ? ['region_definition'] : []),
   ]
     .sort()
     .join(',');
   if (
-    !['single_source', 'multi_source'].includes(x.mode) ||
+    !['single_source', 'multi_source', 'cross_region'].includes(x.mode) ||
     Object.keys(x).sort().join(',') !== expected
   )
     throw new Error('源模式或字段无效');
   const common = normalizeSourceRequest({
     record_id: x.record_id,
-    brain_region: single ? 'frontal' : x.brain_region,
+    brain_region: single || cross ? 'frontal' : x.brain_region,
     waveform: x.waveform,
     artifact_scale: x.artifact_scale,
     seed: x.seed,
@@ -44,10 +48,13 @@ export function normalizeReceptionRequest(x) {
   )
     throw new Error('选择0–255中的一个冻结生成源');
   const { brain_region, ...rest } = common;
+  if (cross && (!Array.isArray(x.brain_regions) || x.brain_regions.length < 1 || x.brain_regions.length > 6 || new Set(x.brain_regions).size !== x.brain_regions.length || x.brain_regions.some(id => !CROSS_REGIONS.includes(id))))
+    throw new Error('跨区域模式需要选择1–6个不同的源区域');
   return {
     ...rest,
     mode: x.mode,
-    ...(single ? { source_index: x.source_index } : { brain_region }),
+    ...(x.region_definition ? { region_definition: x.region_definition } : {}),
+    ...(single ? { source_index: x.source_index } : cross ? { brain_regions: CROSS_REGIONS.filter(id => x.brain_regions.includes(id)) } : { brain_region }),
   };
 }
 export function validateReceptionResult(result, request, record) {
@@ -70,7 +77,7 @@ export function validateReceptionResult(result, request, record) {
     legacy,
     record,
   );
-  const n = request.mode === 'single_source' ? 1 : 6;
+  const n = request.mode === 'single_source' ? 1 : request.mode === 'cross_region' ? request.brain_regions.length : 6;
   if (
     result.source.mode !== request.mode ||
     result.source.xyz_mm.length !== n ||
@@ -93,6 +100,23 @@ export function validateReceptionResult(result, request, record) {
     result.source.generation_source_indices?.[0] !== request.source_index
   )
     throw new Error('返回源与选择源不符');
+  if (request.mode === 'cross_region' && (
+    JSON.stringify(result.source.source_regions) !== JSON.stringify(request.brain_regions) ||
+    result.source.patch_count !== n ||
+    result.source.generation_source_indices?.length !== n ||
+    new Set(result.source.generation_source_indices).size !== n ||
+    result.source.generation_source_indices.some(i => !Number.isInteger(i) || i < 0 || i > 255) ||
+    result.source.bank_source_indices?.length !== n ||
+    result.source.bank_source_indices.some((i, index) => i !== 4096 + result.source.generation_source_indices[index])
+  )) throw new Error('跨区域源位置记录与选择不一致');
+  if (request.region_definition && (
+    result.source.region_definition !== request.region_definition ||
+    result.protocol.region_definition !== request.region_definition ||
+    !/^[a-f0-9]{64}$/.test(result.source.atlas_sha256 ?? '') ||
+    result.source.source_regions?.length !== n ||
+    result.source.source_parcels?.length !== n ||
+    (request.mode === 'multi_source' && result.source.source_regions.some(r => r !== request.brain_region))
+  )) throw new Error('Atlas source membership is inconsistent');
 }
 export async function designReceptionRecord(root, id) {
   if (!/^[a-f0-9]{64}$/.test(id)) return null;
@@ -205,6 +229,7 @@ export async function receptionV2Context(service, request) {
     throw new Error('需要完整的已保存布局或已评价坐标');
   if (
     request.mode === 'multi_source' &&
+    !request.region_definition &&
     record.dataset_id !== 'design_evaluation'
   )
     throw new Error('已有前向库布局使用原多源协议');
@@ -217,6 +242,7 @@ export async function receptionV2Context(service, request) {
     'scripts/run_source_reception_v2.py',
     'scripts/reception_forward_provider.py',
     'scripts/inspect_reception_runtime.py',
+    ...(request.region_definition ? ['src/compact_eeg/workflows/source_roi.py', 'webapp/public/models/ernie/source-roi.json', 'webapp/public/models/ernie/source-roi-definition.json'] : []),
   ];
   const code = Object.fromEntries(
     await Promise.all(

@@ -28,6 +28,10 @@ The separately supplied numerical bundle includes selected Ernie inputs and deri
 
 The anatomical display under `webapp/public/models/ernie/` contains selected scalp and gray-matter surface components. Coordinates are converted from millimetres to metres and rounded into display buffers. These buffers are for visualization; they do not replace the original scientific mesh. Their [`manifest`](webapp/public/models/ernie/manifest.json) and [`asset notice`](webapp/public/models/ernie/README.md) document the transformations and source identity.
 
+The added `source-roi-cortex.bin` displays the original left/right **central cortical surfaces** used for the frozen source geometry. Its vertices are converted to float32 metres, normals are packed as int8, and triangles are reordered into atlas-defined material groups; geometry is not deformed or simplified. `source-roi.json` records source checksums and the exact mapping. The Ernie data attribution and CC BY-NC 4.0 terms above apply to these derived surfaces.
+
+The six research ROIs merge Desikan–Killiany labels from the `aparc_DK40` annotations distributed with SimNIBS. Existing registered-sphere label transfer to Ernie is reproduced and checked against the frozen source archive; these are project-defined ROI groupings of atlas parcels, not a new atlas or manual individual segmentation. Atlas material retains its upstream notices. See [Desikan et al. (2006)](https://doi.org/10.1016/j.neuroimage.2006.01.021), [FreeSurfer cortical parcellation documentation](https://www.freesurfer.net/fswiki/CorticalParcellation), and [SimNIBS surface ROI analysis](https://simnibs.github.io/simnibs/build/html/tutorial/analysis.html#roi-analysis-using-surfaces).
+
 ## Other dependencies
 
 The web dependencies are recorded in [`webapp/package-lock.json`](webapp/package-lock.json). Python project dependencies are recorded in [`pyproject.toml`](pyproject.toml); the native runtime setup uses [`configs/runtime/manifest.json`](configs/runtime/manifest.json), the accompanying environment specifications, and upstream package metadata. Each dependency retains its own copyright and license.

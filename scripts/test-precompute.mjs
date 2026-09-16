@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {makePlan,scenarios} from './precompute_source_cache.mjs';
+const records=Array.from({length:30},(_,i)=>({id:i.toString(16).padStart(64,'0'),dataset_id:'strict_area',status:'completed',region_count:[1,2,3,4,6][i%5]}));
+const plan=makePlan(records);
+assert.equal(scenarios().length,69);
+assert.equal(plan.requests.length,4140);
+assert.equal(new Set(plan.requests.map(r=>JSON.stringify(r))).size,4140);
+assert.equal(plan.requests.filter(r=>r.mode==='multi_source').length,360);
+assert.equal(plan.requests.filter(r=>r.mode==='cross_region').length,3780);
+assert.equal(new Set(plan.requests.slice(0,60).map(r=>r.record_id)).size,30);
+assert.ok(plan.requests.every(r=>r.region_definition==='dk40-six-roi-v1'&&r.seed===2026&&r.artifact_scale===1));
+assert.throws(()=>makePlan(records.slice(1)));
+assert.equal(makePlan(records,[records[0].id]).requests.length,4002);
+assert.throws(()=>makePlan(records,['unknown']));
+console.log('Plan verified: 30 layouts, 69 scenarios, 2 waveforms, 4140 unique requests; broad coverage first.');

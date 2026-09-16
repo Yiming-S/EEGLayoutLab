@@ -25,6 +25,7 @@ import {
 } from '@/lib/source-reception';
 import biosemi from '@/lib/biosemi64-reference.json';
 import { FIELD_LAYERS, fieldFrames, type FieldLayer } from '@/lib/source-field';
+import { SOURCE_ROI_DEFINITION, UNASSIGNED_SOURCE_COLOR, sourceRegion } from '@/lib/source-regions';
 
 const Head = lazy(() =>
   import('@/components/cluster-head-viewer').then((m) => ({
@@ -63,6 +64,8 @@ export function ExperimentResult({
     [playing, setPlaying] = useState(false);
   const [showHead, setShowHead] = useState([true, true]);
   const [sourceIndex, setSourceIndex] = useState(0);
+  const sourceRegions = useMemo(() => result.source.region_definition === SOURCE_ROI_DEFINITION ? result.source.source_regions ?? [] : result.source.xyz_mm.map(() => null), [result]);
+  const sourceColors = useMemo(() => result.source.xyz_mm.map((_, i) => sourceRegion(sourceRegions[i])?.color ?? UNASSIGNED_SOURCE_COLOR), [result, sourceRegions]);
   const [fieldLayer, setFieldLayer] = useState<FieldLayer>('brain');
   const score = result.conditions.find((s) => s.condition === condition)!,
     status = sourcePass(score.field_retention, ar);
@@ -182,6 +185,7 @@ export function ExperimentResult({
               {tx(cached ? '本地缓存' : '本次计算')} ·{' '}
               {tx(result.source.patch_count)}
               {tx('个已选皮层源 · 原布局坐标未改变')}
+              {result.request.mode === 'cross_region' && <> · {tx('跨区域多源')}</>}
             </p>
           </div>
           <Button variant="outline" onClick={download}>
@@ -356,8 +360,7 @@ export function ExperimentResult({
             {tx(
               result.source.xyz_mm.map((xyz, i) => (
                 <option key={i} value={i}>
-                  {tx('源')}
-                  {tx(i + 1)} · {tx(xyz.map((v) => v.toFixed(1)).join(', '))} mm
+                  S{i + 1} · {tx(sourceRegion(sourceRegions[i])?.label ?? '其他皮层或分区边界')} · {tx(xyz.map((v) => v.toFixed(1)).join(', '))} mm
                 </option>
               )),
             )}
@@ -380,7 +383,7 @@ export function ExperimentResult({
                 type="linear"
                 dataKey="source"
                 name={tx('脑源偶极矩 nA·m')}
-                stroke="#a16716"
+                stroke={sourceColors[sourceIndex]}
                 dot={false}
                 isAnimationActive={false}
               />
@@ -564,6 +567,7 @@ export function ExperimentResult({
                           }
                           sourceXyzMm={result.source.xyz_mm}
                           sourceNormals={result.source.normals_mri}
+                          sourceRegions={sourceRegions}
                           selectedSource={sourceIndex}
                           onSourceSelect={setSourceIndex}
                           electrodeValues={fields.sides[i].map(
@@ -586,7 +590,7 @@ export function ExperimentResult({
                   ),
                 )}
                 <p className="mt-2 text-sm text-muted-foreground">
-                  {tx('黄色标记为实际皮层源位置，采用穿透显示。')}
+                  {tx('S编号标记为实际源点，颜色与所属源区域一致；选中源的曲线使用同色。')}
                   {tx(
                     fields.target
                       ? `标准目标 ${biosemi.channels[targetChannel].name}`

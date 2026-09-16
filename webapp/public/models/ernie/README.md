@@ -1,6 +1,6 @@
 # Ernie anatomical display buffers
 
-This derivative contains the exterior scalp and the largest gray-matter surface
+The legacy display derivative contains the exterior scalp and the largest gray-matter surface
 component from the same hash-verified SimNIBS Ernie mesh. It is for anatomical
 visualization only. It is not qualified for EEG forward modeling, source
 localization, or AR computation.
@@ -20,6 +20,41 @@ redistributing these buffers. The license contains a noncommercial condition.
 | --- | ---: | ---: | ---: |
 | scalp.bin | 52,410 | 104,864 | 1,415,336 |
 | cortex.bin | 154,967 | 309,211 | 6,035,040 |
+| source-roi-cortex.bin | 308,791 | 617,574 | 12,042,756 |
+
+The current viewer uses `source-roi-cortex.bin` for the brain and keeps the same
+`scalp.bin`. The new brain buffer is the original left/right Ernie **central
+cortical surface** used to generate the frozen source positions and normals.
+Its DK40 labels are transferred through the existing registered spheres and
+checked byte-for-byte against `cortical_input_arrays.npz`. `source-roi.json`
+contains all source hashes, mesh descriptors, material groups and the 256
+generation-source memberships. `source-roi-definition.json` declares the six
+nonoverlapping research ROI merges of DK labels. Unassigned and mixed-ROI faces
+use material 0 (gray); six research groups use materials 1–6. A generation point
+inherits its original parent face, rather than a nearest coordinate anchor.
+
+Native central coordinates and topology are retained without smoothing or
+decimation. Positions are packed as float32 metres and normals as int8; triangles
+are stably reordered by material group. Original hemisphere-local parent face
+indices and exported display-face indices are recorded for every generator.
+No new forward model or new source orientation is computed by this export.
+
+Reproduce with the pinned original source config, source archive, subject
+surfaces and the installed SimNIBS templates:
+
+```sh
+python scripts/export_source_roi.py --repository-root . \
+  --subject /path/to/m2m_ernie \
+  --source-archive /path/to/cortical_input_arrays.npz \
+  --source-config /path/to/ernie_cortical_inputs.json
+```
+
+Atlas reference: [Desikan et al., 2006](https://doi.org/10.1016/j.neuroimage.2006.01.021).
+Atlas annotations retain their upstream FreeSurfer/SimNIBS notices; the central
+surface derivative retains the Ernie attribution and data license above.
+
+The remaining geometry notes below describe the legacy `cortex.bin`, retained
+for provenance; they do not describe the current native-central ROI surface.
 
 The scalp is tag 1005's closed manifold component with the largest absolute
 signed volume. The gray-matter display is tag 1002's component with the largest

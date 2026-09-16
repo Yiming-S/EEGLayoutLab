@@ -1,11 +1,5 @@
-export const BRAIN_REGIONS = [
-  ['frontal', '前部皮层（前额代理）'],
-  ['central', '上中央皮层代理'],
-  ['parietal', '上后部皮层（顶叶代理）'],
-  ['occipital', '后部皮层（枕叶代理）'],
-  ['temporal_left', '左侧下部皮层（颞叶代理）'],
-  ['temporal_right', '右侧下部皮层（颞叶代理）'],
-] as const;
+import { SOURCE_REGIONS, canonicalSourceRegions, type SourceRegionId } from './source-regions.ts';
+export const BRAIN_REGIONS = SOURCE_REGIONS.map(r => [r.id, r.label] as const);
 export const CONDITION_LABELS = {
   clean: '仅脑源＋测量噪声',
   ecg: '加入模拟心电干扰',
@@ -18,8 +12,9 @@ export type SourceRequest = {
   waveform: 'burst' | 'rhythm';
   artifact_scale: number;
   seed: number;
-} & ({ mode?: undefined; brain_region: string; source_index?: never } | { mode: 'multi_source'; brain_region: string; source_index?: never } | { mode: 'single_source'; source_index: number; brain_region?: never });
-export type SourceCatalog = { schema_version: 'source-catalog/1'; sources: { id: number; xyz_mm: [number, number, number]; normal: [number, number, number] }[]; provenance: Record<string, unknown> };
+  region_definition?: 'dk40-six-roi-v1';
+} & ({ mode?: undefined; brain_region: string; source_index?: never; brain_regions?: never } | { mode: 'multi_source'; brain_region: string; source_index?: never; brain_regions?: never } | { mode: 'single_source'; source_index: number; brain_region?: never; brain_regions?: never } | { mode: 'cross_region'; brain_regions: SourceRegionId[]; brain_region?: never; source_index?: never });
+export type SourceCatalog = { schema_version: 'source-catalog/1'; region_definition?: string; sources: { id: number; xyz_mm: [number, number, number]; normal: [number, number, number]; roi_id?: SourceRegionId | null; parcel_names?: string[] }[]; cross_region_representatives?: { source_region: SourceRegionId; generation_source_index: number; xyz_mm: [number, number, number]; normal: [number, number, number] }[]; provenance: Record<string, unknown> };
 export type SourceMetrics = {
   nmse: number;
   explained_energy: number;
@@ -55,6 +50,10 @@ export type SourceResult = {
     bank_source_indices: number[];
     patch_count: number;
     normals_mri?: [number, number, number][];
+    source_regions?: (SourceRegionId | null)[];
+    region_definition?: string;
+    source_parcels?: string[][];
+    generation_source_indices?: number[];
   };
   layout: {
     xyzMm: [number, number, number][];
@@ -94,7 +93,8 @@ export type SourceJob = {
 };
 export function sourceKey(r: SourceRequest) {
   if (r.mode) return JSON.stringify({ record_id: r.record_id, waveform: r.waveform, artifact_scale: r.artifact_scale, seed: r.seed, mode: r.mode,
-    ...(r.mode === 'single_source' ? { source_index: r.source_index } : { brain_region: r.brain_region }) });
+    ...(r.region_definition ? { region_definition: r.region_definition } : {}),
+    ...(r.mode === 'single_source' ? { source_index: r.source_index } : r.mode === 'cross_region' ? { brain_regions: canonicalSourceRegions(r.brain_regions) } : { brain_region: r.brain_region }) });
   return JSON.stringify({
     record_id: r.record_id,
     brain_region: r.brain_region,

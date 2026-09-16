@@ -1,8 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useLanguage } from './language-provider';
+import { RuntimeMessage } from './runtime-message';
 
-type Task = { id: string; kind: string; status: string; queue_position: number; created_at: string; message: string };
+type Task = { id: string; kind: string; status: string; queue_position: number; created_at: string; message: string; progress?: number; cached?: boolean };
 type Status = { online_visitors: number; queued_tasks: number; running_tasks: number; available: boolean; recovery_blocked: boolean; jobs: Task[] };
 const labels: Record<string, string> = {
   'local-compute': '区域设计', 'design-evaluation': '坐标评价', 'electrode-editor': '电极编辑', 'source-reception': '信号仿真',
@@ -55,19 +56,21 @@ export function CommunityStatus() {
     } catch (e) { setFailure(e instanceof Error ? e.message : '无法读取任务'); }
   };
   return <details className="relative text-sm">
-    <summary className="cursor-pointer rounded-lg border bg-white px-3 py-2 text-[#53686e]">
-      {status ? <>{tx('在线访客')} {status.online_visitors} · {tx('等待')} {status.queued_tasks} · {tx('计算中')} {status.running_tasks}</> : tx('服务状态暂不可用')}
+    <summary className="cursor-pointer rounded-lg px-2 py-2 text-xs text-[#53686e]" aria-label={tx('查看访客与计算队列')}>
+      {status ? <>{tx('在线')} {status.online_visitors} · {tx('队列')} {status.queued_tasks}{status.running_tasks > 0 && <> · {tx('计算中')} {status.running_tasks}</>}</> : tx('服务状态暂不可用')}
     </summary>
     <div className="absolute right-0 z-50 mt-2 max-h-[70vh] w-[min(360px,90vw)] overflow-y-auto rounded-xl border bg-white p-4 shadow-lg">
       <h2 className="font-semibold">{tx('当前浏览器的任务')}</h2>
+      {status && <p className="mt-2 text-sm">{tx(`运行中：${status.running_tasks}项 · 等待中：${status.queued_tasks}项`)}</p>}
       <p className="mt-2 text-xs text-muted-foreground">{tx('在线访客按最近90秒活跃的浏览器估算，同一浏览器多个标签页计为一个。')}</p>
       <p className="mt-2 text-xs text-muted-foreground">{tx('无需登录。后台记录IP用于访问日志和限流，日志保留7天，不公开显示。')}</p>
       {(status?.recovery_blocked || status?.available === false) && <p className="mt-2 text-amber-800">{tx('队列暂停，等待服务检查')}</p>}
       {!status?.jobs.length && <p className="mt-3 text-muted-foreground">{tx('当前浏览器暂无计算任务')}</p>}
       {status?.jobs.map(task => <div key={task.id} className="mt-3 border-t pt-3">
-        <div className="flex justify-between gap-2"><span>{tx(labels[task.kind] || task.kind)}</span><span>{tx(labels[task.status] || task.status)}{task.status === 'queued' && ` · ${task.queue_position}`}</span></div>
+        <div className="flex justify-between gap-2"><span>{tx(labels[task.kind] || task.kind)}</span><span>{tx(task.cached && task.status === 'completed' ? '已读取已有结果' : labels[task.status] || task.status)}</span></div>
         <div className="mt-1 text-xs text-muted-foreground">{date(task.created_at, true)} · {task.id.slice(0, 8)}</div>
-        {task.status === 'queued' && <p className="mt-1 text-xs">{tx('数字为等待队列中的位置，按提交顺序执行。')}</p>}
+        {task.status === 'queued' && <p className="mt-1 text-xs">{tx(`前方等待任务：${Math.max(0, task.queue_position - 1)}项；按提交顺序执行。`)}</p>}
+        {task.status === 'running' && <div className="mt-2 space-y-1"><p className="text-xs"><RuntimeMessage message={task.message} /></p>{Number.isFinite(task.progress) && <><progress aria-label={tx('计算进度')} max={1} value={task.progress} className="h-2 w-full accent-primary" /><p className="text-xs tabular-nums">{Math.round(Math.max(0, Math.min(1, task.progress!)) * 100)}%</p></>}</div>}
         {['queued', 'running', 'cancelling'].includes(task.status) ? <button onClick={() => void act(task, true)} disabled={task.status === 'cancelling'} className="mt-2 rounded border px-3 py-1">{tx('取消等待或计算')}</button>
           : ['completed', 'no_layout'].includes(task.status) ? <button onClick={() => void act(task, false)} className="mt-2 rounded border px-3 py-1">{tx('下载计算结果')}</button> : <p className="mt-1 text-xs">{tx(task.message)}</p>}
       </div>)}

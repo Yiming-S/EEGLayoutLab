@@ -299,7 +299,7 @@ void test('signal-generation guide renders bilingual content before metrics, wit
     }
     for (const [id] of SIMULATION_SECTIONS) assert.ok(html.includes('href="#' + id + '"'));
     const details = html.match(/<details\b[^>]*>/g) ?? [];
-    assert.equal(details.length, 3);
+    assert.equal(details.length, 4); // three existing explanations plus the DK label mapping
     for (const tag of details) assert.doesNotMatch(tag, /\bopen(?:=|\s|>)/);
     assert.ok(page.indexOf('id="simulation-model"') < page.indexOf('id="retention-guide"'));
     assert.ok(page.indexOf('id="retention-guide"') < page.indexOf('id="electrode-editor"'));
