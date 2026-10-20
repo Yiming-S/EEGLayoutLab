@@ -8,7 +8,7 @@ not install Node.js, Python, Conda, or a separate data archive.
 
 ## Open the application
 
-1. Obtain the complete Apple Silicon desktop archive from the maintainer.
+1. Download the Apple Silicon DMG or ZIP from [GitHub release v0.1.1](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.1). Sign in with a GitHub account that has access to this private repository.
 2. Extract the ZIP and move **EEG Layout Lab.app** into **Applications**, or use
    the Applications shortcut in the DMG.
 3. Open **EEG Layout Lab**. On first launch, wait while its offline workspace is

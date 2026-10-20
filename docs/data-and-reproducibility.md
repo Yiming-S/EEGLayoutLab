@@ -4,22 +4,29 @@ The application code and the numerical data bundle are separate deliverables. [`
 
 ## What is included
 
-The bundle supplies the exact files needed by the current application: frozen forward-bank and candidate geometry arrays; source arrays and their manifest; surface-admission data; the Ernie volume mesh and exterior scalp mappings; selected current result reports and pointers; and declared seed records. Consult the manifest for the exact members of this release.
+The bundle supplies the exact files needed by the current application: frozen forward-bank and candidate geometry arrays; source arrays and their manifest; surface-admission data; the Ernie volume mesh and exterior scalp mappings; selected current result reports and pointers; and declared seed records. Its 21 files total 406,226,293 bytes (387.41 MiB), including the source declaration. Consult the manifest for the exact members of this release.
 
 The web application's compact result exports and anatomical display buffers are versioned separately under [`webapp/public/`](../webapp/public/). Display buffers do not substitute for the volume mesh used by native computation.
 
-The bundle does not include an installed Python runtime, `node_modules`, a complete offline experiment archive, or a user's future job history. It does not imply that every research experiment mentioned by a retained record can be rerun with this application-focused handoff alone.
+The bundle is limited to the application inputs and supplied records. Installed runtimes, `node_modules`, complete historical calculation directories, and newly generated user jobs are distributed or stored separately. Reproducing a wider research campaign requires that campaign's inputs, protocol, code, and environment.
 
 ## Install and verify
 
-Run from the repository root:
+Download the archive and checksum from [Release v0.1.1](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.1), using an account with access to this private repository. With [GitHub CLI](https://cli.github.com/) installed, run from the matching source checkout:
 
 ```sh
+gh auth login
+mkdir -p releases
+gh release download v0.1.1 --repo Yiming-S/EEGLayoutLab \
+  --pattern eeglayoutlab-data-v1.tar.gz \
+  --pattern eeglayoutlab-data-v1.tar.gz.sha256 \
+  --dir releases
+(cd releases && shasum -a 256 -c eeglayoutlab-data-v1.tar.gz.sha256)
 python3 scripts/data_bundle.py install releases/eeglayoutlab-data-v1.tar.gz
 python3 scripts/data_bundle.py verify
 ```
 
-Use the actual archive location if it differs. No public download URL is assumed. The tool operates on local files and uses only the Python standard library. An explicit `--root` can select another checkout.
+Check the checksum before installing. Browser downloads require the same repository access; place both downloaded files in `releases/` to use these commands. The bundle tool operates on local files and uses only the Python standard library. An explicit `--root` can select another checkout. See the [source installation guide](source-installation.md) for the current Apple Silicon macOS setup.
 
 Installation uses the destination checkout's manifest as the trust baseline. The archive manifest must match it byte for byte. The installer rejects members outside the inventory, path traversal, links, mismatched content, and conflicting files already present at the destination. A mismatch should be resolved by obtaining the matching archive or selecting the appropriate code/data version; do not edit the manifest to make an unknown file pass.
 
@@ -34,7 +41,7 @@ mkdir -p releases
 python3 scripts/data_bundle.py export --output releases/eeglayoutlab-data-v1-export.tar.gz
 ```
 
-The manifest determines the exported files. This command does not turn the entire `results/` directory into a release, publish an archive, or include newly generated user jobs automatically. The local `releases/` archive is a handoff artifact; it does not need to be committed to the source repository.
+The manifest determines the exported files. Export creates a local archive for the selected inputs and records; publishing it is a separate step. Complete historical calculation directories and new user jobs remain outside the bundle. Store published archives as release attachments and keep their inventory in Git.
 
 ## Why the relative paths matter
 

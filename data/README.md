@@ -5,19 +5,44 @@ It records each relative path, byte size, SHA-256, role and source attribution.
 `SOURCES.md` records the data license and the boundary between upstream data and
 locally derived research artifacts. Both are small, version-controlled files.
 
-The original payload contains 20 files totaling 406,223,080 bytes (387.40 MiB).
-These comprise six current/historical pointers, selected reports and arrays,
-the forward-bank run manifest, and the Ernie FEM mesh. Only selected files are
-included; complete campaign directories and personal computation jobs are not.
-The payload under `data/external/` and `results/` is transferred separately
-from Git. The App's public browser assets are part of the code checkout.
+The bundle contains 21 files totaling 406,226,293 bytes (387.41 MiB).
+These comprise the source declaration, six current/historical pointers,
+selected reports and arrays, the forward-bank run manifest, and the Ernie FEM
+mesh. Complete campaign directories and personal calculation history are
+excluded. The payload under `data/external/` and `results/` is distributed as a
+release attachment. The App's browser assets are part of the code checkout.
+
+## Download and install
+
+Download the archive and checksum from [Release v0.1.1](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.1).
+The repository is private; sign in with an account that has repository access.
+With [GitHub CLI](https://cli.github.com/) installed, run from the matching
+source checkout:
+
+```sh
+gh auth login
+mkdir -p releases
+gh release download v0.1.1 --repo Yiming-S/EEGLayoutLab \
+  --pattern eeglayoutlab-data-v1.tar.gz \
+  --pattern eeglayoutlab-data-v1.tar.gz.sha256 \
+  --dir releases
+(cd releases && shasum -a 256 -c eeglayoutlab-data-v1.tar.gz.sha256)
+python3 scripts/data_bundle.py install releases/eeglayoutlab-data-v1.tar.gz
+python3 scripts/data_bundle.py verify
+```
+
+Use Python 3.10 or newer. Continue with the [source installation guide](../docs/source-installation.md)
+to install the computation environment and web dependencies. Mac desktop
+installers already include the model data and runtime.
+
+## Local bundle tools
 
 Run these commands from the repository root using Python 3.10 or newer:
 
 ```sh
-python scripts/data_bundle.py verify
-python scripts/data_bundle.py install /path/to/eeglayoutlab-data-v1.tar.gz
-python scripts/data_bundle.py export --output /path/to/eeglayoutlab-data-v1.tar.gz
+python3 scripts/data_bundle.py verify
+python3 scripts/data_bundle.py install /path/to/eeglayoutlab-data-v1.tar.gz
+python3 scripts/data_bundle.py export --output /path/to/eeglayoutlab-data-v1.tar.gz
 ```
 
 Each command also accepts `--root /path/to/checkout`. The default root is the
@@ -35,10 +60,9 @@ Symlink destinations, ancestors and source files are rejected. Do not modify
 the destination tree concurrently with installation. An interrupted final
 placement can be resumed by running install again.
 
-The tool uses only Python's standard library and makes no network requests.
-Obtain the matching local archive from the collaborator who supplied this
-checkout. No public data-download service is assumed.
+The bundle tool uses only Python's standard library and makes no network
+requests. Downloading a release attachment is a separate step.
 
 ```sh
-python -m unittest discover -s tests -p test_data_bundle.py
+python3 -m unittest discover -s tests -p test_data_bundle.py
 ```

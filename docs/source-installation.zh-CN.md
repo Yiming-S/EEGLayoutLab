@@ -13,6 +13,7 @@
 - 用于运行安装工具的 Python **3.10 或更新版本**。安装工具会另行准备使用 **Python 3.11** 的计算环境，具体版本见[运行环境清单](../configs/runtime/manifest.json)。
 - Apple Silicon 版本的 Conda，且终端中可以运行 `conda` 命令。
 - Git 和 Apple 命令行工具。
+- [GitHub 命令行工具](https://cli.github.com/)（`gh`），以及拥有此私有仓库访问权限的 GitHub 账号。
 - 安装依赖时需要联网。
 
 使用上述工具的原生 Apple Silicon 版本，不通过 Rosetta 运行。
@@ -21,33 +22,39 @@
 
 ### 1. 克隆仓库
 
-打开终端，运行：
+打开终端，登录有仓库访问权限的账号，并克隆发布版本：
 
 ```sh
-git clone https://github.com/Yiming-S/EEGLayoutLab.git
+gh auth login
+gh repo clone Yiming-S/EEGLayoutLab -- --branch v0.1.1
 cd EEGLayoutLab
 ```
 
-后续步骤继续在这个终端窗口中操作。仓库根目录是同时包含 `scripts/` 和 `webapp/` 的文件夹。
+后续步骤继续在这个终端窗口中操作。仓库根目录是同时包含 `scripts/` 和 `webapp/` 的文件夹。使用发布标签可以让源码与数据清单保持对应；修改源码前，运行 `git switch -c my-changes` 创建工作分支。
 
 ### 2. 安装模型数据
 
-向项目维护者获取匹配的 `eeglayoutlab-data-v1.tar.gz` 数据包。源码版需要单独安装该数据包，它不包含在 Git 仓库中；桌面安装包已内置模型数据。
+从 [v0.1.1 版本页面](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.1)下载匹配的 `eeglayoutlab-data-v1.tar.gz` 数据包及校验文件。源码版需要单独安装该数据包；桌面安装包已内置模型数据。当前仓库为私有仓库，访问版本页面和附件需要仓库权限。
 
-先创建存放数据包的文件夹：
+在仓库根目录下载并校验数据包：
 
 ```sh
 mkdir -p releases
+gh release download v0.1.1 --repo Yiming-S/EEGLayoutLab \
+  --pattern eeglayoutlab-data-v1.tar.gz \
+  --pattern eeglayoutlab-data-v1.tar.gz.sha256 \
+  --dir releases
+(cd releases && shasum -a 256 -c eeglayoutlab-data-v1.tar.gz.sha256)
 ```
 
-将已下载的数据包放进该文件夹，然后**在仓库根目录运行，不是在 `webapp/` 中运行**：
+校验成功后，**在仓库根目录运行，不是在 `webapp/` 中运行**：
 
 ```sh
 python3 scripts/data_bundle.py install releases/eeglayoutlab-data-v1.tar.gz
 python3 scripts/data_bundle.py verify
 ```
 
-创建 `releases/` 文件夹不会自动下载数据包。如果数据包在其他位置，将安装命令中的路径替换为实际文件路径。安装与验证成功后，再继续下一步。
+数据包共含 21 个文件，总计 406,226,293 字节（387.41 MiB），包含数据来源说明、选定的固定输入和记录，不包含完整历史计算目录。如果通过浏览器下载，先将数据包和校验文件放入 `releases/`，再运行校验与安装命令。安装与验证成功后，再继续下一步。
 
 ### 3. 安装 Python 计算环境
 

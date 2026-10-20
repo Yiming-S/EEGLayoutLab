@@ -82,8 +82,14 @@ The local release is under `releases/desktop-0.1.1-build2/`, with the applicatio
 DMG, ZIP, installation guides, build report, checksums, and verification evidence.
 The DMG is 1,257,470,888 bytes; the ZIP is 1,249,514,118 bytes. Final archive containers were recreated from the same verified signed application
 after the earlier containers were missing at the final check; payload bytes were
-preserved, and archive checksums were regenerated. The rebuilt
-installer has not been uploaded to the shared download folder in this workflow.
+preserved, and archive checksums were regenerated. The installers and matching
+base data are distributed through [GitHub release v0.1.1](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.1).
+
+The release distributes this tested application without rebuilding its payload.
+The packaged source is based on commit `73559b4`; `build-report.json` records
+the exact source-file hashes. The release tag also includes subsequent removal
+of unused source templates and dependency declarations, plus updated download
+documentation. It does not identify a second build of the Mac application.
 
 This build uses an ad-hoc signature and has not been Apple-notarized. New payloads
 create a new scientific workspace and preserve older workspaces; results are not

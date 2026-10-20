@@ -1,6 +1,8 @@
 # EEG Layout Lab 安装与使用
 
-**[下载 Mac 桌面版 — Apple Silicon](https://drive.google.com/drive/folders/1Ry-neU-oySVoToIt07eFfBnemKrnewmK?usp=sharing)**
+**[下载 Mac 桌面版 — Apple Silicon](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.1)**
+
+仓库目前为私有，需要登录有仓库访问权限的 GitHub 账号才能下载。
 
 适用于 **M 系列芯片 Mac，macOS 14 或更新版本**。下载 `.dmg` 安装包，打开后将 **EEG Layout Lab** 拖入“应用程序”，再双击启动。首次打开会自动准备内置环境和模型数据。
 
@@ -27,13 +29,13 @@ EEG Layout Lab 是面向科研社区的研究软件项目，用于设计、查�
 | 本机源码版 | 当前开发版本 | 使用单独的[源码安装说明](source-installation.zh-CN.md)，目前安装流程面向 Apple Silicon Mac。 |
 | 服务器网页版 | 准备部署 | 计算与结果存储放在服务器上，见[服务器部署准备说明（英文）](server-deployment.md)。 |
 
-桌面版 **0.1.1（构建号 2）**包含更新后的网页源码及[匿名访客任务队列（英文说明）](anonymous-queue.md)。新安装包在本地生成；将它上传到共享下载文件夹后，再通过该链接分发新版。构建与测试记录见[桌面版验证报告（英文）](../desktop/VERIFICATION.md)。
+桌面版 **0.1.1（构建号 2）**包含更新后的网页源码及[匿名访客任务队列（英文说明）](anonymous-queue.md)。安装包、基础数据包和校验文件统一放在 GitHub 版本页；完整历史计算缓存不在本次分发范围内。构建与测试记录见[桌面版验证报告（英文）](../desktop/VERIFICATION.md)。
 
 ## 在 Mac 上安装并打开
 
 使用 **Apple Silicon（M 系列芯片）Mac，macOS 14 或更新版本**。
 
-1. 打开 [Google Drive 下载文件夹](https://drive.google.com/drive/folders/1Ry-neU-oySVoToIt07eFfBnemKrnewmK?usp=sharing)，下载 **`.dmg` 桌面安装包**。
+1. 打开 [GitHub 0.1.1 版本页](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.1)，下载 **`EEGLayoutLab-0.1.1-macOS-arm64.dmg`**。
 2. 打开 DMG，将 **EEG Layout Lab.app** 拖到“应用程序”。如果收到的是 ZIP，解压后将 App 移到“应用程序”。
 3. 打开 **EEG Layout Lab**。首次启动会准备内置计算环境和模型数据，然后显示 App。
 
