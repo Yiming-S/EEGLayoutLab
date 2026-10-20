@@ -26,7 +26,7 @@
 
 ```sh
 gh auth login
-gh repo clone Yiming-S/EEGLayoutLab -- --branch v0.1.1
+gh repo clone Yiming-S/EEGLayoutLab -- --branch v0.1.2
 cd EEGLayoutLab
 ```
 
@@ -34,13 +34,13 @@ cd EEGLayoutLab
 
 ### 2. 安装模型数据
 
-从 [v0.1.1 版本页面](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.1)下载匹配的 `eeglayoutlab-data-v1.tar.gz` 数据包及校验文件。源码版需要单独安装该数据包；桌面安装包已内置模型数据。当前仓库为私有仓库，访问版本页面和附件需要仓库权限。
+从 [v0.1.2 版本页面](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.2)下载匹配的 `eeglayoutlab-data-v1.tar.gz` 数据包及校验文件。源码版需要单独安装该数据包；桌面安装包已内置模型数据。当前仓库为私有仓库，访问版本页面和附件需要仓库权限。
 
 在仓库根目录下载并校验数据包：
 
 ```sh
 mkdir -p releases
-gh release download v0.1.1 --repo Yiming-S/EEGLayoutLab \
+gh release download v0.1.2 --repo Yiming-S/EEGLayoutLab \
   --pattern eeglayoutlab-data-v1.tar.gz \
   --pattern eeglayoutlab-data-v1.tar.gz.sha256 \
   --dir releases

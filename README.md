@@ -1,8 +1,10 @@
 # EEGLayoutLab
 
-EEGLayoutLab is research software for designing and comparing EEG electrode layouts. It brings together an interactive 3D head model, layout design, electrode editing, signal simulation, and reproducible result exports.
+EEGLayoutLab is open-source research software for designing and comparing EEG electrode layouts. It brings together an interactive 3D head model, layout design, electrode editing, signal simulation, and reproducible result exports.
 
-[Download v0.1.1](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.1) · [简体中文指南](docs/getting-started.zh-CN.md) · [Mac installation](desktop/START_HERE.md) · [Source setup](docs/source-installation.md) · [Server deployment](docs/server-deployment.md)
+EEGLayoutLab is developed on a non-profit basis and provided free of charge. Its original source code and accompanying documentation are licensed under GPL-3.0-only.
+
+[Download v0.1.2](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.2) · [简体中文指南](docs/getting-started.zh-CN.md) · [Mac installation](desktop/START_HERE.md) · [Source setup](docs/source-installation.md) · [Server deployment](docs/server-deployment.md)
 
 ## Project collaborators
 
@@ -13,20 +15,20 @@ EEGLayoutLab is research software for designing and comparing EEG electrode layo
 
 | Version | Status | Instructions |
 | --- | --- | --- |
-| Mac desktop | **0.1.1, build 2**; Apple Silicon, macOS 14 or newer. Calculations run on the Mac. | [Install and open](#install-and-open-on-mac) |
+| Mac desktop | **0.1.2, build 1**; Apple Silicon, macOS 14 or newer. Calculations run on the Mac. | [Install and open](#install-and-open-on-mac) |
 | Local web application | Run the current source in a browser with a local Node service and Python/SimNIBS workers. The managed runtime targets Apple Silicon macOS. | [Source installation](docs/source-installation.md) |
-| Hosted web application | Planned for Yi Wang's server, including online calculation and persistent results. | [Deployment preparation](docs/server-deployment.md) |
+| Hosted web application | Planned for Dr. Wang's server, including online calculation and persistent results. | [Deployment preparation](docs/server-deployment.md) |
 
-The Mac installer includes Node.js, the scientific runtime, model data, and selected supplied results. Download it from [GitHub Releases](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.1). The repository is private: sign in to a GitHub account with repository access to view or download release files. The hosted version's address will be added after deployment.
+The Mac installer includes Node.js, the scientific runtime, model data, and selected supplied results. Download it from [GitHub Releases](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.2). The repository is private: sign in to a GitHub account with repository access to view or download release files. The hosted version's address will be added after deployment.
 
 ## Downloads
 
 | File | Size | Use |
 | --- | --- | --- |
-| [Mac DMG](https://github.com/Yiming-S/EEGLayoutLab/releases/download/v0.1.1/EEGLayoutLab-0.1.1-macOS-arm64.dmg) | 1.17 GiB | Recommended installer for Apple Silicon Macs |
-| [Mac ZIP](https://github.com/Yiming-S/EEGLayoutLab/releases/download/v0.1.1/EEGLayoutLab-0.1.1-macOS-arm64.zip) | 1.16 GiB | Alternative archive containing the same application |
-| [Base data bundle](https://github.com/Yiming-S/EEGLayoutLab/releases/download/v0.1.1/eeglayoutlab-data-v1.tar.gz) | 282.5 MiB | Required for a fresh source installation; already included in the Mac application |
-| [SHA-256 checksums](https://github.com/Yiming-S/EEGLayoutLab/releases/download/v0.1.1/SHA256SUMS.txt) | Text | Verify downloaded release files |
+| [Mac DMG](https://github.com/Yiming-S/EEGLayoutLab/releases/download/v0.1.2/EEGLayoutLab-0.1.2-macOS-arm64.dmg) | See release asset | Recommended installer for Apple Silicon Macs |
+| [Mac ZIP](https://github.com/Yiming-S/EEGLayoutLab/releases/download/v0.1.2/EEGLayoutLab-0.1.2-macOS-arm64.zip) | See release asset | Alternative archive containing the same application |
+| [Base data bundle](https://github.com/Yiming-S/EEGLayoutLab/releases/download/v0.1.2/eeglayoutlab-data-v1.tar.gz) | 282.5 MiB | Required for a fresh source installation; already included in the Mac application |
+| [SHA-256 checksums](https://github.com/Yiming-S/EEGLayoutLab/releases/download/v0.1.2/SHA256SUMS.txt) | Text | Verify downloaded release files |
 
 Download one Mac installer format. Source users need the code and matching base data bundle. The release includes selected frozen application inputs and example results; the full historical calculation cache is excluded.
 
@@ -44,7 +46,7 @@ The current model uses the SimNIBS example subject Ernie. Scores depend on the r
 
 ## Install and open on Mac
 
-1. Download **[`EEGLayoutLab-0.1.1-macOS-arm64.dmg`](https://github.com/Yiming-S/EEGLayoutLab/releases/download/v0.1.1/EEGLayoutLab-0.1.1-macOS-arm64.dmg)** and open it.
+1. Download **[`EEGLayoutLab-0.1.2-macOS-arm64.dmg`](https://github.com/Yiming-S/EEGLayoutLab/releases/download/v0.1.2/EEGLayoutLab-0.1.2-macOS-arm64.dmg)** and open it.
 2. Drag **EEG Layout Lab.app** into **Applications**.
 3. Launch the App and wait for the included environment and model data to be prepared.
 
@@ -58,7 +60,7 @@ This build uses an ad-hoc signature and has not been Apple-notarized. Follow the
 
 Follow the [source installation instructions](docs/source-installation.md) to install the data bundle, prepare the scientific runtime, and start the local application. The current managed runtime targets **Apple Silicon macOS**. The Python project uses **Python 3.11**; the web application requires **Node.js 22.13.0 or newer**.
 
-Download the matching scientific data archive from [release v0.1.1](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.1). It contains 21 files (406,226,293 uncompressed bytes), identified in [`data/manifest.json`](data/manifest.json). The source installation guide includes authenticated download, checksum, and import commands. See [Data and reproducibility](docs/data-and-reproducibility.md) for the exact data boundary.
+Download the matching scientific data archive from [release v0.1.2](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.2). It contains 21 files (406,226,293 uncompressed bytes), identified in [`data/manifest.json`](data/manifest.json). The source installation guide includes authenticated download, checksum, and import commands. See [Data and reproducibility](docs/data-and-reproducibility.md) for the exact data boundary.
 
 For development conventions and checks, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -81,6 +83,8 @@ Read [Architecture](docs/architecture.md), [Validation](docs/validation.md), [We
 
 ## Copyright and third-party material
 
-© 2026 Yiming Shen.
+© 2026 Yiming Shen & Yi Wang.
 
-A general license for the original project code has not been selected. Third-party components retain their own terms, including SimNIBS GPL-3.0-only and the Ernie example data's CC BY-NC 4.0 terms. Attribution, source links, and modification descriptions are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+The project's original source code and accompanying documentation are licensed under the [GNU General Public License version 3 only (GPL-3.0-only)](LICENSE). This permits commercial use; distribution of modified versions must follow the GPL, including its corresponding-source requirements.
+
+Third-party software and data retain their own licenses. SimNIBS uses GPL-3.0-only; Ernie data and its derived scientific and display assets remain under CC BY-NC 4.0. Attribution, source links, and modification descriptions are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

@@ -5536,24 +5536,24 @@
     "en": "Third-Party Licenses"
   },
   "copyright.introduction": {
-    "source": "EEG Layout Lab 是面向科研社区的研究软件项目，支持脑电研究、教育与科研协作。软件用于脑电电极布局设计、数学仿真与性能比较，研究电极数量、空间分布和区域范围与脑电采集能力之间的关系。",
-    "en": "EEG Layout Lab is a community-oriented research software project supporting EEG research, education, and scientific collaboration. It supports EEG electrode layout design, mathematical simulation, and performance comparison, investigating how electrode count, spatial distribution, and placement regions relate to EEG acquisition capability."
+    "source": "EEG Layout Lab 用于设计脑电电极布局、模拟脑电信号和比较布局性能。",
+    "en": "EEG Layout Lab is a tool for designing EEG electrode layouts, simulating EEG signals, and comparing layout performance."
   },
-  "copyright.original_heading": {
-    "source": "原创内容",
-    "en": "Original Content"
+  "copyright.collaborators": {
+    "source": "项目合作者",
+    "en": "Project collaborators"
   },
-  "copyright.original": {
-    "source": "本版权声明适用于项目中由 Yiming Shen 创作的源代码、界面设计、说明文档及其他原创内容。第三方软件、头部模型、数据和其他引用材料不包含在上述原创内容范围内。",
-    "en": "This copyright notice applies to source code, interface designs, documentation, and other original content created by Yiming Shen within this project. Third-party software, head models, datasets, and other referenced materials are excluded from this scope."
+  "copyright.software_license": {
+    "source": "本项目的原创代码与文档采用 GNU 通用公共许可证第3版（仅此版本，GPL-3.0-only）。可按该许可修改和再分发，软件不提供担保。",
+    "en": "The original project code and documentation are licensed under GNU GPL version 3 only (GPL-3.0-only). You may modify and redistribute them under that license. The software is provided without warranty."
   },
-  "copyright.materials": {
-    "source": "本项目使用的第三方软件、模型及数据，其相关权利归各自权利人所有，并按各自的许可条件使用。具体来源、署名、许可链接及修改说明，见相关资产说明及所附许可文件。",
-    "en": "Rights in third-party software, models, and datasets remain with their respective rights holders. These materials are used under their applicable licenses. Sources, attribution, license links, and modification notices are provided in the accompanying asset documentation and license files."
+  "copyright.license_text": {
+    "source": "许可证全文",
+    "en": "Full license text"
   },
   "copyright.simnibs": {
-    "source": "其中，SimNIBS 头模及其派生显示资产保留相应的来源、署名和许可信息。对这些资产进行转换或用于本项目展示，不改变其原有权利归属。",
-    "en": "In particular, SimNIBS head models and derived visualization assets retain their associated source, attribution, and license information. Conversion or display of these assets within this project does not change their underlying ownership."
+    "source": "本项目的 Ernie 头部模型和三维显示资产源自 SimNIBS 示例数据集 v4.1。",
+    "en": "The Ernie head model and 3D display assets come from the SimNIBS example dataset v4.1."
   },
   "copyright.asset_documentation": {
     "source": "模型资产来源与修改说明",
@@ -5566,18 +5566,6 @@
   "copyright.anatomical_details": {
     "source": "三维显示与坐标说明",
     "en": "3D Display & Coordinate Details"
-  },
-  "copyright.licensing_heading": {
-    "source": "许可与引用",
-    "en": "Licensing and References"
-  },
-  "copyright.licensing": {
-    "source": "本声明用于标明版权归属，不代替具体的软件或数据许可。使用、修改或再分发项目内容时，应分别核对所涉及代码、文档、模型和数据的许可条件。",
-    "en": "This notice identifies copyright ownership and does not replace a software or data license. Before using, modifying, or redistributing project materials, consult the applicable licenses for the relevant code, documentation, models, and datasets."
-  },
-  "copyright.references": {
-    "source": "参考文献用于说明研究方法和理论来源，与第三方软件及数据许可分别列示。",
-    "en": "Academic references document the origins of research methods and theoretical foundations. They are listed separately from third-party software and data licenses."
   },
   "common.requirement_description": {
     "source": "相对标准全头64导，所选指标至少需要保留多少。",

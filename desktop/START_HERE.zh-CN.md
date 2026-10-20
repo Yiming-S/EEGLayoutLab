@@ -1,12 +1,12 @@
 # EEG Layout Lab · Mac 桌面版
 
-0.1.1 版 · 项目合作者：Yiming Shen, PhD · Yi Wang, PhD。
+0.1.2 版 · 项目合作者：Yiming Shen, PhD · Yi Wang, PhD。
 
 适用于 Apple Silicon（M 系列芯片）Mac，macOS 14 或更新版本。
 
 ## 安装
 
-1. 从 [GitHub 0.1.1 版本页](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.1)下载 **`EEGLayoutLab-0.1.1-macOS-arm64.dmg`**。仓库目前为私有，需要登录有仓库访问权限的 GitHub 账号。版本页还提供 ZIP 格式和用于核对下载文件的 `SHA256SUMS.txt`。
+1. 从 [GitHub 0.1.2 版本页](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.2)下载 **`EEGLayoutLab-0.1.2-macOS-arm64.dmg`**。仓库目前为私有，需要登录有仓库访问权限的 GitHub 账号。版本页还提供 ZIP 格式和用于核对下载文件的 `SHA256SUMS.txt`。
 2. ZIP：解压后，将 **EEG Layout Lab.app** 拖到“应用程序”。
    DMG：打开镜像，将 App 拖到旁边的“应用程序”快捷方式。
 3. 双击打开 **EEG Layout Lab**。

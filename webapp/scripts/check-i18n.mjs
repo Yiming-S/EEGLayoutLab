@@ -266,13 +266,15 @@ void test('full method and retention guide server-render in English without untr
   assert.doesNotMatch(visibleText(html), /\bAR\b/);
 });
 
-void test('copyright footer and notice render in both languages with separate third-party attribution', () => {
+void test('copyright footer and concise notice render bilingual collaborators and third-party attribution', () => {
   const { SiteFooter } = loadUI('components/site-footer.tsx');
+  const { CopyrightNotice } = loadUI('components/copyright-notice.tsx');
   const Method = loadUI('app/method/page.tsx').default;
   for (const locale of ['zh-CN', 'en']) {
     const footer = render(SiteFooter, {}, locale);
     const method = render(Method, {}, locale);
-    assert.match(footer, /© 2026 Yiming Shen/);
+    const notice = render(CopyrightNotice, {}, locale);
+    assert.match(footer, /© 2026 Yiming Shen &amp; Yi Wang/);
     assert.match(footer, /#about-copyright/);
     assert.match(footer, /#third-party-licenses/);
     assert.match(footer, locale === 'en' ? /About &amp; Copyright/ : /关于与版权/);
@@ -281,12 +283,34 @@ void test('copyright footer and notice render in both languages with separate th
     assert.equal((method.match(/id="about-copyright"/g) ?? []).length, 1);
     assert.equal((method.match(/id="third-party-licenses"/g) ?? []).length, 1);
     assert.ok(method.indexOf('id="about-copyright"') > method.indexOf('</details>'));
+    assert.match(notice, /© 2026 Yiming Shen &amp; Yi Wang/);
+    assert.equal((notice.match(/Yiming Shen, PhD/g) ?? []).length, 1);
+    assert.equal((notice.match(/Yi Wang, PhD/g) ?? []).length, 1);
+    assert.match(notice, locale === 'en' ? /Project collaborators/ : /项目合作者/);
+    assert.match(notice, locale === 'en'
+      ? /EEG Layout Lab is a tool for designing EEG electrode layouts, simulating EEG signals, and comparing layout performance\./
+      : /EEG Layout Lab 用于设计脑电电极布局、模拟脑电信号和比较布局性能。/);
+    assert.match(notice, locale === 'en'
+      ? /The original project code and documentation are licensed under GNU GPL version 3 only \(GPL-3\.0-only\)\. You may modify and redistribute them under that license\. The software is provided without warranty\./
+      : /本项目的原创代码与文档采用 GNU 通用公共许可证第3版（仅此版本，GPL-3\.0-only）。可按该许可修改和再分发，软件不提供担保。/);
+    assert.match(notice, locale === 'en'
+      ? /href="\/LICENSE\.txt">Full license text<\/a>/
+      : /href="\/LICENSE\.txt">许可证全文<\/a>/);
+    assert.match(notice, locale === 'en'
+      ? /The Ernie head model and 3D display assets come from the SimNIBS example dataset v4\.1\./
+      : /本项目的 Ernie 头部模型和三维显示资产源自 SimNIBS 示例数据集 v4\.1。/);
+    assert.doesNotMatch(notice, /Original Content|原创内容|does not replace|不代替|underlying ownership|原有权利归属|Licensing and References|许可与引用/);
+    if (locale === 'en') assert.doesNotMatch(visibleText(notice), /[\u3400-\u9fff]/);
     assert.match(method, /© SimNIBS developers 2024/);
     assert.match(method, /CC BY-NC 4\.0/);
+    assert.match(method, /https:\/\/github\.com\/simnibs\/example-dataset\/releases\/tag\/v4\.1/);
+    assert.match(method, /https:\/\/creativecommons\.org\/licenses\/by-nc\/4\.0\//);
     assert.match(method, /\/models\/ernie\/README\.md/);
     assert.match(method, /\/models\/ernie\/manifest\.json/);
+    assert.match(notice, /href="#anatomical-display"/);
   }
-  assert.equal(COPYRIGHT_NOTICE, '© 2026 Yiming Shen');
+  assert.equal(COPYRIGHT_NOTICE, '© 2026 Yiming Shen & Yi Wang');
+  assert.deepEqual(fs.readFileSync(path.join(root, 'public/LICENSE.txt')), fs.readFileSync(path.join(root, '..', 'LICENSE')));
   const layout = fs.readFileSync(path.join(root, 'app/layout.tsx'), 'utf8');
   assert.match(layout, /<LanguageProvider[^>]*>[\s\S]*\{children\}[\s\S]*<SiteFooter\s*\/>[\s\S]*<\/LanguageProvider>/);
   for (const file of ['README.md', 'manifest.json']) assert.ok(fs.existsSync(path.join(root, 'public/models/ernie', file)));

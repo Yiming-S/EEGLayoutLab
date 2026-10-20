@@ -63,7 +63,10 @@ def test_project_staging_packages_current_sources_and_docs_without_ignored_files
     sources = {
         "webapp/components/new-feature.tsx": "export const feature = true;\n",
         "src/compact_eeg/new_feature.py": "feature = True\n",
+        "desktop/macos/App.swift": "import AppKit\n",
+        "desktop/build.py": "# Desktop build instructions.\n",
         "README.md": "Yiming Shen, PhD; Yi Wang, PhD\n",
+        "LICENSE": "GNU General Public License version 3.\n",
         "docs/server-deployment.md": "Deployment preparation.\n",
         "pyproject.toml": "[project]\nname = 'fixture'\n",
         "THIRD_PARTY_NOTICES.md": "Third-party notices.\n",
@@ -73,6 +76,7 @@ def test_project_staging_packages_current_sources_and_docs_without_ignored_files
     excluded = {
         "webapp/.env.production": "SECRET=private\n",
         "webapp/dist/old-bundle.js": "stale build\n",
+        "desktop/outputs/private.txt": "private desktop output\n",
         ".runtime/private.txt": "runtime state\n",
         "outputs/private.txt": "private output\n",
         "private.txt": "outside project allowlist\n",

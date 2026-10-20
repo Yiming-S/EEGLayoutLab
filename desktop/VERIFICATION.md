@@ -25,7 +25,7 @@ macOS 14 were not exercised in this run.
 - ZIP and DMG SHA-256 values match `SHA256SUMS.txt`; the embedded payload matches
   its manifest. Deep/strict signature checks and DMG integrity verification passed.
 - The application copied from the read-only DMG reports version 0.1.1 (2), arm64,
-  and the macOS 14 minimum. The About panel lists Yiming Shen, PhD and Yi Wang, PhD.
+  and the macOS 14 minimum. The About panel lists both project collaborators with their doctoral qualifications.
 
 ### Native application checks
 

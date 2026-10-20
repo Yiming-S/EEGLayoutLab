@@ -1,6 +1,6 @@
 # EEG Layout Lab · Mac desktop App
 
-Version 0.1.1 · Project collaborators: Yiming Shen, PhD · Yi Wang, PhD.
+Version 0.1.2 · Project collaborators: Yiming Shen, PhD · Yi Wang, PhD.
 
 For Apple Silicon Macs running macOS 14 or newer.
 
@@ -8,7 +8,7 @@ For Apple Silicon Macs running macOS 14 or newer.
 
 ## Install
 
-1. Download **`EEGLayoutLab-0.1.1-macOS-arm64.dmg`** from [GitHub release v0.1.1](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.1). The repository is private; sign in with an account that has repository access. The release also provides a ZIP alternative and `SHA256SUMS.txt` for download verification.
+1. Download **`EEGLayoutLab-0.1.2-macOS-arm64.dmg`** from [GitHub release v0.1.2](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.2). The repository is private; sign in with an account that has repository access. The release also provides a ZIP alternative and `SHA256SUMS.txt` for download verification.
 2. DMG: open the image and drag **EEG Layout Lab.app** into **Applications**. ZIP: extract the archive and move the App into Applications.
 3. Open **EEG Layout Lab**.
 4. On first launch, wait for the bundled environment and model data to be prepared. The App then opens automatically.

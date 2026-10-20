@@ -67,8 +67,8 @@ def stage_project(target):
     files = subprocess.check_output(
         ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"], cwd=ROOT,
     ).decode().split("\0")
-    allowed = ("src/", "scripts/", "configs/", "webapp/", "docs/")
-    explicit = {"README.md", "pyproject.toml", "THIRD_PARTY_NOTICES.md", "data/manifest.json", "data/SOURCES.md"}
+    allowed = ("src/", "scripts/", "configs/", "webapp/", "docs/", "desktop/")
+    explicit = {"README.md", "LICENSE", "pyproject.toml", "THIRD_PARTY_NOTICES.md", "data/manifest.json", "data/SOURCES.md"}
     identities = {}
     for name in sorted(set(files)):
         if not name or not (name.startswith(allowed) or name in explicit):
@@ -200,6 +200,7 @@ def main():
     project = work / "project"
     project.mkdir()
     identities, data = stage_project(project)
+    staged_desktop = project / "desktop"
     print("BUILD: source and frozen data staged", flush=True)
     runtime = project / ".runtime/simnibs-4.6.0"
     if args.staged_runtime:
@@ -227,24 +228,26 @@ def main():
         if isinstance(entry, dict):
             entry = entry["vinext"]
         run([node, webapp / "node_modules/vinext" / entry, "build"], cwd=webapp, env=environment)
-    for file in DESKTOP.glob("*.mjs"):
+    for file in staged_desktop.glob("*.mjs"):
         copy_file(file, resources / "desktop" / file.name)
-    copy_file(ROOT / "THIRD_PARTY_NOTICES.md", resources / "THIRD_PARTY_NOTICES.md")
+    notice_files = [project / name for name in ("LICENSE", "THIRD_PARTY_NOTICES.md")]
+    for notice in notice_files:
+        copy_file(notice, resources / notice.name)
     license_inventory(project, resources / "BUNDLED_COMPONENTS.json")
     copy_file(runtime / "portable-runtime-audit.json", resources / "PORTABLE_RUNTIME_AUDIT.json")
     iconset = work / "AppIcon.iconset"
-    run(["xcrun", "swift", "-module-cache-path", work / "swift-module-cache", DESKTOP / "macos/make-icon.swift", iconset])
+    run(["xcrun", "swift", "-module-cache-path", work / "swift-module-cache", staged_desktop / "macos/make-icon.swift", iconset])
     run(["iconutil", "-c", "icns", iconset, "-o", resources / "AppIcon.icns"])
     binary = executables / "EEG Layout Lab"
     run(["xcrun", "swiftc", "-O", "-parse-as-library", "-module-cache-path", work / "swift-module-cache", "-target", "arm64-apple-macos14.0", "-framework", "AppKit",
-         "-framework", "WebKit", DESKTOP / "macos/App.swift", "-o", binary])
+         "-framework", "WebKit", staged_desktop / "macos/App.swift", "-o", binary])
     info = {"CFBundleName": release["name"], "CFBundleDisplayName": release["name"],
             "CFBundleExecutable": binary.name, "CFBundleIdentifier": release["bundleIdentifier"],
             "CFBundleVersion": release["build"], "CFBundleShortVersionString": release["version"],
             "CFBundlePackageType": "APPL", "CFBundleIconFile": "AppIcon", "NSHighResolutionCapable": True,
             "LSMinimumSystemVersion": release["minimumMacOS"], "LSArchitecturePriority": ["arm64"],
             "LSApplicationCategoryType": "public.app-category.education",
-            "NSHumanReadableCopyright": "© 2026 Yiming Shen",
+            "NSHumanReadableCopyright": "© 2026 Yiming Shen & Yi Wang",
             "NSAppTransportSecurity": {"NSAllowsLocalNetworking": True},
             "CFBundleDevelopmentRegion": "en", "CFBundleLocalizations": ["en", "zh-Hans"]}
     (app / "Contents/Info.plist").write_bytes(plistlib.dumps(info))
@@ -259,14 +262,16 @@ def main():
                 "node": release["node"], "assets": []}
     for path in sorted((resources / "desktop").glob("*.mjs")):
         manifest["assets"].append({"file": path.relative_to(resources).as_posix(), "sha256": digest(path)})
+    for notice in notice_files:
+        manifest["assets"].append({"file": notice.name, "sha256": digest(resources / notice.name)})
     (resources / "desktop-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     # Local testing signature only. No Developer ID or notarization is implied.
     run(["codesign", "--force", "--sign", "-", node])
     run(["codesign", "--force", "--sign", "-", app])
     run(["codesign", "--verify", "--deep", "--strict", "--verbose=2", app])
-    guides = [DESKTOP / name for name in ("START_HERE.md", "START_HERE.zh-CN.md")]
-    for guide in guides:
-        copy_file(guide, output / guide.name)
+    guides = [staged_desktop / name for name in ("START_HERE.md", "START_HERE.zh-CN.md")]
+    for document in guides + notice_files:
+        copy_file(document, output / document.name)
     archive = output / ("EEGLayoutLab-" + release["version"] + "-macOS-arm64.zip")
     run(["ditto", "-c", "-k", "--sequesterRsrc", "--keepParent", app, archive])
     deliverables = [{"file": archive.name, "bytes": archive.stat().st_size, "sha256": digest(archive)}]
@@ -274,8 +279,8 @@ def main():
         mount = work / "dmg-root"
         mount.mkdir()
         shutil.copytree(app, mount / app.name, symlinks=True)
-        for guide in guides:
-            copy_file(guide, mount / guide.name)
+        for document in guides + notice_files:
+            copy_file(document, mount / document.name)
         (mount / "Applications").symlink_to("/Applications")
         dmg = output / ("EEGLayoutLab-" + release["version"] + "-macOS-arm64.dmg")
         run(["hdiutil", "create", "-volname", release["name"], "-srcfolder", mount, "-format", "UDZO", "-ov", dmg])
@@ -283,6 +288,7 @@ def main():
     report = {"schema": "eeglayoutlab-desktop-build/1", "release": release, "signature": "ad-hoc",
               "notarized": False, "payloadBytes": payload.stat().st_size, "unpackedBytes": unpacked_bytes,
               "frozenDataFiles": len(data["files"]), "sourceFileHashes": identities,
+              "noticeSha256": {notice.name: digest(resources / notice.name) for notice in notice_files},
               "deliverables": deliverables, "elapsedSeconds": time.monotonic() - started}
     (output / "build-report.json").write_text(json.dumps(report, indent=2) + "\n")
     (output / "SHA256SUMS.txt").write_text("".join(f"{item['sha256']}  {item['file']}\n" for item in deliverables))

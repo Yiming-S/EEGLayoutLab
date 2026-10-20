@@ -2,8 +2,8 @@
   "schema": "eeglayoutlab-desktop-release/1",
   "name": "EEG Layout Lab",
   "bundleIdentifier": "com.yimingshen.eeglayoutlab",
-  "version": "0.1.1",
-  "build": "2",
+  "version": "0.1.2",
+  "build": "1",
   "minimumMacOS": "14.0",
   "architecture": "arm64",
   "node": {

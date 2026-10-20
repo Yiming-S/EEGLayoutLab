@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Reseal a desktop build in a new directory without rebuilding its payload.
 
-The input .app, archives, and report remain unchanged. Only the bootstrap files
-and, optionally, the native shell are updated in a copied application.
+The input .app, archives, and report remain unchanged. The bootstrap and license
+files and, optionally, the native shell are updated in a copied application.
 """
 from __future__ import annotations
 
@@ -133,6 +133,21 @@ def synchronize_bootstrap(resources, desktop=None):
     return assets
 
 
+def synchronize_notices(resources):
+    assets = []
+    for name in ("LICENSE", "THIRD_PARTY_NOTICES.md"):
+        source = regular(ROOT / name)
+        expected = digest(source)
+        destination = resources / name
+        if destination.is_symlink():
+            raise ValueError("License target must not be a symlink")
+        shutil.copy2(source, destination)
+        if digest(destination) != expected:
+            raise ValueError("License source changed during copying")
+        assets.append({"file": name, "sha256": expected})
+    return assets
+
+
 def finalize(source, output, *, rebuild_shell=False, dmg=False):
     started = time.monotonic()
     original_app, original_report, manifest, info = validate_build(source)
@@ -149,28 +164,47 @@ def finalize(source, output, *, rebuild_shell=False, dmg=False):
         raise ValueError("Copied payload bytes changed")
     updated = copy.deepcopy(manifest)
     bootstrap_assets = synchronize_bootstrap(resources)
+    notice_assets = synchronize_notices(resources)
+    replaced_assets = {asset["file"] for asset in notice_assets}
     updated["assets"] = [asset for asset in manifest.get("assets", [])
-                         if not (asset["file"].startswith("desktop/") and asset["file"].endswith(".mjs"))]
+                         if asset["file"] not in replaced_assets
+                         and not (asset["file"].startswith("desktop/") and asset["file"].endswith(".mjs"))]
     updated["assets"].extend(bootstrap_assets)
-    updated["assets"].sort(key=lambda asset: asset["file"])
-    (resources / "desktop-manifest.json").write_text(json.dumps(updated, indent=2) + "\n")
+    updated["assets"].extend(notice_assets)
     executable = contained_file(app / "Contents/MacOS", info["CFBundleExecutable"])
     shell_source_hash = None
+    shell_source_file = None
     if rebuild_shell:
         shell = regular(DESKTOP / "macos/App.swift")
         shell_source_hash = digest(shell)
+        shell_sources = resources / "desktop-source"
+        if shell_sources.is_symlink():
+            raise ValueError("Native source directory must not be a symlink")
+        shell_sources.mkdir(exist_ok=True)
+        shell_copy = shell_sources / "App.swift"
+        if shell_copy.is_symlink():
+            raise ValueError("Native source target must not be a symlink")
+        shutil.copy2(shell, shell_copy)
+        if digest(shell_copy) != shell_source_hash:
+            raise ValueError("Swift source changed during copying")
+        shell_source_file = shell_copy.relative_to(resources).as_posix()
         run(["xcrun", "swiftc", "-O", "-parse-as-library", "-module-cache-path", work / "swift-module-cache",
-             "-target", "arm64-apple-macos14.0", "-framework", "AppKit", "-framework", "WebKit", shell, "-o", executable])
+             "-target", "arm64-apple-macos14.0", "-framework", "AppKit", "-framework", "WebKit", shell_copy, "-o", executable])
         if digest(shell) != shell_source_hash:
             raise ValueError("Swift source changed during compilation")
+        updated["assets"] = [asset for asset in updated["assets"] if asset["file"] != shell_source_file]
+        updated["assets"].append({"file": shell_source_file, "sha256": shell_source_hash})
+    updated["assets"].sort(key=lambda asset: asset["file"])
+    (resources / "desktop-manifest.json").write_text(json.dumps(updated, indent=2) + "\n")
     run(["lipo", executable, "-verify_arch", "arm64"])
     node = contained_file(resources, "node/bin/node")
     run(["codesign", "--force", "--sign", "-", node])
     run(["codesign", "--force", "--sign", "-", app])
     run(["codesign", "--verify", "--deep", "--strict", "--verbose=2", app])
     guides = [regular(DESKTOP / name) for name in ("START_HERE.md", "START_HERE.zh-CN.md")]
-    for guide in guides:
-        shutil.copy2(guide, output / guide.name)
+    notice_files = [contained_file(resources, asset["file"]) for asset in notice_assets]
+    for document in guides + notice_files:
+        shutil.copy2(document, output / document.name)
     release = original_report["release"]
     stem = "EEGLayoutLab-" + release["version"] + "-macOS-arm64"
     archive = output / (stem + ".zip")
@@ -181,26 +215,31 @@ def finalize(source, output, *, rebuild_shell=False, dmg=False):
         mount.mkdir()
         run(["ditto", app, mount / app.name])
         (mount / "Applications").symlink_to("/Applications")
-        for guide in guides:
-            shutil.copy2(guide, mount / guide.name)
+        for document in guides + notice_files:
+            shutil.copy2(document, mount / document.name)
         image = output / (stem + ".dmg")
         run(["hdiutil", "create", "-volname", release["name"], "-srcfolder", mount, "-format", "UDZO", image])
         paths.append(image)
     deliverables = [{"file": path.name, "bytes": path.stat().st_size, "sha256": digest(path)} for path in paths]
+    notice_hashes = {notice.name: digest(notice) for notice in notice_files}
     report = copy.deepcopy(original_report)
-    report.update({"signature": "ad-hoc", "notarized": False, "deliverables": deliverables})
+    report.update({"signature": "ad-hoc", "notarized": False, "deliverables": deliverables,
+                   "noticeSha256": notice_hashes})
     report["finalization"] = {
         "atUTC": datetime.now(timezone.utc).isoformat(), "inputBuildReportSha256": digest(source / "build-report.json"),
         "payloadSha256": manifest["payload"]["sha256"], "payloadUnchanged": True,
         "bootstrapAssets": bootstrap_assets, "nativeShellRebuilt": rebuild_shell,
         "nativeShellSourceSha256": shell_source_hash, "nativeShellBinarySha256": digest(executable),
+        "nativeShellSourceFile": shell_source_file,
+        "noticeSha256": notice_hashes,
         "guideSha256": {guide.name: digest(output / guide.name) for guide in guides},
         "elapsedSeconds": time.monotonic() - started,
         "note": "Packaging verification only; no new scientific or cross-device validation is implied.",
     }
     (output / "build-report.json").write_text(json.dumps(report, indent=2) + "\n")
     (output / "SHA256SUMS.txt").write_text("".join(f"{item['sha256']}  {item['file']}\n" for item in deliverables)
-                                          + "".join(f"{digest(output / guide.name)}  {guide.name}\n" for guide in guides))
+                                          + "".join(f"{digest(output / document.name)}  {document.name}\n"
+                                                    for document in guides + notice_files))
     print(json.dumps({"status": "finalized", "app": str(app), "deliverables": deliverables}, indent=2), flush=True)
     return report
 

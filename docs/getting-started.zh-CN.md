@@ -1,6 +1,6 @@
 # EEG Layout Lab 安装与使用
 
-**[下载 Mac 桌面版 — Apple Silicon](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.1)**
+**[下载 Mac 桌面版 — Apple Silicon](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.2)**
 
 仓库目前为私有，需要登录有仓库访问权限的 GitHub 账号才能下载。
 
@@ -19,23 +19,23 @@ EEG Layout Lab 是面向科研社区的研究软件项目，用于设计、查�
 - **Yiming Shen, PhD**
 - **[Yi Wang, PhD](https://www.massey.ac.nz/massey/expertise/profile.cfm?stref=469822)**：新西兰梅西大学数学与计算科学学院计算机科学高级讲师。
 
-项目计划部署到 Yi Wang 搭建的服务器，提供完整网页版，支持查看已有结果和在线发起新计算。上线后将在主 README 补充访问地址。
+项目计划部署到 Dr. Wang 搭建的服务器，提供完整网页版，支持查看已有结果和在线发起新计算。上线后将在主 README 补充访问地址。
 
 ## 运行方式
 
 | 方式 | 当前状态 | 说明 |
 | --- | --- | --- |
-| Mac 桌面版 | 0.1.1 版 | 在 Mac 上运行，按下方步骤安装。 |
+| Mac 桌面版 | 0.1.2 版 | 在 Mac 上运行，按下方步骤安装。 |
 | 本机源码版 | 当前开发版本 | 使用单独的[源码安装说明](source-installation.zh-CN.md)，目前安装流程面向 Apple Silicon Mac。 |
 | 服务器网页版 | 准备部署 | 计算与结果存储放在服务器上，见[服务器部署准备说明（英文）](server-deployment.md)。 |
 
-桌面版 **0.1.1（构建号 2）**包含更新后的网页源码及[匿名访客任务队列（英文说明）](anonymous-queue.md)。安装包、基础数据包和校验文件统一放在 GitHub 版本页；完整历史计算缓存不在本次分发范围内。构建与测试记录见[桌面版验证报告（英文）](../desktop/VERIFICATION.md)。
+桌面版 **0.1.2（构建号 1）**包含当前网页源码及[匿名访客任务队列（英文说明）](anonymous-queue.md)。安装包、基础数据包和校验文件统一放在 GitHub 版本页；完整历史计算缓存不在本次分发范围内。本版本的验证结果见 [GitHub 版本页](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.2)；既有[桌面版验证报告（英文）](../desktop/VERIFICATION.md)记录的是 0.1.1 版。
 
 ## 在 Mac 上安装并打开
 
 使用 **Apple Silicon（M 系列芯片）Mac，macOS 14 或更新版本**。
 
-1. 打开 [GitHub 0.1.1 版本页](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.1)，下载 **`EEGLayoutLab-0.1.1-macOS-arm64.dmg`**。
+1. 打开 [GitHub 0.1.2 版本页](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.2)，下载 **`EEGLayoutLab-0.1.2-macOS-arm64.dmg`**。
 2. 打开 DMG，将 **EEG Layout Lab.app** 拖到“应用程序”。如果收到的是 ZIP，解压后将 App 移到“应用程序”。
 3. 打开 **EEG Layout Lab**。首次启动会准备内置计算环境和模型数据，然后显示 App。
 
@@ -62,6 +62,6 @@ EEG Layout Lab 是面向科研社区的研究软件项目，用于设计、查�
 
 ## 版权与第三方材料
 
-© 2026 Yiming Shen。
+© 2026 Yiming Shen & Yi Wang。
 
-项目支持脑电研究、教育与科研协作。原创代码尚未指定通用许可证，第三方软件、头模及数据保留各自的许可条款，详见 [版权与第三方材料说明](../THIRD_PARTY_NOTICES.md)。
+项目支持脑电研究、教育与科研协作。原创源代码及配套文档采用 [GNU 通用公共许可证第 3 版，仅限此版本（GPL-3.0-only）](../LICENSE)。该许可证允许商业使用；分发修改版时须遵守 GPL，包括提供对应源码的要求。第三方软件、头模及数据保留各自的许可条款，其中 Ernie 数据及其派生材料继续适用 CC BY-NC 4.0，详见 [版权与第三方材料说明](../THIRD_PARTY_NOTICES.md)。

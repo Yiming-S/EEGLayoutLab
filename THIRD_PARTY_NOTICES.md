@@ -1,10 +1,10 @@
 # Copyright and third-party notices
 
-© 2026 Yiming Shen for original EEG Layout Lab code and documentation.
+© 2026 Yiming Shen & Yi Wang for original EEG Layout Lab code and documentation.
 
 EEG Layout Lab is a community-oriented research software project supporting EEG research, education, and scientific collaboration.
 
-A general license for the original project code has not been selected. Third-party rights and licenses are separate and are not replaced by this notice.
+The project's original source code and accompanying documentation are licensed under the [GNU General Public License version 3 only (GPL-3.0-only)](LICENSE). Third-party software and materials, including Ernie data and its derived scientific and display assets, retain their respective licenses below.
 
 ## SimNIBS
 
@@ -14,7 +14,7 @@ The native computation environment uses **SimNIBS 4.6.0**, published by the SimN
 - [Upstream GPL version 3 license text](https://raw.githubusercontent.com/simnibs/simnibs/v4.6.0/LICENSE.txt)
 - [SimNIBS releases](https://github.com/simnibs/simnibs/releases/tag/v4.6.0)
 
-Preserve upstream copyright and license files with redistributed SimNIBS material. Distribution of runtime binaries and any corresponding-source obligations are governed by the upstream license. This notice does not designate all application code as SimNIBS code or select a license for the original project.
+Preserve upstream copyright and license files with redistributed SimNIBS material. Distribution of runtime binaries and any corresponding-source obligations are governed by the upstream license.
 
 ## Ernie head model and derived data
 
@@ -24,7 +24,7 @@ The Ernie inputs originate from **SimNIBS example dataset v4.1**. The release st
 - [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)
 - [Dataset documentation](https://simnibs.github.io/simnibs/build/html/dataset.html)
 
-The separately supplied numerical bundle includes selected Ernie inputs and derived arrays, with exact identities in [`data/manifest.json`](data/manifest.json) and provenance in [`data/SOURCES.md`](data/SOURCES.md). Derived files include candidate geometry, surface-admission information, scalp mappings, source arrays, lead fields, and model-dependent result records. Preserve the dataset attribution, license link, noncommercial condition, and description of modifications when sharing those materials. No replacement license is assigned to an author-owned contribution by this notice.
+The separately supplied numerical bundle includes selected Ernie inputs and derived arrays, with exact identities in [`data/manifest.json`](data/manifest.json) and provenance in [`data/SOURCES.md`](data/SOURCES.md). Derived files include candidate geometry, surface-admission information, scalp mappings, source arrays, lead fields, and model-dependent result records. Preserve the dataset attribution, license link, noncommercial condition, and description of modifications when sharing those materials.
 
 The anatomical display under `webapp/public/models/ernie/` contains selected scalp and gray-matter surface components. Coordinates are converted from millimetres to metres and rounded into display buffers. These buffers are for visualization; they do not replace the original scientific mesh. Their [`manifest`](webapp/public/models/ernie/manifest.json) and [`asset notice`](webapp/public/models/ernie/README.md) document the transformations and source identity.
 

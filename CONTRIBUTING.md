@@ -80,4 +80,4 @@ The repository has not yet been independently installed and tested on a second M
 
 ## Licensing
 
-© 2026 Yiming Shen. A general license for the original code has not been selected. This document does not establish an open-source licensing grant or a contributor license agreement. Third-party components retain the terms listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+© 2026 Yiming Shen & Yi Wang. The project's original source code and accompanying documentation are licensed under the [GNU General Public License version 3 only (GPL-3.0-only)](LICENSE). Third-party components retain the terms listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

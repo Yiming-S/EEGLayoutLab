@@ -2,7 +2,7 @@
 
 **Status: planned deployment; public hosting configuration is not yet implemented.**
 
-Yiming Shen, PhD, and Yi Wang, PhD, are preparing EEG Layout Lab for a server set up by Yi Wang. The target is the full application: browsing existing layouts, designing new layouts, editing and importing electrode coordinates, comparing results, running signal simulations, and downloading outputs. New numerical work will run on the server, with results stored there.
+Yiming Shen, PhD, and Yi Wang, PhD, are preparing EEG Layout Lab for Dr. Wang's server. The target is the full application: browsing existing layouts, designing new layouts, editing and importing electrode coordinates, comparing results, running signal simulations, and downloading outputs. New numerical work will run on the server, with results stored there.
 
 This document records the handoff and implementation work needed before launch. The current [source installation guide](source-installation.md) covers local Apple Silicon macOS use.
 
