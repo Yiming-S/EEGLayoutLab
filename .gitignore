@@ -1,3 +1,19 @@
+# Keep repository-root additions limited to EEGLayoutLab's source and docs.
+/*
+!/.gitignore
+!/README.md
+!/CONTRIBUTING.md
+!/THIRD_PARTY_NOTICES.md
+!/pyproject.toml
+!/configs/
+!/data/
+!/desktop/
+!/docs/
+!/scripts/
+!/src/
+!/tests/
+!/webapp/
+
 # Rebuilt dependency environments and outputs
 .runtime/
 .venv/
@@ -26,11 +42,18 @@ data/*
 .data-export-*
 
 # Per-user computed jobs, browser captures and temporary output
+/artifacts/
 outputs/
 work/
 tmp/
 *.log
 .DS_Store
+
+# Desktop installers and release archives are distributed separately from Git.
+*.app/
+*.dmg
+*.zip
+*.tar.gz
 
 # Credentials, personal machine configuration and old development context
 .env*

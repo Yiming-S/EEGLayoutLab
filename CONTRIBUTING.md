@@ -10,7 +10,9 @@ Preserve frozen data files and result provenance. New numerical assumptions requ
 
 Coordinate changes must state their units and reference frame. Keep coordinate and region-label ordering together. Imported coordinates must already be registered to the Ernie subject space; the application does not perform a general anatomical registration.
 
-Do not commit installed environments, large installed data, local result caches, credentials, build outputs, screenshots from test runs, or machine-specific filesystem paths. Changes to external assets must preserve their attribution and applicable terms.
+Keep this repository focused on EEGLayoutLab: application code, required display assets, scientific configuration, directly related tools, tests, and documentation. Keep installed environments, large numerical inputs, result caches, credentials, installers, and local captures outside Git. `artifacts/` holds local demonstrations and verification evidence; `results/` and `releases/` hold generated scientific and packaging outputs. These directories are ignored. Changes to external assets must preserve their attribution and applicable terms.
+
+The root allowlist in `.gitignore` limits new top-level files and directories to the project structure. Update it explicitly when adding a new project directory.
 
 ## Verification
 
