@@ -2,7 +2,7 @@
 import { useLanguage } from '@/components/language-provider';
 
 /* oxlint-disable next/no-html-link-for-pages -- preserve established vinext navigation */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import { safeReturnHref } from '@/lib/ui-language';
 import { parseAR } from '@/lib/lab-workflow';
@@ -20,6 +20,18 @@ import {
 export const running = (job: SourceJob | null) =>
   Boolean(job && ['queued', 'running', 'cancelling'].includes(job.status));
 type SourceResponse = { job: SourceJob; error?: string; hit?: boolean };
+const jobMessage = (job: SourceJob) =>
+  job.status === 'completed'
+    ? job.cached
+      ? '已读取本地缓存，不重新计算。'
+      : '源—接收对照已计算并保存'
+    : job.status === 'queued'
+      ? '已加入计算队列'
+      : job.status === 'running'
+        ? '正在计算当前场景'
+        : job.status === 'cancelling'
+          ? '正在停止源实验'
+          : job.message;
 
 export function useReceptionController() {
   const { tx, locale } = useLanguage();
@@ -176,9 +188,10 @@ export function useReceptionController() {
     mode,
     singleIndex,
     crossRegions,
-    selected?.dataset_id,
   ]);
   const key = sourceKey(request);
+  const currentKey = useRef(key);
+  useLayoutEffect(() => { currentKey.current = key; }, [key]);
   const validSources = mode !== 'cross_region' || crossRegions.length > 0;
   const job =
     active && sourceKey(active.request) === key
@@ -214,11 +227,20 @@ export function useReceptionController() {
         const value = (await r.json()) as SourceResponse;
         if (!r.ok) throw new Error(value.error || '缓存读取失败');
         if (c.signal.aborted) return;
-        if (value.hit) setStored(value.job);
+        if (value.hit) {
+          setStored(value.job);
+          // A lookup hit can be a shared pending task, rather than a saved result.
+          // Follow the selected task even when health restored an earlier task.
+          setActive((a) =>
+            running(value.job) || (a && sourceKey(a.request) === key)
+              ? value.job
+              : a,
+          );
+        }
         setLookup({
           key,
           message: value.hit
-            ? '已读取本地缓存，不重新计算。'
+            ? jobMessage(value.job)
             : '该源场景尚未计算。点击下方按钮运行；改变AR不触发计算。',
         });
         setError({ key, message: '' });
@@ -253,7 +275,9 @@ export function useReceptionController() {
         const value = (await r.json()) as SourceResponse;
         if (!r.ok) throw new Error(value.error || '任务连接中断');
         if (c.signal.aborted) return;
-        setActive(value.job);
+        setActive((a) => a?.id === jobId ? value.job : a);
+        if (currentKey.current === activeKey)
+          setLookup({ key: activeKey, message: jobMessage(value.job) });
         if (running(value.job)) timer = setTimeout(poll, 900);
       } catch (e) {
         if (!c.signal.aborted) {
@@ -262,14 +286,14 @@ export function useReceptionController() {
             message: e instanceof Error ? e.message : '任务连接中断',
           });
           setActive((a) =>
-            a
+            a?.id === jobId
               ? {
                   ...a,
                   status: 'failed',
                   result: null,
                   message: '连接中断，请刷新服务并重新读取',
                 }
-              : null,
+              : a,
           );
         }
       }
@@ -295,25 +319,33 @@ export function useReceptionController() {
       });
       const data = (await r.json()) as SourceResponse;
       if (!r.ok) throw new Error(data.error || '本机正忙，请稍后手动重试');
+      if (currentKey.current !== key) return;
       setActive(data.job);
+      setLookup({ key, message: jobMessage(data.job) });
     } catch (e) {
-      setError({ key, message: e instanceof Error ? e.message : '提交失败' });
+      if (currentKey.current === key)
+        setError({ key, message: e instanceof Error ? e.message : '提交失败' });
     } finally {
       setSubmitting(false);
     }
   };
   const cancel = async () => {
     if (!active || !token) return;
+    const jobId = active.id;
     try {
-      const r = await fetch(`/api/source-reception/jobs/${active.id}/cancel`, {
+      const r = await fetch(`/api/source-reception/jobs/${jobId}/cancel`, {
         method: 'POST',
         headers: { 'X-EEG-Compute-Token': token },
       });
       const data = (await r.json()) as SourceResponse;
       if (!r.ok) throw new Error(data.error);
-      setActive(data.job);
+      setActive((a) => a?.id === jobId ? data.job : a);
+      const cancelledKey = sourceKey(data.job.request);
+      if (currentKey.current === cancelledKey)
+        setLookup({ key: cancelledKey, message: jobMessage(data.job) });
     } catch {
-      setError({ key, message: '停止请求失败，请刷新服务确认任务状态' });
+      if (currentKey.current === key)
+        setError({ key, message: '停止请求失败，请刷新服务确认任务状态' });
     }
   };
   return {

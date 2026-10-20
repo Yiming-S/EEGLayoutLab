@@ -110,7 +110,7 @@ function PerformanceCurve({
             : '信号重建保留率随已计算半径变化，数值见下方配置表')
         }
       >
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height={310}>
           <LineChart
             data={rows}
             margin={{ top: 12, right: 16, left: 0, bottom: 5 }}

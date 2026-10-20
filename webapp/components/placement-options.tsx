@@ -2,13 +2,12 @@
 import { useLanguage } from '@/components/language-provider';
 
 /* oxlint-disable next/no-html-link-for-pages -- preserve established vinext navigation */
-import { useId, type ReactNode } from 'react';
+import { useEffect, useId, useState, type ReactNode } from 'react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Button } from '@/components/ui/button';
 import { MASK_NAMES } from '@/lib/ui-language';
 import { REGION_COUNTS } from '@/lib/lab-workflow';
 import { placementChoices, placementDesignLink, type PlacementChoice, type PlacementProtocol } from '@/lib/placement-options';
-import protocolData from '@/public/data/experiment_protocol_v2.json';
 
 export function LocationRadios({ label, value, onChange, options, compact = false }: {
   label: string; value: string; onChange: (value: string) => void;
@@ -42,10 +41,21 @@ export function HomePlacementOptions({ domain, setDomain, children }: { domain: 
 
 export function PlacementDesignPresets({ ar }: { ar: number }) {
   const { tx } = useLanguage();
+  const [protocolData, setProtocolData] = useState<PlacementProtocol | null>(null);
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch('/data/experiment_protocol_v2.json', { signal: controller.signal })
+      .then(async (response) => { if (!response.ok) throw new Error('protocol'); return response.json() as Promise<PlacementProtocol>; })
+      .then(setProtocolData)
+      .catch(() => { if (!controller.signal.aborted) setError(true); });
+    return () => controller.abort();
+  }, []);
   return <section id="create-layout" className="lab-panel mt-6 scroll-mt-[calc(var(--workspace-header-height,160px)+16px)] space-y-4" aria-labelledby="create-layout-title">
       <div className="flex flex-wrap items-center justify-between gap-2"><h2 id="create-layout-title" className="text-lg font-semibold">{tx('按部位创建布局')}</h2><span className="rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground">{tx('每区半径约束 · 新建设计')}</span></div>
       <p className="mt-1 text-sm leading-6 text-muted-foreground">{tx("以下组合直接填入设计条件，保留AR。每区半径初始为35 mm，可再调整；不沿用上方总面积约束、不自动计算。")}</p>
-      <div className="mt-3 space-y-3">{tx(REGION_COUNTS.map((count) => <div key={count} className="grid gap-2 sm:grid-cols-[110px_1fr]">
+      {!protocolData && <p className="text-sm text-muted-foreground">{tx(error ? '部位组合未载入，可进入布局设计重新读取。' : '正在读取部位组合…')}</p>}
+      <div className="mt-3 space-y-3">{protocolData && tx(REGION_COUNTS.map((count) => <div key={count} className="grid gap-2 sm:grid-cols-[110px_1fr]">
         <p className="pt-2 text-sm font-semibold">{tx(`${count}个区域`)}<span className="mt-1 block text-xs font-normal text-muted-foreground">{tx(Array.from({ length: count }, (_, i) => Math.floor(64 / count) + Number(i < 64 % count)).join('+'))} {tx(" 电极")}</span></p>
         <div className="flex flex-wrap gap-2">{tx(placementChoices(protocolData as PlacementProtocol, count, MASK_NAMES).filter((c) => c.mode === 'preset').map((c) => <a key={c.id} href={placementDesignLink(c, count, ar)} aria-label={tx(`用此组合创建设计：${c.label}`)} className="rounded-lg border bg-card px-3 py-2 text-sm leading-6 text-foreground hover:border-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"><span className="block">{tx(c.label)}</span><span className="block text-xs text-primary">{tx('创建设计 →')}</span></a>))}</div>
       </div>))}</div>
@@ -54,21 +64,23 @@ export function PlacementDesignPresets({ ar }: { ar: number }) {
   </section>;
 }
 
-export function DesignPlacementOptions({ count, choices, selected, slots, onSelect, onSlot, onCount }: {
+export function DesignPlacementOptions({ count, choices, selected, slots, onSelect, onSlot, onCount, compact = false }: {
   count: number; choices: PlacementChoice[]; selected: string; slots: string[];
   onSelect: (choice: PlacementChoice) => void; onSlot: (index: number, value: string) => void;
   onCount: (count: number) => void;
+  compact?: boolean;
 }) {
   const { tx } = useLanguage();
-  return <section className="lab-panel mb-4 space-y-5" aria-label={tx("平铺的布置范围与区域部位")}>
+  const [customOpen, setCustomOpen] = useState(() => slots.some(Boolean) && !choices.some((choice) => choice.id === selected && choice.mode === 'preset'));
+  return <section className={compact ? 'mb-4 space-y-4' : 'lab-panel mb-4 space-y-5'} aria-label={tx("平铺的布置范围与区域部位")}>
     <div><h2 className="text-lg font-semibold">{tx("1 · 选择区域数与允许布置范围")}</h2><fieldset className="mt-3 flex flex-wrap gap-2" aria-label={tx("电极分布区域数")}>{tx(REGION_COUNTS.map((r) => <Button key={r} variant={count === r ? 'default' : 'outline'} aria-pressed={count === r} onClick={() => onCount(r)}>{tx(`${r}个区域`)}</Button>))}</fieldset><p className="mt-2 text-sm text-muted-foreground">{tx("总电极数始终64；下方每个区域标明分配数量。")}</p></div>
     <LocationRadios label={tx("允许布置范围")} value={selected} onChange={(id) => { const c = choices.find((v) => v.id === id); if (c) onSelect(c); }} options={choices.filter((c) => c.mode !== 'preset')} />
     <div><p className="mb-2 text-sm font-semibold">{tx("常用组合 · ")}{tx(`${count}个区域`)}</p><div className="flex flex-wrap gap-2">{tx(choices.filter((c) => c.mode === 'preset').map((c) => <Button key={c.id} variant={selected === c.id ? 'default' : 'outline'} className="h-auto whitespace-normal py-2 text-left" aria-pressed={selected === c.id} onClick={() => onSelect(c)}>{tx(c.label)}</Button>))}</div></div>
-    <div className="border-t pt-4">
-      <h2 className="text-base font-semibold">{tx("自由组合部位 · 每个区域选一项")}</h2>
+    <details className="border-t pt-4" open={customOpen} onToggle={(event) => setCustomOpen(event.currentTarget.open)}>
+      <summary className="cursor-pointer text-base font-semibold">{tx("自由组合部位 · 每个区域选一项")}</summary>
       <p className="mt-1 text-sm leading-6 text-muted-foreground">{tx("可选择预设之外的组合，也可在多个区域选择同一部位。顺序对应各区电极数；仍须满足不同电极、最小间距与区域分离要求。")}</p>
-      <div className="mt-4 grid items-start gap-5 lg:grid-cols-2 xl:grid-cols-3">{tx(Array.from({ length: count }, (_, i) => <LocationRadios key={i} label={tx(`区域${i + 1} · ${Math.floor(64 / count) + Number(i < 64 % count)}个电极`)} value={slots[i] ?? ''} onChange={(v) => onSlot(i, v)} options={Object.entries(MASK_NAMES).map(([id, label]) => ({ id, label }))} compact />))}</div>
+      <div className={'mt-4 grid items-start gap-5 ' + (compact ? '' : 'lg:grid-cols-2 xl:grid-cols-3')}>{tx(Array.from({ length: count }, (_, i) => <LocationRadios key={i} label={tx(`区域${i + 1} · ${Math.floor(64 / count) + Number(i < 64 % count)}个电极`)} value={slots[i] ?? ''} onChange={(v) => onSlot(i, v)} options={Object.entries(MASK_NAMES).map(([id, label]) => ({ id, label }))} compact />))}</div>
       <p className="mt-3 text-sm leading-6 text-muted-foreground">{tx("所有部位均按模型坐标近似划定。耳后邻近区覆盖近耳后外侧，耳周扩展区覆盖更大范围，眶周上外侧排除模型中的眼球近似区。眼电干扰在信号仿真页单独评价。")}</p>
-    </div>
+    </details>
   </section>;
 }

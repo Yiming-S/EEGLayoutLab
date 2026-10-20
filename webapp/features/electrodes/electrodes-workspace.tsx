@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { MASK_NAMES } from '@/lib/ui-language';
-import { localizedRecordTitle } from '@/lib/i18n/records';
+import { localizedRecordTitle, localizedEditorParentTitle } from '@/lib/i18n/records';
 
 import { initialSlots, editHistory, editorLink } from '@/lib/electrode-editor';
 import { useElectrodesController, running } from './use-electrodes-controller';
@@ -537,10 +537,14 @@ export default function ElectrodesPage() {
                       onChange={(e) => {
                         const value = Number(e.target.value);
                         setAr(value);
+                        const href = new URL(window.location.href);
+                        href.searchParams.set('ar', String(value));
+                        if (!originalLayout)
+                          href.searchParams.set('resume', '1');
                         window.history.replaceState(
                           null,
                           '',
-                          editorLink(domain.parent.id, value),
+                          href.pathname + href.search + href.hash,
                         );
                       }}
                       className="mt-2 block w-full accent-primary"
@@ -593,7 +597,7 @@ export default function ElectrodesPage() {
                   <div>
                     <p className="font-medium">
                       {tx(`编辑布局 · ${r.electrode_count}点`)} ·{' '}
-                      {tx(r.parent_label)}
+                      {localizedEditorParentTitle(r, parents, locale)}
                     </p>
                     <p className="mt-1 text-sm text-muted-foreground">
                       {date(r.finished_at, true)} · {tx('场重建保留率')}{' '}

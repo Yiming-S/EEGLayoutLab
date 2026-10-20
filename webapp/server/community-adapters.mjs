@@ -12,7 +12,8 @@ export function communityAdapters(queue, normalizeRadius) {
   });
   return {
     'local-compute': adapter(queue, normalizeRadius, r => queue.identityFor(r)),
-    'source-reception': adapter(queue.sources, normalizeReceptionRequest, r => queue.sources.context(r)),
+    'source-reception': { ...adapter(queue.sources, normalizeReceptionRequest, r => queue.sources.context(r)),
+      savedResult: (key, request) => queue.sources.savedResult(key, request) },
     'design-evaluation': adapter(queue.designTests, r => queue.designTests.normalize(r), r => queue.designTests.context(r)),
     'electrode-editor': adapter(queue.editor, r => queue.editor.normalize(r), r => queue.editor.context(r)),
   };

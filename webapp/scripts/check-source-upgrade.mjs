@@ -12,6 +12,7 @@ import {
 import { describeSearch, experimentBundle } from './experiment-bundle.mjs';
 import { areaRecords, radiusRecords } from './local-data-library.mjs';
 import { createHash } from 'node:crypto';
+import { normalizeDesignRequest } from '../server/design-evaluation-server.mjs';
 import { sourceKey } from '../lib/source-reception.ts';
 const root = new URL('../../', import.meta.url).pathname;
 const fieldSource = stripTypeScriptTypes(
@@ -155,6 +156,7 @@ void test('synthetic completed native record resolves evaluated coordinates, not
     projection_max_mm: 1, evaluated_xyz_mm: xyz.map(([x, y]) => [x, y, 1]),
     provenance: { candidate_count: 64 }, trials: [],
   };
+  result.request = normalizeDesignRequest(result.request);
   const report = JSON.stringify({ baseline: { reference_xyz_mm: xyz } });
   try {
     await mkdir(join(fixtureRoot, 'results/v2/design_evaluation_jobs', id), { recursive: true });
@@ -166,6 +168,10 @@ void test('synthetic completed native record resolves evaluated coordinates, not
     assert.notDeepEqual(r.layout.xyzMm, xyz);
     assert.equal(r.layout.xyzMm.length, 64);
     assert.equal(r.provenance.forward_mode, 'direct_fem');
+    const invalid = structuredClone(result);
+    invalid.request.design.region_indices = Array(64).fill(99);
+    await writeFile(join(fixtureRoot, 'results/v2/design_evaluation_jobs', id, 'cache.json'), JSON.stringify({ key: id, result: invalid, result_sha256: digest(JSON.stringify(invalid)) }));
+    await assert.rejects(designReceptionRecord(fixtureRoot, id), /区域编号错误/);
   } finally {
     await rm(fixtureRoot, { recursive: true });
   }

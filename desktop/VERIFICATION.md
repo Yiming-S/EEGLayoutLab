@@ -1,5 +1,97 @@
 # Desktop build verification
 
+## Version 0.1.1, build 2 — 2026-10-19
+
+The current working tree was fully rebuilt on Apple Silicon running macOS
+27.0.1. The deployment target remains macOS 14. A second physical Mac and
+macOS 14 were not exercised in this run.
+
+### Build inputs and package checks
+
+- All 316 selected source and documentation files match their recorded hashes,
+  including 17 untracked additions. The build includes the updated web interface,
+  scientific services, and anonymous task queue.
+- The builder now includes non-ignored new source files and supplies both
+  installation guides beside the archives and inside the DMG. A temporary-Git
+  regression test verifies source inclusion and ignored-file exclusion.
+- All 21 model-data files passed verification: 406,226,293 bytes. The installed
+  library contains 402 supplied records.
+- Runtime staging audited 1,060 native binaries, verified isolated imports,
+  MUMPS, CGAL, and loaded-library paths, and confirmed that the original runtime
+  was unchanged.
+- Type checking, linting, and the production web build passed. Automated tests:
+  228 web checks, 11 desktop launcher checks, and 17 Python packaging/runtime
+  checks passed.
+- ZIP and DMG SHA-256 values match `SHA256SUMS.txt`; the embedded payload matches
+  its manifest. Deep/strict signature checks and DMG integrity verification passed.
+- The application copied from the read-only DMG reports version 0.1.1 (2), arm64,
+  and the macOS 14 minimum. The About panel lists Yiming Shen, PhD and Yi Wang, PhD.
+
+### Native application checks
+
+The DMG's application was copied to a separate test installation. Scientific
+test data used `EEG_DESKTOP_USER_DATA` under the release's `qa/` directory.
+
+- Clean first launch passed in 31.19 seconds on the build Mac. The native
+  WKWebView loaded the interface, and its DOM and WebGL checks passed.
+- Chinese-to-English switching worked. After a controlled Command-Q and reopen
+  at the same local address, the English interface was restored.
+- Brain view and the left-side orientation rendered in the native window.
+- The native Save dialog exported an importable layout JSON with 64 electrodes,
+  two regions, `ernie_native_mm` coordinates, and millimetre units.
+
+### Computation and restart checks
+
+The packaged Node binary and installed worker code exercised all 11 application
+routes, the supplied library, and eight computation cases. Python workers and
+numerical libraries resolved inside the installed workspace.
+
+| Check | Initial completed calculation, seconds | After service restart, seconds |
+| --- | ---: | ---: |
+| Two-region layout optimization | 12.785 | 0.139 |
+| Electrode editor preparation | 4.382 | 0.344 |
+| Evaluation with 63 active electrodes | 2.657 | 0.143 |
+| Existing-bank coordinate evaluation | 2.842 | 0.326 |
+| Source simulation v1 | 7.444 | 0.388 |
+| New-coordinate direct FEM evaluation | 111.368 | 0.140 |
+| Native-layout single-source simulation v2 | 118.691 | 1.666 |
+| Native-layout multi-source simulation v2 | 6.507 | 1.694 |
+
+Every case also repeated its request and verified an identical cached result.
+After an orderly service stop, its port closed and its running-state file was
+removed. Restart reused the same installed workspace, and the complete
+integration suite passed again. Requests without the write token or with an
+external Origin were rejected. The table reports this Mac's integration timings,
+including result handling and immediate cache replay.
+
+An initial GUI-owned integration attempt was interrupted by an orderly
+application quit before its FEM task completed. The logs do not identify the
+source of that quit request. The complete rerun used the packaged supervisor
+directly; both that run and the post-restart run passed. The first-attempt log
+is retained separately from the successful runs.
+
+The direct FEM result reported a reference relative difference of
+`2.129876327492097e-12`, below the test's `1e-8` limit. Its maximum full-system
+relative residual was `8.175825218127255e-13`, and its reciprocity difference was
+`4.983733404248029e-16`. These checks establish numerical consistency for the
+packaged workflow; the recorded source-qualification flags remain unchanged.
+
+### Local deliverables and data behavior
+
+The local release is under `releases/desktop-0.1.1-build2/`, with the application,
+DMG, ZIP, installation guides, build report, checksums, and verification evidence.
+The DMG is 1,257,470,888 bytes; the ZIP is 1,249,514,118 bytes. Final archive containers were recreated from the same verified signed application
+after the earlier containers were missing at the final check; payload bytes were
+preserved, and archive checksums were regenerated. The rebuilt
+installer has not been uploaded to the shared download folder in this workflow.
+
+This build uses an ad-hoc signature and has not been Apple-notarized. New payloads
+create a new scientific workspace and preserve older workspaces; results are not
+automatically migrated between versions. Temporary build staging was removed
+after packaging, and test services were stopped after verification.
+
+## Historical verification: version 0.1.0
+
 Version: 0.1.0, arm64. Verification date: 2026-09-10.
 
 The desktop wrapper preserves the existing scientific code, frozen model data,

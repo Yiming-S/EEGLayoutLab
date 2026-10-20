@@ -57,5 +57,13 @@
   "exports_metric_scope": { "source": "三项分别比较重建解释能量、幅度下尾和定位误差效用，不是统一的准确率；标准64导的100%是相对基准。", "en": "The three metrics compare explained reconstruction energy, lower-tail amplitude and localization-error utility. They are not a unified accuracy measure; standard 64's 100% is a relative baseline." },
   "exports_provenance": { "source": "模型、算法及原始来源", "en": "Model, algorithm and original provenance" },
   "exports_provenance_note": { "source": "以下来源字段按保存记录原样输出；未记录的头模、源数、噪声或版本参数不补写。", "en": "The provenance fields below are reproduced from the saved record. Unrecorded head-model, source-count, noise or version parameters are not inferred." },
-  "exports_request": { "source": "保存的计算请求", "en": "Saved computation request" }
+  "exports_request": { "source": "保存的计算请求", "en": "Saved computation request" },
+  "exports_coordinate_history_title": { "source": "坐标评价与复现数据", "en": "Coordinate evaluation and reproducibility data" },
+  "exports_coordinate_history_scope": { "source": "这条记录评价固定的64点坐标，没有执行布局搜索。实验包分别保存输入坐标和实际评价坐标，并保留原始指标。", "en": "This record evaluates a fixed set of 64 coordinates without searching for a layout. The bundle keeps the input and evaluated coordinates separate and preserves the saved metrics." },
+  "exports_coordinate_request": { "source": "坐标评价的原始请求", "en": "Original coordinate evaluation request" },
+  "exports_coordinate_bundle_scope": { "source": "实验包包含坐标评价请求、评价结果和校验身份；重新计算需要对应版本代码及头模/前向库文件。", "en": "The bundle contains the coordinate evaluation request, result and integrity metadata. Recalculation requires the corresponding code version, head model and forward-library files." },
+  "exports_coordinate_bad_cache": { "source": "坐标评价缓存校验失败", "en": "The coordinate evaluation cache failed its integrity check" },
+  "exports_coordinate_bad_identity": { "source": "坐标评价记录身份不匹配", "en": "The coordinate evaluation record identity does not match" },
+  "exports_coordinate_bad_record": { "source": "坐标评价来源与所选记录不匹配", "en": "The coordinate evaluation source does not match the selected record" },
+  "exports_coordinate_bad_source": { "source": "坐标评价来源路径或身份无效", "en": "The coordinate evaluation source path or identity is invalid" }
 }

@@ -37,7 +37,7 @@ void test('all offline layouts load read-only with protocol separation and origi
   const area = JSON.parse(bytes);
   const historicalPointer = JSON.parse(await readFile(join(root, 'results/v2/historical_strict_area_budget_study.json'), 'utf8'));
   const historicalArea = JSON.parse(await readFile(join(root, historicalPointer.report), 'utf8'));
-  for (const row of library.records.filter((r) => r.dataset_id !== 'cache')) {
+  for (const row of library.records.filter((r) => ['offline_radius', 'strict_area', 'historical_area'].includes(r.dataset_id))) {
     const record = await queue.library.get(row.id);
     validateSavedRecord(record); assert.equal(record.compatible, false); assert.equal(record.request, null);
     assert.equal(designLink(record), null);
@@ -57,6 +57,24 @@ void test('all offline layouts load read-only with protocol separation and origi
       assert.equal(record.metrics.reference_median_mm, original.baseline.localization.median_error_mm);
       assert.equal(record.provenance.reevaluation_512_sources, false);
     }
+  }
+  assert.equal(queue.jobs.size, 0); queue.dispose();
+});
+
+void test('coordinate evaluations appear in the read-only library and reopen their original evaluated coordinates', async () => {
+  const queue = new LocalComputeQueue({ repositoryRoot: root, spawnProcess: () => assert.fail('record listing cannot compute') });
+  const library = await queue.library.list();
+  const summaries = library.records.filter(record => record.dataset_id === 'design_evaluation');
+  assert.equal(library.datasets.find(dataset => dataset.id === 'design_evaluation').count, summaries.length);
+  for (const summary of summaries) {
+    const record = await queue.library.get(summary.id);
+    const cache = JSON.parse(await readFile(join(root, 'results/v2/design_evaluation_jobs', summary.id, 'cache.json'), 'utf8'));
+    assert.equal(cache.result.request.action, 'evaluate');
+    assert.equal(record.label, cache.result.request.design.name);
+    assert.deepEqual(record.layout.xyzMm, cache.result.evaluated_xyz_mm);
+    assert.deepEqual(record.layout.regionIndices, cache.result.request.design.region_indices);
+    assert.equal(record.metrics.field_relative, cache.result.nominal.field_relative);
+    assert.equal(record.layout.xyzMm.length, 64);
   }
   assert.equal(queue.jobs.size, 0); queue.dispose();
 });

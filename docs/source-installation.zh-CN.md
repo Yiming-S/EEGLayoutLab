@@ -4,11 +4,13 @@
 
 [English source installation](source-installation.md)
 
+本指南适用于当前的 **Apple Silicon macOS** 安装流程。计划中的服务器网页版见[服务器部署准备说明（英文）](server-deployment.md)；仓库内的运行环境安装工具和检查工具目前针对 macOS arm64。
+
 ## 准备条件
 
 - Apple Silicon（M 系列芯片）Mac，macOS **14 或更新版本**。
 - Node.js **22.13.0 或更新版本**，以及 npm。
-- Python **3.10 或更新版本**。
+- 用于运行安装工具的 Python **3.10 或更新版本**。安装工具会另行准备使用 **Python 3.11** 的计算环境，具体版本见[运行环境清单](../configs/runtime/manifest.json)。
 - Apple Silicon 版本的 Conda，且终端中可以运行 `conda` 命令。
 - Git 和 Apple 命令行工具。
 - 安装依赖时需要联网。

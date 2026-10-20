@@ -457,7 +457,7 @@ export default function ResultsPage() {
                 className="mt-6 h-[360px]"
                 aria-label={tx("五种区域数量的半径与性能比较")}
               >
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height={360}>
                   <LineChart
                     data={curve}
                     margin={{ left: 0, right: 20, top: 15, bottom: 10 }}

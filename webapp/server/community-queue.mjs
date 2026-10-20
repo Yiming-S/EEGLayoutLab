@@ -132,6 +132,7 @@ export class CommunityQueue {
       if (ready.hit) {
         const task = this.receipt(kind, prepared, visitor, ready.job.status);
         task.cached = true; task.finished_at = ready.job.finished_at || new Date(this.now()).toISOString();
+        task.catalog = receiptCatalog(kind, prepared, ready.job.result);
         this.persist();
         return { hit: true, job: { ...ready.job, id: task.id, kind } };
       }
@@ -159,7 +160,8 @@ export class CommunityQueue {
       if (same) return same;
     }
     const task = { id: randomUUID(), sequence: ++this.sequence, kind, key: prepared.key, request: prepared.request,
-      owners: [visitor.id], status, created_at: new Date(this.now()).toISOString(), progress: 0, cached: false };
+      owners: [visitor.id], status, created_at: new Date(this.now()).toISOString(), progress: 0, cached: false,
+      catalog: receiptCatalog(kind, prepared) };
     this.tasks.push(task); return task;
   }
   async view(task, result = true) {
@@ -210,6 +212,7 @@ export class CommunityQueue {
       if (adapter.busy()) return;
       task.status = worker?.status || 'failed'; task.message = worker?.message || '计算进程未返回结果';
       task.finished_at = new Date(this.now()).toISOString(); task.progress = worker?.progress || 0;
+      if (worker?.result) task.catalog = { ...task.catalog, ...receiptCatalog(task.kind, { request: task.request }, worker.result) };
       task.cached = Boolean(worker?.cached); delete task.workerPid; delete task.starting; this.activeId = null; this.persist();
     }
     if (Object.values(this.adapters).some(a => a.busy())) return;
@@ -242,6 +245,18 @@ export class CommunityQueue {
       available: !this.failure && !this.disposed, recovery_blocked: this.blockedPids.length > 0 || Boolean(this.unconfirmedWorker),
       jobs: await Promise.all(jobs.map(t => this.view(t, false))) };
   }
+  records(visitor) {
+    // The durable receipts are small and already bounded to 500 terminal tasks.
+    // Do not load waveform caches or expose another browser's request history.
+    const newest = new Map();
+    for (const task of this.tasks) {
+      if (task.kind !== 'source-reception' || task.status !== 'completed' || !task.owners.includes(visitor.id)) continue;
+      const previous = newest.get(task.key);
+      if (!previous || task.sequence > previous.sequence) newest.set(task.key, task);
+    }
+    return { schema: 'browser-experiment-records/1', scope: 'current_browser', receipt_limit: 500,
+      records: [...newest.values()].sort((a, b) => b.sequence - a.sequence).map(taskView) };
+  }
   async active(kind, visitor) {
     const task = this.tasks.find(t => t.kind === kind && pending(t) && t.owners.includes(visitor.id));
     return task ? this.view(task, false) : null;
@@ -259,7 +274,35 @@ export class CommunityQueue {
 function taskView(t) {
   return { id: t.id, key: t.key, kind: t.kind, request: t.request, status: t.status, stage: t.status,
     created_at: t.created_at, finished_at: t.finished_at ?? null, cached: t.cached,
-    source: t.cached ? 'local_cache' : 'local_compute' };
+    source: t.cached ? 'local_cache' : 'local_compute', catalog: t.catalog ?? null };
+}
+
+export function receiptCatalog(kind, prepared, result) {
+  const request = prepared.request, parent = prepared.ctx?.record ?? prepared.ctx?.parent;
+  const catalog = {};
+  if (parent) {
+    catalog.parent_label = parent.label;
+    catalog.region_count = parent.region_count;
+    catalog.mask_codes = parent.request?.mask_codes ?? [];
+    catalog.location_mode = parent.mode;
+    if (parent.layout?.xyzMm) catalog.electrode_count = parent.layout.xyzMm.length;
+  }
+  if (kind === 'source-reception') {
+    catalog.parent_id = request.record_id;
+    catalog.protocol = result?.schema_version ?? (request.mode ? 'source-reception/2' : 'source-reception/1');
+    if (result?.layout?.xyzMm) catalog.electrode_count = result.layout.xyzMm.length;
+    if (result?.conditions) catalog.conditions = result.conditions.map(({ condition, field_retention, baseline, candidate }) => ({
+      condition, field_retention,
+      baseline_explained_energy: baseline.explained_energy,
+      candidate_explained_energy: candidate.explained_energy,
+    }));
+  }
+  if (kind === 'electrode-editor') {
+    catalog.parent_id = request.parent_id;
+    catalog.protocol = result?.schema ?? 'electrode-editor/1';
+    if (request.action === 'evaluate') catalog.electrode_count = request.slots.filter(slot => slot.enabled).length;
+  }
+  return catalog;
 }
 
 export function communityMiddleware({ scheduler, legacy, queue, guard, send, tokenMatches }) {
@@ -277,6 +320,13 @@ export function communityMiddleware({ scheduler, legacy, queue, guard, send, tok
       const visitor = scheduler.session(req, res);
       if (community) {
         if (path === '/api/community/status' && req.method === 'GET') return send(res, 200, await scheduler.stats(visitor));
+        if (path === '/api/community/records' && req.method === 'GET') return send(res, 200, scheduler.records(visitor));
+        const savedMatch = path.match(/^\/api\/community\/records\/([a-f0-9-]{36})\/result$/);
+        if (savedMatch && req.method === 'GET') {
+          const task = scheduler.own(savedMatch[1], visitor, 'source-reception');
+          if (task.status !== 'completed') return send(res, 404, { error: '计算记录无法读取，请重新提交' });
+          return send(res, 200, { result: await scheduler.adapters['source-reception'].savedResult(task.key, task.request) });
+        }
         if (path === '/api/community/heartbeat' && req.method === 'POST') {
           if (!tokenMatches(req.headers['x-eeg-compute-token'], queue.token)) return send(res, 403, { error: '刷新页面后重试' });
           scheduler.touch(visitor, req.headers['x-eeg-visible'] === '1');

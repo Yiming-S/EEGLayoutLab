@@ -2,6 +2,8 @@
 
 EEG Layout Lab runs a local browser interface, a Node HTTP host, and bounded Python workers. The browser selects parameters and displays records; scientific computation and persistence run on the same computer as the host.
 
+The planned hosted version and changes needed for a public server are documented in [Server deployment preparation](server-deployment.md).
+
 ## Request path
 
 ```text

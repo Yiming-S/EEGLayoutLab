@@ -1,12 +1,14 @@
 # EEG Layout Lab · Mac desktop App
 
+Version 0.1.1 · Project collaborators: Yiming Shen, PhD · Yi Wang, PhD.
+
 For Apple Silicon Macs running macOS 14 or newer.
 
 [简体中文](START_HERE.zh-CN.md)
 
 ## Install
 
-1. Open the [Google Drive download folder](https://drive.google.com/drive/folders/1Ry-neU-oySVoToIt07eFfBnemKrnewmK?usp=sharing) and download the `.dmg` desktop installer.
+1. Use the **`EEGLayoutLab-0.1.1-macOS-arm64.dmg`** installer supplied with this guide. If downloading from the [shared folder](https://drive.google.com/drive/folders/1Ry-neU-oySVoToIt07eFfBnemKrnewmK?usp=sharing), check that the filename is for **0.1.1**. If that version is absent, obtain the installer from the project collaborators.
 2. DMG: open the image and drag **EEG Layout Lab.app** into **Applications**. ZIP: extract the archive and move the App into Applications.
 3. Open **EEG Layout Lab**.
 4. On first launch, wait for the bundled environment and model data to be prepared. The App then opens automatically.

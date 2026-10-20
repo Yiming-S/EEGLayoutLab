@@ -12,6 +12,23 @@ EEG Layout Lab 是面向科研社区的研究软件项目，用于设计、查�
 
 [English instructions](../README.md)
 
+## 项目合作者
+
+- **Yiming Shen, PhD**
+- **[Yi Wang, PhD](https://www.massey.ac.nz/massey/expertise/profile.cfm?stref=469822)**：新西兰梅西大学数学与计算科学学院计算机科学高级讲师。
+
+项目计划部署到 Yi Wang 搭建的服务器，提供完整网页版，支持查看已有结果和在线发起新计算。上线后将在主 README 补充访问地址。
+
+## 运行方式
+
+| 方式 | 当前状态 | 说明 |
+| --- | --- | --- |
+| Mac 桌面版 | 0.1.1 版 | 在 Mac 上运行，按下方步骤安装。 |
+| 本机源码版 | 当前开发版本 | 使用单独的[源码安装说明](source-installation.zh-CN.md)，目前安装流程面向 Apple Silicon Mac。 |
+| 服务器网页版 | 准备部署 | 计算与结果存储放在服务器上，见[服务器部署准备说明（英文）](server-deployment.md)。 |
+
+桌面版 **0.1.1（构建号 2）**包含更新后的网页源码及[匿名访客任务队列（英文说明）](anonymous-queue.md)。新安装包在本地生成；将它上传到共享下载文件夹后，再通过该链接分发新版。构建与测试记录见[桌面版验证报告（英文）](../desktop/VERIFICATION.md)。
+
 ## 在 Mac 上安装并打开
 
 使用 **Apple Silicon（M 系列芯片）Mac，macOS 14 或更新版本**。

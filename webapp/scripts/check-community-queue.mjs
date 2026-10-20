@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { CommunityQueue, communityMiddleware } from '../server/community-queue.mjs';
+import { CommunityQueue, communityMiddleware, receiptCatalog } from '../server/community-queue.mjs';
 import { loopbackRequest } from '../server/local-compute-server.mjs';
 import { createServer } from 'node:http';
 
@@ -184,4 +184,51 @@ void test('old IP logs expire and rate-limited visitors can still inspect status
   for (let i = 0; i < 20; i++) await f.q.submit('local-compute', { n: 1 }, v, true);
   await assert.rejects(f.q.submit('local-compute', { n: 1 }, v, true), { status: 429 });
   assert.equal((await f.q.stats(v)).queued_tasks, 0);
+});
+
+void test('signal catalog uses bounded metadata and excludes waveform arrays, other browsers and duplicate keys', async t => {
+  const f = fixture(t), a = visitor('a'), b = visitor('b');
+  const request = { record_id: 'a'.repeat(64), mode: 'multi_source', brain_region: 'frontal', waveform: 'burst', artifact_scale: 1, seed: 2026, region_definition: 'dk40-six-roi-v1' };
+  const prepared = { request, key: 'b'.repeat(64), ctx: { record: { label: 'AL + AR', region_count: 2, mode: 'preset', request: { mask_codes: ['AL', 'AR'] }, layout: { xyzMm: Array.from({ length: 64 }, () => [0, 0, 0]) } } } };
+  const result = { schema_version: 'source-reception/2', layout: prepared.ctx.record.layout,
+    conditions: [{ condition: 'mixed', field_retention: null, baseline: { explained_energy: -1 }, candidate: { explained_energy: -2 } }],
+    waveforms: { baseline: { brain_uv: Array(1000).fill('large data') } } };
+  const metadata = receiptCatalog('source-reception', prepared, result);
+  assert.equal(metadata.electrode_count, 64); assert.deepEqual(metadata.mask_codes, ['AL', 'AR']);
+  assert.equal(metadata.conditions[0].baseline_explained_energy, -1); assert.equal(metadata.conditions[0].field_retention, null);
+  assert.ok(!JSON.stringify(metadata).includes('waveforms')); assert.ok(JSON.stringify(metadata).length < 1024);
+  const first = f.q.receipt('source-reception', prepared, a, 'completed'); first.catalog = metadata;
+  const later = { ...first, id: randomUUID(), sequence: first.sequence + 1, created_at: '2026-10-04T00:00:00Z' };
+  f.q.tasks.push(later);
+  f.q.receipt('source-reception', { ...prepared, key: 'private-key' }, b, 'completed');
+  const own = f.q.records(a);
+  assert.equal(own.records.length, 1); assert.equal(own.records[0].id, later.id);
+  assert.equal(own.scope, 'current_browser'); assert.equal(own.receipt_limit, 500);
+  assert.ok(!JSON.stringify(own).includes('owners')); assert.ok(!JSON.stringify(own).includes('private-key'));
+  f.q.dispose(); const g = fixture(t, { directory: f.directory });
+  assert.deepEqual(g.q.records(a), own);
+});
+
+void test('saved signal HTTP downloads are owner-only and bypass current identity preparation', async t => {
+  const f = fixture(t), result = { schema_version: 'source-reception/1', original: true };
+  let prepared = 0, downloaded = 0;
+  f.adapters['source-reception'].prepare = async () => { prepared++; throw new Error('Current identity has changed'); };
+  f.adapters['source-reception'].savedResult = async (key, request) => { assert.equal(key, 'original-key'); assert.deepEqual(request, { n: 2 }); downloaded++; return result; };
+  const send = (res, status, body) => { res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); };
+  const middleware = communityMiddleware({ scheduler: f.q, queue: { token: 'token', health: () => ({ token: 'token' }) }, guard: loopbackRequest, send,
+    tokenMatches: (a, b) => a === b, legacy: (_req, res) => send(res, 404, {}) });
+  const server = createServer((req, res) => { void middleware(req, res, () => send(res, 404, {})); });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve)); t.after(() => server.close());
+  const url = `http://127.0.0.1:${server.address().port}`;
+  const health = await fetch(url + '/api/local-compute/health'), cookie = health.headers.get('set-cookie').split(';')[0];
+  const owner = f.q.session({ headers: { cookie }, socket: { remoteAddress: '127.0.0.1' } }, { setHeader: () => assert.fail('valid cookie') });
+  const task = f.q.receipt('source-reception', { request: { n: 2 }, key: 'original-key' }, owner, 'completed');
+  assert.equal((await fetch(url + '/api/community/records')).status, 200);
+  assert.deepEqual((await fetch(url + '/api/community/records').then(response => response.json())).records, []);
+  assert.equal((await fetch(url + `/api/community/records/${task.id}/result`)).status, 404);
+  const response = await fetch(url + `/api/community/records/${task.id}/result`, { headers: { cookie } });
+  assert.equal(response.status, 200); assert.deepEqual((await response.json()).result, result);
+  assert.equal(prepared, 0); assert.equal(downloaded, 1);
+  assert.equal((await fetch(url + '/api/community/records', { headers: { cookie, origin: 'http://evil.example' } })).status, 403);
+  assert.equal((await fetch(url + `/api/community/records/${task.id}/result`, { headers: { cookie, origin: 'http://evil.example' } })).status, 403);
 });

@@ -15,7 +15,8 @@ await test('home leads with the selected layout and separates saved area explora
   assert.ok(controls.includes('每区半径约束 · 新建设计'));
   assert.ok(controls.includes('不沿用上方总面积约束、不自动计算'));
   assert.ok(controls.includes('REGION_COUNTS.map'));
-  assert.ok(!controls.includes('<details'));
+  const homeControls = controls.slice(controls.indexOf('export function HomePlacementOptions'), controls.indexOf('export function PlacementDesignPresets'));
+  assert.ok(!homeControls.includes('<details'));
   assert.ok(!home.includes('method: \'POST\''));
 });
 

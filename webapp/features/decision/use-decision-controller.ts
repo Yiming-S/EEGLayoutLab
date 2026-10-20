@@ -10,6 +10,7 @@ import type { LocalLibrary, SavedRecord } from '@/lib/local-library';
 
 import {
   comparisonNotes,
+  jointDecisionThresholds,
   parseDecisionThresholds,
   decisionHref,
   exportDesign,
@@ -32,12 +33,7 @@ export function useDecisionController(
   const [selectionError, setSelectionError] = useState('');
   const [draftNotice, setDraftNotice] = useState('');
   const [returnTo, setReturnTo] = useState('');
-  const [thresholds, setThresholds] = useState<DecisionThresholds>({
-    field: 90,
-    sensitivity: null,
-    localization: null,
-    p90_mm: null,
-  });
+  const [thresholds, setThresholds] = useState<DecisionThresholds>(jointDecisionThresholds());
   const [imported, setImported] = useState<ElectrodeDesign | null>(null),
     [importError, setImportError] = useState('');
   const [job, setJob] = useState<DesignJob | null>(null);

@@ -1,6 +1,8 @@
 import type { SavedRecord, SavedSummary } from './local-library';
+import { canSimulateRecord } from './local-library.ts';
 import { assessment, parseAR, radiusDesignLink } from './lab-workflow.ts';
 import { safeReturnHref } from './ui-language.ts';
+import { decisionHref, jointDecisionThresholds } from './design-decision.ts';
 
 const overviewKeys = ['domain', 'area', 'r', 'metric'];
 const recordsKeys = [
@@ -11,6 +13,9 @@ const recordsKeys = [
   'page',
   'sort',
   'history',
+  'kind',
+  'electrodes',
+  'location',
 ];
 
 // Each route owns its controls; carry only the other view's state through it.
@@ -85,10 +90,10 @@ export function savedLayoutActions(
         : null,
     compare:
       complete && current
-        ? withReturn(`/decision?a=${record.id}&ar=${ar}`)
+        ? withReturn(decisionHref([record.id], jointDecisionThresholds(ar)))
         : null,
     reception:
-      complete && record.dataset_id !== 'offline_radius'
+      canSimulateRecord(record)
         ? `/reception?record=${record.id}&ar=${ar}&returnTo=${encodeURIComponent(back)}`
         : null,
   };

@@ -4,11 +4,13 @@ These instructions are for collaborators who want to run and modify the source c
 
 [简体中文源码安装说明](source-installation.zh-CN.md)
 
+This guide covers the current **Apple Silicon macOS** setup. For the planned hosted version, use [Server deployment preparation](server-deployment.md); the managed runtime installer and environment checker in this repository target macOS arm64.
+
 ## Requirements
 
 - An Apple Silicon Mac running macOS **14 or newer**.
 - Node.js **22.13.0 or newer**, with npm.
-- Python **3.10 or newer**.
+- Python **3.10 or newer** to run the setup tools. The managed computation environment installs its own **Python 3.11** interpreter, as specified in the [runtime manifest](../configs/runtime/manifest.json).
 - An Apple Silicon Conda installation with the `conda` command available in Terminal.
 - Git and Apple's Command Line Tools.
 - An internet connection for installing dependencies.

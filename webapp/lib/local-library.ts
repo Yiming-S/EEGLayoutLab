@@ -24,6 +24,12 @@ export type LocalLibrary = {
   warnings: string[];
 };
 
+export function canSimulateRecord(record: SavedRecord | null | undefined) {
+  return !!record && record.status === 'completed' &&
+    ['cache', 'strict_area', 'design_evaluation'].includes(record.dataset_id) &&
+    record.layout?.xyzMm.length === 64;
+}
+
 export function designLink(record: SavedSummary, ar = 90) {
   // A historical record may supply parameters, never a current cache result.
   return record.dataset_id === 'cache' && record.request

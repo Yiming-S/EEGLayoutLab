@@ -2,6 +2,7 @@
 import { createHash } from 'node:crypto';
 import { readFile, readdir, stat, realpath } from 'node:fs/promises';
 import { join, resolve, sep } from 'node:path';
+import { designReceptionRecord } from './reception-v2-support.mjs';
 
 const hash = (value) => createHash('sha256').update(value).digest('hex');
 const idFor = (dataset, id) => hash(`${dataset}:${id}`);
@@ -11,6 +12,7 @@ const familyNames = { bilateral_near_ear: '双侧耳后代理', left_ear_forehea
   bilateral_ear_split_forehead: '双耳后＋双侧前额', bilateral_ear_forehead_orbital: '双耳后＋双侧前额＋眶周' };
 const summary = ({ layout: _layout, provenance: _provenance, ...record }) => record;
 const DATASETS = [
+  { id: 'design_evaluation', label: '已评价坐标布局', note: '已保存的固定64点坐标评价；保留原坐标与评价协议。' },
   { id: 'cache', label: '本机计算缓存', note: '严格半径上限快速搜索；完整配置和科学代码身份一致时自动复用。' },
   { id: 'strict_area', label: '外部曝光筛选 · 30面积布局', note: '4096字典／256源、20 dB；固定 min(field,sensitivity) 分支。所有中心、电极和区域面片使用同一外部曝光筛选。' },
   { id: 'historical_area', label: '历史面积实验 · 原坐标范围', note: '未使用外部曝光筛选；原坐标和分数保留，不属于当前候选表面协议。' },
@@ -160,6 +162,25 @@ export class LocalDataLibrary {
         if (error.code !== 'ENOENT') this.warnings.push(`一条本机缓存未载入：${error.message}`);
       }
     }
+    const coordinateDirectory = join(this.root, 'results/v2/design_evaluation_jobs');
+    const coordinateKeys = (await readdir(coordinateDirectory, { withFileTypes: true }).catch(error => {
+      if (error.code === 'ENOENT') return [];
+      throw error;
+    })).filter(entry => entry.isDirectory() && /^[a-f0-9]{64}$/.test(entry.name)).map(entry => entry.name);
+    for (const [id, row] of this.records) if (row.dataset_id === 'design_evaluation' && !coordinateKeys.includes(id)) this.records.delete(id);
+    for (const key of coordinateKeys) {
+      try {
+        const info = await stat(join(coordinateDirectory, key, 'cache.json')), stamp = `${info.mtimeMs}:${info.size}`;
+        if (this.loaded.get('coordinates:' + key) === stamp && this.records.has(key)) continue;
+        const record = await designReceptionRecord(this.root, key);
+        if (record) this.records.set(key, summary(record));
+        else this.records.delete(key);
+        this.loaded.set('coordinates:' + key, stamp);
+      } catch (error) {
+        this.records.delete(key); this.loaded.delete('coordinates:' + key);
+        if (error.code !== 'ENOENT') this.warnings.push(`一条坐标评价记录未载入：${error.message}`);
+      }
+    }
   }
 
   cacheRecord(cache, compatible) {
@@ -185,6 +206,7 @@ export class LocalDataLibrary {
     if (!/^[a-f0-9]{64}$/.test(id)) return null;
     await this.refresh();
     const row = this.records.get(id);
+    if (row?.dataset_id === 'design_evaluation') return designReceptionRecord(this.root, id);
     if (!row || row.dataset_id !== 'cache') return row ?? null;
     const cache = await this.queue.readCache(id);
     return cache ? this.cacheRecord(cache, row.compatible) : null;

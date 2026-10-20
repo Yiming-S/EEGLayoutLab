@@ -2,6 +2,7 @@
 import importlib.util
 import json
 from pathlib import Path
+import subprocess
 
 import pytest
 
@@ -47,3 +48,52 @@ def test_node_archive_must_match_pinned_digest(tmp_path):
     archive.write_bytes(b"not an official archive")
     with pytest.raises(ValueError, match="SHA-256 mismatch"):
         builder.stage_node(archive, {"sha256": "0" * 64}, tmp_path / "resources", tmp_path / "work")
+
+
+def test_project_staging_packages_current_sources_and_docs_without_ignored_files(tmp_path, monkeypatch):
+    repository = tmp_path / "checkout"
+    repository.mkdir()
+    subprocess.run(["git", "init", "--quiet", str(repository)], check=True)
+    (repository / ".gitignore").write_text("node_modules/\ndist/\n.runtime/\noutputs/\n.env*\n")
+    tracked = repository / "webapp/app/page.tsx"
+    tracked.parent.mkdir(parents=True)
+    tracked.write_text("export const label = 'old';\n")
+    subprocess.run(["git", "add", ".gitignore", "webapp/app/page.tsx"], cwd=repository, check=True)
+    tracked.write_text("export const label = 'current';\n")
+    sources = {
+        "webapp/components/new-feature.tsx": "export const feature = true;\n",
+        "src/compact_eeg/new_feature.py": "feature = True\n",
+        "README.md": "Yiming Shen, PhD; Yi Wang, PhD\n",
+        "docs/server-deployment.md": "Deployment preparation.\n",
+        "pyproject.toml": "[project]\nname = 'fixture'\n",
+        "THIRD_PARTY_NOTICES.md": "Third-party notices.\n",
+        "data/SOURCES.md": "Model sources.\n",
+        "data/manifest.json": json.dumps({"files": []}),
+    }
+    excluded = {
+        "webapp/.env.production": "SECRET=private\n",
+        "webapp/dist/old-bundle.js": "stale build\n",
+        ".runtime/private.txt": "runtime state\n",
+        "outputs/private.txt": "private output\n",
+        "private.txt": "outside project allowlist\n",
+    }
+    for name, content in {**sources, **excluded}.items():
+        path = repository / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content)
+    modules = repository / "webapp/node_modules/fixture-dependency"
+    modules.mkdir(parents=True)
+    (modules / "package.json").write_text('{"name":"fixture-dependency"}\n')
+    monkeypatch.setattr(builder, "ROOT", repository)
+    destination = tmp_path / "payload"
+    identities, data = builder.stage_project(destination)
+    assert data == {"files": []}
+    assert (destination / "webapp/app/page.tsx").read_text() == tracked.read_text()
+    for name, content in sources.items():
+        assert (destination / name).read_text() == content
+        assert identities[name] == builder.digest(repository / name)
+    for name in excluded:
+        assert not (destination / name).exists()
+        assert name not in identities
+    assert "webapp/node_modules/fixture-dependency/package.json" not in identities
+    assert (destination / "webapp/node_modules/fixture-dependency/package.json").is_file()

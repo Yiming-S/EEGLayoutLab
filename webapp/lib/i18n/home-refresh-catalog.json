@@ -11,7 +11,7 @@
   "table": { "source": "相同面积上限下，几个区域更合适？", "en": "Compare region counts under the same area limit" },
   "count": { "source": "{{0}}/3项达标", "en": "{{0}}/3 metrics meet the requirement" },
   "joint": { "source": "联合要求未通过", "en": "Joint requirement not met" },
-  "curve": { "source": "曲线阈值线对应当前所选指标；三项联合判断见上方比较表。", "en": "The threshold line applies to the selected metric. The table above reports the joint three-metric assessment." },
+  "curve": { "source": "曲线阈值线对应当前所选指标；下方结论要求三项指标均达到最低保留要求。", "en": "The chart threshold applies to the selected metric. The conclusions below require all three metrics to meet the minimum retention requirement." },
   "scope": { "source": "本页实验条件与阅读说明", "en": "Experiment conditions and reading notes" },
   "whole_scope": { "source": "全头候选区：不限制毛发位置，由算法选择区域。", "en": "Whole-scalp candidates: no hair-location restriction; the algorithm selects the regions." },
   "hair_scope": { "source": "少毛发候选区：耳后、前额与眶周的模型近似范围，不包含完整扩展耳周。", "en": "Low-hair candidates: model-defined approximations behind the ears, on the forehead and around the eyes; the full extended ear region is excluded." },

@@ -180,7 +180,7 @@ export function useElectrodesController() {
         if (saved && saved.request.parent_digest !== j.parent_digest)
           throw new Error('Parent changed; reload the layout before editing');
         let values = saved?.request.slots ?? initialSlots(d);
-        if (resume && !saved) {
+        if (resume) {
           try {
             const raw = sessionStorage.getItem('eeg-editor-tab-draft:' + id);
             const draft = raw ? JSON.parse(raw) : null;
@@ -192,7 +192,7 @@ export function useElectrodesController() {
               setNotice('已恢复本标签页的电极草稿；尚未重新评价。');
             }
           } catch {
-            setNotice('电极草稿无法恢复，已载入原布局。');
+            setNotice('电极草稿无法恢复，已载入所选布局。');
           }
         }
         if (draftError(values, d))
@@ -206,6 +206,7 @@ export function useElectrodesController() {
         setLastResult(null);
         setEditMode(false);
         const href = new URL(editorLink(id, ar), window.location.origin);
+        if (saved) href.searchParams.set('editorRecord', saved.key);
         const origin = new URLSearchParams(window.location.search).get(
           'returnTo',
         );
@@ -224,11 +225,26 @@ export function useElectrodesController() {
     if (restored.current || !parents.length) return;
     restored.current = true;
     const q = new URLSearchParams(window.location.search),
-      id = q.get('parent');
-    if (id)
-      void Promise.resolve().then(() => {
-        if (alive.current) void load(id, undefined, q.get('resume') === '1');
-      });
+      id = q.get('parent'), savedKey = q.get('editorRecord');
+    void (async () => {
+      if (savedKey) {
+        if (!/^[a-f0-9]{64}$/.test(savedKey)) {
+          if (alive.current) setError('编辑记录编号无效，请从记录列表重新选择。');
+          return;
+        }
+        try {
+          const response = await fetch('/api/electrode-editor/records', { cache: 'no-store' });
+          if (!response.ok) throw new Error('Editor records are unavailable');
+          const body = await response.json() as { records: EditorRecord[] };
+          const saved = body.records.find(record => record.key === savedKey);
+          if (!saved || (id && saved.parent_id !== id)) throw new Error('指定编辑记录无法读取，或与原布局不一致。');
+          if (alive.current)
+            await load(saved.parent_id, saved, q.get('resume') === '1');
+        } catch (e) {
+          if (alive.current) setError(e instanceof Error ? e.message : 'Load failed');
+        }
+      } else if (id && alive.current) await load(id, undefined, q.get('resume') === '1');
+    })();
   }, [parents, load]);
   useEffect(() => {
     if (!domain || !digest || draftError(slots, domain)) return;

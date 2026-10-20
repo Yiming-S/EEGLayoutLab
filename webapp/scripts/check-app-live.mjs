@@ -12,8 +12,13 @@ const url = new URL(base);
 if (url.protocol !== 'http:' || !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)) {
   throw new Error('The integration target must be an explicit local HTTP server.');
 }
+let browserCookie = '';
 const json = async (path, options) => {
-  const response = await fetch(base + path, options);
+  const requestHeaders = new Headers(options?.headers);
+  if (browserCookie) requestHeaders.set('Cookie', browserCookie);
+  const response = await fetch(base + path, { ...options, headers: requestHeaders });
+  const cookie = response.headers.get('set-cookie');
+  if (cookie) browserCookie = cookie.split(';')[0];
   const body = await response.json();
   assert.ok(response.ok, `${path}: ${response.status} ${body.error || ''}`);
   return body;

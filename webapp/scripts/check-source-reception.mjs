@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -15,6 +15,7 @@ import {
   normalizeSourceRequest,
   validateSourceResult,
 } from './source-reception-server.mjs';
+import { normalizeReceptionRequest } from '../server/reception-v2-support.mjs';
 import {
   combinedTrace,
   sourceKey,
@@ -312,4 +313,52 @@ void test('source API shares existing local-origin and session-token protections
   assert.equal(f.children.length, 0);
   f.source.dispose();
   f.queue.dispose();
+});
+
+void test('original signal download survives changed identity and rejects corrupt or mismatched saved results', async () => {
+  const f = await fixture();
+  await f.source.submit(req);
+  const job = await complete(f), original = job.result;
+  f.bump();
+  assert.equal((await f.source.lookup(req)).hit, false);
+  assert.deepEqual(await f.source.savedResult(job.key, req), original);
+  assert.equal(f.children.length, 1);
+  await assert.rejects(f.source.savedResult(job.key, { ...req, seed: 43 }), /校验失败/);
+  await assert.rejects(f.source.savedResult('../../cache', req), /Invalid saved/);
+  const path = join(job.directory, 'cache.json'), cache = JSON.parse(await readFile(path, 'utf8'));
+  cache.result.conditions[0].field_retention = 100;
+  await writeFile(path, JSON.stringify(cache));
+  await assert.rejects(f.source.savedResult(job.key, req), /校验失败/);
+  f.source.dispose(); f.queue.dispose();
+});
+
+void test('v2 original download requires its frozen identity layout even when the result checksum is recomputed', async () => {
+  const f = await fixture();
+  const request = normalizeReceptionRequest({ record_id: req.record_id, mode: 'single_source', source_index: 2,
+    waveform: 'burst', artifact_scale: 1, seed: 2026 });
+  const r = structuredClone(result());
+  r.schema_version = 'source-reception/2'; r.request = request;
+  r.source = { xyz_mm: [[1, 2, 3]], mode: 'single_source', normals_mri: [[1, 0, 0]], generation_source_indices: [2] };
+  r.waveforms.source_nam = [Array(400).fill(1)];
+  const identity = { layout: structuredClone(layout), version: 'old-model' };
+  const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+  const key = hash({ request, identity }), directory = join(f.root, 'results/v2/source_reception_v2_jobs', key), path = join(directory, 'cache.json');
+  await mkdir(directory, { recursive: true });
+  const cache = { key, identity, result: r, result_sha256: hash(r) };
+  await writeFile(path, JSON.stringify(cache));
+  f.source.customContext = async () => assert.fail('historical download must not inspect the current model');
+  assert.deepEqual(await f.source.savedResult(key, request), r);
+  cache.result.layout.xyzMm[0][0] += 1.25; cache.result_sha256 = hash(cache.result);
+  await writeFile(path, JSON.stringify(cache));
+  await assert.rejects(f.source.savedResult(key, request), /冻结点位/);
+  delete cache.identity; cache.result.layout = {}; cache.result_sha256 = hash(cache.result);
+  await writeFile(path, JSON.stringify(cache));
+  await assert.rejects(f.source.savedResult(key, request), /校验失败/);
+  // V1 has no frozen identity in its cache format, but still requires real 64-point geometry.
+  const old = result(), oldKey = 'f'.repeat(64), oldDirectory = join(f.root, 'results/v2/source_reception_jobs', oldKey);
+  old.layout = {};
+  await mkdir(oldDirectory, { recursive: true });
+  await writeFile(join(oldDirectory, 'cache.json'), JSON.stringify({ key: oldKey, result: old, result_sha256: hash(old) }));
+  await assert.rejects(f.source.savedResult(oldKey, req), /坐标或区域标签无效/);
+  f.source.dispose(); f.queue.dispose();
 });

@@ -172,7 +172,7 @@ export function ClusterHeadViewer(props: Props) {
   return (
     <div
       data-compact={props.compact ? 'true' : 'false'}
-      className={`head-stage flex flex-col overflow-hidden ${expanded ? 'fixed inset-0 z-[80] h-[100dvh] rounded-none sm:inset-4 sm:h-auto sm:rounded-2xl' : brain ? 'relative h-[840px] rounded-2xl sm:h-[790px]' : props.compact ? 'relative h-[640px] rounded-2xl sm:h-[580px]' : 'relative h-[640px] rounded-2xl sm:h-[690px]'}`}
+      className={`head-stage flex flex-col overflow-hidden ${expanded ? 'fixed inset-0 z-[80] h-[100dvh] rounded-none sm:inset-4 sm:h-auto sm:rounded-2xl' : brain ? 'relative h-[840px] rounded-2xl sm:h-[790px]' : props.compact ? 'relative h-[580px] rounded-2xl sm:h-[520px]' : 'relative h-[640px] rounded-2xl sm:h-[690px]'}`}
     >
       <div className="relative z-10 flex flex-wrap items-center justify-between gap-2 border-b border-[#e0e7eb] bg-white/90 px-3 py-3 sm:px-5">
         <fieldset

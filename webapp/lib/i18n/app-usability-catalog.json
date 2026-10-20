@@ -1,0 +1,62 @@
+{
+  "joint_area_assessment": {
+    "source": "三项联合达标情况",
+    "en": "Joint assessment across all three metrics"
+  },
+  "historical_signal_availability": {
+    "source": "此历史协议的记录仅供查看与导出。信号仿真支持当前总面积布局、半径计算布局和已评价坐标布局。",
+    "en": "Records from this historical protocol are available for viewing and export. Signal simulation supports current area-constrained layouts, computed radius-constrained layouts, and evaluated coordinate layouts."
+  },
+  "interface_settings": {
+    "source": "界面设置",
+    "en": "Interface settings"
+  },
+  "layout_parameters": {
+    "source": "布局参数",
+    "en": "Layout parameters"
+  },
+  "layout_metrics_glance": {
+    "source": "当前布局指标摘要",
+    "en": "Current layout metric summary"
+  },
+  "placement_loading": {
+    "source": "正在读取部位组合…",
+    "en": "Loading placement combinations…"
+  },
+  "placement_load_failed": {
+    "source": "部位组合未载入，可进入布局设计重新读取。",
+    "en": "Placement combinations could not be loaded. Open Layout Design to reload them."
+  },
+  "negative_reconstruction_both": {
+    "source": "两套布局的重建解释率均为负。",
+    "en": "Both layouts have negative reconstruction explained energy."
+  },
+  "negative_reconstruction_explanation": {
+    "source": "重建误差超过干净信号功率，当前相对保留率无法定义。",
+    "en": "Reconstruction error exceeds clean signal power, so relative retention is undefined."
+  },
+  "relative_retention_undefined": {
+    "source": "当前相对保留率无法定义。",
+    "en": "Relative retention is undefined."
+  },
+  "baseline_not_valid": {
+    "source": "标准布局的重建解释率非正或过小，无法作为有效的相对比较基准。",
+    "en": "The standard layout has nonpositive or near-zero explained energy and cannot serve as a valid reference for relative comparison."
+  },
+  "negative_candidate_reconstruction": {
+    "source": "自定义布局的重建解释率为负。",
+    "en": "The custom layout has negative reconstruction explained energy."
+  },
+  "negative_candidate_explanation": {
+    "source": "自定义布局的重建误差超过干净信号功率。原始评分保留在下表中。",
+    "en": "The custom layout reconstruction error exceeds clean signal power. The original scores remain in the table below."
+  },
+  "view_clean_condition": {
+    "source": "查看无心眼干扰条件",
+    "en": "View condition without cardiac or ocular artifacts"
+  },
+  "reduce_artifact_amplitude": {
+    "source": "降低干扰幅度",
+    "en": "Reduce artifact amplitude"
+  }
+}

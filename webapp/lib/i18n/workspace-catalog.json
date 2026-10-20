@@ -156,8 +156,8 @@
     "en": "This tab cannot keep a temporary coordinate draft. Keep the original file before leaving."
   },
   "workspace32": {
-    "source": "电极草稿无法恢复，已载入原布局。",
-    "en": "The electrode draft could not be restored. The original layout has been loaded."
+    "source": "电极草稿无法恢复，已载入所选布局。",
+    "en": "The electrode draft could not be restored. The selected layout has been loaded."
   },
   "workspace33": {
     "source": "当前标签页无法暂存电极草稿；请手动保存后离开。",

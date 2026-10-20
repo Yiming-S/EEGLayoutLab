@@ -1,7 +1,9 @@
 import type { SavedRecord, SavedSummary } from './local-library';
+import { canSimulateRecord } from './local-library.ts';
 import { radiusDesignLink, parseAR } from './lab-workflow.ts';
 import { safeReturnHref, type PageId } from './ui-language.ts';
 import { documentationHref } from './documentation.ts';
+import { decisionHref, parseDecisionThresholds } from './design-decision.ts';
 
 export type WorkspaceGroup = 'results' | 'design' | 'reception' | 'docs';
 export type LayoutPhase = 'saved' | 'draft' | 'edited';
@@ -119,7 +121,7 @@ export function layoutCapabilities(
       ['strict_area', 'cache'].includes(record.dataset_id) &&
       !!record.layout?.regionPatchVertexIndices?.length,
     compare: !!current && canCompareRecord(record),
-    reception: !!current && record.dataset_id !== 'offline_radius',
+    reception: !!current && canSimulateRecord(record),
   };
 }
 export function workingPage(href: string): PageId {
@@ -148,6 +150,10 @@ export function workspaceLinks(
     work = workingHref(here),
     source = new URL(work, url);
   const capabilities = layoutCapabilities(record, selection);
+  const decisionParameters = new URLSearchParams(source.searchParams);
+  decisionParameters.set('ar', String(ar));
+  const decision = parseDecisionThresholds(decisionParameters);
+  const comparisonParameters = new URL(decisionHref([], decision), url).searchParams;
   const origin = safeReturnHref(source.searchParams.get('returnTo'), work),
     originUrl = new URL(origin, url);
   const results = new URLSearchParams({ ar: String(ar) });
@@ -163,6 +169,9 @@ export function workspaceLinks(
     'page',
     'sort',
     'history',
+    'kind',
+    'electrodes',
+    'location',
   ]) {
     const value =
       source.searchParams.get(key) ?? originUrl.searchParams.get(key);
@@ -184,12 +193,10 @@ export function workspaceLinks(
     electrodes: capabilities.edit
       ? '/electrodes?parent=' + selection.id + '&ar=' + ar
       : '/electrodes?ar=' + ar,
-    decision: capabilities.compare
-      ? '/decision?a=' + selection.id + '&ar=' + ar
-      : '/decision?ar=' + ar,
+    decision: decisionHref(capabilities.compare ? [selection.id!] : [], decision),
     coordinates: capabilities.compare
-      ? '/coordinates?a=' + selection.id + '&ar=' + ar
-      : '/coordinates?ar=' + ar,
+      ? decisionHref([selection.id!], decision).replace('/decision?', '/coordinates?')
+      : decisionHref([], decision).replace('/decision?', '/coordinates?'),
     reception: capabilities.reception
       ? '/reception?record=' + selection.id + '&ar=' + ar
       : '/reception?ar=' + ar,
@@ -204,6 +211,13 @@ export function workspaceLinks(
     'reception',
   ] as const) {
     const target = new URL(links[page], url);
+    // These are passive comparison controls on other tools. They never enter
+    // a layout or signal request, but survive a return to the comparison.
+    for (const key of ['thresholdMode', 'sensitivity', 'localization', 'p90']) {
+      const value = comparisonParameters.get(key);
+      if (value === null) target.searchParams.delete(key);
+      else target.searchParams.set(key, value);
+    }
     target.searchParams.set('returnTo', origin);
     links[page] = target.pathname + target.search;
   }

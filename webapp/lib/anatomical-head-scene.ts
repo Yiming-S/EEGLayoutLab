@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import biosemiReference from '@/lib/biosemi64-reference.json';
 import { mriMmToDisplay, type XYZ } from '@/lib/fixed64-results';
 import { surfacePatchGeometry } from '@/lib/surface-patches';
+import { createDemandRenderer } from '@/lib/demand-renderer';
 import { SOURCE_REGIONS, SOURCE_ROI_DEFINITION, UNASSIGNED_SOURCE_COLOR, sourceRegion } from '@/lib/source-regions';
 
 export type DomainMode = 'whole_surface' | 'low_hair' | 'preset';
@@ -266,6 +267,8 @@ export function createHeadScene(
   host.appendChild(canvas);
   canvas.dataset.referenceShape = 'square';
   canvas.dataset.layoutShape = 'circle';
+  canvas.dataset.renderMode = 'on-demand';
+  canvas.dataset.renderCount = '0';
   const controls = new OrbitControls(camera, canvas);
   controls.enableDamping = true;
   controls.dampingFactor = 0.09;
@@ -416,6 +419,7 @@ export function createHeadScene(
     canvas.dataset.visibleRegionCount = showRegions
       ? String(regionPointCount)
       : '0';
+    invalidate();
   };
   const setLayout = (options: LayoutOptions) => {
     releaseGroup(sources);
@@ -559,6 +563,7 @@ export function createHeadScene(
   let showRearView = true;
   let viewportWidth = 1, viewportHeight = 1;
   let rearViewport = { x: 0, y: 0, width: 1, height: 1 };
+  let renderedFrames = 0;
   const render = () => {
     renderer.setScissorTest(false);
     renderer.setViewport(0, 0, viewportWidth, viewportHeight);
@@ -576,7 +581,15 @@ export function createHeadScene(
       renderer.setScissorTest(false);
       renderer.setViewport(0, 0, viewportWidth, viewportHeight);
     }
+    canvas.dataset.renderCount = String(++renderedFrames);
   };
+  const drawing = createDemandRenderer(() => {
+    const moving = controls.update();
+    render();
+    return moving;
+  });
+  const invalidate = drawing.invalidate;
+  controls.addEventListener('change', invalidate);
   const resize = () => {
     const width = Math.max(host.clientWidth, 1),
       height = Math.max(host.clientHeight, 1);
@@ -612,12 +625,13 @@ export function createHeadScene(
     initialized = true;
     // Resizing clears the drawing buffer; repaint in the same callback so
     // fullscreen transitions do not expose an empty canvas between frames.
-    render();
+    drawing.renderNow();
   };
   const setView = (name: ViewName) => {
     controls.target.copy(target);
     camera.position.copy(target).addScaledVector(DIRECTIONS[name], fitDistance);
     controls.update();
+    invalidate();
   };
   const zoom = (factor: number) => {
     const delta = camera.position.clone().sub(controls.target),
@@ -630,6 +644,7 @@ export function createHeadScene(
       .copy(controls.target)
       .addScaledVector(delta.normalize(), distance);
     controls.update();
+    invalidate();
   };
   const keydown = (event: KeyboardEvent) => {
     if (event.key === '+' || event.key === '=') zoom(0.82);
@@ -649,6 +664,7 @@ export function createHeadScene(
       );
       camera.position.copy(controls.target).add(delta);
       controls.update();
+      invalidate();
     } else return;
     event.preventDefault();
   };
@@ -698,6 +714,7 @@ export function createHeadScene(
     contact.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), point.normal);
     (contact.userData.rim.material as THREE.MeshStandardMaterial).color.set(drag.valid ? '#111827' : '#dc2626');
     canvas.style.cursor = drag.valid ? 'grabbing' : 'not-allowed';
+    invalidate();
   };
   const pointerUp = (e: PointerEvent) => {
     if (drag) {
@@ -705,6 +722,7 @@ export function createHeadScene(
       const d = drag; drag = null; controls.enabled = true;
       contacts[d.slot].position.copy(d.position); contacts[d.slot].quaternion.copy(d.quaternion);
       (contacts[d.slot].userData.rim.material as THREE.MeshStandardMaterial).color.set(editor?.selection.includes(d.slot) ? '#111827' : contacts[d.slot].userData.color);
+      invalidate();
       if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
       if (d.target !== null && d.valid && e.type !== 'pointercancel') editor?.onMove(d.slot, d.target);
       else if (!d.valid && e.type !== 'pointercancel') editor?.onInvalid();
@@ -742,14 +760,21 @@ export function createHeadScene(
   controls.addEventListener('end', end);
   const observer = new ResizeObserver(resize);
   observer.observe(host);
-  resize();
-  let frame = 0;
-  const animate = () => {
-    controls.update();
-    render();
-    frame = requestAnimationFrame(animate);
+  const bounds = host.getBoundingClientRect();
+  let inViewport = bounds.width > 0 && bounds.height > 0 && bounds.bottom > 0 && bounds.top < window.innerHeight && bounds.right > 0 && bounds.left < window.innerWidth;
+  const syncActivity = () => {
+    const active = inViewport && !document.hidden;
+    canvas.dataset.renderPaused = String(!active);
+    drawing.setEnabled(active);
   };
-  animate();
+  const viewportObserver = new IntersectionObserver(([entry]) => {
+    inViewport = entry.isIntersecting && entry.intersectionRatio > 0;
+    syncActivity();
+  });
+  viewportObserver.observe(host);
+  document.addEventListener('visibilitychange', syncActivity);
+  syncActivity();
+  resize();
   return {
     canvas,
     setLayout,
@@ -763,6 +788,7 @@ export function createHeadScene(
       });
       canvas.dataset.electrodeCount = String(value.active.filter(Boolean).length);
       canvas.dataset.editorMode = value.enabled ? 'edit' : 'view';
+      invalidate();
     },
     setSignals(options: Pick<LayoutOptions, 'electrodeValues' | 'potentialLimit' | 'selectedElectrode' | 'selectedSource' | 'onElectrodeSelect' | 'onSourceSelect'>) {
       selectElectrode = options.onElectrodeSelect; selectSource = options.onSourceSelect;
@@ -779,12 +805,13 @@ export function createHeadScene(
       canvas.dataset.potentialCount = valid ? '64' : '0';
       canvas.dataset.potentialLimit = valid ? String(limit) : '';
       canvas.dataset.selectedElectrode = String(options.selectedElectrode ?? '');
+      invalidate();
     },
     setView,
     setRearView(value: boolean) {
       showRearView = value;
       canvas.dataset.rearView = value ? 'visible' : 'hidden';
-      render();
+      invalidate();
     },
     focusRegion(index: number) {
       const points = regionFocus[index];
@@ -797,6 +824,7 @@ export function createHeadScene(
       camera.position.copy(center).addScaledVector(direction.normalize(), fitDistance * .72);
       controls.update();
       canvas.dataset.focusedRegion = String(index + 1);
+      invalidate();
     },
     zoom,
     setReference(value: boolean) {
@@ -814,11 +842,13 @@ export function createHeadScene(
       skinMaterial.depthWrite = !value;
       skinMaterial.needsUpdate = true;
       canvas.dataset.viewMode = value ? 'brain' : 'scalp';
+      invalidate();
     },
     setSourcePartitions(value: boolean) {
       const palette = [UNASSIGNED_SOURCE_COLOR, ...SOURCE_REGIONS.map(r => r.color)];
       cortex.material.forEach((material, index) => material.color.set(value ? palette[index] : '#c8858a'));
       canvas.dataset.sourcePartitions = value ? SOURCE_ROI_DEFINITION : 'off';
+      invalidate();
     },
     focusSourceRegion(id: string) {
       const region = sourceRegion(id);
@@ -828,10 +858,13 @@ export function createHeadScene(
       controls.target.copy(center);
       camera.position.copy(center).addScaledVector(direction, fitDistance * .8);
       controls.update();
+      invalidate();
     },
     dispose() {
-      cancelAnimationFrame(frame);
+      drawing.dispose();
       observer.disconnect();
+      viewportObserver.disconnect();
+      document.removeEventListener('visibilitychange', syncActivity);
       canvas.removeEventListener('keydown', keydown);
       canvas.removeEventListener('pointerdown', pointerDown, true);
       canvas.removeEventListener('pointermove', pointerMove, true);
@@ -839,6 +872,7 @@ export function createHeadScene(
       canvas.removeEventListener('pointercancel', pointerUp, true);
       controls.removeEventListener('start', start);
       controls.removeEventListener('end', end);
+      controls.removeEventListener('change', invalidate);
       controls.dispose();
       releaseGroup(scene);
       renderer.dispose();

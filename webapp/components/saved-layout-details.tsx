@@ -65,6 +65,8 @@ export function SavedLayoutContent({ record, ar, returnHref, compact = false }: 
       {record.dataset_id === 'strict_area' && !compact && <a className="underline underline-offset-4" href={comparisonLink(record, ar)}>{tx('查看对应面积比较')}</a>}
     </section>
 
+    {(record.dataset_id === 'historical_area' || record.dataset_id === 'offline_radius') && <p className="text-sm leading-6 text-muted-foreground">{tx('此历史协议的记录仅供查看与导出。信号仿真支持当前总面积布局、半径计算布局和已评价坐标布局。')}</p>}
+
     {record.status === 'no_layout' ? <p className="lab-panel text-base leading-7">{tx('本次搜索未找到完整布局，尚无性能指标。相同版本和配置会复用这条搜索记录；可调整半径或位置范围后启动新计算。')}</p> : layout ?
       <div className="grid items-start gap-5 min-[900px]:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_370px]">
         <div className="min-w-0 space-y-4">

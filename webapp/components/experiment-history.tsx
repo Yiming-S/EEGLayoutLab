@@ -29,7 +29,7 @@ type Bundle = {
   snapshots: (Snapshot | null)[];
   coordinate_note: string | null;
   search: {
-    objective: string;
+    objective: string | null;
     configuration: unknown;
     initial: unknown;
     final: unknown;
@@ -70,6 +70,7 @@ export function ExperimentHistory({ recordId }: { recordId: string }) {
     return () => c.abort();
   }, [recordId]);
   const b = bundle?.id === recordId ? bundle.value : null;
+  const coordinateEvaluation = b?.search.history_status === 'not_applicable_coordinate_evaluation';
   const position = b?.snapshots[snapshot];
   const regionCount = position ? new Set(position.regionIndices).size : 0;
   const download = () => {
@@ -86,7 +87,7 @@ export function ExperimentHistory({ recordId }: { recordId: string }) {
   return (
     <section className="lab-panel mt-4" aria-label={tx("可复现实验记录")}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="font-semibold">{tx("优化过程与复现数据")}</h3>
+        <h3 className="font-semibold">{tx(coordinateEvaluation ? '坐标评价与复现数据' : '优化过程与复现数据')}</h3>
         <Button variant="outline" disabled={!b} onClick={download}>
           {tx("导出完整实验包")}</Button>
       </div>
@@ -98,13 +99,14 @@ export function ExperimentHistory({ recordId }: { recordId: string }) {
         <p className="mt-3 text-sm">{tx("读取原始实验记录…")}</p>
       ) : (
         <>
+          {coordinateEvaluation ? <p className="mt-3 text-sm leading-6">{tx('这条记录评价固定的64点坐标，没有执行布局搜索。实验包分别保存输入坐标和实际评价坐标，并保留原始指标。')}</p> : <>
           <p className="mt-3 text-sm leading-6">
             {tx("配置 → 初始化 → 已接受的位置交换 → 最终评价。曲线是保存的搜索目标，不是综合准确率；AR只用于判定已计算结果。")}</p>
           <p className="mt-2 text-sm">
             {tx("搜索目标：")}<code>{b.search.objective}</code> {tx(" · 已保存交换：")}{tx(b.search.trace.length)}{tx("步")}</p>
           {tx(b.search.curve.length > 0 ? (
             <div className="mt-3 h-48">
-              <ResponsiveContainer>
+              <ResponsiveContainer width="100%" height={192}>
                 <LineChart data={b.search.curve}>
                   <XAxis dataKey="step" name={tx("接受步数")} />
                   <YAxis domain={['auto', 'auto']} width={65} />
@@ -171,16 +173,15 @@ export function ExperimentHistory({ recordId }: { recordId: string }) {
               </p>
             ))}
           </details>
+          </>}
           <details className="mt-3 text-sm">
             <summary className="cursor-pointer">
-              {tx("配置、初始化、最终布局与搜索计数")}</summary>
+              {tx(coordinateEvaluation ? '坐标评价的原始请求' : '配置、初始化、最终布局与搜索计数')}</summary>
             <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-all text-xs">
               {JSON.stringify(
                 {
                   configuration: b.search.configuration,
-                  counters: b.search.counters,
-                  initial: b.search.initial,
-                  final: b.search.final,
+                  ...(!coordinateEvaluation ? { counters: b.search.counters, initial: b.search.initial, final: b.search.final } : {}),
                 },
                 null,
                 2,
@@ -191,7 +192,7 @@ export function ExperimentHistory({ recordId }: { recordId: string }) {
             {tx("原始文件 SHA256：")}{tx(b.source.sha256)}
           </p>
           <p className="mt-2 text-xs text-muted-foreground">
-            {tx("实验包包含原始配置、记录、轨迹和校验身份；重新计算需要对应版本代码及头模/前向库文件。")}</p>
+            {tx(coordinateEvaluation ? '实验包包含坐标评价请求、评价结果和校验身份；重新计算需要对应版本代码及头模/前向库文件。' : '实验包包含原始配置、记录、轨迹和校验身份；重新计算需要对应版本代码及头模/前向库文件。')}</p>
         </>
       ))}
     </section>

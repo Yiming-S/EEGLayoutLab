@@ -15,7 +15,10 @@ import {
   validateDesign,
   decisionHref,
   parseDecisionThresholds,
+  jointDecisionThresholds,
+  decisionCriteriaSummary,
 } from '../lib/design-decision.ts';
+import { assessment } from '../lib/lab-workflow.ts';
 import {
   DesignEvaluationService,
   normalizeDesignRequest,
@@ -63,7 +66,7 @@ void test('coordinate round trip preserves all coordinates, order, frame and lab
 });
 
 void test('method round trip preserves all independent decision thresholds and both records', () => {
-  const t = { field: 68, sensitivity: 30, localization: null, p90_mm: 20 };
+  const t = { mode: 'custom', field: 68, sensitivity: 30, localization: null, p90_mm: 20 };
   const href = decisionHref(['a', 'b'], t),
     q = new URL(href, 'http://localhost').searchParams;
   assert.deepEqual(parseDecisionThresholds(q), t);
@@ -71,8 +74,31 @@ void test('method round trip preserves all independent decision thresholds and b
   assert.equal(q.get('b'), 'b');
   assert.deepEqual(
     parseDecisionThresholds(new URLSearchParams('ar=0&sensitivity=NaN&p90=-1')),
-    { field: 90, sensitivity: null, localization: null, p90_mm: null },
+    { mode: 'custom', field: 90, sensitivity: null, localization: null, p90_mm: null },
   );
+});
+
+void test('plain comparison links use the same three-metric decision as the overview', () => {
+  const record = { metrics: { field_relative: 0.9231, sensitivity_tail: 0.4666, localization_relative: 0.7405, p90_mm: 20 } };
+  const thresholds = parseDecisionThresholds(new URLSearchParams('ar=90'));
+  assert.deepEqual(thresholds, jointDecisionThresholds(90));
+  assert.equal(assessment(record.metrics, 90).state, 'fail');
+  assert.equal(qualification(record, thresholds).state, 'fail');
+  assert.equal(qualification(record, thresholds).failed.length, 2);
+  assert.equal(qualification(record, { ...thresholds, sensitivity: null, localization: null }).failed.length, 2);
+  assert.match(decisionCriteriaSummary(thresholds), /均不低于90%/);
+  assert.deepEqual(parseDecisionThresholds(new URL(decisionHref(['a'], thresholds), 'http://localhost').searchParams), thresholds);
+  assert.deepEqual(parseDecisionThresholds(new URLSearchParams('ar=1')), jointDecisionThresholds(90));
+  assert.equal(parseDecisionThresholds(new URLSearchParams('ar=1&thresholdMode=custom')).field, 1);
+});
+
+void test('custom reconstruction-only requirements and legacy independent limits survive reload', () => {
+  const thresholds = { mode: 'custom', field: 90, sensitivity: null, localization: null, p90_mm: null };
+  const q = new URL(decisionHref(['a'], thresholds), 'http://localhost').searchParams;
+  assert.deepEqual(parseDecisionThresholds(q), thresholds);
+  assert.match(decisionCriteriaSummary(thresholds), /^仅检查/);
+  assert.equal(qualification({ metrics: { field_relative: 0.95, sensitivity_tail: 0.1, localization_relative: 0.2 } }, thresholds).state, 'pass');
+  assert.deepEqual(parseDecisionThresholds(new URLSearchParams('ar=68&sensitivity=30&p90=20')), { mode: 'custom', field: 68, sensitivity: 30, localization: null, p90_mm: 20 });
 });
 void test('input rejects unknown frames, blank CSV numbers, duplicates and invalid labels', () => {
   assert.throws(() => validateDesign({ ...design, unit: 'm' }));

@@ -12,6 +12,8 @@ import type { SavedRecord } from '@/lib/local-library';
 import { protocolName } from '@/lib/ui-language';
 import {
   decisionMarkdown,
+  decisionCriteriaSummary,
+  decisionHref,
   designCSV,
   exportDesign,
   minimumDistance,
@@ -21,6 +23,7 @@ import {
   qualification,
 } from '@/lib/design-decision';
 import { useDecisionController } from './use-decision-controller';
+import { DecisionRequirements } from './decision-requirements';
 
 const Head = lazy(() =>
   import('@/components/cluster-head-viewer').then((m) => ({
@@ -178,69 +181,12 @@ export default function DecisionPage({
                 )),
               )}
             </section>
-            <section className="lab-panel">
-              <h2 className="text-lg font-semibold">{tx('接受条件')}</h2>
-              <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <label className="lab-label">
-                  {tx('重建保留率 AR（%）')}
-                  <input
-                    className="lab-select mt-2"
-                    type="number"
-                    min={1}
-                    max={100}
-                    value={thresholds.field}
-                    onChange={(e) => {
-                      const n = Number(e.target.value);
-                      if (Number.isInteger(n) && n >= 1 && n <= 100)
-                        setThresholds((t) => ({ ...t, field: n }));
-                    }}
-                  />
-                </label>
-                {tx(
-                  (
-                    [
-                      ['sensitivity', '幅度保留率下限（%）'],
-                      ['localization', '相对定位评分下限（%）'],
-                      ['p90_mm', '定位误差P90上限（mm）'],
-                    ] as const
-                  ).map(([key, label]) => (
-                    <label className="lab-label" key={key}>
-                      {tx(label)}
-                      <input
-                        className="lab-select mt-2"
-                        type="number"
-                        min={0}
-                        max={key === 'p90_mm' ? 500 : 100}
-                        placeholder={tx('不启用')}
-                        value={thresholds[key] ?? ''}
-                        onChange={(e) => {
-                          const n = Number(e.target.value);
-                          if (
-                            !e.target.value ||
-                            (Number.isFinite(n) &&
-                              n >= 0 &&
-                              n <= (key === 'p90_mm' ? 500 : 100))
-                          )
-                            setThresholds((t) => ({
-                              ...t,
-                              [key]: e.target.value === '' ? null : n,
-                            }));
-                        }}
-                      />
-                    </label>
-                  )),
-                )}
-              </div>
-              <p className="mt-3 text-sm text-muted-foreground">
-                {tx(
-                  '默认按重建AR判断；其他指标可分别设限。阈值变化只重新判断现有结果。',
-                )}
-              </p>
-            </section>
+            <DecisionRequirements thresholds={thresholds} onChange={setThresholds} />
             {tx(
               loaded && shown.length > 0 && (
                 <section className="lab-panel overflow-x-auto">
                   <h2 className="text-lg font-semibold">{tx('原记录对照')}</h2>
+                  <p className="mt-2 text-sm font-medium">{tx(decisionCriteriaSummary(thresholds))}</p>
                   {tx(
                     notes.map((n) => (
                       <p className="mt-2 text-sm text-amber-900" key={n}>
@@ -357,7 +303,7 @@ export default function DecisionPage({
                               >
                                 {tx(
                                   q.state === 'pass'
-                                    ? '达到所选阈值'
+                                    ? '达到全部启用要求'
                                     : q.state === 'missing'
                                       ? '数据不完整'
                                       : '未达到：' + q.failed.join('、'),
@@ -423,6 +369,7 @@ export default function DecisionPage({
             )}
           </>
         )}
+        {mode === 'coordinates' && <DecisionRequirements thresholds={thresholds} onChange={setThresholds} />}
         <section className="lab-panel">
           <h2 className="text-lg font-semibold">
             {tx(mode === 'coordinates' ? '坐标导入与评价' : '位置偏移测试')}
@@ -510,10 +457,7 @@ export default function DecisionPage({
                 <a
                   className="text-primary underline"
                   href={
-                    '/coordinates?a=' +
-                    (ids[0] ?? '') +
-                    '&ar=' +
-                    thresholds.field
+                    decisionHref([ids[0] ?? ''], thresholds).replace('/decision?', '/coordinates?')
                   }
                 >
                   {tx('导入外部电极坐标 →')}
@@ -734,10 +678,11 @@ export default function DecisionPage({
                   </tbody>
                 </table>
                 <p className="mt-3 text-sm">
+                  <span className="block mb-2">{tx(decisionCriteriaSummary(thresholds))}</span>
                   {tx('本次坐标评价：')}
                   {tx(
                     resultQualification?.state === 'pass'
-                      ? '达到所选阈值'
+                      ? '达到全部启用要求'
                       : resultQualification?.state === 'missing'
                         ? '所选判据数据不完整'
                         : '未达到：' + resultQualification?.failed.join('、'),

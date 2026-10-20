@@ -10,6 +10,7 @@ import { SiteHeader } from '@/components/site-header';
 
 import { BRAIN_REGIONS, sourceKey } from '@/lib/source-reception';
 import { SOURCE_REGIONS, canonicalSourceRegions } from '@/lib/source-regions';
+import { lowerArtifactScale } from '@/lib/source-result-reading';
 
 import { useReceptionController, running } from './use-reception-controller';
 import { ExperimentResult } from './experiment-result';
@@ -396,6 +397,7 @@ export default function ReceptionPage() {
               ar={ar}
               setAR={setAR}
               cached={Boolean(job?.cached)}
+              onReduceArtifacts={lowerArtifactScale(scale) === null ? undefined : () => setScale(lowerArtifactScale(scale)!)}
             />
           ) : (
             <section className="lab-panel my-5 py-10 text-center">

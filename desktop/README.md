@@ -1,5 +1,7 @@
 # EEG Layout Lab for macOS
 
+Version 0.1.1 (build 2). Project collaborators: Yiming Shen, PhD and Yi Wang, PhD.
+
 The desktop application contains the interface, Node.js, the Python/SimNIBS
 runtime, the frozen model data, and the supplied result library. End users do
 not install Node.js, Python, Conda, or a separate data archive.
@@ -52,7 +54,7 @@ data manifest and builds only into a new output directory.
 ```sh
 .runtime/simnibs-4.6.0/bin/python desktop/build.py \
   --node-archive /path/to/node-v24.21.0-darwin-arm64.tar.gz \
-  --output releases/desktop-0.1.0-build1 \
+  --output releases/desktop-0.1.1-build2 \
   --dmg
 ```
 
@@ -74,8 +76,8 @@ build into a **new** export directory:
 
 ```sh
 .runtime/simnibs-4.6.0/bin/python desktop/finalize.py \
-  --input releases/desktop-0.1.0-build1 \
-  --output releases/desktop-0.1.0-export1 \
+  --input releases/desktop-0.1.1-build2 \
+  --output releases/desktop-0.1.1-export1 \
   --rebuild-shell \
   --dmg
 ```

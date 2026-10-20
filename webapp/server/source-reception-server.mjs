@@ -283,6 +283,30 @@ export class SourceReceptionService {
       return { hit: false };
     }
   }
+  async savedResult(key, raw) {
+    // Historical downloads validate the saved protocol, not today's model identity.
+    // The caller authorizes the owning browser's durable receipt before this read.
+    if (!/^[a-f0-9]{64}$/.test(key)) throw new Error('Invalid saved signal record');
+    const request = normalizeReceptionRequest(raw);
+    const path = join(this.root, request.mode ? 'results/v2/source_reception_v2_jobs' : 'results/v2/source_reception_jobs', key, 'cache.json');
+    let bytes;
+    try {
+      if ((await stat(path)).size > 32 * 1024 * 1024) throw new Error('结果记录过大');
+      bytes = await readFile(path, 'utf8');
+    } catch (error) { if (error.code === 'ENOENT') throw new Error('计算记录无法读取，请重新提交'); throw error; }
+    const cache = JSON.parse(bytes);
+    if (cache.key !== key || cache.result_sha256 !== hash(cache.result) ||
+      !equal(normalizeReceptionRequest(cache.result?.request), request) ||
+      (request.mode && (!cache.identity?.layout || hash({ request, identity: cache.identity }) !== key))) throw new Error('结果记录校验失败');
+    const layout = cache.result.layout;
+    const validXYZ = coordinates => Array.isArray(coordinates) && coordinates.length === 64 &&
+      coordinates.every(point => Array.isArray(point) && point.length === 3 && point.every(Number.isFinite)) && new Set(coordinates.map(point => point.join(','))).size === 64;
+    const regions = layout?.regionIndices;
+    if (!validXYZ(layout?.xyzMm) || !validXYZ(layout?.referenceXyzMm) || !Array.isArray(regions) || regions.length !== 64 ||
+      ![1, 2, 3, 4, 6].includes(new Set(regions).size) || regions.some(region => !Number.isInteger(region) || region < 0 || region >= new Set(regions).size)) throw new Error('保存的信号布局坐标或区域标签无效');
+    validateReceptionResult(cache.result, request, { layout: cache.identity?.layout ?? layout });
+    return cache.result;
+  }
   remember(job) {
     this.jobs.set(job.id, job);
     while (this.jobs.size > 10) {

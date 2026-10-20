@@ -64,16 +64,18 @@ def copy_file(source, target):
 
 
 def stage_project(target):
-    tracked = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT).decode().split("\0")
-    allowed = ("src/", "scripts/", "configs/", "webapp/")
-    explicit = {"pyproject.toml", "THIRD_PARTY_NOTICES.md", "data/manifest.json", "data/SOURCES.md"}
+    files = subprocess.check_output(
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"], cwd=ROOT,
+    ).decode().split("\0")
+    allowed = ("src/", "scripts/", "configs/", "webapp/", "docs/")
+    explicit = {"README.md", "pyproject.toml", "THIRD_PARTY_NOTICES.md", "data/manifest.json", "data/SOURCES.md"}
     identities = {}
-    for name in tracked:
+    for name in sorted(set(files)):
         if not name or not (name.startswith(allowed) or name in explicit):
             continue
         source = ROOT / name
         if not source.is_file() or source.is_symlink():
-            raise ValueError("Expected a regular tracked source file: " + name)
+            raise ValueError("Expected a regular project source file: " + name)
         copy_file(source, target / name)
         identities[name] = digest(source)
     data = json.loads((ROOT / "data/manifest.json").read_text())
@@ -262,6 +264,9 @@ def main():
     run(["codesign", "--force", "--sign", "-", node])
     run(["codesign", "--force", "--sign", "-", app])
     run(["codesign", "--verify", "--deep", "--strict", "--verbose=2", app])
+    guides = [DESKTOP / name for name in ("START_HERE.md", "START_HERE.zh-CN.md")]
+    for guide in guides:
+        copy_file(guide, output / guide.name)
     archive = output / ("EEGLayoutLab-" + release["version"] + "-macOS-arm64.zip")
     run(["ditto", "-c", "-k", "--sequesterRsrc", "--keepParent", app, archive])
     deliverables = [{"file": archive.name, "bytes": archive.stat().st_size, "sha256": digest(archive)}]
@@ -269,6 +274,8 @@ def main():
         mount = work / "dmg-root"
         mount.mkdir()
         shutil.copytree(app, mount / app.name, symlinks=True)
+        for guide in guides:
+            copy_file(guide, mount / guide.name)
         (mount / "Applications").symlink_to("/Applications")
         dmg = output / ("EEGLayoutLab-" + release["version"] + "-macOS-arm64.dmg")
         run(["hdiutil", "create", "-volname", release["name"], "-srcfolder", mount, "-format", "UDZO", "-ov", dmg])

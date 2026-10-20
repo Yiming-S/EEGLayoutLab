@@ -50,9 +50,11 @@ await test('rear overview reuses the same scene and renderer and restores the ma
     const renderer = Object.fromEntries(['setScissorTest', 'setViewport', 'setClearColor', 'setScissor', 'clear', 'render']
       .map(name => [name, (...args) => calls.push([name, ...args])]));
     const scene = {}, camera = {}, rearCamera = {};
-    const render = extracted('render', { renderer, scene, camera, rearCamera, showRearView,
+    const canvas = { dataset: {} };
+    const render = extracted('render', { renderer, scene, camera, rearCamera, showRearView, canvas, renderedFrames: 0,
       viewportWidth: 800, viewportHeight: 400, rearViewport: { x: 628, y: 208, width: 160, height: 180 } });
     render();
+    assert.equal(canvas.dataset.renderCount, '1');
     const draws = calls.filter(call => call[0] === 'render');
     assert.equal(draws.length, showRearView ? 2 : 1);
     assert.equal(draws[0][1], scene); assert.equal(draws[0][2], camera);
@@ -84,7 +86,8 @@ await test('compact mode preserves full-screen, region data, shape legend, and c
   assert.match(component, /event\.key === 'Escape'/);
   assert.match(component, /方形：标准64导/);
   assert.match(component, /圆形：当前布局/);
-  assert.match(sceneText, /cancelAnimationFrame\(frame\)/);
+  assert.match(sceneText, /drawing\.dispose\(\)/);
   assert.match(sceneText, /observer\.disconnect\(\)/);
+  assert.match(sceneText, /viewportObserver\.disconnect\(\)/);
   assert.match(sceneText, /renderer\.dispose\(\)/);
 });

@@ -610,8 +610,8 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         NSApp.orderFrontStandardAboutPanel(options: [
             .applicationName: name,
             .credits: NSAttributedString(string: Text.value(
-                "EEG electrode layout design and evaluation.\nNative macOS window · Local computation · WebKit visualization",
-                "EEG 电极布局设计与评估。\nmacOS 原生窗口 · 本地计算 · WebKit 可视化"))
+                "EEG electrode layout design and evaluation.\nProject collaborators: Yiming Shen, PhD · Yi Wang, PhD\nNative macOS window · Local computation · WebKit visualization",
+                "EEG 电极布局设计与评估。\n项目合作者：Yiming Shen, PhD · Yi Wang, PhD\nmacOS 原生窗口 · 本地计算 · WebKit 可视化"))
         ])
     }
 

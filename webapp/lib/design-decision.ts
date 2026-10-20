@@ -1,6 +1,7 @@
 import type { SavedRecord } from './local-library';
 import { translateText, type Locale } from './i18n/core.ts';
 import { localizedRecordTitle } from './i18n/records.ts';
+import { parseAR } from './lab-workflow.ts';
 
 export type ElectrodeDesign = {
   schema: 'eeg-electrode-design/1';
@@ -11,6 +12,7 @@ export type ElectrodeDesign = {
   region_indices: number[];
 };
 export type DecisionThresholds = {
+  mode?: 'joint' | 'custom';
   field: number;
   sensitivity: number | null;
   localization: number | null;
@@ -55,6 +57,13 @@ export type DesignJob = {
 };
 const finite = (n: unknown): n is number =>
   typeof n === 'number' && Number.isFinite(n);
+export function jointDecisionThresholds(field = 90): DecisionThresholds {
+  field = parseAR(String(field));
+  return { mode: 'joint', field, sensitivity: field, localization: field, p90_mm: null };
+}
+export function decisionThresholdMode(thresholds: DecisionThresholds) {
+  return thresholds.mode ?? 'custom';
+}
 export function parseDecisionThresholds(
   q: URLSearchParams,
 ): DecisionThresholds {
@@ -63,16 +72,24 @@ export function parseDecisionThresholds(
       n = text === null || text === '' ? NaN : Number(text);
     return Number.isFinite(n) && n >= 0 && n <= maximum ? n : null;
   };
-  const field = value('ar', 100);
+  const parsedField = value('ar', 100);
+  const field = parsedField !== null && parsedField >= 1 && Number.isInteger(parsedField) ? parsedField : 90;
+  // Old links with independent limits remain custom. A plain overview/record
+  // link carries the same three-metric requirement used on its source page.
+  const custom = q.get('thresholdMode') === 'custom' ||
+    (q.get('thresholdMode') !== 'joint' && ['sensitivity', 'localization', 'p90'].some((key) => q.has(key)));
+  if (!custom) return jointDecisionThresholds(field);
   return {
-    field: field !== null && field >= 1 && Number.isInteger(field) ? field : 90,
+    mode: 'custom',
+    field,
     sensitivity: value('sensitivity', 100),
     localization: value('localization', 100),
     p90_mm: value('p90', 500),
   };
 }
 export function decisionHref(ids: string[], t: DecisionThresholds) {
-  const q = new URLSearchParams({ ar: String(t.field) });
+  if (decisionThresholdMode(t) === 'joint') t = jointDecisionThresholds(t.field);
+  const q = new URLSearchParams({ ar: String(t.field), thresholdMode: decisionThresholdMode(t) });
   ids.forEach((id, i) => {
     if (id) q.set(i ? 'b' : 'a', id);
   });
@@ -83,6 +100,18 @@ export function decisionHref(ids: string[], t: DecisionThresholds) {
   ] as const)
     if (value !== null) q.set(key, String(value));
   return '/decision?' + q;
+}
+/** Display the complete active requirement beside every decision result. */
+export function decisionCriteriaSummary(thresholds: DecisionThresholds) {
+  if (decisionThresholdMode(thresholds) === 'joint')
+    return `三项共同要求：场重建、幅度和定位效用保留率均不低于${thresholds.field}%。`;
+  if (thresholds.sensitivity == null && thresholds.localization == null && thresholds.p90_mm == null)
+    return `仅检查场重建保留率 ≥ ${thresholds.field}%。`;
+  const rules = [`信号重建保留率 ≥ ${thresholds.field}%`];
+  if (thresholds.sensitivity != null) rules.push(`幅度保留率（最差10%） ≥ ${thresholds.sensitivity}%`);
+  if (thresholds.localization != null) rules.push(`相对定位评分 ≥ ${thresholds.localization}%`);
+  if (thresholds.p90_mm != null) rules.push(`定位误差P90 ≤ ${thresholds.p90_mm} mm`);
+  return `自定义要求：${rules.join('；')}。`;
 }
 export const pct = (n: unknown) =>
   finite(n) ? `${(100 * n).toFixed(2)}%` : '未提供';
@@ -193,37 +222,40 @@ export function qualification(
   record: { metrics?: Pick<NonNullable<SavedRecord['metrics']>, 'field_relative' | 'sensitivity_tail' | 'localization_relative' | 'p90_mm'> | null },
   thresholds: DecisionThresholds,
 ) {
+  const limits = decisionThresholdMode(thresholds) === 'joint'
+    ? jointDecisionThresholds(thresholds.field)
+    : thresholds;
   const rules: [string, unknown, number, boolean][] = [
     [
       '信号重建保留率',
       record.metrics?.field_relative,
-      thresholds.field / 100,
+      limits.field / 100,
       true,
     ],
-    ...(thresholds.sensitivity === null
+    ...(limits.sensitivity == null
       ? []
       : [
           [
             '幅度保留率（最差10%）',
             record.metrics?.sensitivity_tail,
-            thresholds.sensitivity / 100,
+            limits.sensitivity / 100,
             true,
           ] as [string, unknown, number, boolean],
         ]),
-    ...(thresholds.localization === null
+    ...(limits.localization == null
       ? []
       : [
           [
             '相对定位评分',
             record.metrics?.localization_relative,
-            thresholds.localization / 100,
+            limits.localization / 100,
             true,
           ] as [string, unknown, number, boolean],
         ]),
-    ...(thresholds.p90_mm === null
+    ...(limits.p90_mm == null
       ? []
       : [
-          ['定位误差P90', record.metrics?.p90_mm, thresholds.p90_mm, false] as [
+          ['定位误差P90', record.metrics?.p90_mm, limits.p90_mm, false] as [
             string,
             unknown,
             number,
@@ -323,7 +355,7 @@ export function decisionMarkdown(
     '## 比较条件',
     '',
     '固定64个测量电极；参照为Ernie头模上的BioSemi64标签匹配全头布局。',
-    `重建AR：${thresholds.field}%；幅度阈值：${thresholds.sensitivity ?? '不启用'}；定位评分阈值：${thresholds.localization ?? '不启用'}；定位P90上限：${thresholds.p90_mm === null ? '不启用' : thresholds.p90_mm + ' mm'}。`,
+    decisionCriteriaSummary(thresholds),
     '',
     ...comparisonNotes(records).map((n) => `- ${n}`),
     '',
@@ -335,7 +367,7 @@ export function decisionMarkdown(
   for (const r of records) {
     const q = qualification(r, thresholds);
     lines.push(
-      `|${reportName(r)}|${r.region_count}|${r.geometry?.union_area_cm2?.toFixed(2) ?? '未提供'}|${pct(r.metrics?.field_relative)}|${pct(r.metrics?.sensitivity_tail)}|${pct(r.metrics?.localization_relative)}|${mm(r.metrics?.median_mm)}|${mm(r.metrics?.p90_mm)}|${q.state === 'pass' ? '达到所选阈值' : q.state === 'missing' ? '数据不完整' : '未达到：' + q.failed.join('、')}|`,
+      `|${reportName(r)}|${r.region_count}|${r.geometry?.union_area_cm2?.toFixed(2) ?? '未提供'}|${pct(r.metrics?.field_relative)}|${pct(r.metrics?.sensitivity_tail)}|${pct(r.metrics?.localization_relative)}|${mm(r.metrics?.median_mm)}|${mm(r.metrics?.p90_mm)}|${q.state === 'pass' ? '达到全部启用要求' : q.state === 'missing' ? '数据不完整' : '未达到：' + q.failed.join('、')}|`,
     );
   }
   lines.push(

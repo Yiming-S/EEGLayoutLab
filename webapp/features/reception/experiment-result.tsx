@@ -26,6 +26,7 @@ import {
 import biosemi from '@/lib/biosemi64-reference.json';
 import { FIELD_LAYERS, fieldFrames, type FieldLayer } from '@/lib/source-field';
 import { SOURCE_ROI_DEFINITION, UNASSIGNED_SOURCE_COLOR, sourceRegion } from '@/lib/source-regions';
+import { reconstructionNotice } from '@/lib/source-result-reading';
 
 const Head = lazy(() =>
   import('@/components/cluster-head-viewer').then((m) => ({
@@ -44,12 +45,14 @@ export function ExperimentResult({
   ar,
   setAR,
   cached,
+  onReduceArtifacts,
 }: {
   result: SourceResult;
   label: string;
   ar: number;
   setAR: (ar: number) => void;
   cached: boolean;
+  onReduceArtifacts?: () => void;
 }) {
   const { tx } = useLanguage();
   const [condition, setCondition] = useState<SourceCondition>('mixed'),
@@ -69,6 +72,7 @@ export function ExperimentResult({
   const [fieldLayer, setFieldLayer] = useState<FieldLayer>('brain');
   const score = result.conditions.find((s) => s.condition === condition)!,
     status = sourcePass(score.field_retention, ar);
+  const notice = reconstructionNotice(score);
   const times = result.waveforms.time_s;
   const fields = useMemo(
     () => fieldFrames(result, condition, fieldLayer),
@@ -216,6 +220,14 @@ export function ExperimentResult({
           )}
         </p>
       </section>
+      {notice && <section aria-live="polite" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+        <h2 className="font-semibold">{tx(notice.title)}</h2>
+        <p className="mt-2 leading-6">{tx(notice.explanation)}</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {condition !== 'clean' && <Button variant="outline" size="sm" onClick={() => setCondition('clean')}>{tx('查看无心眼干扰条件')}</Button>}
+          {condition !== 'clean' && onReduceArtifacts && <Button variant="outline" size="sm" onClick={onReduceArtifacts}>{tx('降低干扰幅度')}</Button>}
+        </div>
+      </section>}
       <section className="lab-panel grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div>
           <h2 className="text-lg font-semibold">
@@ -367,7 +379,7 @@ export function ExperimentResult({
           </select>
         </label>
         <div className="mt-2 h-36">
-          <ResponsiveContainer>
+          <ResponsiveContainer width="100%" height={144}>
             <LineChart data={sourceTrace}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis
@@ -476,7 +488,7 @@ export function ExperimentResult({
                 mm
               </p>
               <div className="mt-3 h-60">
-                <ResponsiveContainer>
+                <ResponsiveContainer width="100%" height={240}>
                   <LineChart data={traces[i]} syncId="source-receivers">
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis
@@ -639,7 +651,7 @@ export function ExperimentResult({
           </label>
         </div>
         <div className="mt-4 h-72">
-          <ResponsiveContainer>
+          <ResponsiveContainer width="100%" height={288}>
             <LineChart data={recovered}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis
@@ -698,7 +710,7 @@ export function ExperimentResult({
           ) : (
             <>
               <div className="mt-4 h-72">
-                <ResponsiveContainer>
+                <ResponsiveContainer width="100%" height={288}>
                   <LineChart data={curve}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis

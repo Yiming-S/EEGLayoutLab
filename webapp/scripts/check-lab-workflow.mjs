@@ -301,13 +301,14 @@ void test('free placement offers all nine backend-supported sites, including non
   for (const [masks, r] of [[['PL', ''], 2], [['PL'], 2], [['PL_superior'], 1], [[], 0], [Array(5).fill('PL'), 5]]) assert.equal(choiceFromSlots(masks, r, MASK_NAMES), null);
 });
 
-void test('placement choices are flat controls; incomplete regional choices cannot display another result', async () => {
+void test('placement choices remain direct controls; incomplete regional choices cannot display another result', async () => {
   const home = await readFile('app/page.tsx', 'utf8');
   const design = await readFile('app/design/page.tsx', 'utf8');
   const controls = await readFile('components/placement-options.tsx', 'utf8');
   assert.ok(home.includes('<HomePlacementOptions'));
   assert.ok(design.includes('<DesignPlacementOptions'));
-  assert.ok(!/<(?:select|details)\b/.test(controls));
+  assert.ok(!/<select\b/.test(controls));
+  assert.ok(!/<details\b/.test(controls.slice(controls.indexOf('export function HomePlacementOptions'), controls.indexOf('export function PlacementDesignPresets'))));
   assert.ok(controls.includes('Object.entries(MASK_NAMES)'));
   assert.ok(controls.includes('REGION_COUNTS.map'));
   assert.ok(controls.includes('不沿用上方总面积约束、不自动计算'));

@@ -7,8 +7,8 @@ import ts from 'typescript';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { resolveLocale, translateText, retentionTerminology, localize, formatDate } from '../lib/i18n/core.ts';
-import { localizedRecordTitle, recordSearchText } from '../lib/i18n/records.ts';
-import { decisionMarkdown, designCSV, qualification } from '../lib/design-decision.ts';
+import { localizedRecordTitle, localizedEditorParentTitle, recordSearchText } from '../lib/i18n/records.ts';
+import { decisionMarkdown, designCSV, qualification, jointDecisionThresholds } from '../lib/design-decision.ts';
 import { requestKey } from '../lib/local-compute.ts';
 import { sourceKey } from '../lib/source-reception.ts';
 import catalog from '../lib/i18n/catalog.json' with { type: 'json' };
@@ -114,6 +114,8 @@ void test('translation preserves numbers, absent metrics, raw objects, and schem
   assert.equal(retentionTerminology('AR'), 'AR');
   assert.equal(translateText('AR', 'en'), 'AR');
   assert.equal(translateText('FM + AL + AR', 'en'), 'FM + AL + AR');
+  assert.equal(retentionTerminology('2区 · AL + AR · 半径≤35 mm'), '2区 · AL + AR · 半径≤35 mm');
+  assert.equal(retentionTerminology('AL + AR · AR阈值90%'), 'AL + AR · 最低保留要求90%');
 });
 
 void test('template messages interpolate values and legacy titles without unresolved Han text', () => {
@@ -130,14 +132,14 @@ const record = {
 };
 
 void test('results views retain each other’s controls, selected record, sorting, and threshold', () => {
-  const search = '?ar=32&domain=low_hair_free&area=60&r=4&metric=sensitivity_tail&filter=cache&regions=2&q=%E8%80%B3&page=3&sort=oldest&record=' + record.id;
+  const search = '?ar=32&domain=low_hair_free&area=60&r=4&metric=sensitivity_tail&filter=cache&regions=2&kind=editor&electrodes=56&location=AR&q=%E8%80%B3&page=3&sort=oldest&record=' + record.id;
   const overview = new URL(resultsViewHref('overview', search, record), 'http://localhost');
   const adjusted = new URL(preserveResultsContext('/?ar=46&domain=whole_scalp_free&area=180&r=6&metric=field_relative', overview.search), overview);
   const listing = new URL(resultsViewHref('records', adjusted.search), adjusted);
   assert.equal(listing.pathname, '/library');
-  for (const [key, expected] of Object.entries({ ar: '46', domain: 'whole_scalp_free', area: '180', r: '6', metric: 'field_relative', filter: 'cache', regions: '2', q: '耳', page: '3', sort: 'oldest', record: record.id })) assert.equal(listing.searchParams.get(key), expected, key);
+  for (const [key, expected] of Object.entries({ ar: '46', domain: 'whole_scalp_free', area: '180', r: '6', metric: 'field_relative', filter: 'cache', regions: '2', kind: 'editor', electrodes: '56', location: 'AR', q: '耳', page: '3', sort: 'oldest', record: record.id })) assert.equal(listing.searchParams.get(key), expected, key);
   const cleared = new URL(preserveResultsContext('/library?ar=46&sort=newest', listing.search), listing);
-  for (const key of ['filter', 'record', 'q', 'page', 'regions']) assert.equal(cleared.searchParams.has(key), false, key);
+  for (const key of ['filter', 'record', 'q', 'page', 'regions', 'kind', 'electrodes', 'location']) assert.equal(cleared.searchParams.has(key), false, key);
   assert.equal(cleared.searchParams.get('area'), '180');
   assert.equal(new URL(resultsViewHref('records', '?ar=32', record), listing).searchParams.get('record'), record.id);
 });
@@ -168,6 +170,12 @@ void test('shared saved-layout details separate evaluation from qualification an
     assert.ok(menu.includes(locale === 'en' ? 'Results Library' : '结果库'));
     assert.ok(views.includes(locale === 'en' ? 'Experiment Overview' : '实验总览'));
     assert.ok(views.includes(locale === 'en' ? 'All Records' : '全部记录'));
+    for (const dataset_id of ['historical_area', 'offline_radius']) {
+      const historical = render(SavedLayoutContent, { record: { ...fixture, dataset_id, label: 'Historical layout fixture' }, ar: 32, returnHref: '/library?ar=32' }, locale);
+      assert.doesNotMatch(historical, /href="\/reception\?/);
+      assert.ok(historical.includes(locale === 'en' ? 'historical protocol' : '历史协议'));
+      if (locale === 'en') assert.doesNotMatch(visibleText(historical), /[\u3400-\u9fff]/);
+    }
   }
   assert.equal(JSON.stringify(fixture), before);
   assert.equal(savedLayoutActions({ ...fixture, dataset_id: 'offline_radius' }, 32, '/').reception, null);
@@ -186,6 +194,32 @@ void test('historical names are localized while custom names and search results 
   const custom = { ...record, dataset_id: 'design_evaluation', label: '标准64导布局' };
   assert.match(localizedRecordTitle(custom, 'en'), /标准64导布局/);
   assert.equal(record.label, '原始中文标题');
+});
+
+void test('edited records use structured parent locations while unavailable custom names remain untouched', () => {
+  const edited = { parent_id: record.id, parent_label: '2区 · AL + AR · 半径≤35 mm' };
+  const before = JSON.stringify(edited);
+  const zh = localizedEditorParentTitle(edited, [record], 'zh-CN');
+  const en = localizedEditorParentTitle(edited, [record], 'en');
+  assert.match(zh, /左耳周扩展区 \+ 右耳周扩展区/);
+  assert.doesNotMatch(zh, /最低保留要求/);
+  assert.doesNotMatch(en, /[\u3400-\u9fff]/);
+  assert.equal(localizedEditorParentTitle({ ...edited, parent_label: '我的 AR 研究方案' }, [], 'zh-CN'), '我的 AR 研究方案');
+  assert.equal(localizedEditorParentTitle({ ...edited, parent_label: '我的 AR 研究方案' }, [], 'en'), '我的 AR 研究方案');
+  assert.equal(JSON.stringify(edited), before);
+});
+
+void test('decision controls disclose all active requirements in both languages', () => {
+  const { DecisionRequirements } = loadUI('features/decision/decision-requirements.tsx');
+  for (const locale of ['en', 'zh-CN']) {
+    const joint = render(DecisionRequirements, { thresholds: jointDecisionThresholds(90), onChange() {} }, locale);
+    const custom = render(DecisionRequirements, { thresholds: { mode: 'custom', field: 90, sensitivity: null, localization: null, p90_mm: null }, onChange() {} }, locale);
+    const mixed = render(DecisionRequirements, { thresholds: { mode: 'custom', field: 68, sensitivity: 30, localization: null, p90_mm: 20 }, onChange() {} }, locale);
+    assert.match(joint, /90%/);
+    assert.match(custom, locale === 'en' ? /Checks only field reconstruction/ : /仅检查场重建/);
+    assert.match(mixed, /68%/); assert.match(mixed, /30%/); assert.match(mixed, /20 mm/);
+    if (locale === 'en') for (const html of [joint, custom, mixed]) assert.doesNotMatch(visibleText(html), /[\u3400-\u9fff]/);
+  }
 });
 
 void test('locale is absent from request/cache identity and threshold assessment', () => {

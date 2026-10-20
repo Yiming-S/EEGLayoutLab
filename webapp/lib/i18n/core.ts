@@ -9,6 +9,9 @@ import metricRefreshCatalog from './metric-refresh-catalog.json' with { type: 'j
 import viewerRefreshCatalog from './viewer-refresh-catalog.json' with { type: 'json' };
 import exportRefreshCatalog from './export-refresh-catalog.json' with { type: 'json' };
 import sourceRegionsCatalog from './source-regions-catalog.json' with { type: 'json' };
+import libraryTaskCatalog from './library-task-catalog.json' with { type: 'json' };
+import appUsabilityCatalog from './app-usability-catalog.json' with { type: 'json' };
+import decisionRequirementsCatalog from './decision-requirements-catalog.json' with { type: 'json' };
 
 export type Locale = 'en' | 'zh-CN';
 export const LANGUAGE_COOKIE = 'eeg-layout-language';
@@ -28,19 +31,27 @@ export function resolveLocale(saved?: string | null, acceptLanguage = ''): Local
 /** Display terminology only. AR remains an immutable URL/protocol field. */
 export function retentionTerminology(text: string): string {
   if (/^(?:PL|PR|AL|AR|FL|FM|FR|OL|OR)$/.test(text)) return text;
-  if (/^(?:PL|PR|AL|AR|FL|FM|FR|OL|OR)(?:\s*[,+]\s*(?:PL|PR|AL|AR|FL|FM|FR|OL|OR))+$/.test(text)) return text;
-  if (/Pass|â|G\s*[≥=]|≥\s*AR/.test(text)) return text.replace(/\bAR\b/g, 'τ');
-  return text
+  // Region-code groups also occur inside stored record descriptions. Keep
+  // their AR token separate from the historical threshold abbreviation.
+  const regions: string[] = [];
+  const protectedText = text.replace(/\b(?:PL|PR|AL|AR|FL|FM|FR|OL|OR)(?:\s*[,+]\s*(?:PL|PR|AL|AR|FL|FM|FR|OL|OR))+\b/g, (codes) => {
+    regions.push(codes);
+    return `\uE010${regions.length - 1}\uE011`;
+  });
+  const result = /Pass|â|G\s*[≥=]|≥\s*AR/.test(protectedText)
+    ? protectedText.replace(/\bAR\b/g, 'τ')
+    : protectedText
     .replace(/(?:接受阈值|接受率|接受条件)\s*AR/g, '最低保留要求')
     .replace(/AR\s*(?:接受阈值|阈值|接受率)/g, '最低保留要求')
     .replace(/接受阈值|接受率/g, '最低保留要求')
     .replace(/\bAR\b/g, '最低保留要求')
     .replace(/信号重建保留率/g, '场重建保留率')
     .replace(/相对定位评分/g, '定位效用保留率');
+  return result.replace(/\uE010(\d+)\uE011/g, (_, index) => regions[Number(index)]);
 }
 
 type Entry = { source: string; en: string; zh?: string };
-const entries = [...Object.values(catalog), ...Object.values(editorCatalog), ...Object.values(simulationCatalog), ...Object.values(documentationCatalog), ...Object.values(resultsCatalog), ...Object.values(workspaceCatalog), ...Object.values(homeRefreshCatalog), ...Object.values(metricRefreshCatalog), ...Object.values(viewerRefreshCatalog), ...Object.values(exportRefreshCatalog), ...Object.values(sourceRegionsCatalog)] as Entry[];
+const entries = [...Object.values(catalog), ...Object.values(editorCatalog), ...Object.values(simulationCatalog), ...Object.values(documentationCatalog), ...Object.values(resultsCatalog), ...Object.values(workspaceCatalog), ...Object.values(homeRefreshCatalog), ...Object.values(metricRefreshCatalog), ...Object.values(viewerRefreshCatalog), ...Object.values(exportRefreshCatalog), ...Object.values(sourceRegionsCatalog), ...Object.values(decisionRequirementsCatalog), ...Object.values(appUsabilityCatalog), ...Object.values(libraryTaskCatalog)] as Entry[];
 const exact = new Map(entries.map((entry) => [normalizeText(entry.source), entry]));
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const templateToken = /\{\{(\d+)\}\}/g;

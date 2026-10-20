@@ -8,7 +8,7 @@ import {
   normalizeSourceRequest,
   validateSourceResult,
 } from './source-reception-server.mjs';
-import { validateDesignResult } from './design-evaluation-server.mjs';
+import { normalizeDesignRequest, validateDesignResult } from './design-evaluation-server.mjs';
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const run = promisify(execFile);
 const CROSS_REGIONS = ['frontal', 'central', 'parietal', 'occipital', 'temporal_left', 'temporal_right'];
@@ -134,9 +134,11 @@ export async function designReceptionRecord(root, id) {
     r = cache.result;
   if (cache.key !== id || cache.result_sha256 !== digest(JSON.stringify(r)))
     throw new Error('设计记录校验失败');
+  const request = normalizeDesignRequest(r.request);
+  if (cache.identity && digest(JSON.stringify({ request, identity: cache.identity })) !== id) throw new Error('设计记录身份校验失败');
   // Perturbation trials are not nominal coordinate designs for this workflow.
   if (r.request?.action === 'perturb') return null;
-  validateDesignResult(r, r.request);
+  validateDesignResult(r, request);
   if (r.request.action !== 'evaluate') return null;
   const p = JSON.parse(
     await readFile(

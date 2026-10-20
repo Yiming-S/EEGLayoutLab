@@ -2,7 +2,7 @@
 import { CommunityStatus } from './community-status';
 /* oxlint-disable next/no-html-link-for-pages -- preserve established vinext navigation */
 import { useEffect, useRef, useState } from 'react';
-import { Activity } from 'lucide-react';
+import { Activity, Settings2 } from 'lucide-react';
 import { LanguageSwitch } from '@/components/language-switch';
 import { useLanguage } from '@/components/language-provider';
 import { localizedRecordTitle } from '@/lib/i18n/records';
@@ -175,13 +175,13 @@ export function SiteHeader({
       ref={headerRef}
       className="sticky top-0 z-40 border-b border-[#d6e1df] bg-[#f7faf8]/95 backdrop-blur-xl"
     >
-      <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5 sm:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 sm:px-6 lg:px-8">
         <a
           href={links.compare}
           aria-label={tx('EEG Layout Lab · 返回已有结果')}
           className="flex shrink-0 items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
-          <span className="grid size-9 place-items-center rounded-xl bg-[#102f3a] text-[#78dfcc]">
+          <span className="grid size-8 place-items-center rounded-xl bg-[#102f3a] text-[#78dfcc] sm:size-9">
             <Activity className="size-5" />
           </span>
           <span>
@@ -195,7 +195,7 @@ export function SiteHeader({
         </a>
         <nav
           aria-label={tx('主导航')}
-          className="order-3 flex w-full gap-1 overflow-x-auto rounded-lg bg-white/85 p-1 xl:order-none xl:ml-auto xl:w-auto"
+          className="order-3 flex w-full gap-1 overflow-x-auto rounded-lg bg-white/85 p-1 min-[1000px]:order-none min-[1000px]:ml-auto min-[1000px]:w-auto"
         >
           {WORKSPACES.map((p) => (
             <a
@@ -206,7 +206,7 @@ export function SiteHeader({
               aria-disabled={blockedLink(destinations[p.id]) || undefined}
               aria-current={group === p.id ? 'page' : undefined}
               className={
-                'flex min-h-10 shrink-0 items-center whitespace-nowrap rounded-lg px-4 text-sm font-medium ' +
+                'flex min-h-9 flex-1 items-center justify-center whitespace-nowrap rounded-lg px-3 text-sm font-medium min-[1000px]:flex-none ' +
                 (group === p.id
                   ? 'bg-[#102f3a] text-white'
                   : 'text-[#53686e] hover:bg-[#eef4f1]')
@@ -216,9 +216,19 @@ export function SiteHeader({
             </a>
           ))}
         </nav>
-        <div className="ml-auto flex items-center gap-3 xl:ml-0"><CommunityStatus /><LanguageSwitch /></div>
+        <div className="ml-auto flex items-center gap-1 min-[1000px]:ml-0">
+          <CommunityStatus />
+          <details className="relative">
+            <summary aria-label={tx('界面设置')} className="flex size-9 cursor-pointer list-none items-center justify-center rounded-lg border bg-white text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
+              <Settings2 className="size-4" />
+            </summary>
+            <div className="absolute right-0 z-50 mt-2 rounded-xl border bg-white p-3 shadow-lg">
+              <LanguageSwitch />
+            </div>
+          </details>
+        </div>
       </div>
-      <div className="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-x-5 gap-y-2 px-4 pb-2 sm:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 pb-2 sm:px-6 lg:px-8">
         {WORKSPACE_TABS[group].length > 0 && (
           <nav
             aria-label={tx('工作区工具')}
@@ -231,7 +241,7 @@ export function SiteHeader({
                 aria-disabled={blockedLink(links[id]) || undefined}
                 aria-current={current === id ? 'page' : undefined}
                 className={
-                  'shrink-0 rounded-lg px-4 py-2 text-sm font-medium ' +
+                  'shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium ' +
                   (current === id
                     ? 'bg-primary/10 text-primary'
                     : 'text-muted-foreground hover:bg-white')
@@ -246,7 +256,7 @@ export function SiteHeader({
           aria-label={tx('当前布局')}
           className="flex min-w-0 flex-1 items-center justify-end gap-x-3 gap-y-1 text-sm"
         >
-          <div className="min-w-0 truncate" title={record && selection.phase === 'saved' ? `${localizedRecordTitle(record, locale)} · ${tx(stateLabel)}` : tx(stateLabel)}>
+          <div className="hidden min-w-0 truncate sm:block" title={record && selection.phase === 'saved' ? `${localizedRecordTitle(record, locale)} · ${tx(stateLabel)}` : tx(stateLabel)}>
             <span className="font-semibold">{tx('当前布局')} · </span>
             {record && selection.phase === 'saved'
               ? localizedRecordTitle(record, locale)

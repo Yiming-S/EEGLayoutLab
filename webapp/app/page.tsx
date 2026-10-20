@@ -91,12 +91,13 @@ export default function Home() {
         <section className="lab-panel mt-6">
           <div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-lg font-semibold">{tx("扩大总面积后，性能怎样变化？")}</h2><p className="mt-2 text-sm text-muted-foreground">{tx("仅连接已测的60、120、180 cm²条件。点击曲线上的已计算点查看对应方案。")}</p></div>
             <label className="lab-label">{tx("曲线指标")}<select value={metric} onChange={(e) => setMetric(e.target.value as typeof metric)} className="lab-select">{tx(METRICS.map((m) => <option value={m.key} key={m.key}>{tx(m.label)}</option>))}</select></label></div>
-          <div className="mt-5 h-[300px]"><ResponsiveContainer width="100%" height="100%"><LineChart data={curve} margin={{ top: 12, right: 20, left: 4, bottom: 8 }}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="area" unit=" cm²" /><YAxis unit="%" domain={[0, 'auto']} /><Tooltip formatter={(v) => tx(v == null ? '未定义' : `${Number(v).toFixed(2)}%`)} labelFormatter={(v) => tx(`总面积上限 ${v} cm²`)} /><Legend /><ReferenceLine y={ar} stroke="#aa792a" strokeDasharray="4 4" label={tx(`AR ${ar}%`)} /><ReferenceLine y={100} stroke="#73878a" strokeDasharray="2 3" />
+          <div className="mt-5 h-[300px]"><ResponsiveContainer width="100%" height={300}><LineChart data={curve} margin={{ top: 12, right: 20, left: 4, bottom: 8 }}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="area" unit=" cm²" /><YAxis unit="%" domain={[0, 'auto']} /><Tooltip formatter={(v) => tx(v == null ? '未定义' : `${Number(v).toFixed(2)}%`)} labelFormatter={(v) => tx(`总面积上限 ${v} cm²`)} /><Legend /><ReferenceLine y={ar} stroke="#aa792a" strokeDasharray="4 4" label={tx(`AR ${ar}%`)} /><ReferenceLine y={100} stroke="#73878a" strokeDasharray="2 3" />
             {tx(REGION_COUNTS.map((n, i) => <Line key={n} name={tx(`${n}区`)} dataKey={`r${n}`} stroke={colors[i]} strokeWidth={2} connectNulls={false} isAnimationActive={false} dot={{ r: 4 }} activeDot={(point) => <Dot {...point} r={7} style={{ cursor: 'pointer' }} onClick={() => { const a = (point.payload as { area?: number })?.area; if (a && AREA_CAPS.includes(a)) { setArea(a); inspect(n); } }} />} />))}
           </LineChart></ResponsiveContainer></div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-5">{tx(REGION_COUNTS.map((n) => <div key={n} className="rounded-lg bg-secondary/60 p-3 text-sm"><span className="font-semibold">{tx(n)}{tx("区")}</span><p className="mt-1">{tx(areaConclusion(data.records, domain, n, ar))}</p></div>))}</div>
+          <p className="mt-3 text-sm text-muted-foreground">{tx('曲线阈值线对应当前所选指标；下方结论要求三项指标均达到最低保留要求。')}</p>
+          <h3 className="mt-5 text-base font-semibold">{tx('三项联合达标情况')}</h3>
+          <div className="mt-3 grid gap-3 sm:grid-cols-5">{tx(REGION_COUNTS.map((n) => <div key={n} className="rounded-lg bg-secondary/60 p-3 text-sm"><span className="font-semibold">{tx(n)}{tx("区")}</span><p className="mt-1">{tx(areaConclusion(data.records, domain, n, ar))}</p></div>))}</div>
           <p className="mt-3 text-xs text-muted-foreground">{tx("“首个达标”指三个已计算面积档位中达到AR的最小上限。当前结果采用单Ernie头模，独立头模验证另列阶段。")}</p>
-          <p className="mt-2 text-sm text-muted-foreground">{tx('曲线阈值线对应当前所选指标；三项联合判断见上方比较表。')}</p>
         </section>
       </>)}
       <PlacementDesignPresets ar={ar} />

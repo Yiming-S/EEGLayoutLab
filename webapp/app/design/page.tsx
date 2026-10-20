@@ -4,13 +4,13 @@ import { RuntimeMessage } from "@/components/runtime-message";
 import { localizedRecordTitle } from "@/lib/i18n/records";
 
 /* oxlint-disable next/no-html-link-for-pages -- preserve established vinext navigation */
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { SiteHeader } from '@/components/site-header';
 import { LocalComputePanel } from '@/components/local-compute-panel';
-import { PerformanceSummary } from '@/components/performance-summary';
+import { PerformanceSummary, percent } from '@/components/performance-summary';
 import { Button } from '@/components/ui/button';
 import { requestKey, type ComputeRequest, type ComputeResult, type ComputeJob } from '@/lib/local-compute';
-import { comparisonLink, methodLink, parseAR, recordLink, REGION_COUNTS } from '@/lib/lab-workflow';
+import { comparisonLink, methodLink, parseAR, recordLink, REGION_COUNTS, METRICS } from '@/lib/lab-workflow';
 import type { SavedRecord } from '@/lib/local-library';
 import { sourceExperimentLink } from '@/lib/source-reception';
 import { MASK_NAMES } from '@/lib/ui-language';
@@ -29,12 +29,16 @@ export default function DesignPage() {
   const [regions, setRegions] = useState(2), [choiceId, setChoiceId] = useState('PL,PR'), [radius, setRadius] = useState(35), [ar, setAR] = useState(90);
   const [computed, setComputed] = useState<ComputeResult | null>(null), [status, setStatus] = useState<ComputeJob | null>(null);
   const [notice, setNotice] = useState('');
+  const [routeParams, setRouteParams] = useState('');
   const [extraChoice, setExtraChoice] = useState<Choice | null>(null);
   const [customSlots, setCustomSlots] = useState<string[]>(['PL', 'PR']);
+  const settingsRef = useRef<HTMLDetailsElement>(null);
+  useEffect(() => { if (settingsRef.current) settingsRef.current.open = window.matchMedia('(min-width: 68.75rem)').matches; }, [ready]);
   useEffect(() => {
     const controller = new AbortController();
     const load = async () => {
       const q = new URLSearchParams(window.location.search);
+      setRouteParams(q.toString());
       setAR(parseAR(q.get('ar')));
       const response = await fetch('/data/experiment_protocol_v2.json', { signal: controller.signal });
       if (!response.ok) throw new Error('设计配置未载入');
@@ -87,7 +91,9 @@ export default function DesignPage() {
   const geometry = editing ? result?.geometry : source?.geometry;
   const metrics = editing ? result?.metrics : source?.metrics;
   const here = useMemo(() => {
-    const q = new URLSearchParams(); q.set('ar', String(ar));
+    const q = new URLSearchParams(routeParams);
+    for (const key of ['saved', 'from', 'draft', 'r', 'radius', 'mode', 'masks', 'layoutRecord', 'layoutState', 'layoutChannels', 'layoutRegions']) q.delete(key);
+    q.set('ar', String(ar));
     if (originId) q.set(originKind, originId);
     if (draft) {
       q.set('draft', '1'); q.set('r', String(regions)); q.set('radius', String(radius)); q.set('mode', choice?.mode ?? 'choose');
@@ -95,7 +101,7 @@ export default function DesignPage() {
       else if (!choice && customSlots.some(Boolean)) q.set('masks', customSlots.join(','));
     }
     return '/design?' + q.toString();
-  }, [ar, originId, originKind, draft, regions, radius, choice, customSlots]);
+  }, [ar, originId, originKind, draft, regions, radius, choice, customSlots, routeParams]);
   useEffect(() => { if (ready) window.history.replaceState(null, '', here); }, [ready, here]);
   const changeRegions = (n: number) => {
     if (n === regions) return;
@@ -132,9 +138,11 @@ export default function DesignPage() {
       {tx(error ? <div role="alert" className="lab-panel text-red-800"><RuntimeMessage message={error} />。<a href={'/library?ar=' + ar} className="ml-2 underline">{tx("返回计算记录")}</a></div> : !ready ? <p className="lab-panel">{tx("正在恢复所选方案与AR…")}</p> : <>
         {tx(source && <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3 text-sm"><span>{tx("来源：")}{localizedRecordTitle(source, locale)}</span><a className="text-primary underline" href={recordLink(source, ar)}>{tx("打开原记录")}</a></div>)}
         {tx(notice && <output className="mb-4 block rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6">{tx(notice)}</output>)}
-        {tx(editing && <DesignPlacementOptions count={regions} choices={choices} selected={choice?.id ?? ''} slots={customSlots} onSelect={selectChoice} onSlot={selectSlot} onCount={changeRegions} />)}
-        <div className="grid items-start gap-4 lg:grid-cols-[280px_minmax(0,1fr)] 2xl:grid-cols-[280px_minmax(0,1fr)_310px]">
-          <aside className="lab-panel space-y-5">
+        <div className="grid items-start gap-4 md:grid-cols-[minmax(0,1fr)_300px] min-[68.75rem]:grid-cols-[260px_minmax(0,1fr)_300px]">
+          <details className="lab-panel md:col-span-2 min-[68.75rem]:col-span-1" ref={settingsRef} open>
+            <summary className="cursor-pointer text-base font-semibold">{tx('布局参数')} · {count} {tx('个区域')}{editing && <> · {radius} mm</>}</summary>
+            <div className="mt-5 space-y-5">
+            {editing && <DesignPlacementOptions count={regions} choices={choices} selected={choice?.id ?? ''} slots={customSlots} onSelect={selectChoice} onSlot={selectSlot} onCount={changeRegions} compact />}
             <h2 className="text-lg font-semibold">{tx(editing ? '2 · 设置尺寸并计算' : '总面积上限约束记录 · 只读')}</h2>
             {tx(!editing && source ? <>
               <p className="text-sm leading-7">{tx(source.region_count)}{tx("个严格分离区域")}<br />{tx("总面积上限 ")}{tx(source.area_cap_cm2)} cm²<br />{tx("实际总面积 ")}{tx(source.geometry?.union_area_cm2.toFixed(2))} cm²</p>
@@ -148,14 +156,18 @@ export default function DesignPage() {
             <label className="lab-label border-t pt-4">{tx("接受阈值 AR · ")}{tx(ar)}%<input className="mt-3 w-full accent-primary" type="range" aria-label={tx("设计接受阈值AR")} min={10} max={100} step={1} value={ar} onChange={(e) => setAR(Number(e.target.value))} /><span className="mt-1 block text-xs font-normal text-muted-foreground">{tx("只更新结果判断，不改变点位或运行计算。")}</span></label>
             {tx(editing && request && <LocalComputePanel key={originId + ':editor'} request={request} arPercent={ar} onResult={setComputed} onStatus={setStatus} compact />)}
             <details className="border-t pt-4 text-sm"><summary className="cursor-pointer font-medium">{tx("计算设置与限制")}</summary><p className="mt-3 text-xs leading-6 text-muted-foreground">{tx("固定64电极 · 最小电极直线间距4 mm · 单Ernie头模 · 标准64导名义SNR＝20 dB。各布局使用相同物理噪声尺度。算法在有限候选网格内搜索，位置范围按模型坐标近似定义。")}</p><a href={methodLink(here, ar, '#local-compute')} className="mt-2 inline-block text-primary underline">{tx("完整方法")}</a></details>
-          </aside>
+            </div>
+          </details>
+          {metrics && <dl className="grid grid-cols-3 gap-2 rounded-xl border bg-card p-3 text-xs md:hidden" aria-label={tx('当前布局指标摘要')}>
+            {METRICS.map((metric) => <div key={metric.key}><dt className="leading-5 text-muted-foreground">{tx(metric.label)}</dt><dd className="mt-1 font-mono text-base font-semibold">{percent(metrics[metric.key])}</dd></div>)}
+          </dl>}
           <div className="min-w-0">
             <p className="mb-2 text-sm font-semibold">{tx(layout ? editing ? '3 · 已生成并评估的布局' : '总面积上限原记录 · 未修改点位' : choice ? '布局示意 · 待计算' : '请先选择各区域部位')}</p>
             {receptionId && layout?.regionPatchVertexIndices && <a className="mb-3 inline-flex rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground" href={editorLink(receptionId, ar)}>{tx('编辑此布局的电极 →')}</a>}
-            {tx(choice || !editing ? <Suspense fallback={<div className="lab-panel min-h-[540px]">{tx("加载三维头部…")}</div>}><Head regionCount={count} allocation={Array.from({ length: count }, (_, i) => Math.floor(64 / count) + Number(i < 64 % count))} domainMode={!editing ? source?.mode.includes('whole') ? 'whole_surface' : 'low_hair' : choice!.mode} maskCodes={editing ? choice?.maskCodes : undefined} radiusCm={!editing ? (geometry?.common_graph_radius_mm ?? 35) / 10 : radius / 10} recordedLayout={layout ?? undefined} /></Suspense> : <div className="lab-panel min-h-[400px] grid place-items-center text-muted-foreground">{tx("选择位置组合后显示示意预览")}</div>)}
+            {tx(choice || !editing ? <Suspense fallback={<div className="lab-panel min-h-[520px]">{tx("加载三维头部…")}</div>}><Head compact regionCount={count} allocation={Array.from({ length: count }, (_, i) => Math.floor(64 / count) + Number(i < 64 % count))} domainMode={!editing ? source?.mode.includes('whole') ? 'whole_surface' : 'low_hair' : choice!.mode} maskCodes={editing ? choice?.maskCodes : undefined} radiusCm={!editing ? (geometry?.common_graph_radius_mm ?? 35) / 10 : radius / 10} recordedLayout={layout ?? undefined} /></Suspense> : <div className="lab-panel min-h-[400px] grid place-items-center text-muted-foreground">{tx("选择位置组合后显示示意预览")}</div>)}
             {tx(geometry && <div className="mt-3 rounded-lg border bg-card p-4 text-sm leading-7">{tx("实际 ")}{tx(geometry.union_connected_component_count)} {tx(" 个分离区域 · 实际共用表面半径 ")}{tx(geometry.common_graph_radius_mm.toFixed(2))} {tx(" mm · 总面积 ")}{tx(geometry.union_area_cm2.toFixed(2))} {tx(" cm² · 最小电极直线间距 ")}{tx(geometry.minimum_chord_distance_mm.toFixed(2))} mm</div>)}
           </div>
-          <div className="lg:col-start-2 2xl:col-start-auto"><PerformanceSummary metrics={metrics} ar={ar} returnHref={here} basis={tx(editing ? '每区半径上限约束搜索；新结果自动保存为计算记录' : '总面积上限约束原实验；只读，不触发计算')} empty={tx(pendingText)} emptyTitle={tx(currentStatus?.status === 'no_layout' ? '本次未构造出完整布局' : currentStatus && ['failed', 'timeout', 'cancelled'].includes(currentStatus.status) ? '计算未完成' : undefined)} /></div>
+          <div><PerformanceSummary compact metrics={metrics} ar={ar} returnHref={here} basis={tx(editing ? '每区半径上限约束搜索；新结果自动保存为计算记录' : '总面积上限约束原实验；只读，不触发计算')} empty={tx(pendingText)} emptyTitle={tx(currentStatus?.status === 'no_layout' ? '本次未构造出完整布局' : currentStatus && ['failed', 'timeout', 'cancelled'].includes(currentStatus.status) ? '计算未完成' : undefined)} /></div>
         </div>
         <section className="lab-panel mt-5 flex flex-wrap items-center justify-between gap-4"><div><h2 className="font-semibold">{tx("用同一脑源测试这个布局")}</h2><p className="mt-1 text-sm text-muted-foreground">{tx("对照标准64的时间波形与重建，分别加入模拟心电和眼电。固定点位，不重新优化。")}</p></div>{tx(receptionId ? <a className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground" href={sourceExperimentLink(receptionId, ar, here)}>{tx("打开信号仿真 →")}</a> : <span className="text-sm text-muted-foreground">{tx("先计算出完整64点布局后可进入")}</span>)}</section>
         <p className="mt-5 text-sm text-muted-foreground"><a className="text-primary underline" href={comparison}>{tx(source?.dataset_id === 'strict_area' ? '返回来源比较' : '查看已有结果')}</a> {tx(" · 新半径方案不会加入固定面积曲线；在")}<a className="text-primary underline" href={'/library?ar=' + ar}>{tx("计算记录")}</a>{tx("中查看。")}</p>

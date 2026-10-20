@@ -1,8 +1,12 @@
 # EEG Layout Lab
 
-首次安装请按照 [完整安装说明](../README.md) 或 [简体中文指南](../docs/getting-started.zh-CN.md) 完成模型数据和 Python 计算环境的安装。
+首次安装请按照[源码安装说明](../docs/source-installation.zh-CN.md)完成模型数据和 Python 计算环境的安装。当前流程面向 Apple Silicon Mac。
 
-For first-time setup, follow the [installation instructions](../README.md).
+For first-time setup, follow the [source installation instructions](../docs/source-installation.md). The current setup targets Apple Silicon macOS.
+
+服务器部署准备见[部署说明](../docs/server-deployment.md)。
+
+For the planned hosted version, see [Server deployment preparation](../docs/server-deployment.md).
 
 ## 首次启动 / First launch
 

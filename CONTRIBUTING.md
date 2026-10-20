@@ -1,6 +1,6 @@
 # Contributing
 
-This repository contains the application and the scientific code it uses. Begin with the [setup instructions](README.md), [architecture](docs/architecture.md), and [model definitions](docs/model-and-metrics.md).
+This repository contains the application and the scientific code it uses. Begin with the [source setup instructions](docs/source-installation.md), [architecture](docs/architecture.md), and [model definitions](docs/model-and-metrics.md). Preparation for the planned hosted version is tracked in [Server deployment preparation](docs/server-deployment.md).
 
 ## Change boundaries
 

@@ -1,6 +1,7 @@
 import { translateText, type Locale } from './core.ts';
 import { recordTitle } from '../ui-language.ts';
 import type { SavedSummary } from '../local-library';
+import type { EditorRecord } from '../electrode-editor';
 
 /** User-assigned names are data, not translation keys. Old source records stay untouched. */
 export function localizedRecordTitle(record: SavedSummary, locale: Locale): string {
@@ -9,6 +10,16 @@ export function localizedRecordTitle(record: SavedSummary, locale: Locale): stri
     ? `${record.region_count} ${record.region_count === 1 ? 'region' : 'regions'} · ${record.label} · evaluated coordinates`
     : `${record.region_count}个区域 · ${record.label} · 已评价坐标`;
   return translateText(recordTitle(record), locale);
+}
+
+/** Use parent metadata for system titles; unknown names remain original data. */
+export function localizedEditorParentTitle(
+  record: Pick<EditorRecord, 'parent_id' | 'parent_label'>,
+  parents: SavedSummary[],
+  locale: Locale,
+) {
+  const parent = parents.find((row) => row.id === record.parent_id);
+  return parent ? localizedRecordTitle(parent, locale) : record.parent_label;
 }
 
 /** Both languages remain searchable without changing selection when locale changes. */

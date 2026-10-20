@@ -101,5 +101,6 @@ from `webapp/`. The queue tests use temporary directories and simulated workers;
 they do not run or modify the FEM experiments. HTTP tests listen on loopback.
 
 Existing numerical regression tests, saved record values and the scientific
-cache format remain unchanged. The desktop DMG is an archived build and does
-not contain the later web-source queue changes.
+cache format remain unchanged. Desktop version 0.1.1 includes the web-source
+queue changes. The earlier 0.1.0 DMG remains a historical build; see the
+[desktop verification report](../desktop/VERIFICATION.md) for release-specific checks.
