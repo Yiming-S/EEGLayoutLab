@@ -1,24 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
-import ts from 'typescript';
 import * as THREE from 'three';
 import { createHash } from 'node:crypto';
 import { SOURCE_REGIONS, SOURCE_ROI_DEFINITION } from '../lib/source-regions.ts';
 import { translateText } from '../lib/i18n/core.ts';
 import copy from '../lib/i18n/source-regions-catalog.json' with { type: 'json' };
 
-const sceneText = readFileSync(new URL('../lib/anatomical-head-scene.ts', import.meta.url), 'utf8');
-const ast = ts.createSourceFile('scene.ts', sceneText, ts.ScriptTarget.Latest, true);
-function extract(name) {
-  const node = ast.statements.find(n => ts.isFunctionDeclaration(n) && n.name?.text === name);
-  assert.ok(node);
-  const js = ts.transpileModule(node.getText(ast).replace(/^export /, '') + `\nglobalThis.subject = ${name};`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
-  const sandbox = { THREE, SOURCE_REGIONS };
-  vm.runInNewContext(js, sandbox);
-  return sandbox.subject;
-}
+import { applySourceRoiGroups } from '../viewer/assets.ts';
+import { releaseGroup } from '../viewer/resources.ts';
+import { createSourceLayer } from '../viewer/source-layer.ts';
+import { sceneFixture } from './helpers/viewer-fixture.mjs';
+const sceneText = ['head-scene.ts', 'assets.ts', 'source-layer.ts'].map(name => readFileSync(new URL('../viewer/' + name, import.meta.url), 'utf8')).join('\n');
 
 await test('six ROI IDs and labels match the shared DK definition; no nearest-anchor classifier remains', () => {
   const definition = JSON.parse(readFileSync(new URL('../public/models/ernie/source-roi-definition.json', import.meta.url)));
@@ -45,7 +38,7 @@ await test('native cortex and actual source parents share exact atlas material g
   geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3, true));
   geometry.setIndex(new THREE.BufferAttribute(indices, 1));
   const before = [positions.slice(), normals.slice(), indices.slice()];
-  extract('applySourceRoiGroups')(geometry, mesh.groups);
+  applySourceRoiGroups(geometry, mesh.groups);
   assert.deepEqual(geometry.groups, mesh.groups);
   assert.equal(geometry.getAttribute('color'), undefined, 'no interpolated vertex coloring');
   for (const source of atlas.generation_sources) {
@@ -55,24 +48,31 @@ await test('native cortex and actual source parents share exact atlas material g
     const offset = source.hemisphere === 'lh' ? 0 : atlas.validation[0].vertices;
     assert.deepEqual(Array.from(indices.slice(start, start + 3)), source.parent_vertex_indices.map(i => i + offset));
   }
-  assert.throws(() => extract('applySourceRoiGroups')(geometry, mesh.groups.slice(1)));
-  assert.throws(() => extract('applySourceRoiGroups')(geometry, mesh.groups.map((g,i) => ({...g, count:g.count + (i === 0 ? 3 : 0)}))));
+  assert.throws(() => applySourceRoiGroups(geometry, mesh.groups.slice(1)));
+  assert.throws(() => applySourceRoiGroups(geometry, mesh.groups.map((g,i) => ({...g, count:g.count + (i === 0 ? 3 : 0)}))));
   [positions,normals,indices].forEach((array,i) => assert.deepEqual(array, before[i]));
   geometry.dispose();
 });
 
-await test('source label sprites and textures are disposed; source selection scales only the marker', () => {
+await test('source label sprites and textures are disposed; source selection scales only the marker', t => {
   const group = new THREE.Group(), texture = new THREE.Texture();
   const material = new THREE.SpriteMaterial({ map: texture });
   let textures = 0, materials = 0;
   texture.addEventListener('dispose', () => textures++);
   material.addEventListener('dispose', () => materials++);
   group.add(new THREE.Sprite(material));
-  extract('releaseGroup')(group);
+  releaseGroup(group);
   assert.equal(textures, 1); assert.equal(materials, 1); assert.equal(group.children.length, 0);
-  assert.match(sceneText, /object\.userData\.marker\.scale\.setScalar/);
-  assert.match(sceneText, /group\.position\.set\(\.\.\.mriMmToDisplay\(xyz\)\)/);
-  assert.match(sceneText, /sourceIndex: i, marker/);
+  sceneFixture(t);
+  const scene = new THREE.Scene(), layer = createSourceLayer(scene);
+  layer.setLayout({ sourceXyzMm: [[10, 20, 30]], regionCount: 1, allocation: [64], domainMode: 'whole_surface', radiusCm: 1 });
+  const markerGroup = layer.group.children[0], label = markerGroup.children.find(child => child instanceof THREE.Sprite);
+  const labelScale = label.scale.clone();
+  layer.select(0);
+  assert.deepEqual(markerGroup.position.toArray(), [.1, .2, .3]);
+  assert.equal(markerGroup.userData.marker.scale.x, 1.6);
+  assert.ok(label.scale.equals(labelScale));
+  releaseGroup(scene);
 });
 
 await test('new terminology is bilingual and source colors stay independent of electrode region controls', () => {

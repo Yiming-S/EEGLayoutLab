@@ -1,10 +1,17 @@
-import { repositoryRootForWebapp, nativePythonPath } from './project-paths.mjs';
+import { createAccessPolicy } from './http/access-policy.mjs';
+import { startPythonWorker } from './jobs/python-worker.mjs';
+import { executionSlotFor } from './jobs/execution-slot.mjs';
+import { runtimeConfig } from './runtime/config.mjs';
+import { RecordStore } from './storage/records.mjs';
+import { ProjectService } from './projects/service.mjs';
+import { operationsConfig } from './operations/config.mjs';
+import { ResourceGate } from './operations/resource-gate.mjs';
+import { OperationsMonitor } from './operations/monitor.mjs';
 /** Local Node service, shared by development and production hosts. */
 import { spawn } from 'node:child_process';
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
-import { resolve, join } from 'node:path';
+import { join } from 'node:path';
 import { LocalDataLibrary } from './local-data-library.mjs';
 import { InputIntegrity } from './local-input-integrity.mjs';
 import { SourceReceptionService } from './source-reception-server.mjs';
@@ -13,6 +20,7 @@ import { DesignEvaluationService } from './design-evaluation-server.mjs';
 import { ElectrodeEditorService } from './electrode-editor-server.mjs';
 import { CommunityQueue, communityMiddleware } from './community-queue.mjs';
 import { communityAdapters } from './community-adapters.mjs';
+import { sendJson as send } from './http/responses.mjs';
 
 export const MASK_CODES = ['PL', 'PR', 'AL', 'AR', 'FL', 'FM', 'FR', 'OL', 'OR'];
 const RUNNING = new Set(['queued', 'running', 'cancelling']);
@@ -42,14 +50,7 @@ export function normalizeRequest(input) {
   return { region_count, radius_mm, mode };
 }
 
-export function loopbackRequest(req) {
-  const remote = req.socket?.remoteAddress;
-  if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(remote)) return false;
-  const host = req.headers.host;
-  if (typeof host !== 'string' || !/^(localhost|127\.0\.0\.1|\[::1\])(?::\d{1,5})?$/.test(host)) return false;
-  if (req.headers.origin && req.headers.origin !== `http://${host}`) return false;
-  return !req.headers['sec-fetch-site'] || ['same-origin', 'none'].includes(req.headers['sec-fetch-site']);
-}
+export { loopbackRequest } from './http/access-policy.mjs';
 
 export function validateWorkerResult(result, request) {
   if (!result || !['completed', 'no_layout'].includes(result.status) ||
@@ -85,12 +86,6 @@ function tokenMatches(value, token) {
     timingSafeEqual(Buffer.from(value), Buffer.from(token));
 }
 
-async function atomicJson(path, value) {
-  const temporary = `${path}.${randomUUID()}.tmp`;
-  await writeFile(temporary, JSON.stringify(value), { flag: 'wx' });
-  await rename(temporary, path);
-}
-
 export function codeIdentity(repositoryRoot) {
   const paths = [
     'scripts/run_local_radius_compute.py',
@@ -104,11 +99,13 @@ export function codeIdentity(repositoryRoot) {
 }
 
 export class LocalComputeQueue {
-  constructor({ repositoryRoot, python, timeoutMs = 180000,
+  constructor({ repositoryRoot, python, queueDirectory, timeoutMs = 180000,
     spawnProcess = spawn, getIdentity, verifyInputs } = {}) {
-    this.root = resolve(repositoryRoot);
-    this.python = python || process.env.EEG_COMPUTE_PYTHON ||
-      (existsSync(nativePythonPath(this.root)) ? nativePythonPath(this.root) : 'python3');
+    this.runtime = runtimeConfig({ repositoryRoot, python, queueDirectory });
+    this.root = this.runtime.repositoryRoot;
+    this.store = new RecordStore(this.root);
+    this.executionSlot = executionSlotFor(this);
+    this.python = this.runtime.python;
     this.timeoutMs = timeoutMs;
     this.spawnProcess = spawnProcess;
     this.getIdentity = getIdentity || (() => codeIdentity(this.root));
@@ -125,7 +122,7 @@ export class LocalComputeQueue {
   health() {
     const available = existsSync(join(this.root, 'scripts/run_local_radius_compute.py')) &&
       existsSync(join(this.root, 'results/v2/current_multiregion_bank.json'));
-    return { available, local_only: true, token: this.token, max_concurrent_jobs: 1, threads: 2,
+    return { available, local_only: this.localOnly ?? true, token: this.token, max_concurrent_jobs: 1, threads: 2,
       timeout_seconds: this.timeoutMs / 1000, supported_masks: MASK_CODES,
       active_job: this.active ? this.view(this.active) : null };
   }
@@ -145,7 +142,7 @@ export class LocalComputeQueue {
 
   async readCache(key, request) {
     try {
-      const cache = JSON.parse(await readFile(join(this.root, 'results/v2/local_app_jobs', key, 'cache.json'), 'utf8'));
+      const cache = await this.store.read(this.store.path('radius', key, 'cache.json'));
       if (cache.key !== key || cache.result_sha256 !== hash(JSON.stringify(cache.result))) return null;
       const normalized = normalizeRequest(cache.request);
       if (request && JSON.stringify(normalized) !== JSON.stringify(request)) return null;
@@ -186,104 +183,96 @@ export class LocalComputeQueue {
     const request = normalizeRequest(raw);
     if (this.submitting) return { busy: true };
     this.submitting = true;
+    let release;
     try {
       const { identity, key } = this.identityFor(request);
       // Reading a ready result does not consume compute capacity, even while another job runs.
       const stored = await this.lookup(request, { key });
       if (stored.hit) return { job: stored.job };
-      if (this.sources?.active || this.sources?.submitting || this.designTests?.active || this.designTests?.submitting || this.editor?.active || this.editor?.submitting) return { busy: true, error: '本机实验正在计算，请完成后再提交布局搜索' };
+      if (this.disposed) throw new Error('本地计算服务正在重启');
       if (this.active) {
         if (this.active.key === key) return { job: this.view(this.active) };
         return { busy: true, active_job: this.view(this.active) };
       }
-      const directory = join(this.root, 'results/v2/local_app_jobs', key);
-      const cachePath = join(directory, 'cache.json');
-      const id = randomUUID(), batch = join(directory, id);
-      await mkdir(batch, { recursive: true });
-      await atomicJson(join(batch, 'request.json'), { request, identity, key });
-      const job = { id, key, request, status: 'queued', stage: 'queued', progress: 0,
+      release = this.executionSlot.acquire(this);
+      if (!release) return { busy: true, maintenance: this.executionSlot.paused };
+      const cachePath = this.store.path('radius', key, 'cache.json');
+      const id = randomUUID(), batch = await this.store.createBatch('radius', key, id);
+      await this.store.write(join(batch, 'request.json'), { request, identity, key });
+      if (this.disposed) throw new Error('本地计算服务正在重启');
+      if (this.executionSlot.paused) return { busy: true, maintenance: true };
+      const job = { releaseExecution: release, id, key, request, status: 'queued', stage: 'queued', progress: 0,
         message: '等待本地计算进程启动', created_at: new Date().toISOString(), batch, cachePath,
         events: [], stderr: '', result: null, child: null, identity };
       this.jobs.set(id, job);
       this.active = job;
+      release = null;
       // Spawn only after the previous process has emitted close, never on cancel request.
       this.run(job);
       return { job: this.view(job) };
-    } finally { this.submitting = false; }
+    } finally { release?.(); this.submitting = false; }
   }
 
   run(job) {
-    let child;
-    try {
-      child = this.spawnProcess(this.python, ['-u', join(this.root, 'scripts/run_local_radius_compute.py')], {
-        cwd: this.root, shell: false, stdio: ['pipe', 'pipe', 'pipe'],
-        env: { ...process.env, OMP_NUM_THREADS: '2', OPENBLAS_NUM_THREADS: '2', MKL_NUM_THREADS: '2',
-          VECLIB_MAXIMUM_THREADS: '2', PYTHONUNBUFFERED: '1' },
-      });
-    } catch (error) { void this.finish(job, 'failed', `无法启动Python：${error.message}`); return; }
-    job.child = child;
+    if (this.disposed) { void this.finish(job, 'cancelled', '服务重启，任务未启动'); return; }
+    let terminalResult = null;
     job.status = 'running'; job.stage = 'starting'; job.message = '正在加载本地头模与前向矩阵';
-    let buffer = '', bytes = 0, terminalResult = null;
-    const timer = setTimeout(() => this.cancel(job.id, 'timeout'), this.timeoutMs);
-    job.timer = timer;
-    child.stdout.on('data', (chunk) => {
-      bytes += chunk.length;
-      if (bytes > 8 * 1024 * 1024) { this.cancel(job.id, 'output_limit'); return; }
-      buffer += chunk.toString();
-      const lines = buffer.split('\n'); buffer = lines.pop();
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        try {
-          const event = JSON.parse(line);
+    try {
+      job.worker = startPythonWorker({
+        spawnProcess: this.spawnProcess, executable: this.python,
+        args: ['-u', join(this.root, 'scripts/run_local_radius_compute.py')],
+        options: { cwd: this.root, stdio: ['pipe', 'pipe', 'pipe'],
+          env: { ...process.env, OMP_NUM_THREADS: '2', OPENBLAS_NUM_THREADS: '2', MKL_NUM_THREADS: '2',
+            VECLIB_MAXIMUM_THREADS: '2', PYTHONUNBUFFERED: '1' } },
+        input: job.request, timeoutMs: this.timeoutMs, maxOutputBytes: 8 * 1024 * 1024,
+        onEvent: event => {
           if (event.type === 'progress' && !job.cancelReason) {
             job.progress = Math.max(job.progress, Math.min(.99, Number(event.progress) || 0));
             job.stage = String(event.stage || 'computing'); job.message = String(event.message || '正在计算');
           } else if (event.type === 'result') terminalResult = event.result;
           job.events.push(event);
-        } catch { job.events.push({ type: 'log', text: line.slice(0, 2000) }); }
-      }
-    });
-    child.stderr.on('data', (chunk) => { job.stderr = (job.stderr + chunk).slice(-16000); });
-    child.stdin.on('error', () => {});
-    child.on('error', (error) => { job.spawnError = error.message; });
-    child.once('close', (code) => {
-      clearTimeout(timer); clearTimeout(job.killTimer);
-      if (job.cancelReason) {
-        const timed = job.cancelReason === 'timeout';
-        void this.finish(job, timed ? 'timeout' : 'cancelled', timed ? '达到计算时限，任务已停止；未把缺失结果写成0' : '任务已停止');
-      } else if (code === 0 && terminalResult && ['completed', 'no_layout'].includes(terminalResult.status)) {
-        try {
-          validateWorkerResult(terminalResult, job.request);
-          const sources = terminalResult.provenance?.code_sha256 ?? {};
-          for (const [path, digest] of Object.entries(sources)) {
-            if (job.identity.code[path] !== digest) throw new Error('任务排队后科学代码已变化');
+        },
+        onLog: text => job.events.push({ type: 'log', text }),
+        onStderr: text => { job.stderr = text; },
+        onError: error => { job.spawnError = error.message; },
+        onStop: reason => { job.cancelReason = reason; job.status = 'cancelling'; job.message = '正在停止计算'; },
+        onClose: code => {
+          if (job.cancelReason) {
+            const timed = job.cancelReason === 'timeout';
+            void this.finish(job, timed ? 'timeout' : job.cancelReason === 'input_error' ? 'failed' : 'cancelled', timed ? '达到计算时限，任务已停止；未把缺失结果写成0' : '任务已停止');
+          } else if (code === 0 && terminalResult && ['completed', 'no_layout'].includes(terminalResult.status)) {
+            try {
+              validateWorkerResult(terminalResult, job.request);
+              const sources = terminalResult.provenance?.code_sha256 ?? {};
+              for (const [path, digest] of Object.entries(sources)) {
+                if (job.identity.code[path] !== digest) throw new Error('任务排队后科学代码已变化');
+              }
+            } catch (error) { void this.finish(job, 'failed', `计算结果校验失败：${error.message}`); return; }
+            job.result = terminalResult;
+            void this.finish(job, terminalResult.status, terminalResult.status === 'completed' ? '当前配置已计算' : '本次搜索预算内未构造出64点布局');
+          } else {
+            void this.finish(job, 'failed', job.spawnError ? `Python启动失败：${job.spawnError}` : '计算未成功完成；错误记录已保存，可重新计算');
           }
-        } catch (error) {
-          void this.finish(job, 'failed', `计算结果校验失败：${error.message}`);
-          return;
-        }
-        job.result = terminalResult;
-        void this.finish(job, terminalResult.status, terminalResult.status === 'completed' ? '当前配置已计算' : '本次搜索预算内未构造出64点布局');
-      } else {
-        void this.finish(job, 'failed', job.spawnError ? `Python启动失败：${job.spawnError}` : '计算未成功完成；错误记录已保存，可重新计算');
-      }
-    });
-    child.stdin.end(JSON.stringify(job.request));
+        },
+      });
+      job.child = job.worker.child;
+    } catch (error) { void this.finish(job, 'failed', `无法启动Python：${error.message}`); }
   }
 
   async finish(job, status, message) {
     job.status = status; job.stage = status; job.message = message;
     job.finished_at = new Date().toISOString(); job.progress = ['completed', 'no_layout'].includes(status) ? 1 : job.progress;
     try {
-      await atomicJson(join(job.batch, 'job.json'), { ...this.view(job), events: job.events, stderr: job.stderr });
+      await this.store.write(join(job.batch, 'job.json'), { ...this.view(job), events: job.events, stderr: job.stderr });
       if (['completed', 'no_layout'].includes(status)) {
-        await atomicJson(job.cachePath, { key: job.key, request: job.request, result: job.result,
+        await this.store.write(job.cachePath, { key: job.key, request: job.request, result: job.result,
           result_sha256: hash(JSON.stringify(job.result)), finished_at: job.finished_at });
       }
     } catch (error) {
       job.status = 'failed'; job.message = `计算记录保存失败：${error.message}`; job.result = null;
     } finally {
       if (this.active === job) this.active = null;
+      job.releaseExecution?.(); job.releaseExecution = null;
       // Retain a bounded number of job summaries; durable results stay on disk.
       while (this.jobs.size > 100) this.jobs.delete(this.jobs.keys().next().value);
     }
@@ -293,26 +282,18 @@ export class LocalComputeQueue {
     const job = this.jobs.get(id);
     if (!job || !RUNNING.has(job.status)) return false;
     if (job.cancelReason) return true;
-    job.cancelReason = reason; job.status = 'cancelling'; job.message = '正在停止计算';
-    job.child?.kill('SIGTERM');
-    job.killTimer = setTimeout(() => job.child?.kill('SIGKILL'), 2000);
+    job.worker?.stop(reason);
     return true;
   }
 
   dispose() { this.disposed = true; if (this.active) this.cancel(this.active.id, 'server_restart'); }
 }
 
-function send(res, status, data) {
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store',
-    'X-Content-Type-Options': 'nosniff', 'Cross-Origin-Resource-Policy': 'same-origin' });
-  res.end(JSON.stringify(data));
-}
-
-export function computeMiddleware(queue) {
+export function computeMiddleware(queue, guard = createAccessPolicy().guard) {
   return async (req, res, next) => {
     const path = req.url?.split('?')[0];
     if (!path?.startsWith('/api/local-compute') && !path?.startsWith('/api/source-reception') && !path?.startsWith('/api/design-evaluation') && !path?.startsWith('/api/electrode-editor')) return next();
-    if (!loopbackRequest(req)) return send(res, 403, { error: '计算接口只接受本机同源请求' });
+    if (!guard(req)) return send(res, 403, { error: 'Request rejected by access policy.' });
     try {
       if (req.method === 'GET' && path === '/api/local-compute/health') return send(res, 200, queue.health());
       if (req.method === 'GET' && path === '/api/local-compute/library') return send(res, 200, await queue.library.list());
@@ -357,32 +338,49 @@ export function computeMiddleware(queue) {
   };
 }
 
-export function createLocalComputeService(repositoryRoot) {
-  const queue = new LocalComputeQueue({ repositoryRoot });
+export function createLocalComputeService(repositoryRoot, options = {}) {
+  const { initialMaintenance = false, policy = createAccessPolicy(), operations: operationSettings = operationsConfig(),
+    resourceGate, operationsLogger, ...queueOptions } = options;
+  const queue = new LocalComputeQueue({ ...queueOptions, repositoryRoot });
+  queue.localOnly = policy.localOnly;
   queue.sources = new SourceReceptionService(queue);
   queue.designTests = new DesignEvaluationService(queue);
   queue.editor = new ElectrodeEditorService(queue);
-  const scheduler = new CommunityQueue({ directory: join(repositoryRoot, 'results/web-service'),
-    adapters: communityAdapters(queue, normalizeRequest) });
+  const resources = resourceGate ?? new ResourceGate({ config: operationSettings, directories: [
+    { scope: 'queue', path: queue.runtime.queueDirectory }, { scope: 'scientific', path: queue.root },
+  ] });
+  let disposing = false, disposal;
+  const admit = async () => {
+    if (disposing) throw Object.assign(new Error('The service is stopping.'), { status: 503, resourceSafe: true });
+    await resources.assertAvailable();
+    if (disposing) throw Object.assign(new Error('The service is stopping.'), { status: 503, resourceSafe: true });
+  };
+  const scheduler = new CommunityQueue({ directory: queue.runtime.queueDirectory,
+    executionSlot: queue.executionSlot, initialMaintenance,
+    secureCookies: policy.secureCookies, visitorAddress: policy.visitorAddress,
+    beforeNewWork: admit, adapters: communityAdapters(queue, normalizeRequest) });
+  const projects = new ProjectService({ queue, scheduler, guard: policy.guard, send, tokenMatches, beforeWrite: admit });
+  const operations = new OperationsMonitor({ queue, scheduler, gate: resources, config: operationSettings, logger: operationsLogger });
   return {
-    queue,
-    scheduler,
-    middleware: communityMiddleware({ scheduler, queue, legacy: computeMiddleware(queue), guard: loopbackRequest, send, tokenMatches }),
+    queue, scheduler, projects, operations, resources,
+    middleware: operations.middleware(projects.middleware(communityMiddleware({ scheduler, queue, legacy: computeMiddleware(queue, policy.guard), guard: policy.guard, send, tokenMatches }))),
     dispose() {
-      scheduler.dispose();
-      queue.sources.dispose();
-      queue.designTests.dispose();
-      queue.editor.dispose();
-      queue.dispose();
+      if (disposing) return disposal;
+      disposing = true; projects.close(); scheduler.stopScheduling();
+      queue.sources.dispose(); queue.designTests.dispose(); queue.editor.dispose(); queue.dispose();
+      const finish = () => { operations.close(); return operations.flush(); };
+      if (projects.store.pendingWrites || operations.logger.pending || operations.active) {
+        disposal = Promise.resolve().then(async () => {
+          try {
+            await projects.flush();
+            // Let accepted responses finish or observe closed sockets before closing the log.
+            await new Promise(resolve => setImmediate(resolve));
+            await finish();
+          } finally { scheduler.dispose(); }
+        });
+        return disposal;
+      }
+      operations.close(); scheduler.dispose();
     },
   };
-}
-
-export function localComputePlugin() {
-  return { name: 'eeg-local-compute', apply: 'serve',
-    configureServer(server) {
-      const service = createLocalComputeService(repositoryRootForWebapp(server.config.root));
-      server.middlewares.use(service.middleware);
-      server.httpServer?.once('close', () => service.dispose());
-    } };
 }

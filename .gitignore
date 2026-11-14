@@ -1,14 +1,15 @@
 # Keep repository-root additions limited to EEGLayoutLab's source and docs.
 /*
 !/.gitignore
+!/.github/
 !/README.md
 !/CONTRIBUTING.md
 !/THIRD_PARTY_NOTICES.md
 !/LICENSE
 !/pyproject.toml
 !/configs/
+!/contracts/
 !/data/
-!/desktop/
 !/docs/
 !/scripts/
 !/src/
@@ -50,7 +51,7 @@ tmp/
 *.log
 .DS_Store
 
-# Desktop installers and release archives are distributed separately from Git.
+# Generated archives and historical native installers stay outside source control.
 *.app/
 *.dmg
 *.zip
@@ -58,7 +59,10 @@ tmp/
 
 # Credentials, personal machine configuration and old development context
 .env*
+*.env
+*.env.*
 !.env.example
+!*.env.example
 *.pem
 *.key
 *.p12

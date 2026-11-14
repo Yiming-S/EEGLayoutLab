@@ -1,6 +1,6 @@
 # 源码安装说明
 
-本说明面向需要运行并修改源代码的合作者。直接使用桌面 App 无需安装开发工具，按 [Mac 安装与使用](getting-started.zh-CN.md) 操作即可。
+本说明用于在本机运行和开发目前维护的网页版。界面在浏览器中打开，Node 服务和 Python／SimNIBS 计算运行在同一台电脑上。
 
 [English source installation](source-installation.md)
 
@@ -22,19 +22,19 @@
 
 ### 1. 克隆仓库
 
-打开终端，登录有仓库访问权限的账号，并克隆发布版本：
+打开终端，登录有仓库访问权限的账号，并克隆当前开发源码：
 
 ```sh
 gh auth login
-gh repo clone Yiming-S/EEGLayoutLab -- --branch v0.1.2
+gh repo clone Yiming-S/EEGLayoutLab
 cd EEGLayoutLab
 ```
 
-后续步骤继续在这个终端窗口中操作。仓库根目录是同时包含 `scripts/` 和 `webapp/` 的文件夹。使用发布标签可以让源码与数据清单保持对应；修改源码前，运行 `git switch -c my-changes` 创建工作分支。
+后续步骤继续在这个终端窗口中操作。仓库根目录是同时包含 `scripts/` 和 `webapp/` 的文件夹。修改源码前，运行 `git switch -c codex/my-changes` 创建工作分支。数据安装工具会按当前源码中的清单核对数据包；下文列出的数据包对应当前清单。
 
 ### 2. 安装模型数据
 
-从 [v0.1.2 版本页面](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.2)下载匹配的 `eeglayoutlab-data-v1.tar.gz` 数据包及校验文件。源码版需要单独安装该数据包；桌面安装包已内置模型数据。当前仓库为私有仓库，访问版本页面和附件需要仓库权限。
+从 [v0.1.2 版本页面](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.2)下载匹配的 `eeglayoutlab-data-v1.tar.gz` 数据包及校验文件。数据包与源码分别安装。当前仓库为私有仓库，访问版本页面和附件需要仓库权限。
 
 在仓库根目录下载并校验数据包：
 
@@ -64,9 +64,9 @@ python3 scripts/data_bundle.py verify
 python3 scripts/bootstrap_runtime.py --execute
 ```
 
-等待安装和环境检查成功完成，再继续下一步。App 会自动使用该环境，无需手动激活 Conda 环境。
+等待安装和环境检查成功完成，再继续下一步。网页服务会自动使用该环境，无需手动激活 Conda 环境。
 
-### 4. 安装前端依赖并打开 App
+### 4. 安装前端依赖并打开网页
 
 ```sh
 cd webapp

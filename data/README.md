@@ -1,6 +1,6 @@
 # Application data bundle
 
-`manifest.json` pins the minimal frozen inputs needed by the existing local App.
+`manifest.json` pins the minimal frozen inputs needed by the web application.
 It records each relative path, byte size, SHA-256, role and source attribution.
 `SOURCES.md` records the data license and the boundary between upstream data and
 locally derived research artifacts. Both are small, version-controlled files.
@@ -10,11 +10,11 @@ These comprise the source declaration, six current/historical pointers,
 selected reports and arrays, the forward-bank run manifest, and the Ernie FEM
 mesh. Complete campaign directories and personal calculation history are
 excluded. The payload under `data/external/` and `results/` is distributed as a
-release attachment. The App's browser assets are part of the code checkout.
+release attachment. The browser assets are part of the code checkout.
 
 ## Download and install
 
-Download the archive and checksum from [Release v0.1.1](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.1).
+Download the archive and checksum from [Release v0.1.2](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.2).
 The repository is private; sign in with an account that has repository access.
 With [GitHub CLI](https://cli.github.com/) installed, run from the matching
 source checkout:
@@ -22,7 +22,7 @@ source checkout:
 ```sh
 gh auth login
 mkdir -p releases
-gh release download v0.1.1 --repo Yiming-S/EEGLayoutLab \
+gh release download v0.1.2 --repo Yiming-S/EEGLayoutLab \
   --pattern eeglayoutlab-data-v1.tar.gz \
   --pattern eeglayoutlab-data-v1.tar.gz.sha256 \
   --dir releases
@@ -32,8 +32,7 @@ python3 scripts/data_bundle.py verify
 ```
 
 Use Python 3.10 or newer. Continue with the [source installation guide](../docs/source-installation.md)
-to install the computation environment and web dependencies. Mac desktop
-installers already include the model data and runtime.
+to install the computation environment and web dependencies.
 
 ## Local bundle tools
 

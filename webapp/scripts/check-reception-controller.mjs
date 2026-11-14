@@ -1,3 +1,4 @@
+import * as taskClient from '../client/task-client.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -31,6 +32,7 @@ async function controller(t, fetchSource, { active = null, initial = b } = {}) {
     filename: new URL('../features/reception/use-reception-controller.ts', import.meta.url),
     exportName: 'useReceptionController', maxTimerMs: 10,
     imports: {
+      ...taskClient,
       useLanguage: () => ({ tx: value => value, locale: 'en' }),
       safeReturnHref, parseAR, canonicalSourceRegions, BRAIN_REGIONS, sourceKey, sourceBackLink,
     },
@@ -192,3 +194,41 @@ void test('leaving a shared queued task through cancellation immediately restore
   assert.equal(harness.current.lookup.message, '已退出共享任务，其他访客的计算继续');
   assert.equal(harness.current.result, null);
 });
+
+void test('a transient connection error keeps the known task running and later recovers its result', async t => {
+  const recovered = deferred(); let polls = 0;
+  const { harness } = await controller(t, async url => {
+    if (url.endsWith('/lookup')) return json({ hit: true, job: sourceJob(b, 'running') });
+    polls++;
+    if (polls === 1) throw new TypeError('Offline');
+    return recovered.promise;
+  });
+  await harness.waitFor(s => s.connection === 'reconnecting');
+  assert.equal(harness.current.job.status, 'running');
+  assert.equal(harness.current.busy, true);
+  recovered.resolve(json({ job: sourceJob(b, 'completed') }));
+  await harness.waitFor(s => s.result?.request.record_id === b.record_id);
+  assert.equal(harness.current.connection, 'connected');
+  assert.equal(harness.current.error.message, '');
+});
+
+for (const status of [401, 403, 404]) {
+  void test(`a blocked HTTP ${status} task can reconnect without changing server state or resubmitting`, async t => {
+    let restored = false, submissions = 0;
+    const { harness } = await controller(t, async url => {
+      if (url.endsWith('/lookup')) return json({ hit: true, job: sourceJob(b, 'running') });
+      if (url.endsWith('/jobs')) submissions++;
+      return restored ? json({ job: sourceJob(b, 'completed') })
+        : { ok: false, status, json: async () => ({ error: 'Unavailable' }) };
+    });
+    await harness.waitFor(s => s.connection === 'blocked');
+    assert.equal(harness.current.job.status, 'running');
+    assert.equal(harness.current.busy, false);
+    assert.ok(harness.current.fatal);
+    restored = true;
+    await harness.act(s => s.setRetry(n => n + 1));
+    await harness.waitFor(s => s.result?.request.record_id === b.record_id);
+    assert.equal(harness.current.connection, 'connected');
+    assert.equal(submissions, 0);
+  });
+}

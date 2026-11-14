@@ -6,7 +6,7 @@ import { translateText } from '../lib/i18n/core.ts';
 const read = (file) => readFile(new URL('../' + file, import.meta.url), 'utf8');
 
 await test('home leads with the selected layout and separates saved area exploration from new radius designs', async () => {
-  const home = await read('app/page.tsx');
+  const home = (await Promise.all(['features/overview/overview-workspace.tsx', 'features/overview/use-overview-controller.ts'].map(read))).join('\n');
   assert.ok(home.indexOf('id="selected-layout"') < home.indexOf('<table'));
   assert.ok(home.indexOf('<table') < home.indexOf('<PlacementDesignPresets'));
   assert.ok(home.includes('<SavedLayoutDetails') && home.includes(' compact />'));

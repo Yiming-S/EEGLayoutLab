@@ -1,12 +1,13 @@
 'use client';
 import { CommunityStatus } from './community-status';
+import { ProjectContext } from '@/features/projects/project-context';
 /* oxlint-disable next/no-html-link-for-pages -- preserve established vinext navigation */
 import { useEffect, useRef, useState } from 'react';
 import { Activity, Settings2 } from 'lucide-react';
 import { LanguageSwitch } from '@/components/language-switch';
 import { useLanguage } from '@/components/language-provider';
 import { localizedRecordTitle } from '@/lib/i18n/records';
-import { PAGES, type PageId } from '@/lib/ui-language';
+import { PAGES, safeReturnHref, type PageId } from '@/lib/ui-language';
 import type { SavedRecord } from '@/lib/local-library';
 import {
   WORKSPACES,
@@ -57,23 +58,24 @@ export function SiteHeader({
       returnHref ??
       (current === 'library'
         ? '/library'
+        : current === 'projects'
+          ? '/projects'
         : current === 'coordinates'
           ? '/coordinates'
           : (PAGES.find((p) => p.id === current)?.path ?? '/')),
   );
   useEffect(() => {
     const restore = () =>
-      setBrowserHref(
+      setBrowserHref(safeReturnHref(
         window.location.pathname +
           window.location.search +
-          window.location.hash,
-      );
+          window.location.hash, '/'));
     restore();
     window.addEventListener('popstate', restore);
     return () => window.removeEventListener('popstate', restore);
   }, []);
   const original = new URL(browserHref, 'http://localhost');
-  const currentUrl = new URL(returnHref ?? browserHref, 'http://localhost');
+  const currentUrl = new URL(safeReturnHref(returnHref ?? browserHref, '/'), 'http://localhost');
   // Page props contain the latest replaceState parameters. Retain the original
   // return target without reintroducing stale layout parameters.
   if (
@@ -165,6 +167,8 @@ export function SiteHeader({
       tx(
         current === 'coordinates'
           ? '坐标导入'
+          : current === 'projects'
+            ? '研究项目'
           : current === 'library'
             ? '布局记录'
             : (PAGES.find((p) => p.id === current)?.label ?? '历史实验'),
@@ -280,6 +284,7 @@ export function SiteHeader({
           </div>
         </div>
       </div>
+      <ProjectContext currentIsProjects={current === 'projects'} here={here} recordId={selection.phase === 'saved' && record?.status === 'completed' ? record.id : undefined} />
     </header>
   );
 }

@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { dataTest } from './test-tiers.mjs';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, writeFile, mkdir } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
@@ -25,7 +26,7 @@ async function cachedFixture() {
   return { queue, file, key };
 }
 
-void test('all offline layouts load read-only with protocol separation and original metric values', async () => {
+void dataTest('all offline layouts load read-only with protocol separation and original metric values', async () => {
   const queue = new LocalComputeQueue({ repositoryRoot: root, spawnProcess: () => assert.fail('no computation in library') });
   const library = await queue.library.list();
   assert.equal(library.warnings.length, 0);
@@ -61,7 +62,7 @@ void test('all offline layouts load read-only with protocol separation and origi
   assert.equal(queue.jobs.size, 0); queue.dispose();
 });
 
-void test('coordinate evaluations appear in the read-only library and reopen their original evaluated coordinates', async () => {
+void dataTest('coordinate evaluations appear in the read-only library and reopen their original evaluated coordinates', async () => {
   const queue = new LocalComputeQueue({ repositoryRoot: root, spawnProcess: () => assert.fail('record listing cannot compute') });
   const library = await queue.library.list();
   const summaries = library.records.filter(record => record.dataset_id === 'design_evaluation');
@@ -154,7 +155,7 @@ void test('library only returns allowlisted opaque IDs, not filesystem paths', a
   assert.equal(await queue.library.get('a'.repeat(64)), null); queue.dispose();
 });
 
-void test('area importer rejects changed scientific protocols instead of applying stale labels', async () => {
+void dataTest('area importer rejects changed scientific protocols instead of applying stale labels', async () => {
   const pointer = JSON.parse(await readFile(join(root, 'results/v2/current_strict_area_budget_study.json'), 'utf8'));
   const report = JSON.parse(await readFile(join(root, pointer.report), 'utf8'));
   for (const change of [

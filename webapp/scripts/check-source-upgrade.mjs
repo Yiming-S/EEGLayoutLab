@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { dataTest } from './test-tiers.mjs';
 import assert from 'node:assert/strict';
 import { readFile, mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -92,7 +93,7 @@ void test('field display uses both complete previews for a common scale, and com
   assert.equal(residual.sides[1][0][0], 1);
   assert.equal(result.waveforms.candidate.brain_uv[63][399], 9);
 });
-void test('real area bundle preserves original bytes identity, all coordinates and stored accepted trace', async () => {
+void dataTest('real area bundle preserves original bytes identity, all coordinates and stored accepted trace', async () => {
   const p = JSON.parse(
     await readFile(root + 'results/v2/current_strict_area_budget_study.json'),
   );
@@ -126,7 +127,7 @@ void test('missing history is explicit and never fabricates zero-score initial s
   assert.equal(s.initial, null);
   assert.deepEqual(s.curve, []);
 });
-void test('historical field objective keeps its saved trajectory and is not replaced with the tail minimum', async () => {
+void dataTest('historical field objective keeps its saved trajectory and is not replaced with the tail minimum', async () => {
   const file = 'webapp/public/data/single_head_optimization.json';
   const raw = JSON.parse(await readFile(root + file));
   const record = radiusRecords(raw, { file })[0];
@@ -162,12 +163,15 @@ void test('synthetic completed native record resolves evaluated coordinates, not
     await mkdir(join(fixtureRoot, 'results/v2/design_evaluation_jobs', id), { recursive: true });
     await writeFile(join(fixtureRoot, 'results/v2/reference.json'), report);
     await writeFile(join(fixtureRoot, 'results/v2/current_strict_area_budget_study.json'), JSON.stringify({ report: 'results/v2/reference.json', sha256: digest(report) }));
-    await writeFile(join(fixtureRoot, 'results/v2/design_evaluation_jobs', id, 'cache.json'), JSON.stringify({ key: id, result, result_sha256: digest(JSON.stringify(result)) }));
+    const savedBytes = JSON.stringify({ key: id, result, result_sha256: digest(JSON.stringify(result)) }, null, 2) + '\n';
+    await writeFile(join(fixtureRoot, 'results/v2/design_evaluation_jobs', id, 'cache.json'), savedBytes);
     const r = await designReceptionRecord(fixtureRoot, id);
     assert.deepEqual(r.layout.xyzMm, result.evaluated_xyz_mm);
     assert.notDeepEqual(r.layout.xyzMm, xyz);
     assert.equal(r.layout.xyzMm.length, 64);
     assert.equal(r.provenance.forward_mode, 'direct_fem');
+    assert.equal(r.provenance.design_result.sha256, digest(savedBytes));
+    assert.equal(r.provenance.design_result.path, `results/v2/design_evaluation_jobs/${id}/cache.json`);
     const invalid = structuredClone(result);
     invalid.request.design.region_indices = Array(64).fill(99);
     await writeFile(join(fixtureRoot, 'results/v2/design_evaluation_jobs', id, 'cache.json'), JSON.stringify({ key: id, result: invalid, result_sha256: digest(JSON.stringify(invalid)) }));

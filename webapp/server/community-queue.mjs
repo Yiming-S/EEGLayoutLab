@@ -17,8 +17,16 @@ function save(path, value) {
 }
 
 export class CommunityQueue {
-  constructor({ directory, adapters, now = Date.now, maxQueued = 50, maxPerVisitor = 3, pollMs = 250 }) {
+  constructor({ directory, adapters, now = Date.now, maxQueued = 50, maxPerVisitor = 3, pollMs = 250,
+    initialMaintenance = false, executionSlot, secureCookies = false, visitorAddress, beforeNewWork = async () => {} } = {}) {
+    if (typeof beforeNewWork !== 'function') throw new TypeError('New work admission must be a function.');
+    this.beforeNewWork = beforeNewWork; this.resourceBlocked = null; this.stopping = false;
+    if (typeof initialMaintenance !== 'boolean') throw new TypeError('initialMaintenance must be boolean');
     this.directory = directory; this.adapters = adapters; this.now = now;
+    this.executionSlot = executionSlot;
+    this.secureCookies = secureCookies;
+    this.visitorAddress = visitorAddress ?? (req => req.socket?.remoteAddress || 'unknown');
+    this.maintenance = initialMaintenance;
     this.maxQueued = maxQueued; this.maxPerVisitor = maxPerVisitor;
     this.tasks = []; this.sequence = 0; this.visitors = new Map(); this.rates = new Map();
     this.chain = Promise.resolve(); this.disposed = false; this.activeId = null; this.blockedPids = [];
@@ -42,8 +50,13 @@ export class CommunityQueue {
     try {
       const path = join(directory, 'queue.json');
       const data = existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : { version: 1, sequence: 0, tasks: [] };
-      if (data.version !== 1 || !Array.isArray(data.tasks)) throw new Error('Unsupported queue state; preserve the file for recovery.');
+      if (data.version !== 1 || !Array.isArray(data.tasks) ||
+          (data.maintenance !== undefined && typeof data.maintenance !== 'boolean')) throw new Error('Unsupported queue state; preserve the file for recovery.');
       this.tasks = data.tasks; this.sequence = data.sequence;
+      // Startup may force a pause, but only an explicit operator action resumes
+      // a durable maintenance state. Older version-1 files default to running.
+      this.maintenance = initialMaintenance || data.maintenance === true;
+      if (this.maintenance) this.executionSlot?.pause();
       const secretPath = join(directory, 'session-secret.json');
       if (!existsSync(secretPath)) save(secretPath, { key: randomBytes(32).toString('hex') });
       this.secret = JSON.parse(readFileSync(secretPath, 'utf8')).key;
@@ -68,10 +81,29 @@ export class CommunityQueue {
     // Retain active tasks and the newest 500 terminal receipts. Results live in scientific caches.
     const terminal = this.tasks.filter(t => !pending(t)).slice(-500);
     this.tasks = this.tasks.filter(t => pending(t) || t.workerPid || t.starting || terminal.includes(t));
-    try { save(join(this.directory, 'queue.json'), { version: 1, sequence: this.sequence, tasks: this.tasks }); }
+    try { save(join(this.directory, 'queue.json'), { version: 1, sequence: this.sequence, maintenance: this.maintenance, tasks: this.tasks }); }
     catch (e) { this.failClosed(e); throw e; }
   }
   failClosed(e) { this.failure = e.message; }
+  setMaintenance(enabled) {
+    if (typeof enabled !== 'boolean') throw new TypeError('Maintenance state must be boolean');
+    if (this.disposed || this.stopping || this.failure) throw error('计算队列不可用，请稍后重试', 503);
+    // Deliberately synchronous: a pending prepare/start must observe the gate as
+    // soon as the operator requests it, rather than waiting behind serial work.
+    this.maintenance = enabled;
+    if (enabled) this.executionSlot?.pause();
+    try { this.persist(); }
+    catch (e) { this.maintenance = true; this.executionSlot?.pause(); throw e; }
+    if (!enabled) this.executionSlot?.resume();
+    return this.maintenanceStatus();
+  }
+  maintenanceStatus() {
+    const guarded = this.unconfirmedWorker || this.blockedPids.some(alive) ||
+      this.tasks.some(task => task.starting || (task.workerPid && alive(task.workerPid)));
+    return { maintenance: this.maintenance,
+      drained: Boolean(this.maintenance && !this.disposed && !this.failure && !this.activeId && !guarded &&
+        !this.executionSlot?.busy && !Object.values(this.adapters).some(adapter => adapter.busy())) };
+  }
   session(req, res) {
     const cookies = String(req.headers.cookie || '').split(';').map(s => s.trim());
     let value = cookies.find(s => s.startsWith('eeg_visitor='))?.slice(12);
@@ -84,10 +116,10 @@ export class CommunityQueue {
     if (!valid(value)) {
       const id = randomBytes(32).toString('hex');
       value = `${id}.${createHmac('sha256', this.secret).update(id).digest('hex')}`;
-      res.setHeader('Set-Cookie', `eeg_visitor=${value}; Path=/; HttpOnly; SameSite=Strict; Max-Age=2592000`);
+      res.setHeader('Set-Cookie', `eeg_visitor=${value}; Path=/; HttpOnly; SameSite=Strict; Max-Age=2592000${this.secureCookies ? '; Secure' : ''}`);
     }
-    // Never trust X-Forwarded-For on this loopback-only service.
-    return { id: digest(value), ip: req.socket?.remoteAddress || 'unknown' };
+    // The configured access policy resolves client addresses only after validating the proxy.
+    return { id: digest(value), ip: this.visitorAddress(req) };
   }
   touch(visitor, visible) {
     const now = this.now();
@@ -123,12 +155,12 @@ export class CommunityQueue {
   async submit(kind, raw, visitor, lookupOnly = false) {
     // This lock establishes server acceptance order before asynchronous identity validation.
     return this.serial(async () => {
-      if (this.disposed || this.failure) throw error('计算队列不可用，请稍后重试', 503);
+      if (this.disposed || this.stopping || this.failure) throw error('计算队列不可用，请稍后重试', 503);
       this.rate(visitor);
       const adapter = this.adapters[kind];
       const prepared = await adapter.prepare(raw);
       const ready = await adapter.lookup(prepared);
-      if (this.disposed) throw error('计算队列不可用，请稍后重试', 503);
+      if (this.disposed || this.stopping || this.failure) throw error('计算队列不可用，请稍后重试', 503);
       if (ready.hit) {
         const task = this.receipt(kind, prepared, visitor, ready.job.status);
         task.cached = true; task.finished_at = ready.job.finished_at || new Date(this.now()).toISOString();
@@ -144,8 +176,13 @@ export class CommunityQueue {
         return { hit: true, job: await this.view(existing) };
       }
       if (lookupOnly) return { hit: false };
+      if (this.maintenance) throw error('服务维护中，已有结果仍可读取；请稍后提交新计算', 503);
       this.checkVisitorLimit(visitor);
       if (this.tasks.filter(pending).length >= this.maxQueued) throw error('队列已满，请稍后提交；已有结果仍可读取', 429);
+      await this.beforeNewWork();
+      if (this.disposed || this.stopping || this.failure) throw error('计算队列不可用，请稍后重试', 503);
+      if (this.maintenance || this.executionSlot?.paused) throw error('服务维护中，已有结果仍可读取；请稍后提交新计算', 503);
+      this.resourceBlocked = null;
       const task = this.receipt(kind, prepared, visitor, 'queued');
       this.persist();
       return { job: await this.view(task) };
@@ -201,7 +238,7 @@ export class CommunityQueue {
     });
   }
   async tick() {
-    if (this.disposed || this.failure) return;
+    if (this.disposed || this.stopping || this.failure) return;
     if (!this.lastLogPrune || this.now() - this.lastLogPrune > 3600000) this.pruneLogs();
     this.blockedPids = this.blockedPids.filter(alive);
     if (this.blockedPids.length || this.unconfirmedWorker) return;
@@ -215,24 +252,40 @@ export class CommunityQueue {
       if (worker?.result) task.catalog = { ...task.catalog, ...receiptCatalog(task.kind, { request: task.request }, worker.result) };
       task.cached = Boolean(worker?.cached); delete task.workerPid; delete task.starting; this.activeId = null; this.persist();
     }
-    if (Object.values(this.adapters).some(a => a.busy())) return;
+    // Finish reconciliation above while paused; queued work stays in FIFO order.
+    if (this.maintenance || this.executionSlot?.paused || this.executionSlot?.busy || Object.values(this.adapters).some(a => a.busy())) return;
     const next = this.tasks.find(t => t.status === 'queued');
     if (!next) return;
     const adapter = this.adapters[next.kind];
     try {
+      // Once resource-blocked, retry the inexpensive observation before preparing science again.
+      if (this.resourceBlocked) { await this.beforeNewWork(); this.resourceBlocked = null; }
+      if (this.disposed || this.stopping || this.failure || this.maintenance || this.executionSlot?.paused) return;
       const prepared = await adapter.prepare(next.request);
-      if (this.disposed) return;
+      if (this.disposed || this.stopping || this.failure || this.maintenance || this.executionSlot?.paused ||
+          this.executionSlot?.busy || Object.values(this.adapters).some(a => a.busy())) return;
       if (prepared.key !== next.key) throw new Error('排队后模型或代码已更新，请重新提交');
+      await this.beforeNewWork();
+      if (this.disposed || this.stopping || this.failure || this.maintenance || this.executionSlot?.paused || this.executionSlot?.busy || Object.values(this.adapters).some(a => a.busy())) return;
+      this.resourceBlocked = null;
       // Persist starting intent before launching a subprocess.
       next.status = 'running'; next.starting = true; this.activeId = next.id; this.persist();
       const started = await adapter.start(next.request);
       if (this.disposed) return;
-      if (started.busy || !started.job) throw new Error('计算资源被其他进程占用，请重新提交');
+      if (started.busy) {
+        // Another submission can acquire the slot, or maintenance can pause it,
+        // during service-side preparation. Both explicitly confirm no launch.
+        // Preserve the receipt/order and clear the now-resolved spawn intent.
+        next.status = 'queued'; delete next.starting; delete next.workerPid; delete next.backendId;
+        this.activeId = null; this.persist(); return;
+      }
+      if (!started.job) throw new Error('计算资源被其他进程占用，请重新提交');
       next.backendId = started.job.id;
       next.workerPid = adapter.pid(); next.starting = false; this.persist();
       if (started.job.key !== next.key) { adapter.cancel(next.backendId); throw new Error('排队后模型或代码已更新，请重新提交'); }
     } catch (e) {
-      if (this.disposed) return;
+      if (this.disposed || this.stopping) return;
+      if (e.resourceSafe) { this.resourceBlocked = { code: 'resource_unavailable' }; return; }
       next.status = 'failed'; next.message = e.message; next.finished_at = new Date(this.now()).toISOString();
       this.activeId = null; this.persist();
     }
@@ -242,7 +295,8 @@ export class CommunityQueue {
     return { online_visitors: [...this.visitors.values()].filter(t => this.now() - t <= 90000).length,
       queued_tasks: this.tasks.filter(t => t.status === 'queued').length,
       running_tasks: Number(Boolean(this.activeId || this.blockedPids.length)),
-      available: !this.failure && !this.disposed, recovery_blocked: this.blockedPids.length > 0 || Boolean(this.unconfirmedWorker),
+      available: !this.failure && !this.disposed && !this.stopping, resource_blocked: Boolean(this.resourceBlocked), recovery_blocked: this.blockedPids.length > 0 || Boolean(this.unconfirmedWorker),
+      ...this.maintenanceStatus(),
       jobs: await Promise.all(jobs.map(t => this.view(t, false))) };
   }
   records(visitor) {
@@ -264,9 +318,10 @@ export class CommunityQueue {
   releaseLock() {
     if (existsSync(this.lockPath) && JSON.parse(readFileSync(this.lockPath, 'utf8')).token === this.lockToken) unlinkSync(this.lockPath);
   }
+  stopScheduling() { this.stopping = true; clearInterval(this.timer); }
   dispose() {
     if (this.disposed) return;
-    this.disposed = true; clearInterval(this.timer);
+    this.stopScheduling(); this.disposed = true;
     // Leave queued receipts intact. A running job is reported as interrupted on restart.
     this.persist(); this.releaseLock();
   }
@@ -315,7 +370,7 @@ export function communityMiddleware({ scheduler, legacy, queue, guard, send, tok
       if (guard(req) && req.method === 'GET' && (req.headers['sec-fetch-dest'] === 'document' || String(req.headers.accept).includes('text/html'))) scheduler.session(req, res);
       return legacy(req, res, next);
     }
-    if (!guard(req)) return send(res, 403, { error: '计算接口只接受本机同源请求' });
+    if (!guard(req)) return send(res, 403, { error: 'Request rejected by access policy.' });
     try {
       const visitor = scheduler.session(req, res);
       if (community) {
@@ -335,7 +390,7 @@ export function communityMiddleware({ scheduler, legacy, queue, guard, send, tok
         return send(res, 404, { error: 'Unknown community endpoint' });
       }
       const [, kind, action, id, cancel] = endpoint;
-      if (action === 'health' && req.method === 'GET') return send(res, 200, { ...queue.health(), active_job: await scheduler.active(kind, visitor) });
+      if (action === 'health' && req.method === 'GET') return send(res, 200, { ...queue.health(), ...scheduler.maintenanceStatus(), active_job: await scheduler.active(kind, visitor) });
       if (req.method === 'POST' && !tokenMatches(req.headers['x-eeg-compute-token'], queue.token)) return send(res, 403, { error: '本地会话已更新，请刷新页面后重新计算' });
       if (id && action === 'jobs') {
         if (req.method === 'GET' && !cancel) return send(res, 200, { job: await scheduler.view(scheduler.own(id, visitor, kind)) });
@@ -350,6 +405,9 @@ export function communityMiddleware({ scheduler, legacy, queue, guard, send, tok
         return send(res, action === 'lookup' ? 200 : 202, value);
       }
       return send(res, 404, { error: 'Unknown queue endpoint' });
-    } catch (e) { return send(res, e.status || 400, { error: e.message }); }
+    } catch (e) {
+      if (e.resourceSafe && Number.isInteger(e.retryAfter) && e.retryAfter > 0 && e.retryAfter <= 3600 && !res.headersSent && !res.closed && !res.destroyed) res.setHeader('Retry-After', String(e.retryAfter));
+      return send(res, e.status || 400, { error: e.message, ...(e.resourceSafe ? { code: 'resource_unavailable' } : {}) });
+    }
   };
 }

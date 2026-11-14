@@ -4,6 +4,8 @@ import { useLanguage } from '@/components/language-provider';
 /* oxlint-disable next/no-html-link-for-pages -- preserve established vinext navigation */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
+import { apiJson, followTask, submitTask, cancelTask, type TaskConnection } from '@/client/task-client';
+
 import { safeReturnHref } from '@/lib/ui-language';
 import { parseAR } from '@/lib/lab-workflow';
 import type { LocalLibrary } from '@/lib/local-library';
@@ -54,6 +56,7 @@ export function useReceptionController() {
     [token, setToken] = useState(''),
     [fatal, setFatal] = useState(''),
     [retry, setRetry] = useState(0);
+  const [connection, setConnection] = useState<TaskConnection>('connected');
   const [active, setActive] = useState<SourceJob | null>(null),
     [stored, setStored] = useState<SourceJob | null>(null),
     [submitting, setSubmitting] = useState(false);
@@ -133,6 +136,7 @@ export function useReceptionController() {
         if (c.signal.aborted) return;
         setLibrary(data);
         setToken(health.token);
+        setConnection('connected');
         setActive(health.active_job);
         setFatal('');
       })
@@ -215,17 +219,11 @@ export function useReceptionController() {
     const c = new AbortController();
     const timer = setTimeout(async () => {
       try {
-        const r = await fetch('/api/source-reception/lookup', {
-          method: 'POST',
-          signal: c.signal,
-          headers: {
-            'Content-Type': 'application/json',
-            'X-EEG-Compute-Token': token,
-          },
-          body: key,
+        const value = await apiJson<SourceResponse>('/api/source-reception/lookup', {
+          method: 'POST', signal: c.signal, token,
+          headers: { 'Content-Type': 'application/json' }, body: key,
+          errorMessage: '缓存读取失败',
         });
-        const value = (await r.json()) as SourceResponse;
-        if (!r.ok) throw new Error(value.error || '缓存读取失败');
         if (c.signal.aborted) return;
         if (value.hit) {
           setStored(value.job);
@@ -257,69 +255,42 @@ export function useReceptionController() {
       c.abort();
     };
   }, [key, token, selected, ready, validSources]);
-  const busy = running(active);
+  const busy = running(active) && connection !== 'blocked';
   const activeId = active?.id;
   const activeRequestKey = active ? sourceKey(active.request) : '';
+  const activeSnapshot = useRef(active);
+  useLayoutEffect(() => { activeSnapshot.current = active; }, [active]);
   useEffect(() => {
-    if (!busy || !activeId) return;
-    const c = new AbortController(),
-      jobId = activeId,
-      activeKey = activeRequestKey;
-    let timer: ReturnType<typeof setTimeout>;
-    const poll = async () => {
-      try {
-        const r = await fetch('/api/source-reception/jobs/' + jobId, {
-          signal: c.signal,
-          cache: 'no-store',
-        });
-        const value = (await r.json()) as SourceResponse;
-        if (!r.ok) throw new Error(value.error || '任务连接中断');
-        if (c.signal.aborted) return;
-        setActive((a) => a?.id === jobId ? value.job : a);
+    const initial = activeSnapshot.current;
+    if (!busy || !activeId || !initial) return;
+    const c = new AbortController(), jobId = activeId, activeKey = activeRequestKey;
+    void followTask({
+      service: 'source-reception', initial, signal: c.signal,
+      onJob(value) {
+        setActive((a) => a?.id === jobId ? value : a);
         if (currentKey.current === activeKey)
-          setLookup({ key: activeKey, message: jobMessage(value.job) });
-        if (running(value.job)) timer = setTimeout(poll, 900);
-      } catch (e) {
-        if (!c.signal.aborted) {
-          setError({
-            key: activeKey,
-            message: e instanceof Error ? e.message : '任务连接中断',
-          });
-          setActive((a) =>
-            a?.id === jobId
-              ? {
-                  ...a,
-                  status: 'failed',
-                  result: null,
-                  message: '连接中断，请刷新服务并重新读取',
-                }
-              : a,
-          );
-        }
-      }
-    };
-    timer = setTimeout(poll, 300);
-    return () => {
-      clearTimeout(timer);
-      c.abort();
-    };
+          setLookup({ key: activeKey, message: jobMessage(value) });
+      },
+      onConnection(state, failure) {
+        setConnection(state);
+        if (currentKey.current === activeKey)
+          setError({ key: activeKey, message: failure?.message ?? '' });
+        if (state === 'blocked') setFatal(failure?.message ?? '任务连接中断');
+      },
+    }).catch(() => { /* The connection callback reports failures; abort is silent. */ });
+    return () => c.abort();
   }, [activeId, activeRequestKey, busy]);
   const submit = async () => {
     if (!selected || busy || submitting || !token || !validSources) return;
     setSubmitting(true);
     setError({ key, message: '' });
     try {
-      const r = await fetch('/api/source-reception/jobs', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-EEG-Compute-Token': token,
-        },
-        body: key,
+      const data = await submitTask<SourceResponse>('source-reception', key, {
+        errorMessage: '本机正忙，请稍后手动重试',
       });
-      const data = (await r.json()) as SourceResponse;
-      if (!r.ok) throw new Error(data.error || '本机正忙，请稍后手动重试');
       if (currentKey.current !== key) return;
+      setConnection('connected');
+      setFatal('');
       setActive(data.job);
       setLookup({ key, message: jobMessage(data.job) });
     } catch (e) {
@@ -333,12 +304,7 @@ export function useReceptionController() {
     if (!active || !token) return;
     const jobId = active.id;
     try {
-      const r = await fetch(`/api/source-reception/jobs/${jobId}/cancel`, {
-        method: 'POST',
-        headers: { 'X-EEG-Compute-Token': token },
-      });
-      const data = (await r.json()) as SourceResponse;
-      if (!r.ok) throw new Error(data.error);
+      const data = await cancelTask<SourceResponse>('source-reception', jobId);
       setActive((a) => a?.id === jobId ? data.job : a);
       const cancelledKey = sourceKey(data.job.request);
       if (currentKey.current === cancelledKey)
@@ -378,6 +344,7 @@ export function useReceptionController() {
     fatal,
     setRetry,
     active,
+    connection,
     submitting,
     lookup,
     error,

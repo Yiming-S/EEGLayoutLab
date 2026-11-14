@@ -1,5 +1,6 @@
 import type { SavedRecord } from './local-library';
-export type XYZ = [number, number, number];
+import type { XYZ } from '../../contracts/layout';
+export type { XYZ } from '../../contracts/layout';
 export type Slot = { bank_index: number; enabled: boolean };
 export type EditorRequest = {
   action: 'evaluate';

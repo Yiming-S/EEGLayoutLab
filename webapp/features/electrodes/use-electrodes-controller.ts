@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useLanguage } from '@/components/language-provider';
 
+import { ApiError, followTask, submitTask, cancelTask, readTask, type TaskConnection } from '@/client/task-client';
+
 import { parseAR } from '@/lib/lab-workflow';
 import type { SavedSummary } from '@/lib/local-library';
 import {
@@ -43,6 +45,7 @@ export function useElectrodesController() {
   const [editMode, setEditMode] = useState(false),
     [ar, setAr] = useState(90),
     [candidate, setCandidate] = useState('');
+  const [connection, setConnection] = useState<TaskConnection>('connected');
   const [job, setJob] = useState<EditorJob | null>(null),
     [pending, setPending] = useState(false),
     [error, setError] = useState(''),
@@ -54,7 +57,7 @@ export function useElectrodesController() {
     restored = useRef(false);
   const loadingRecord = useRef<EditorRecord | undefined>(undefined);
   const slots = history.present,
-    busy = pending || running(job);
+    busy = pending || (running(job) && connection !== 'blocked');
   const dirty = !!domain && slotKey(slots) !== savedDraftKey;
   const refreshRecords = useCallback(async () => {
     const r = await fetch('/api/electrode-editor/records', {
@@ -101,21 +104,16 @@ export function useElectrodesController() {
   }, [refreshRecords]);
   const follow = useCallback(
     async (initial: EditorJob, signal: AbortSignal) => {
-      let current = initial;
-      if (alive.current) setJob(current);
-      while (running(current)) {
-        await new Promise((resolve) => setTimeout(resolve, 800));
-        if (signal.aborted) throw new Error('Aborted');
-        const r = await fetch('/api/electrode-editor/jobs/' + current.id, {
-          signal,
-          cache: 'no-store',
-        });
-        const data = (await r.json()) as { job?: EditorJob; error?: string };
-        if (!r.ok || !data.job)
-          throw new Error(data.error ?? 'Job status unavailable');
-        current = data.job;
-        if (alive.current) setJob(current);
-      }
+      if (alive.current) { setJob(initial); setConnection('connected'); }
+      const current = await followTask({
+        service: 'electrode-editor', initial, signal,
+        onJob(value) { if (alive.current) setJob(value); },
+        onConnection(state, failure) {
+          if (!alive.current) return;
+          setConnection(state);
+          setError(failure?.message ?? '');
+        },
+      });
       if (current.status !== 'completed' || !current.result)
         throw new Error(current.message);
       return current;
@@ -132,33 +130,13 @@ export function useElectrodesController() {
       const abort = new AbortController();
       controller.current = abort;
       try {
-        const health = (await fetch('/api/local-compute/health', {
-          signal: abort.signal,
-        }).then((r) => r.json())) as { token: string };
-        const response = await fetch('/api/electrode-editor/jobs', {
-          method: 'POST',
-          signal: abort.signal,
-          headers: {
-            'Content-Type': 'application/json',
-            'x-eeg-compute-token': health.token,
-          },
-          body: JSON.stringify(request),
+        const data = await submitTask<{ job: EditorJob }>('electrode-editor', request, {
+          signal: abort.signal, errorMessage: 'Local editor service is unavailable',
         });
-        if (!response.headers.get('content-type')?.includes('application/json'))
-          throw new Error('Local editor service is unavailable');
-        const data = (await response.json()) as {
-          job?: EditorJob;
-          error?: string;
-        };
-        if (!response.ok || !data.job)
-          throw new Error(data.error ?? 'Local worker is busy');
         if (alive.current) setPending(false);
         return await follow(data.job, abort.signal);
       } catch (e) {
-        if (alive.current)
-          setJob((j) =>
-            running(j) ? { ...j!, status: 'connection_lost' } : j,
-          );
+        if (alive.current && e instanceof ApiError) setConnection('blocked');
         throw e;
       } finally {
         if (alive.current) setPending(false);
@@ -374,14 +352,9 @@ export function useElectrodesController() {
   const cancel = async () => {
     if (!job) return;
     try {
-      const health = (await fetch('/api/local-compute/health').then((r) =>
-        r.json(),
-      )) as { token: string };
-      const r = await fetch(`/api/electrode-editor/jobs/${job.id}/cancel`, {
-        method: 'POST',
-        headers: { 'x-eeg-compute-token': health.token },
-      });
-      if (!r.ok) throw new Error('Cancellation failed');
+      const id = job.id;
+      const data = await cancelTask<{ job: EditorJob }>('electrode-editor', id);
+      if (alive.current) setJob(current => current?.id === id ? data.job : current);
     } catch (e) {
       setError(String(e));
     }
@@ -393,14 +366,8 @@ export function useElectrodesController() {
     const abort = new AbortController();
     controller.current = abort;
     try {
-      const r = await fetch('/api/electrode-editor/jobs/' + job.id, {
-        signal: abort.signal,
-        cache: 'no-store',
-      });
-      const data = (await r.json()) as { job?: EditorJob; error?: string };
-      if (!r.ok || !data.job)
-        throw new Error(data.error ?? 'Job status unavailable');
-      const completed = await follow(data.job, abort.signal);
+      const current = await readTask<EditorJob>('electrode-editor', job.id, abort.signal);
+      const completed = await follow(current, abort.signal);
       if (!alive.current) return;
       if ('parent' in completed.result!) {
         const d = completed.result as EditorDomain,
@@ -428,7 +395,7 @@ export function useElectrodesController() {
     } catch (e) {
       if (alive.current) {
         setError(String(e));
-        setJob((j) => (running(j) ? { ...j!, status: 'connection_lost' } : j));
+        if (e instanceof ApiError) setConnection('blocked');
       }
     } finally {
       if (alive.current) setPending(false);
@@ -506,6 +473,7 @@ export function useElectrodesController() {
     setCandidate,
     job,
     pending,
+    connection,
     error,
     notice,
     records,

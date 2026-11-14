@@ -181,7 +181,7 @@ void test('shared saved-layout details separate evaluation from qualification an
   assert.equal(savedLayoutActions({ ...fixture, dataset_id: 'offline_radius' }, 32, '/').reception, null);
   assert.equal(savedLayoutActions({ ...fixture, dataset_id: 'historical_area' }, 32, '/').edit, null);
   assert.equal(savedLayoutActions({ ...fixture, layout: { ...fixture.layout, regionPatchVertexIndices: undefined } }, 32, '/').edit, null);
-  for (const file of ['app/page.tsx', 'app/library/page.tsx']) {
+  for (const file of ['features/overview/overview-workspace.tsx', 'features/library/library-workspace.tsx']) {
     const source = fs.readFileSync(path.join(root, file), 'utf8');
     assert.match(source, /<SavedLayoutDetails/);
     assert.doesNotMatch(source, /<Head\b|<PerformanceSummary\b|createObjectURL/);
@@ -194,6 +194,15 @@ void test('historical names are localized while custom names and search results 
   const custom = { ...record, dataset_id: 'design_evaluation', label: '标准64导布局' };
   assert.match(localizedRecordTitle(custom, 'en'), /标准64导布局/);
   assert.equal(record.label, '原始中文标题');
+});
+
+void test('saved editor scores use a complete translated metric label with an unchanged number', () => {
+  const source = fs.readFileSync(path.join(root, 'features/electrodes/electrodes-workspace.tsx'), 'utf8');
+  assert.ok(source.includes("{date(r.finished_at, true)} · {tx('信号重建保留率')}{' '}"));
+  assert.ok(!source.includes("tx('场重建保留率')"));
+  const score = (.7039 * 100).toFixed(2) + '%';
+  assert.equal(`${translateText('信号重建保留率', 'zh-CN')} ${score}`, '场重建保留率 70.39%');
+  assert.equal(`${translateText('信号重建保留率', 'en')} ${score}`, 'Field Reconstruction Retention 70.39%');
 });
 
 void test('edited records use structured parent locations while unavailable custom names remain untouched', () => {
@@ -398,11 +407,47 @@ void test('unknown diagnostic is summarized with raw detail access, not mislabel
   assert.doesNotMatch(visibleText(html), /[\u3400-\u9fff]/);
 });
 
-void test('all eleven route entry points render English system text', () => {
-  for (const route of ['', 'design', 'electrodes', 'coordinates', 'decision', 'reception', 'library', 'guide', 'method', 'results', 'pilot-results']) {
+void test('all twelve route entry points render English system text', () => {
+  for (const route of ['', 'design', 'electrodes', 'coordinates', 'decision', 'reception', 'library', 'projects', 'guide', 'method', 'results', 'pilot-results']) {
     const Page = loadUI('app/' + (route ? route + '/' : '') + 'page.tsx').default;
     const html = render(Page, {}, 'en');
     assert.doesNotMatch(visibleText(html), /[\u3400-\u9fff]/, route || '/');
+  }
+});
+
+void test('project snapshot layout and edited metrics render bilingual values directly from saved data', () => {
+  const { ProjectSnapshotViewer } = loadUI('features/projects/project-snapshot-viewer.tsx');
+  const metrics = { field_relative: -.123456789, sensitivity_tail: .4, localization_relative: .5,
+    conditional_global: -.123456789, median_mm: 12, reference_median_mm: 10, p90_mm: 30 };
+  const result = { schema: 'electrode-editor/1', electrode_count: 63, edited_metrics: metrics, evaluated_xyz_mm: [[1.25, -2.5, 3.75]] };
+  const editorEntry = { id: 'editor', kind: 'editor', record_id: 'e'.repeat(64) };
+  const layoutEntry = { id: 'layout', kind: 'layout', record_id: 'a'.repeat(64) };
+  const record = { id: layoutEntry.record_id, metrics, layout: { xyzMm: result.evaluated_xyz_mm } };
+  const snapshots = [
+    { entry: editorEntry, snapshot: { schema: 'research-project-snapshot/1', kind: 'editor', record_id: editorEntry.record_id, payload: { cache: { result } } } },
+    { entry: layoutEntry, snapshot: { schema: 'research-project-snapshot/1', kind: 'layout', record_id: layoutEntry.record_id, payload: { record } } },
+  ];
+  const original = JSON.stringify(snapshots);
+  for (const fixture of snapshots) {
+    const english = render(ProjectSnapshotViewer, fixture, 'en');
+    const chinese = render(ProjectSnapshotViewer, fixture, 'zh-CN');
+    assert.doesNotMatch(visibleText(english), /[\u3400-\u9fff]/);
+    assert.match(english, /-12\.35%/); assert.match(chinese, /-12\.35%/);
+    assert.match(english, /1\.250000/); assert.match(english, /-2\.500000/);
+  }
+  assert.equal(JSON.stringify(snapshots), original);
+});
+
+void test('project delivery controls are bilingual and never render access credentials', () => {
+  const { ProjectDeliveryPanel } = loadUI('features/projects/project-delivery-panel.tsx');
+  const access = { project_id: '00000000-0000-4000-8000-000000000001', access_key: 'secret'.repeat(12), role: 'viewer' };
+  const project = { id: access.project_id, revision: 3, entries: [{ id: 'entry' }] };
+  for (const locale of ['en', 'zh-CN']) {
+    const html = render(ProjectDeliveryPanel, { project, access }, locale);
+    assert.ok(!html.includes(access.access_key));
+    assert.match(html, /type="button"/);
+    if (locale === 'en') { assert.doesNotMatch(visibleText(html), /[\u3400-\u9fff]/); assert.match(html, /Download project delivery package/); }
+    else assert.match(html, /下载项目交付包/);
   }
 });
 

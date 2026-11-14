@@ -1,83 +1,104 @@
 # Contributing
 
-This repository contains the application and the scientific code it uses. Begin with the [source setup instructions](docs/source-installation.md), [architecture](docs/architecture.md), and [model definitions](docs/model-and-metrics.md). Preparation for the planned hosted version is tracked in [Server deployment preparation](docs/server-deployment.md).
+Start with [source installation](docs/source-installation.md), [architecture](docs/architecture.md) and [model definitions](docs/model-and-metrics.md). EEGLayoutLab is maintained as a web application. The native Mac wrapper and packaging tools are retired.
 
 ## Change boundaries
 
-Place UI behavior in the appropriate feature or shared component, HTTP and persistence behavior in `webapp/server/`, and scientific implementation in `src/compact_eeg/`. Keep browser modules independent of server-only imports. The small Python and Node compatibility entry points are part of the application's import and execution paths.
+Routes compose feature workspaces. Keep interaction state in `webapp/features/`, common task transport in `webapp/client/`, rendering in `webapp/viewer/`, and HTTP/execution/storage in `webapp/server/`. Scientific code belongs in `src/compact_eeg/`. Browser modules must not import server code; automated boundary checks enforce this rule. Shared layout types and cross-language examples live in `contracts/`.
 
-Preserve frozen data files and result provenance. New numerical assumptions require a new identity and an explicit description of the changed source model, geometry, noise, metric, or search budget. Do not change saved hashes or record IDs to force cache compatibility.
+Preserve worker entry points, request normalization, frozen inputs and recorded provenance during structural changes. Changes to numerical assumptions require an explicit protocol/identity decision. File bytes and runtime paths participate in scientific cache keys; moving code can affect reuse without changing numerical outputs. Check numerical behavior, historical reading and current identity generation separately. Coordinate changes must preserve units, reference frame and channel/region order. Imports require coordinates registered to the Ernie subject.
 
-Coordinate changes must state their units and reference frame. Keep coordinate and region-label ordering together. Imported coordinates must already be registered to the Ernie subject space; the application does not perform a general anatomical registration.
+Use `server/host/` for framework startup, `server/jobs/` for worker lifecycle and `server/storage/` for record access. A new workflow must share the execution slot and retain its own validation and resource limits. Keep scientific dependency upgrades separate from UI upgrades and structural refactors.
 
-Keep this repository focused on EEGLayoutLab: application code, required display assets, scientific configuration, directly related tools, tests, and documentation. Keep installed environments, large numerical inputs, result caches, credentials, installers, and local captures outside Git. `artifacts/` holds local demonstrations and verification evidence; `results/` and `releases/` hold generated scientific and packaging outputs. These directories are ignored. Changes to external assets must preserve their attribution and applicable terms.
+Git contains application source, display assets, configuration, documentation and tests. Large scientific payloads, installed environments, records, credentials and captures remain outside Git. Put local deliverables in the project's `artifacts/`. The root `.gitignore` allowlist must be updated when adding a new project directory. Preserve third-party attribution.
 
-The root allowlist in `.gitignore` limits new top-level files and directories to the project structure. Update it explicitly when adding a new project directory.
+## Verification tiers
 
-## Verification
+| Tier | Inputs and scope | Commands |
+| --- | --- | --- |
+| Fast | Source, packaged browser assets and synthetic fixtures; no external scientific bundle or native runtime | Commands below; also `.github/workflows/checks.yml` |
+| Data | Verified frozen bundle and an isolated scientific workspace | Full unit/Python checks and real-data HTTP integration |
+| Native | Qualified Python/SimNIBS environment and native inputs | Environment check plus integration with `--native` |
+| Browser | Running production host and Chromium | Viewer checks and complete bilingual user workflows |
 
-From the repository root, using the project runtime:
+The fast workflow has been exercised locally on a source copy without scientific payloads or an installed native runtime. A remote GitHub Actions run has not been performed. Data/native cases are explicitly skipped or deselected in that tier; passing it does not run a FEM solve.
 
-```sh
-.runtime/simnibs-4.6.0/bin/python scripts/check_environment.py
-python3 scripts/data_bundle.py verify
-.runtime/simnibs-4.6.0/bin/python -B -m pytest tests -q -p no:cacheprovider
-```
-
-The Python development dependency is available through the project extra when preparing a separate development environment:
+From the repository root:
 
 ```sh
 python -m pip install -e '.[dev]'
-```
-
-Use the interpreter of the environment being prepared. The base project installation alone is not the full SimNIBS native runtime.
-
-From `webapp`:
-
-```sh
+python -m pytest -m 'not data_bundle and not native_runtime' -q
+cd webapp
+npm ci
+npm run typecheck
 npm run lint
-npx tsc --noEmit
-npm run test:unit
+npm run test:fast
 npm run build
 ```
 
-For real-data HTTP integration, use an idle checkout with its data bundle and native runtime installed. Start the built local application on a separate loopback port in one terminal, from `webapp`:
+For full local checks after installing the matching data and native environment:
+
+```sh
+python3 scripts/data_bundle.py verify
+.runtime/simnibs-4.6.0/bin/python scripts/check_environment.py
+.runtime/simnibs-4.6.0/bin/python -B -m pytest tests -q -p no:cacheprovider
+cd webapp
+npm run test:unit
+```
+
+The managed runtime currently targets Apple Silicon macOS. A server on another platform needs its own installation lock and environment qualification.
+
+## Isolated integration and browser checks
+
+A different port does not isolate records. Prepare a new QA workspace before write-producing checks. The helper defaults to preview and writes only beneath the source project's `artifacts/`:
+
+```sh
+python3 scripts/prepare_verification_workspace.py \
+  --output "$PWD/artifacts/qa-candidate" \
+  --runtime-source "$PWD/.runtime/simnibs-4.6.0" \
+  --link-node-modules --copy-dist
+```
+
+Inspect the plan, then repeat with `--execute`. The helper copies verified model inputs and current source, excludes accumulated historical caches, and can copy the installed runtime and existing build. `--link-node-modules` shares dependencies for local QA only. A copied Conda environment is not a portable distribution; embedded prefixes are retained and the interpreter must be checked at its new path.
+
+Start the QA checkout's built host on an unused loopback port. From its `webapp/` directory:
 
 ```sh
 PORT=3101 npm start
 ```
 
-In a second terminal, also from `webapp`, point the integration command at that exact server:
+In another terminal, from the same QA `webapp/`:
 
 ```sh
 EEG_TEST_URL=http://127.0.0.1:3101 npm run test:integration
-```
-
-This check submits real jobs against the existing forward bank: layout design, removal of one active electrode, fixed-coordinate evaluation, a six-source reception scenario, and cached replay. It checks HTTP routes and record loading as well. It can write new job records and caches under `results/v2/`; a separate port does not create a separate data directory. It does not automate browser interactions or run a new native FEM solve. Keep other computation on that checkout idle during the check.
-
-To also test a new native-FEM coordinate request and native single/multi-source scenarios:
-
-```sh
 EEG_TEST_URL=http://127.0.0.1:3101 npm run test:integration -- --native
+npm exec playwright install chromium
+VIEWER_QA_URL=http://127.0.0.1:3101/ npm run test:viewer
 ```
 
-The native option can take several minutes on a cache miss. See the [recorded checkout verification](docs/verification.md) for the measured scope and outcomes.
+The HTTP check exercises record loading, layout design, editor evaluation, coordinate evaluation, source reception and exact cache replay. `--native` adds uncached native-coordinate and single/multi-source cases and can take several minutes. Browser tests exercise rendering and interaction separately. Save evidence under the project; `EEG_QA_OUTPUT` selects the viewer capture directory.
 
-For browser checks, start the application, install the browser once, and run:
+`scripts/check-viewer-assets.mjs` covers shared model downloads, version changes, cancellation, retry, eviction and independent scene arrays. `scripts/check-model-loading-browser.mjs` measures actual signal-page model requests and transfers across first load, viewer remount and reload using an existing cached experiment. See the [performance report](docs/web-performance.zh-CN.md) for the reproducible command and measurement conditions.
+
+For the current deferred viewer, add `--expect-deferred` together with `--expect-shared`. Use an exact cached result from the target QA server as `EEG_SIGNAL_FIXTURE`; a missing cache fails the check without submitting a job. After `npm run build` and a fresh server start, verify the actual compressed HTTP bytes from the host checkout's `webapp/` directory:
 
 ```sh
-npm exec playwright install chromium
-npm run test:viewer
+EEG_TEST_URL=http://127.0.0.1:3101 \
+EEG_SIGNAL_FIXTURE=/absolute/path/to/qa-signal-result.json \
+EEG_COMPRESSION_REPORT="$PWD/../artifacts/qa-candidate/http-compression.json" \
+node scripts/check-compression-live.mjs
 ```
 
-Browser checks can write screenshots and diagnostics. Existing-bank Python integrations are opt-in; tests that require real inputs or native capabilities must be reported as skipped when not run. Explicitly submitting a computation is different from a read-only or synthetic test and can create new scientific records.
+This check compares decoded models with the host's original model files and cached JSON with the supplied result. It checks encoding negotiation, HEAD, conditional requests, byte ranges and API access headers without submitting work. `scripts/check-workflows-browser.mjs` separately exercises actual layout, signal, playback, download and cancellation controls; it writes jobs and requires the isolated queue to be resumed. Unit coverage for runtime invalidation, shared forward archives, deferred loading, hidden-page playback and compression is included in `npm run test:unit` and the Python suite. The [optimization record](docs/performance-optimization-progress.zh-CN.md) lists the numerical comparison scope.
 
-## Review information
+## Review and release
 
-Describe the concrete behavior before and after the change. Include the checks performed, failures or skipped integrations, and any impact on scientific assumptions or cache identities. For a numerical change, identify the data and runtime used and compare results under matching conditions. Avoid treating a successful build as validation of a new scientific claim.
+Research projects and their delivery format are documented in [project formats](contracts/project-formats.md). Project metadata is separate from numerical identities. Check owner/viewer access, optimistic revisions, independent archived replay and exact snapshot bytes when changing this layer. The opt-in `scripts/check-productization-browser.mjs` covers project recovery/sharing; `scripts/check-project-workflow-browser.mjs --with-delivery` covers the complete research workflow and verified downloads. Both require an isolated host and project-local `EEG_QA_OUTPUT`; the latter also needs an existing cached signal fixture via `EEG_SIGNAL_FIXTURE`.
 
-The repository has not yet been independently installed and tested on a second Mac. A portability contribution should record the machine architecture, OS version, runtime installation outcome, and which operations were actually exercised.
+The local stylesheet under `webapp/styles/vendor/shadcn/` retains the original CSS and MIT license; the unused component-generator CLI is excluded from runtime dependencies. The lockfile narrowly overrides `satori@0.33.5` to use the patched `fflate@0.7.5`. Review that override when updating its parent and repeat application build, image/font checks and browser regressions. Do not use a forced audit fix across unrelated dependency branches.
+
+Describe the resulting behavior, relevant checks and unrun tiers. For scientific changes, identify the inputs/runtime and compare matched conditions. Use [web operations](docs/web-operations.md) for release identity, durable maintenance, backup and restore. Target-server deployment and public-URL acceptance are separate from local verification; progress is recorded in [the refactor log](docs/web-refactor-progress.zh-CN.md).
 
 ## Licensing
 
-© 2026 Yiming Shen & Yi Wang. The project's original source code and accompanying documentation are licensed under the [GNU General Public License version 3 only (GPL-3.0-only)](LICENSE). Third-party components retain the terms listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+© 2026 Yiming Shen & Yi Wang. Original source code and accompanying documentation are licensed under [GPL-3.0-only](LICENSE). Third-party terms remain in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

@@ -1,7 +1,11 @@
-# Collaboration checkout verification
+# Historical checkout verification: 2026-09-10
 
 Recorded on **2026-09-10** on macOS **26.6.2**, Apple Silicon (`arm64`), Node
 **26.5.0**, Python **3.11.14**, and SimNIBS **4.6.0**.
+
+This page preserves that checkout's verification record. Current local feature,
+browser, scientific-regression and recovery checks are documented in the
+[productization record](productization-progress.zh-CN.md).
 
 The native runtime was reconstructed from the locked packages in the final
 checkout. It was not copied from the development environment. Python imports and
@@ -69,8 +73,9 @@ new head model, scientific metric, optimization rule or production result was
 introduced. Independent-head validity and volume-mesh convergence remain as
 described in [validation scope](validation.md).
 
-The frontend dependency audit still reports the five affected entries listed in
-[security status](security.md). Passing functional checks does not resolve them.
+The audit at that time reported five affected dependency entries. The updated
+lockfile and its separate current audit results are recorded in
+[dependency status](security.md).
 
 The original `experiment_protocol_v2.json` is retained unchanged because it
 contains both the live anatomical preset matrix and historical design material.

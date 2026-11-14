@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { dataTest } from './test-tiers.mjs';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { surfacePatchGeometry } from '../lib/surface-patches.ts';
@@ -27,7 +28,7 @@ void test('barycentric dual patches integrate one third of each incident triangl
   assert.throws(()=>surfacePatchGeometry(s,[1,1]));
 });
 
-void test('current native two-region patches preserve 32+32 and match the reported areas', async () => {
+void dataTest('current native two-region patches preserve 32+32 and match the reported areas', async () => {
   const queue = new LocalComputeQueue({repositoryRoot:'..'});
   try {
     const data=await queue.library.list();

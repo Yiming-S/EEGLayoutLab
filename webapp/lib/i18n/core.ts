@@ -12,6 +12,7 @@ import sourceRegionsCatalog from './source-regions-catalog.json' with { type: 'j
 import libraryTaskCatalog from './library-task-catalog.json' with { type: 'json' };
 import appUsabilityCatalog from './app-usability-catalog.json' with { type: 'json' };
 import decisionRequirementsCatalog from './decision-requirements-catalog.json' with { type: 'json' };
+import projectsCatalog from './projects-catalog.json' with { type: 'json' };
 
 export type Locale = 'en' | 'zh-CN';
 export const LANGUAGE_COOKIE = 'eeg-layout-language';
@@ -51,7 +52,7 @@ export function retentionTerminology(text: string): string {
 }
 
 type Entry = { source: string; en: string; zh?: string };
-const entries = [...Object.values(catalog), ...Object.values(editorCatalog), ...Object.values(simulationCatalog), ...Object.values(documentationCatalog), ...Object.values(resultsCatalog), ...Object.values(workspaceCatalog), ...Object.values(homeRefreshCatalog), ...Object.values(metricRefreshCatalog), ...Object.values(viewerRefreshCatalog), ...Object.values(exportRefreshCatalog), ...Object.values(sourceRegionsCatalog), ...Object.values(decisionRequirementsCatalog), ...Object.values(appUsabilityCatalog), ...Object.values(libraryTaskCatalog)] as Entry[];
+const entries = [...Object.values(catalog), ...Object.values(editorCatalog), ...Object.values(simulationCatalog), ...Object.values(documentationCatalog), ...Object.values(resultsCatalog), ...Object.values(workspaceCatalog), ...Object.values(homeRefreshCatalog), ...Object.values(metricRefreshCatalog), ...Object.values(viewerRefreshCatalog), ...Object.values(exportRefreshCatalog), ...Object.values(sourceRegionsCatalog), ...Object.values(decisionRequirementsCatalog), ...Object.values(appUsabilityCatalog), ...Object.values(libraryTaskCatalog), ...Object.values(projectsCatalog)] as Entry[];
 const exact = new Map(entries.map((entry) => [normalizeText(entry.source), entry]));
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const templateToken = /\{\{(\d+)\}\}/g;

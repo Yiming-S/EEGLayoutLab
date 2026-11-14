@@ -2,7 +2,7 @@
 import { useLanguage } from '@/components/language-provider';
 
 /* oxlint-disable next/no-html-link-for-pages -- preserve established vinext navigation */
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Play, Pause, Download } from 'lucide-react';
 import {
   CartesianGrid,
@@ -18,21 +18,28 @@ import { Button } from '@/components/ui/button';
 
 import {
   CONDITION_LABELS,
-  combinedTrace,
   sourcePass,
   type SourceCondition,
   type SourceResult,
 } from '@/lib/source-reception';
 import biosemi from '@/lib/biosemi64-reference.json';
 import { FIELD_LAYERS, fieldFrames, type FieldLayer } from '@/lib/source-field';
-import { SOURCE_ROI_DEFINITION, UNASSIGNED_SOURCE_COLOR, sourceRegion } from '@/lib/source-regions';
+import { sourceRegion } from '@/lib/source-regions';
+import { ReceiverComparison } from './receiver-comparison';
+import { useResultPlayback } from './use-result-playback';
+import {
+  sourcePresentation,
+  receiverTraces,
+  reconstructionTrace,
+  sharedAmplitude,
+  strengthCurve,
+  sourceTraceAt,
+  layoutPresentation,
+} from './result-view-model';
 import { reconstructionNotice } from '@/lib/source-result-reading';
+import { SaveToProject } from '@/features/projects/project-context';
+import { recordedForwardOrigin } from './result-provenance';
 
-const Head = lazy(() =>
-  import('@/components/cluster-head-viewer').then((m) => ({
-    default: m.ClusterHeadViewer,
-  })),
-);
 const pct = (n: number | null | undefined) =>
   n == null ? '指标无法计算' : `${(n * 100).toFixed(2)}%`;
 const fixed = (n: number | null | undefined, unit = '') =>
@@ -46,6 +53,9 @@ export function ExperimentResult({
   setAR,
   cached,
   onReduceArtifacts,
+  receiptId,
+  sourceResultKey,
+  archived = false,
 }: {
   result: SourceResult;
   label: string;
@@ -53,22 +63,22 @@ export function ExperimentResult({
   setAR: (ar: number) => void;
   cached: boolean;
   onReduceArtifacts?: () => void;
+  receiptId?: string;
+  sourceResultKey?: string;
+  archived?: boolean;
 }) {
   const { tx } = useLanguage();
   const [condition, setCondition] = useState<SourceCondition>('mixed'),
     [channels, setChannels] = useState([0, 0]),
-    [targetChannel, setTargetChannel] = useState(0),
-    [time, setTime] = useState(() => {
-      const energy = result.waveforms.time_s.map((_, t) =>
-        result.waveforms.source_nam.reduce((sum, row) => sum + row[t] ** 2, 0),
-      );
-      return energy.indexOf(Math.max(...energy));
-    }),
-    [playing, setPlaying] = useState(false);
-  const [showHead, setShowHead] = useState([true, true]);
+    [targetChannel, setTargetChannel] = useState(0);
+  const { time, setTime, playing, setPlaying } = useResultPlayback(
+    result.waveforms,
+  );
   const [sourceIndex, setSourceIndex] = useState(0);
-  const sourceRegions = useMemo(() => result.source.region_definition === SOURCE_ROI_DEFINITION ? result.source.source_regions ?? [] : result.source.xyz_mm.map(() => null), [result]);
-  const sourceColors = useMemo(() => result.source.xyz_mm.map((_, i) => sourceRegion(sourceRegions[i])?.color ?? UNASSIGNED_SOURCE_COLOR), [result, sourceRegions]);
+  const { regions: sourceRegions, colors: sourceColors } = useMemo(
+    () => sourcePresentation(result),
+    [result],
+  );
   const [fieldLayer, setFieldLayer] = useState<FieldLayer>('brain');
   const score = result.conditions.find((s) => s.condition === condition)!,
     status = sourcePass(score.field_retention, ar);
@@ -78,97 +88,24 @@ export function ExperimentResult({
     () => fieldFrames(result, condition, fieldLayer),
     [result, condition, fieldLayer],
   );
-  useEffect(() => {
-    if (!playing) return;
-    const t = setInterval(() => setTime((i) => (i + 5) % times.length), 100);
-    return () => clearInterval(t);
-  }, [playing, times.length]);
   const traces = useMemo(
-    () =>
-      ['baseline', 'candidate'].map((side, i) =>
-        combinedTrace(
-          result.waveforms[side as 'baseline' | 'candidate'],
-          channels[i],
-          condition,
-        ).map((v, t) => ({ time: times[t], ...v })),
-      ),
-    [result, channels, condition, times],
+    () => receiverTraces(result, channels, condition),
+    [result, channels, condition],
   );
-  const recovered = useMemo(() => {
-    const b = combinedTrace(
-        result.waveforms.baseline,
-        targetChannel,
-        condition,
-        true,
-      ),
-      c = combinedTrace(
-        result.waveforms.candidate,
-        targetChannel,
-        condition,
-        true,
-      );
-    return times.map((t, i) => ({
-      time: t,
-      truth: result.waveforms.baseline.brain_uv[targetChannel][i],
-      baseline: b[i].mixed,
-      candidate: c[i].mixed,
-    }));
-  }, [result, targetChannel, condition, times]);
-  const amplitude = useMemo(
-    () =>
-      Math.max(
-        1e-3,
-        ...traces
-          .flat()
-          .flatMap((r) => [
-            Math.abs(r.brain),
-            Math.abs(r.artifact),
-            Math.abs(r.mixed),
-          ]),
-      ) * 1.08,
-    [traces],
+  const recovered = useMemo(
+    () => reconstructionTrace(result, targetChannel, condition),
+    [result, targetChannel, condition],
   );
-  const curve = result.strength_curve
-    .filter((s) => s.condition === condition)
-    .map((s) => ({
-      strength: s.artifact_scale,
-      baseline: s.baseline.explained_energy * 100,
-      candidate: s.candidate.explained_energy * 100,
-      retention: s.field_retention == null ? null : s.field_retention * 100,
-    }));
-  const curveAll = result.strength_curve.filter(
-    (s) => s.condition === condition,
+  const amplitude = useMemo(() => sharedAmplitude(traces), [traces]);
+  const { curve, passing } = useMemo(
+    () => strengthCurve(result, condition, ar),
+    [result, condition, ar],
   );
-  const passing = curveAll.filter(
-    (s) => sourcePass(s.field_retention, ar) === 'pass',
+  const sourceTrace = useMemo(
+    () => sourceTraceAt(result, sourceIndex),
+    [result, sourceIndex],
   );
-  const sourceTrace = times.map((t, i) => ({
-    time: t,
-    source: result.waveforms.source_nam[sourceIndex][i],
-  }));
-  const counts = new Set(result.layout.regionIndices).size;
-  const allocation = useMemo(
-    () =>
-      Array.from(
-        { length: counts },
-        (_, r) => result.layout.regionIndices.filter((v) => v === r).length,
-      ),
-    [counts, result],
-  );
-  const baselineAllocation = useMemo(() => [64], []);
-  const baselineLayout = useMemo(
-    () => ({
-      id: result.request.record_id + '-baseline',
-      xyzMm: result.layout.referenceXyzMm,
-      referenceXyzMm: result.layout.referenceXyzMm,
-      regionIndices: Array(64).fill(0),
-    }),
-    [result],
-  );
-  const candidateLayout = useMemo(
-    () => ({ id: result.request.record_id, ...result.layout }),
-    [result],
-  );
+  const layouts = useMemo(() => layoutPresentation(result), [result]);
   const download = () => {
     const u = URL.createObjectURL(
       new Blob([JSON.stringify(result)], { type: 'application/json' }),
@@ -186,16 +123,22 @@ export function ExperimentResult({
           <div>
             <h2 className="text-lg font-semibold">{label}</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              {tx(cached ? '本地缓存' : '本次计算')} ·{' '}
+              {tx(archived ? '项目保存的结果' : cached ? '本地缓存' : '本次计算')} ·{' '}
               {tx(result.source.patch_count)}
               {tx('个已选皮层源 · 原布局坐标未改变')}
-              {result.request.mode === 'cross_region' && <> · {tx('跨区域多源')}</>}
+              {result.request.mode === 'cross_region' && (
+                <> · {tx('跨区域多源')}</>
+              )}
             </p>
+            <p className="mt-1 text-xs text-muted-foreground">{tx(recordedForwardOrigin(result.provenance))}</p>
           </div>
+          <div className="flex flex-wrap items-center gap-2">
+          {!archived && receiptId && <SaveToProject kind="source" recordId={sourceResultKey} receiptId={receiptId} />}
           <Button variant="outline" onClick={download}>
             <Download className="size-4" />
             {tx('导出本场景JSON')}
           </Button>
+          </div>
         </div>
         <fieldset
           className="mt-4 flex flex-wrap gap-2"
@@ -220,14 +163,31 @@ export function ExperimentResult({
           )}
         </p>
       </section>
-      {notice && <section aria-live="polite" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-        <h2 className="font-semibold">{tx(notice.title)}</h2>
-        <p className="mt-2 leading-6">{tx(notice.explanation)}</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {condition !== 'clean' && <Button variant="outline" size="sm" onClick={() => setCondition('clean')}>{tx('查看无心眼干扰条件')}</Button>}
-          {condition !== 'clean' && onReduceArtifacts && <Button variant="outline" size="sm" onClick={onReduceArtifacts}>{tx('降低干扰幅度')}</Button>}
-        </div>
-      </section>}
+      {notice && (
+        <section
+          aria-live="polite"
+          className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"
+        >
+          <h2 className="font-semibold">{tx(notice.title)}</h2>
+          <p className="mt-2 leading-6">{tx(notice.explanation)}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {condition !== 'clean' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCondition('clean')}
+              >
+                {tx('查看无心眼干扰条件')}
+              </Button>
+            )}
+            {condition !== 'clean' && onReduceArtifacts && (
+              <Button variant="outline" size="sm" onClick={onReduceArtifacts}>
+                {tx('降低干扰幅度')}
+              </Button>
+            )}
+          </div>
+        </section>
+      )}
       <section className="lab-panel grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div>
           <h2 className="text-lg font-semibold">
@@ -372,7 +332,12 @@ export function ExperimentResult({
             {tx(
               result.source.xyz_mm.map((xyz, i) => (
                 <option key={i} value={i}>
-                  S{i + 1} · {tx(sourceRegion(sourceRegions[i])?.label ?? '其他皮层或分区边界')} · {tx(xyz.map((v) => v.toFixed(1)).join(', '))} mm
+                  S{i + 1} ·{' '}
+                  {tx(
+                    sourceRegion(sourceRegions[i])?.label ??
+                      '其他皮层或分区边界',
+                  )}{' '}
+                  · {tx(xyz.map((v) => v.toFixed(1)).join(', '))} mm
                 </option>
               )),
             )}
@@ -444,183 +409,21 @@ export function ExperimentResult({
           {tx(' 固定法向箭头只在具有原始方向记录的新实验中显示。')}
         </p>
       </section>
-      <div className="grid gap-5 xl:grid-cols-2">
-        {tx(
-          (['baseline', 'candidate'] as const).map((side, i) => (
-            <section className="lab-panel min-w-0" key={side}>
-              <h2 className="text-lg font-semibold">
-                {tx(i === 0 ? '标准全头64 · 接收' : '自定义64 · 接收')}
-              </h2>
-              <label className="mt-3 lab-label">
-                {tx('查看电极')}
-                <select
-                  className="lab-select"
-                  value={channels[i]}
-                  onChange={(e) =>
-                    setChannels((old) =>
-                      old.map((c, j) => (j === i ? Number(e.target.value) : c)),
-                    )
-                  }
-                >
-                  {tx(
-                    Array.from({ length: 64 }, (_, c) => (
-                      <option key={c} value={c}>
-                        {tx(
-                          i === 0
-                            ? biosemi.channels[c].name
-                            : `电极${c + 1} · 区域${result.layout.regionIndices[c] + 1}`,
-                        )}
-                      </option>
-                    )),
-                  )}
-                </select>
-              </label>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {tx('MRI坐标：')}
-                {tx(
-                  (i === 0
-                    ? result.layout.referenceXyzMm
-                    : result.layout.xyzMm)[channels[i]]
-                    .map((v) => v.toFixed(1))
-                    .join(', '),
-                )}
-                {tx(' ')}
-                mm
-              </p>
-              <div className="mt-3 h-60">
-                <ResponsiveContainer width="100%" height={240}>
-                  <LineChart data={traces[i]} syncId="source-receivers">
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis
-                      dataKey="time"
-                      type="number"
-                      domain={['dataMin', 'dataMax']}
-                      tick={{ fontSize: 12 }}
-                    />
-                    <YAxis
-                      domain={[-amplitude, amplitude]}
-                      width={65}
-                      tick={{ fontSize: 12 }}
-                      tickFormatter={(v) => tx(Number(v).toPrecision(3))}
-                    />
-                    <Tooltip />
-                    <ReferenceLine x={times[time]} stroke="#a16716" />
-                    <Line
-                      dataKey="mixed"
-                      name={tx('混合接收 μV')}
-                      stroke="#718096"
-                      dot={false}
-                      isAnimationActive={false}
-                    />
-                    <Line
-                      dataKey="brain"
-                      name={tx('脑贡献 μV')}
-                      stroke="#128a80"
-                      dot={false}
-                      isAnimationActive={false}
-                    />
-                    <Line
-                      dataKey="artifact"
-                      name={tx('模拟心眼伪迹 μV')}
-                      stroke="#c04768"
-                      dot={false}
-                      isAnimationActive={false}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-              <p className="text-sm">
-                <span className="text-[#128a80]">{tx('脑贡献')}</span> ·
-                {tx(' ')}
-                <span className="text-[#c04768]">
-                  {tx('模拟心眼伪迹')}
-                </span> ·
-                {tx(' ')}
-                <span className="text-[#718096]">
-                  {tx('混合接收（含电极噪声）')}
-                </span>
-              </p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {tx('两侧共享微伏刻度。电极位置不同，波形不要求逐点相同。')}
-              </p>
-              <details
-                className="mt-4"
-                open={showHead[i]}
-                onToggle={(e) => {
-                  const open = e.currentTarget.open;
-                  setShowHead((old) =>
-                    old[i] === open
-                      ? old
-                      : old.map((v, j) => (j === i ? open : v)),
-                  );
-                }}
-              >
-                <summary className="cursor-pointer text-sm font-medium">
-                  {tx('三维电位与源位置 · ')}
-                  {tx(times[time].toFixed(2))} s
-                </summary>
-                {tx(
-                  showHead[i] && (
-                    <div className="mt-3">
-                      <Suspense fallback={<p>{tx('加载3D…')}</p>}>
-                        <Head
-                          regionCount={i === 0 || fields.target ? 1 : counts}
-                          allocation={
-                            i === 0 || fields.target
-                              ? baselineAllocation
-                              : allocation
-                          }
-                          domainMode="whole_surface"
-                          radiusCm={3.5}
-                          recordedLayout={
-                            i === 0 || fields.target
-                              ? baselineLayout
-                              : candidateLayout
-                          }
-                          sourceXyzMm={result.source.xyz_mm}
-                          sourceNormals={result.source.normals_mri}
-                          sourceRegions={sourceRegions}
-                          selectedSource={sourceIndex}
-                          onSourceSelect={setSourceIndex}
-                          electrodeValues={fields.sides[i].map(
-                            (row) => row[time],
-                          )}
-                          potentialLimit={fields.limit}
-                          selectedElectrode={
-                            fields.target ? targetChannel : channels[i]
-                          }
-                          onElectrodeSelect={(c) =>
-                            fields.target
-                              ? setTargetChannel(c)
-                              : setChannels((old) =>
-                                  old.map((v, j) => (j === i ? c : v)),
-                                )
-                          }
-                        />
-                      </Suspense>
-                    </div>
-                  ),
-                )}
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {tx('S编号标记为实际源点，颜色与所属源区域一致；选中源的曲线使用同色。')}
-                  {tx(
-                    fields.target
-                      ? `标准目标 ${biosemi.channels[targetChannel].name}`
-                      : `接收电极 ${channels[i] + 1}`,
-                  )}
-                  ：
-                  {tx(
-                    fields.sides[i][
-                      fields.target ? targetChannel : channels[i]
-                    ][time].toPrecision(4),
-                  )}{' '}
-                  μV。
-                </p>
-              </details>
-            </section>
-          )),
-        )}
-      </div>
+      <ReceiverComparison
+        result={result}
+        channels={channels}
+        setChannels={setChannels}
+        targetChannel={targetChannel}
+        setTargetChannel={setTargetChannel}
+        sourceIndex={sourceIndex}
+        setSourceIndex={setSourceIndex}
+        sourceRegions={sourceRegions}
+        time={time}
+        traces={traces}
+        amplitude={amplitude}
+        fields={fields}
+        layouts={layouts}
+      />
       <section className="lab-panel">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>

@@ -1,93 +1,60 @@
-/** Display-only regressions: no browser server, worker, model load, or result write. */
+/** Display-only regressions against the actual viewer modules. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
-import ts from 'typescript';
 import * as THREE from 'three';
+import { attachContact } from '../viewer/contacts.ts';
+import { releaseGroup } from '../viewer/resources.ts';
+import { sceneFixture } from './helpers/viewer-fixture.mjs';
 
-const sceneText = readFileSync(new URL('../lib/anatomical-head-scene.ts', import.meta.url), 'utf8');
 const component = readFileSync(new URL('../components/cluster-head-viewer.tsx', import.meta.url), 'utf8');
-const source = ts.createSourceFile('scene.ts', sceneText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
-function extracted(name, context) {
-  let declaration;
-  function visit(node) {
-    if (ts.isVariableDeclaration(node) && node.name.getText(source) === name) declaration = node;
-    ts.forEachChild(node, visit);
-  }
-  visit(source);
-  assert.ok(declaration, `${name} must exist`);
-  const js = ts.transpileModule(`const ${declaration.getText(source)}; globalThis.subject = ${name};`, {
-    compilerOptions: { target: ts.ScriptTarget.ES2022 },
-  }).outputText;
-  const sandbox = { ...context };
-  vm.runInNewContext(js, sandbox);
-  return sandbox.subject;
-}
 
 await test('standard contacts use square geometry; layout contacts remain circular without altering coordinates', () => {
-  const attach = extracted('attachContact', { THREE });
   for (const reference of [false, true]) {
     const parent = new THREE.Group();
     const position = new THREE.Vector3(.1, .2, .3), original = position.clone();
     const normal = new THREE.Vector3(0, 0, 1);
-    attach(parent, { position, normal, direction: normal }, '#128a80', 'contact', reference);
+    attachContact(parent, { position, normal, direction: normal }, '#128a80', 'contact', reference);
     const contact = parent.children[0];
     assert.equal(contact.children[0].geometry.type, reference ? 'BoxGeometry' : 'CylinderGeometry');
     assert.equal(contact.userData.rim.geometry.type, reference ? 'BoxGeometry' : 'TorusGeometry');
     assert.equal(contact.userData.center.geometry.type, reference ? 'BoxGeometry' : 'CylinderGeometry');
-    assert.ok(position.equals(original), 'recorded position input is never mutated');
+    assert.ok(position.equals(original));
     assert.ok(contact.position.distanceTo(original.clone().addScaledVector(normal, .012)) < 1e-12);
-    parent.traverse(object => {
-      if (object instanceof THREE.Mesh) { object.geometry.dispose(); object.material.dispose(); }
-    });
+    releaseGroup(parent);
   }
 });
 
-await test('rear overview reuses the same scene and renderer and restores the main viewport', () => {
-  for (const showRearView of [false, true]) {
-    const calls = [];
-    const renderer = Object.fromEntries(['setScissorTest', 'setViewport', 'setClearColor', 'setScissor', 'clear', 'render']
-      .map(name => [name, (...args) => calls.push([name, ...args])]));
-    const scene = {}, camera = {}, rearCamera = {};
-    const canvas = { dataset: {} };
-    const render = extracted('render', { renderer, scene, camera, rearCamera, showRearView, canvas, renderedFrames: 0,
-      viewportWidth: 800, viewportHeight: 400, rearViewport: { x: 628, y: 208, width: 160, height: 180 } });
-    render();
-    assert.equal(canvas.dataset.renderCount, '1');
-    const draws = calls.filter(call => call[0] === 'render');
-    assert.equal(draws.length, showRearView ? 2 : 1);
-    assert.equal(draws[0][1], scene); assert.equal(draws[0][2], camera);
-    if (showRearView) {
-      assert.equal(draws[1][1], scene); assert.equal(draws[1][2], rearCamera);
-      assert.deepEqual(calls.at(-1), ['setViewport', 0, 0, 800, 400]);
-      assert.deepEqual(calls.at(-2), ['setScissorTest', false]);
-    }
-  }
-  assert.equal((sceneText.match(/new THREE\.WebGLRenderer\(/g) || []).length, 1);
-  assert.equal((sceneText.match(/new OrbitControls\(/g) || []).length, 1);
+await test('rear overview reuses the scene and renderer and restores the main viewport', t => {
+  const f = sceneFixture(t); f.settle();
+  f.scene.setRearView(false); f.settle();
+  const before = f.draws.length;
+  f.scene.setRearView(true); f.settle();
+  assert.equal(f.draws.length, before + 2);
+  assert.equal(f.draws.at(-1).scene, f.draws.at(-2).scene);
+  assert.notEqual(f.draws.at(-1).camera, f.draws.at(-2).camera);
+  assert.deepEqual(f.viewports.at(-1), [0, 0, 800, 400]);
+  assert.equal(f.canvas.dataset.rearView, 'visible');
 });
 
-await test('rear overview bounds do not ray-pick or edit hidden main-view contacts', () => {
-  const canvas = { getBoundingClientRect: () => ({ left: 10, top: 20, width: 800, height: 400 }) };
-  const hit = extracted('overRearView', { showRearView: true, canvas, rearViewport: { x: 628, y: 208, width: 160, height: 180 } });
-  assert.equal(hit({ clientX: 700, clientY: 60 }), true);
-  assert.equal(hit({ clientX: 410, clientY: 220 }), false);
-  assert.match(sceneText, /if \(overRearView\(e\)\) \{ pointerStart = null; return; \}/);
+await test('rear overview does not start an editor selection or change a scientific coordinate', t => {
+  const f = sceneFixture(t);
+  const points = Array.from({ length: 64 }, () => [100, 0, 0]);
+  const recordedLayout = { id: 'recorded', xyzMm: points, referenceXyzMm: points, regionIndices: Array(64).fill(0) };
+  f.scene.setLayout({ regionCount: 1, allocation: [64], domainMode: 'whole_surface', radiusCm: 1, recordedLayout });
+  let selections = 0, moves = 0;
+  f.scene.setEditor({ enabled: true, active: Array(64).fill(true), selection: [], candidates: [{ bank_indices: [0], xyz_mm: [[100, 0, 0]] }],
+    onSelect: () => selections++, onMove: () => moves++, onInvalid() {} });
+  const before = structuredClone(points);
+  const pointer = name => Object.assign(new Event(name), { clientX: 700, clientY: 60, button: 0, pointerId: 1, pointerType: 'mouse' });
+  f.canvas.dispatchEvent(pointer('pointerdown')); f.canvas.dispatchEvent(pointer('pointerup'));
+  assert.equal(selections, 0); assert.equal(moves, 0);
+  assert.deepEqual(recordedLayout.xyzMm, before);
   assert.match(component, /data-rear-overview className="pointer-events-none/);
 });
 
 await test('compact mode preserves full-screen, region data, shape legend, and coordinate documentation', () => {
-  assert.match(component, /compact\?: boolean/);
-  assert.match(component, /regionAreasCm2\[index\]\.toFixed\(2\)/);
-  assert.match(component, /focusRegion\(index\)/);
-  assert.match(component, /props\.compact \? <details/);
-  assert.match(component, /Boolean\(props\.editor\?\.enabled\)/);
-  assert.match(component, /event\.key === 'Escape'/);
-  assert.match(component, /方形：标准64导/);
-  assert.match(component, /圆形：当前布局/);
-  assert.match(sceneText, /drawing\.dispose\(\)/);
-  assert.match(sceneText, /observer\.disconnect\(\)/);
-  assert.match(sceneText, /viewportObserver\.disconnect\(\)/);
-  assert.match(sceneText, /renderer\.dispose\(\)/);
+  for (const pattern of [/compact\?: boolean/, /regionAreasCm2\[index\]\.toFixed\(2\)/, /focusRegion\(index\)/,
+    /props\.compact \? <details/, /Boolean\(props\.editor\?\.enabled\)/, /event\.key === 'Escape'/,
+    /方形：标准64导/, /圆形：当前布局/]) assert.match(component, pattern);
 });

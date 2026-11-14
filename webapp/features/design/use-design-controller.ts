@@ -1,0 +1,120 @@
+'use client';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { apiJson } from '@/client/task-client';
+import { requestKey, type ComputeRequest, type ComputeResult, type ComputeJob } from '@/lib/local-compute';
+import { comparisonLink, parseAR, REGION_COUNTS } from '@/lib/lab-workflow';
+import type { SavedRecord } from '@/lib/local-library';
+import { MASK_NAMES } from '@/lib/ui-language';
+import { placementChoices, choiceFromSlots, type PlacementChoice as Choice, type PlacementProtocol as Protocol } from '@/lib/placement-options';
+
+const MASKS = MASK_NAMES;
+const choicesFor = (protocol: Protocol | null, count: number) => placementChoices(protocol, count, MASKS);
+
+export function useDesignController() {
+  const [protocol, setProtocol] = useState<Protocol | null>(null), [ready, setReady] = useState(false), [error, setError] = useState('');
+  const [source, setSource] = useState<SavedRecord | null>(null), [originId, setOriginId] = useState(''), [originKind, setOriginKind] = useState('saved');
+  const [editing, setEditing] = useState(true), [draft, setDraft] = useState(false);
+  const [regions, setRegions] = useState(2), [choiceId, setChoiceId] = useState('PL,PR'), [radius, setRadius] = useState(35), [ar, setAR] = useState(90);
+  const [computed, setComputed] = useState<ComputeResult | null>(null), [status, setStatus] = useState<ComputeJob | null>(null);
+  const [notice, setNotice] = useState('');
+  const [routeParams, setRouteParams] = useState('');
+  const [extraChoice, setExtraChoice] = useState<Choice | null>(null);
+  const [customSlots, setCustomSlots] = useState<string[]>(['PL', 'PR']);
+  const settingsRef = useRef<HTMLDetailsElement>(null);
+  useEffect(() => { if (settingsRef.current) settingsRef.current.open = window.matchMedia('(min-width: 68.75rem)').matches; }, [ready]);
+  useEffect(() => {
+    const controller = new AbortController();
+    const load = async () => {
+      const q = new URLSearchParams(window.location.search);
+      setRouteParams(q.toString());
+      setAR(parseAR(q.get('ar')));
+      const p = await apiJson<Protocol>('/data/experiment_protocol_v2.json', { signal: controller.signal, cache: 'default', errorMessage: '设计配置未载入' });
+      setProtocol(p);
+      const id = q.get('saved') ?? q.get('from');
+      if (id) {
+        if (!/^[a-f0-9]{64}$/.test(id)) throw new Error('方案编号无效，请从计算记录重新选择');
+        const { record } = await apiJson<{ record: SavedRecord }>('/api/local-compute/library/' + id, { signal: controller.signal, errorMessage: '所选方案无法读取，请从计算记录重新选择' });
+        if (record.id !== id || (q.has('saved') ? record.dataset_id !== 'cache' || !record.request : record.dataset_id !== 'strict_area')) throw new Error('记录不兼容当前入口，请在计算记录中按原协议查看');
+        // Historical radius records restore constraints only. Current scores and
+        // coordinates still come exclusively from the current-version lookup.
+        if (q.has('saved') && !record.compatible) setNotice('已恢复旧记录的区域与半径条件。下方优先读取当前版本的匹配结果，也可手动启动搜索。原记录可单独查阅。');
+        setSource(record); setOriginId(id); setOriginKind(q.has('saved') ? 'saved' : 'from');
+        if (record.request) {
+          const r = record.request; const key = r.mode === 'preset' ? r.mask_codes!.join(',') : r.mode;
+          setRegions(r.region_count); setRadius(r.radius_mm); setChoiceId(key);
+          setCustomSlots(r.mask_codes ? [...r.mask_codes] : []);
+          if (!choicesFor(p, r.region_count).some((c) => c.id === key)) setExtraChoice({ id: key, label: r.mask_codes!.map((m) => MASKS[m] ?? m).join(' + '), mode: r.mode, maskCodes: r.mask_codes });
+        } else { setEditing(false); setRegions(record.region_count); }
+      }
+      if (q.get('draft') === '1') {
+        const r = Number(q.get('r')), a = Number(q.get('radius')), mode = q.get('mode');
+        if (!REGION_COUNTS.includes(r) || !Number.isInteger(a) || a < 15 || a > 80 || a % 5 || !['whole_surface', 'low_hair', 'preset', 'choose'].includes(mode || '')) throw new Error('草稿参数无效');
+        const masks = q.has('masks') ? q.get('masks')!.split(',') : [];
+        if (mode === 'preset' && (masks.length !== r || masks.some((m) => !(m in MASKS)))) throw new Error('草稿位置组合无效');
+        if (mode === 'choose' && (masks.length > r || masks.some((m) => m && !(m in MASKS)))) throw new Error('草稿区域部位无效');
+        setRegions(r); setRadius(a); setChoiceId(mode === 'choose' ? '' : mode === 'preset' ? masks.join(',') : mode!);
+        setCustomSlots(mode === 'preset' || mode === 'choose' ? masks : []);
+        if (mode === 'preset') setExtraChoice({ id: masks.join(','), label: masks.map((m) => MASKS[m]).join(' + '), mode, maskCodes: masks });
+        setEditing(true); setDraft(true);
+      }
+      setReady(true);
+    };
+    void load().catch((e) => { if (!controller.signal.aborted) setError(e.message); });
+    return () => controller.abort();
+  }, []);
+  const choices = useMemo(() => {
+    const items = choicesFor(protocol, regions);
+    if (extraChoice && extraChoice.maskCodes?.length === regions && !items.some((c) => c.id === extraChoice.id)) items.push(extraChoice);
+    return items;
+  }, [protocol, regions, extraChoice]);
+  const choice = choices.find((c) => c.id === choiceId);
+  const request = useMemo<ComputeRequest | null>(() => choice ? { region_count: regions, radius_mm: radius, mode: choice.mode, ...(choice.mode === 'preset' ? { mask_codes: choice.maskCodes } : {}) } : null, [choice, regions, radius]);
+  const result = editing && request && computed && requestKey(computed.request) === requestKey(request) ? computed : null;
+  const currentStatus = request && status && requestKey(status.request) === requestKey(request) ? status : null;
+  const layout = editing ? result?.layout : source?.layout;
+  const count = editing ? regions : source?.region_count ?? regions;
+  const geometry = editing ? result?.geometry : source?.geometry;
+  const metrics = editing ? result?.metrics : source?.metrics;
+  const here = useMemo(() => {
+    const q = new URLSearchParams(routeParams);
+    for (const key of ['saved', 'from', 'draft', 'r', 'radius', 'mode', 'masks', 'layoutRecord', 'layoutState', 'layoutChannels', 'layoutRegions']) q.delete(key);
+    q.set('ar', String(ar));
+    if (originId) q.set(originKind, originId);
+    if (draft) {
+      q.set('draft', '1'); q.set('r', String(regions)); q.set('radius', String(radius)); q.set('mode', choice?.mode ?? 'choose');
+      if (choice?.maskCodes) q.set('masks', choice.maskCodes.join(','));
+      else if (!choice && customSlots.some(Boolean)) q.set('masks', customSlots.join(','));
+    }
+    return '/design?' + q.toString();
+  }, [ar, originId, originKind, draft, regions, radius, choice, customSlots, routeParams]);
+  useEffect(() => { if (ready) window.history.replaceState(null, '', here); }, [ready, here]);
+  const changeRegions = (n: number) => {
+    if (n === regions) return;
+    setDraft(true); setRegions(n);
+    setCustomSlots([]);
+    if (choice?.mode === 'preset' && choice.maskCodes?.length !== n) { setChoiceId(''); setNotice('区域数量已改变，请重新选择各区域的部位。'); }
+  };
+  const selectChoice = (c: Choice) => {
+    setChoiceId(c.id); setCustomSlots(c.maskCodes ? [...c.maskCodes] : []); setDraft(true); setNotice('');
+  };
+  const selectSlot = (index: number, value: string) => {
+    const slots = Array.from({ length: regions }, (_, i) => i === index ? value : customSlots[i] ?? '');
+    const selected = choiceFromSlots(slots, regions, MASKS);
+    setCustomSlots(slots); setExtraChoice(selected); setChoiceId(selected?.id ?? ''); setDraft(true);
+    setNotice(selected ? '' : `已选${slots.filter(Boolean).length}/${regions}个区域的部位。请补全每个区域后开始计算。`);
+  };
+  const startRadius = () => {
+    if (!source) return;
+    setRegions(source.region_count); setChoiceId(source.mode.includes('whole') ? 'whole_surface' : 'low_hair'); setRadius(35);
+    setCustomSlots([]);
+    setEditing(true); setDraft(true);
+    setNotice('已新建每区半径约束方案：仅保留区域数和允许位置域，半径初始值为35 mm。区域中心、64点位置和指标由新配置重新计算。');
+  };
+  const pendingText = currentStatus?.status === 'no_layout' ? '本次搜索未找到完整64点布局。可扩大半径或调整位置范围后再次计算。' :
+    currentStatus && ['failed', 'timeout', 'cancelled'].includes(currentStatus.status) ? currentStatus.message :
+    currentStatus && ['queued', 'running', 'cancelling'].includes(currentStatus.status) ? '当前方案正在计算，完成后显示布局与指标。' :
+    !choice ? '请先选择与区域数量兼容的位置组合。' : undefined;
+  const comparison = comparisonLink(source, ar);
+  const receptionId = layout ? editing ? currentStatus?.status === 'completed' ? currentStatus.key : null : source?.id : null;
+  return { error, ready, ar, comparison, here, receptionId, count, source, notice, settingsRef, editing, radius, regions, choices, choice, customSlots, selectChoice, selectSlot, changeRegions, startRadius, setRadius, setDraft, setAR, request, originId, setComputed, setStatus, metrics, layout, geometry, pendingText, currentStatus };
+}

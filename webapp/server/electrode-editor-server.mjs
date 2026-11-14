@@ -1,7 +1,7 @@
 import { EDITOR_WORKFLOW } from './project-paths.mjs';
 /** Local-only, independently versioned editor. Fixed64 caches remain untouched. */
 import { createHash } from 'node:crypto';
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { DesignEvaluationService } from './design-evaluation-server.mjs';
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -39,7 +39,7 @@ export function validateEditorResult(r, request) {
   }
 }
 export class ElectrodeEditorService extends DesignEvaluationService {
-  constructor(queue, options) { super(queue, options); this.scriptName = 'scripts/electrode_editor.py'; this.directoryName = 'results/v2/electrode_editor_jobs'; }
+  constructor(queue, options) { super(queue, options); this.scriptName = 'scripts/electrode_editor.py'; this.recordKind = 'editor'; }
   normalize(raw) { return normalizeEditorRequest(raw); }
   validate(result, request) { return validateEditorResult(result, request); }
   async context(request) {
@@ -61,11 +61,11 @@ export class ElectrodeEditorService extends DesignEvaluationService {
   workerInput(j) { return { request: j.request, parent: j.ctx.parent }; }
   view(j) { return { ...super.view(j), parent_digest: j.ctx?.parent_digest ?? (j.result?.parent ? hash(j.result.parent) : j.result?.request?.parent_digest) }; }
   async records() {
-    const entries = await readdir(join(this.root, this.directoryName)).catch(e => { if (e.code === 'ENOENT') return []; throw e; });
+    const entries = await this.store.keys(this.recordKind);
     const records = [];
     for (const key of entries.filter(id)) {
       try {
-        const c = JSON.parse(await readFile(join(this.root, this.directoryName, key, 'cache.json'), 'utf8')), r = c.result;
+        const c = await this.store.read(this.store.path(this.recordKind, key, 'cache.json')), r = c.result;
         if (r?.request?.action !== 'evaluate' || hash(r) !== c.result_sha256 || c.key !== key || hash({ request: r.request, identity: c.identity }) !== key) continue;
         this.validate(r, r.request);
         records.push({ key, finished_at: c.finished_at, parent_id: r.request.parent_id, parent_label: r.parent_label,

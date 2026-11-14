@@ -14,6 +14,8 @@ export const DESIGN_WORKFLOW = [
   ...WORKFLOW_BASE,
   prefix + 'design_evaluation.py',
   prefix + 'head_model.py',
+  prefix + 'reception_forward_provider.py',
+  prefix + 'shared_native_forward.py',
 ];
 export const RECEPTION_WORKFLOW = [
   prefix + '__init__.py',
@@ -24,5 +26,6 @@ export const RECEPTION_V2_WORKFLOW = [
   prefix + 'source_reception.py',
   prefix + 'source_reception_v2.py',
   prefix + 'reception_forward_provider.py',
+  prefix + 'shared_native_forward.py',
 ];
 export const EDITOR_WORKFLOW = [prefix + 'electrode_editor.py'];

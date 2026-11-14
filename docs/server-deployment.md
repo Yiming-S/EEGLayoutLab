@@ -1,107 +1,92 @@
 # Server deployment preparation
 
-**Status: planned deployment; public hosting configuration is not yet implemented.**
+The local web host includes project archives, research workflow metadata, scientific delivery bundles, explicit proxy policy, operational monitoring, durable maintenance and recovery tools. These require acceptance on the target platform. **The application has not been deployed publicly.** The target server's operating system, runtime, access policy and public URL are still to be confirmed.
 
-Yiming Shen, PhD, and Yi Wang, PhD, are preparing EEG Layout Lab for Dr. Wang's server. The target is the full application: browsing existing layouts, designing new layouts, editing and importing electrode coordinates, comparing results, running signal simulations, and downloading outputs. New numerical work will run on the server, with results stored there.
+The full application supports browsing, new layout calculations, editing/import, comparisons, reception simulations and downloads. This guide covers server installation, domains, HTTPS, process supervision and backups. Local browser development uses the existing macOS scientific runtime.
 
-This document records the handoff and implementation work needed before launch. The current [source installation guide](source-installation.md) covers local Apple Silicon macOS use.
-
-## Proposed first deployment
-
-Use one application service on a dedicated subdomain, with HTTPS handled by a reverse proxy and scientific computation on the same server:
+## Deployment shape
 
 ```text
-Browser
-  -> HTTPS reverse proxy on the application's subdomain
-  -> Node application on loopback: UI + HTTP APIs
-  -> persistent FIFO queue with one execution slot
-  -> Python / SimNIBS workers
-  -> verified model inputs + persistent results
+Browser -> HTTPS reverse proxy -> Node on 127.0.0.1
+        -> persistent FIFO / one execution slot -> Python / SimNIBS
+        -> verified inputs and persistent scientific records
 ```
 
-The collaborator's existing website can link to the application. A dedicated subdomain preserves the application's current root-relative API and model-asset paths. Hosting under a website subdirectory requires additional path configuration and testing.
+Use a dedicated subdomain and link to it from an existing website. APIs and model assets use root-relative paths; subdirectory hosting has not been implemented. The full service requires Node and a qualified scientific runtime alongside the built frontend. One owner is permitted for each queue directory. Keep that queue and its `projects/` tree on persistent private storage.
 
-The deployable system includes the Node service and scientific runtime alongside the built interface. Use one application instance for each queue directory; the current scheduler is a single-host service.
+## Configuration and proxy contract
 
-## Server information to confirm
-
-| Item | Required information |
-| --- | --- |
-| Platform | Operating system and version; CPU architecture |
-| Capacity | CPU allocation, RAM, persistent disk space, and storage growth allowance |
-| Access | Administrative contact, installation permissions, and private server access method |
-| Web address | Application domain or subdomain, reverse proxy, and HTTPS certificate management |
-| Compute access | Who can submit new work: invited collaborators, signed-in users, or anonymous visitors |
-| Results | Whether records are shared across visitors or restricted to a team or individual |
-| Operations | Service supervision, logs, backups, retention, and update responsibility |
-
-Set capacity from measurements on the target server using representative cached and uncached requests. The browser interface alone does not determine the memory or storage required for native computation.
-
-## Current implementation and required changes
-
-| Area | Current behavior | Work before public launch |
-| --- | --- | --- |
-| HTTP host | [`start.mjs`](../webapp/server/start.mjs) listens on `127.0.0.1`; `PORT` defaults to `3000`. | Keep the application behind the reverse proxy and configure the approved public host and HTTPS origin. |
-| Request validation | [`loopbackRequest`](../webapp/server/local-compute-server.mjs) checks the socket address, Host, Origin, and Fetch Metadata. | Implement and test an explicit trusted-proxy boundary. Ordinary external HTTPS requests do not pass the current local checks. |
-| Visitor sessions | Signed anonymous cookies isolate task receipts and cancellation rights. Cookies currently use HttpOnly and SameSite=Strict. | Add Secure cookies for HTTPS and implement the selected compute-access policy. |
-| Client IP | The queue uses the direct connection address and ignores `X-Forwarded-For`. | Accept client-address information only from the configured trusted proxy, so IP limits operate on the intended address. |
-| Scientific runtime | The managed installer and environment checker target macOS arm64; the scientific package requires Python 3.11. | Prepare and validate the target platform's runtime. A Linux host needs separate installation locks and platform-aware environment checks. |
-| Scheduling | Four scientific services share one persistent FIFO execution slot. | Retain the bounded queue for the first deployment and verify limits through the public proxy. |
-| Record visibility | Completed scientific records use the shared results library. | Implement the chosen sharing policy if team or individual access is required. |
-
-The default native interpreter is `.runtime/simnibs-4.6.0/bin/python`. `EEG_COMPUTE_PYTHON` selects the queue's interpreter; native services prefer the project runtime when it exists. Verify the interpreter used by each service on the destination server.
-
-Full functionality requires the SimNIBS native dependencies, auditable Conda package metadata, and solver libraries. The managed runtime is specified in [`configs/runtime/`](../configs/runtime/). The existing macOS environment cannot be copied to Linux as an executable runtime.
-
-## Handoff materials
-
-| Material | Handoff rule |
-| --- | --- |
-| Application source | Select a reviewed commit or release. Include any approved local changes in that version before handoff. |
-| Model data | Supply the archive matching [`data/manifest.json`](../data/manifest.json), install it at the expected checkout-relative paths, and run `python3 scripts/data_bundle.py verify`. |
-| Scientific environment | Record the platform, interpreter, package versions, native libraries, and environment verification outcome. |
-| Web dependencies and build | Use the checked-in npm lockfile and the Node requirement in [`webapp/package.json`](../webapp/package.json). Build on the deployment system. |
-| Selected result records | Transfer the agreed records with their original inputs, IDs, hashes, and provenance. The base data bundle contains selected records, not the complete accumulated result archive. |
-| Service configuration | Keep host-specific paths, proxy settings, credentials, and certificates outside Git. |
-| Third-party material | Preserve [third-party notices](../THIRD_PARTY_NOTICES.md) and [data-source terms](../data/SOURCES.md) with the handoff. |
-
-For data-bundle creation and installation commands, see [Data and reproducibility](data-and-reproducibility.md). Install dependencies on the destination; keep Mac runtime binaries, `node_modules`, and local build outputs out of the source handoff.
-
-## Persistent storage and recovery
-
-Preserve the checkout-relative scientific inputs, selected existing records, and these generated directories across application updates:
-
-- `results/web-service/`: queue receipts, the session-signing secret, and private operational logs.
-- `results/v2/local_app_jobs/`, `results/v2/design_evaluation_jobs/`, `results/v2/electrode_editor_jobs/`, `results/v2/source_reception_jobs/`, and `results/v2/source_reception_v2_jobs/`: requests, validated results, and calculation metadata.
-- `results/v2/reception_forward/`: generated forward-field caches.
-
-Use a consistent backup procedure for inputs, records, and queue state, and test restoration before launch. Keep the installed environment reproducible from its recorded dependencies. Reserve storage for new tasks and define retention before opening calculation access.
-
-The queue permits one server owner per state directory. After a restart, queued tasks retain their order; running numerical work is recorded as interrupted and can be resubmitted. There is no numerical checkpoint resume. See [Anonymous visitors and the computation queue](anonymous-queue.md) for locks, limits, and recovery procedures.
-
-Cache identities include code, numerical inputs, runtime details, and filesystem paths. A platform or path change can require new computation. Preserve historical records and validate cache reuse on the target server using the full identity.
-
-## Build and local verification
-
-After the destination runtime and data are ready, build and start the local production host from the repository root:
+Copy [`configs/deploy/server.env.example`](../configs/deploy/server.env.example) to a private path outside the checkout. Set the host's actual paths and load the file explicitly; `npm start` does not read this file automatically:
 
 ```sh
 cd webapp
 npm ci
 npm run build
-npm start
+cd ..
+node --env-file=/absolute/path/server.env webapp/server/start.mjs
 ```
 
-This starts the existing loopback service at `http://127.0.0.1:3000`. `PORT` can select another local port. Public access requires the request-validation, HTTPS, and proxy changes described above.
+Production always binds to `127.0.0.1`; `PORT` defaults to `3000`. Keep public TLS at the reverse proxy. The access policy has two modes:
 
-Run the applicable checks in [CONTRIBUTING.md](../CONTRIBUTING.md), including real-data HTTP and native-computation checks on the destination. The current environment checker must be adapted before it can verify a Linux runtime. Record the exact deployed code, data-manifest identity, runtime, checks performed, and outcomes.
+| Configuration | Behavior |
+| --- | --- |
+| No public origin or trusted proxies | Local Host/Origin/Fetch Metadata checks; forwarded headers do not identify visitors |
+| `EEG_PUBLIC_ORIGIN=https://eeg.example.org` plus explicit `EEG_TRUSTED_PROXIES` IPs | Requests from a listed proxy must match the configured host and HTTPS origin; anonymous cookies use Secure, HttpOnly and SameSite=Strict |
 
-## Acceptance before launch
+The trusted proxy must **overwrite**, rather than append or pass through, these values:
 
-1. Verify the model-data inventory and the target platform's scientific runtime.
-2. Pass type checking, linting, unit checks, and the production build; review the current dependency audit using [the dependency-status guide](security.md).
-3. Exercise the browser workflow over the final HTTPS address: existing records, 3D views, region design, coordinate import, electrode editing, comparisons, signal simulation, and downloads in both interface languages.
-4. Complete representative new calculations, including a native FEM request; resubmit identical inputs and verify valid cache reuse and result provenance.
-5. Verify queue ownership, cancellation, refresh, limits, and the chosen compute-access and record-visibility rules using separate browsers.
-6. Restart the service with queued and running work, then verify documented interruption handling and saved-result recovery. Test backup restoration.
-7. Record the public URL, operator contact, and deployment version, then update the main README's hosted-version entry.
+- `Host`: the configured public hostname, including its port if configured.
+- `X-Forwarded-Proto`: exactly `https`.
+- `X-Forwarded-For`: exactly one actual client IP address. Forwarding chains are rejected.
+
+Incoming `Origin`, when present, must equal the configured HTTPS origin. Cross-site Fetch Metadata is rejected. Local loopback requests remain available for operator health checks. The policy does not trust `X-Forwarded-Host` or infer a proxy from arbitrary headers. Keep the backend port inaccessible from external interfaces. Block `/api/operations/status` at the public proxy; operator status is only for a direct local request without Origin, Fetch Metadata or forwarding headers.
+
+This boundary and Secure-cookie behavior have local HTTP tests. The final proxy configuration, browser cookies and client-IP limits must also be checked over the real public URL.
+
+## Source, science and persistent state
+
+The running checkout supplies web code and `webapp/dist/`. `EEG_REPOSITORY_ROOT` can point it to an existing scientific snapshot containing Python code, configuration, data, runtime and results. It defaults to the host checkout. `EEG_QUEUE_DIRECTORY` separately selects an absolute queue-state directory; its default is `<scientific root>/results/web-service`.
+
+Scientific paths remain checkout-relative inside that root; no startup migration occurs. Preserve the verified inputs and generated `results/v2/*_jobs/` and `results/v2/reception_forward/` directories. The release manifest checks scientific source agreement between the host and selected root. Historical results retain their original identities; path/runtime changes can invalidate current cache reuse. Projects are stored under `<queue directory>/projects/`, including immutable scientific copies. Moving or cleaning task receipts does not remove these project records.
+
+`EEG_COMPUTE_PYTHON` selects the ordinary worker interpreter. Native services prefer `<scientific root>/.runtime/simnibs-4.6.0/bin/python` when it exists. Check and record both selections. The supplied managed runtime targets Apple Silicon macOS; it cannot be transferred to Linux as an executable environment.
+
+## Decisions required before launch
+
+| Area | Information and acceptance needed |
+| --- | --- |
+| Platform | OS/version, CPU architecture, installation permissions and native-runtime lock |
+| Capacity | CPU, RAM, persistent disk and measured uncached-job resource use |
+| Access | Computation still uses anonymous signed sessions; decide whether the hosted entry needs an additional invited-user boundary |
+| Sharing | Project archives use owner/read-only credentials; the original layout library is still shared and is not made private by saving a project |
+| Web | Domain, HTTPS, proxy ownership and final-URL browser checks |
+| Operations | Supervisor, operator contact, storage retention, backup destination and recovery responsibility |
+
+Install the archive matching [`data/manifest.json`](../data/manifest.json) and verify it using `python3 scripts/data_bundle.py verify`. Preserve the [third-party notices](../THIRD_PARTY_NOTICES.md) and [data terms](../data/SOURCES.md). Install dependencies and build on the chosen platform; recorded dependency identities are separate from numerical qualification.
+
+## Launch acceptance
+
+1. Qualify the platform/runtime and verify every model input.
+2. Run the applicable [fast, data, native and browser checks](../CONTRIBUTING.md), including real uncached native work and exact replay.
+3. Exercise both languages, layouts, editing/import, comparisons, reception and downloads over the final HTTPS origin.
+4. Check independent-browser task ownership, cancellation, refresh recovery and rate limits. Restore a project on another browser, read its full scientific snapshots, revoke a shared credential, and verify that read-only access cannot modify it. Confirm the original layout library remains shared as documented.
+5. Rehearse maintenance, stopped-service backup, fresh-directory restoration and version rollback using [web operations](web-operations.md).
+6. Run the local operator probe, inspect resource thresholds and log alerts, and record measured queue wait, calculation duration, peak worker memory and storage growth. Node RSS monitoring alone does not measure worker peak memory.
+7. Record the deployed version, public URL and operator contact with the installation record.
+
+
+## Resource and operations preparation
+
+The environment template sets `EEG_MIN_FREE_DISK_MB=512`, `EEG_MAX_HOST_RSS_MB=0` and `EEG_OPERATIONS_LOG_MB=5`. Units are MiB. The disk floor covers both scientific and queue filesystems. The optional memory threshold measures the current Node process only; it is disabled at zero and does not enforce an operating-system limit or cover Python/native worker memory. Resource failures reject new work while result reading and cancellation remain available. Establish target-platform capacity before setting a nonzero memory threshold or increasing concurrency.
+
+From the host checkout, inspect the paused candidate through direct loopback:
+
+```sh
+node webapp/scripts/probe-service.mjs \
+  --url http://127.0.0.1:3000 --allow-paused \
+  --output artifacts/deployment/candidate-probe.json
+```
+
+The probe performs one read-only raw HTTP request. It never submits or cancels work, changes maintenance, or consumes a browser/project credential. Remove `--allow-paused` for normal ready-to-compute checks. Exit codes are documented in [operations](web-operations.md).
+
+[`eeglayoutlab.service.example`](../configs/deploy/eeglayoutlab.service.example) is an optional Linux systemd template with placeholder paths and a service account. The template requires target-platform qualification before use. Choose a qualified platform/runtime first, replace every placeholder, and keep the private environment file readable only by the service account. See the [Chinese deployment checklist](productization-handoff.zh-CN.md) for the complete procedure.

@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile, readdir } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { dirname, join, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
 import { codeIdentity } from '../server/local-compute-server.mjs';
 import { repositoryRootForWebapp, nativePythonPath, DESIGN_WORKFLOW, RECEPTION_WORKFLOW, RECEPTION_V2_WORKFLOW, EDITOR_WORKFLOW } from '../server/project-paths.mjs';
 
@@ -26,11 +27,19 @@ void test('stable routes delegate to feature workspaces and have no service impo
   }
 });
 
-void test('checkout roots and independently scoped implementation identities are explicit', async () => {
+void test('checkout roots and independently scoped implementation identities are explicit', async t => {
   const root = repositoryRootForWebapp(resolve('.'));
   assert.equal(root, resolve('..'));
   assert.equal(nativePythonPath(root), resolve('../.runtime/simnibs-4.6.0/bin/python'));
-  const identity = codeIdentity(root);
+  const fixture = await mkdtemp(join(tmpdir(), 'eeg-source-identity-'));
+  t.after(() => rm(fixture, { recursive: true, force: true }));
+  for (const path of ['scripts/run_local_radius_compute.py', 'configs/single_head_optimization.json',
+    'results/v2/current_multiregion_bank.json', 'results/v2/current_surface_admissibility.json',
+    'src/compact_eeg/local_radius_compute.py', 'src/compact_eeg/workflows/other.py']) {
+    await mkdir(dirname(join(fixture, path)), { recursive: true });
+    await writeFile(join(fixture, path), '{}');
+  }
+  const identity = codeIdentity(fixture);
   assert.ok(Object.keys(identity).some(p => p === 'src/compact_eeg/local_radius_compute.py'));
   assert.ok(!Object.keys(identity).some(p => p.includes('/workflows/')));
   for (const path of new Set([...DESIGN_WORKFLOW, ...RECEPTION_WORKFLOW, ...RECEPTION_V2_WORKFLOW, ...EDITOR_WORKFLOW])) {

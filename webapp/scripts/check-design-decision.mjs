@@ -6,6 +6,7 @@ import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { createHash } from 'node:crypto';
+import { SourceReceptionService } from '../server/source-reception-server.mjs';
 import {
   comparisonNotes,
   parseDesign,
@@ -257,6 +258,7 @@ async function done(service) {
 }
 void test('worker results cache by exact inputs and do not consume another worker slot on hit', async () => {
   const { service, children, queue, change } = await fixture();
+  let release;
   try {
     const first = await service.submit(request);
     assert.equal(first.job.status, 'running');
@@ -265,7 +267,7 @@ void test('worker results cache by exact inputs and do not consume another worke
     );
     children[0].emit('close', 0);
     await done(service);
-    queue.active = {};
+    release = queue.executionSlot.acquire('other');
     const cached = await service.submit(request);
     assert.equal(cached.job.cached, true);
     assert.equal(children.length, 1);
@@ -273,6 +275,7 @@ void test('worker results cache by exact inputs and do not consume another worke
     const busy = await service.submit(request);
     assert.equal(busy.busy, true);
   } finally {
+    release?.();
     service.dispose();
   }
 });
@@ -391,6 +394,8 @@ void test('source, scalp and manifest bytes all invalidate the real context iden
     'src/compact_eeg/workflows/paths.py',
     'src/compact_eeg/workflows/design_evaluation.py',
     'src/compact_eeg/workflows/head_model.py',
+    'src/compact_eeg/workflows/reception_forward_provider.py',
+    'src/compact_eeg/workflows/shared_native_forward.py',
     'scripts/design_evaluation.py',
     'scripts/inspect_ernie_cortical_forward.py',
     'src/compact_eeg/cortical_fem.py',
@@ -406,10 +411,15 @@ void test('source, scalp and manifest bytes all invalidate the real context iden
     await writeFile(join(root, path), body);
   }
   const service = new DesignEvaluationService({ root, python: 'python3' });
+  const source = new SourceReceptionService({ root, python: 'python3' });
+  assert.deepEqual(await source.nativeContext(request), await service.context(request));
+  source.dispose();
   let previous = (await service.context(request)).key;
   for (const path of [
     'src/compact_eeg/workflows/design_evaluation.py',
     'src/compact_eeg/workflows/head_model.py',
+    'src/compact_eeg/workflows/reception_forward_provider.py',
+    'src/compact_eeg/workflows/shared_native_forward.py',
     'data/sources.npz',
     'data/scalp/external_scalp_vertices_m.npy',
     'data/scalp/external_scalp_triangles.npy',

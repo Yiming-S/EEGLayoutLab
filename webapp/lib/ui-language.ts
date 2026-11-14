@@ -14,7 +14,7 @@ export const PAGES = [
   { id: 'guide', path: '/guide', label: '使用指南' },
   { id: 'method', path: '/method', label: '建模与原理' },
 ] as const;
-export type PageId = (typeof PAGES)[number]['id'] | 'library' | 'results' | 'coordinates';
+export type PageId = (typeof PAGES)[number]['id'] | 'library' | 'results' | 'coordinates' | 'projects';
 export const MASK_NAMES: Record<string, string> = {
   PL: '左耳后邻近区', PR: '右耳后邻近区', AL: '左耳周扩展区', AR: '右耳周扩展区',
   FL: '左前额', FM: '中部前额', FR: '右前额', OL: '左眶周上外侧', OR: '右眶周上外侧',
@@ -40,9 +40,12 @@ export function safeReturnHref(value: string | null | undefined, fallback: strin
   if (!value?.startsWith('/') || value.startsWith('//')) return fallback;
   try {
     const url = new URL(value, 'http://localhost');
-    const allowed = ['/', '/design', '/electrodes', '/decision', '/coordinates', '/library', '/reception', '/results', '/pilot-results'];
-    return url.origin === 'http://localhost' && allowed.includes(url.pathname)
-      ? url.pathname + url.search + url.hash : fallback;
+    const allowed = ['/', '/design', '/electrodes', '/decision', '/coordinates', '/library', '/reception', '/results', '/pilot-results', '/projects'];
+    if (url.origin !== 'http://localhost' || !allowed.includes(url.pathname)) return fallback;
+    // A project sharing credential is consumed by its page, never forwarded as
+    // navigation context or encoded into a documentation return query.
+    if (new URLSearchParams(url.hash.slice(1)).has('access')) url.hash = '';
+    return url.pathname + url.search + url.hash;
   } catch { return fallback; }
 }
 export const LIBRARY_FILTERS = ['all', 'current', 'strict_area', 'cache', 'offline_radius', 'historical_area', 'design_evaluation'] as const;

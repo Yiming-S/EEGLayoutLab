@@ -46,6 +46,7 @@ export default function ElectrodesPage() {
     setCandidate,
     job,
     pending,
+    connection,
     error,
     notice,
     records,
@@ -158,7 +159,7 @@ export default function ElectrodesPage() {
             {tx(notice)}
           </output>
         )}
-        {job?.status === 'connection_lost' && (
+        {job && connection !== 'connected' && (
           <div className="lab-panel mb-4">
             <p className="mb-3">{tx('状态连接中断，后台任务尚未确认结束。')}</p>
             <Button onClick={reconnect} disabled={pending}>
@@ -600,7 +601,7 @@ export default function ElectrodesPage() {
                       {localizedEditorParentTitle(r, parents, locale)}
                     </p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      {date(r.finished_at, true)} · {tx('场重建保留率')}{' '}
+                      {date(r.finished_at, true)} · {tx('信号重建保留率')}{' '}
                       {(r.metrics.field_relative * 100).toFixed(2)}%
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">

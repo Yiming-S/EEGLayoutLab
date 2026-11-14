@@ -1,8 +1,6 @@
 # Anonymous visitors and the computation queue
 
-The current web source runs without registration or sign-in. Scientific
-computation remains on the host computer. This update does not publish a public
-website or change the scientific model, cache identities, or numerical scores.
+The web application runs without registration or sign-in. Scientific computation runs on the configured scientific checkout. Anonymous task ownership and the shared scientific results library are separate: a task receipt is browser-owned; the results library is shared. Public deployment remains pending.
 
 ## In the interface
 
@@ -16,7 +14,7 @@ anonymous cookie; private windows and separate browsers count separately. The
 interface refreshes these counts every 15 seconds. Hidden pages do not renew
 online presence. An unavailable service displays an unavailable state, not zero.
 
-The server assigns an opaque, signed HttpOnly cookie automatically. There is no
+The server assigns an opaque, signed HttpOnly, SameSite=Strict cookie automatically. Explicit HTTPS proxy configuration also sets Secure. There is no
 account, email or password. Clearing that cookie removes the browser's ability
 to manage its prior task receipts. Saved scientific records remain in the
 existing result library. Only the submitting browser or another browser that
@@ -50,8 +48,7 @@ remains. New submissions do not join a task that is already stopping.
 
 ## Storage and restart behavior
 
-Service management files live in `results/web-service/`, already excluded from
-Git. `queue.json` stores bounded task receipts, normalized requests, frozen keys,
+Service management files default to `<scientific root>/results/web-service/`, already excluded from Git. `EEG_QUEUE_DIRECTORY` or the service's `queueDirectory` option selects an explicit absolute directory. `queue.json` stores bounded task receipts, normalized requests, frozen keys,
 sequence numbers and hashed browser ownership. Numerical results are kept in
 the existing `results/v2/*_jobs` caches, not duplicated in the queue snapshot.
 The newest 500 terminal receipts are retained; older scientific results can
@@ -78,29 +75,29 @@ after confirming those workers are stopped may an operator remove the stale
 acquisition guard or clear that task's unresolved `starting` marker. Do not
 delete the whole queue or its session secret to work around a busy service.
 
-## IP logs and public deployment boundary
+## Maintenance
 
-Private access logs contain UTC time, the connecting IP and a hashed anonymous
-browser identifier. They are capped at 10 MiB per day and removed after seven
-days by hourly housekeeping while the server runs. Logs are not exposed through
-the status or task endpoints. No third-party analytics is introduced.
+Maintenance state is saved with the queue. Startup with `EEG_MAINTENANCE=1` forces a pause; a saved pause survives startup without that setting. `SIGUSR2` pauses the running production host and `SIGUSR1` explicitly resumes it. There is no public maintenance write endpoint.
 
-The local service still binds to `127.0.0.1`; Host, Origin, Fetch Metadata and
-write-token checks remain enabled. It deliberately ignores `X-Forwarded-For`.
-On this local installation the recorded connecting IP is loopback, not a remote
-visitor's public IP. Public deployment requires a separately configured HTTPS
-origin, trusted proxy boundary and secure-cookie settings. Cookie resets can
-bypass per-browser limits; IP limits are an additional control, not proof of
-identity. The pre-existing dependency audit and deployment review remain a
-separate requirement. See [security](security.md).
+While paused, new uncached submissions and queue dispatch are blocked. Existing task retrieval, completed cache reads and cancellation remain available. Active work can finish and its receipt is reconciled. A pause during asynchronous request preparation or worker startup is checked before launching; a confirmed busy response restores the same queued receipt and order.
+
+Health and status return `maintenance` and `drained`. Drained is true only while paused and with no active backend, execution permit, live worker or unresolved launch guard. Queued work remains intact. For a consistent backup, wait for drained and then stop the server: result/cache reads can still write receipts while paused. See [web operations](web-operations.md).
+
+## IP logs and proxy access
+
+Private access logs contain UTC time, the configured visitor IP and a hashed anonymous browser identifier. They are capped at 10 MiB per day and removed after seven days by hourly housekeeping while the server runs. Logs are not exposed through status or task endpoints.
+
+Production binds to `127.0.0.1`. Without explicit public-origin/proxy configuration, Host, Origin and Fetch Metadata checks restrict API access to local requests; forwarding headers do not determine visitor IPs. A local installation therefore logs loopback addresses.
+
+With `EEG_PUBLIC_ORIGIN` and explicit `EEG_TRUSTED_PROXIES`, a listed proxy must overwrite Host with the configured public host, `X-Forwarded-Proto` with `https`, and `X-Forwarded-For` with one actual client IP. Chains and untrusted forwarding headers are rejected. Cookies become Secure. Write-token and same-origin checks remain active. Cookie resets can bypass browser limits; IP limits do not establish a person's identity.
+
+This policy has local tests. The actual proxy, public URL, access rules and record-sharing policy still need server acceptance. See [deployment preparation](server-deployment.md) and [dependency status](security.md).
 
 ## Verification
 
 Run `npm run test:unit`, `npm run typecheck`, `npm run lint`, and `npm run build`
-from `webapp/`. The queue tests use temporary directories and simulated workers;
-they do not run or modify the FEM experiments. HTTP tests listen on loopback.
+from `webapp/`. The queue tests use temporary directories and simulated workers, including pause/start races, restart order, persistence failure and unresolved workers. They do not run or modify FEM experiments. HTTP tests listen on loopback.
 
-Existing numerical regression tests, saved record values and the scientific
-cache format remain unchanged. Desktop version 0.1.1 includes the web-source
-queue changes. The earlier 0.1.0 DMG remains a historical build; see the
-[desktop verification report](../desktop/VERIFICATION.md) for release-specific checks.
+Run the numerical regression and real-data HTTP checks described in
+[Contributing](../CONTRIBUTING.md) when changing worker execution or cache
+handling. Recorded web checks are documented in [Web verification](verification.md).

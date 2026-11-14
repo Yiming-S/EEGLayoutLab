@@ -1,49 +1,34 @@
-# EEG Layout Lab 安装与使用
+# EEG Layout Lab 网页版使用指南
 
-**[下载 Mac 桌面版 — Apple Silicon](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.2)**
+EEG Layout Lab 是免费的科研开源软件，用于设计、查看和比较 EEG 电极布局，提供三维头模、区域设计、电极编辑、方案对比和信号仿真。
 
-仓库目前为私有，需要登录有仓库访问权限的 GitHub 账号才能下载。
+项目目前集中维护网页版。界面在浏览器中使用，计算由 Node 服务和 Python／SimNIBS 工作进程完成。
 
-适用于 **M 系列芯片 Mac，macOS 14 或更新版本**。下载 `.dmg` 安装包，打开后将 **EEG Layout Lab** 拖入“应用程序”，再双击启动。首次打开会自动准备内置环境和模型数据。
-
-**无需另外安装 Python、Node.js、Conda 或模型数据。**
-
-[安装与首次打开说明](../desktop/START_HERE.zh-CN.md)
-
-EEG Layout Lab 是面向科研社区的研究软件项目，用于设计、查看和比较 EEG 电极布局，提供三维头模、区域设计、电极编辑、方案对比和信号仿真。
-
-[English instructions](../README.md)
-
-## 项目合作者
-
-- **Yiming Shen, PhD**
-- **[Yi Wang, PhD](https://www.massey.ac.nz/massey/expertise/profile.cfm?stref=469822)**：新西兰梅西大学数学与计算科学学院计算机科学高级讲师。
-
-项目计划部署到 Dr. Wang 搭建的服务器，提供完整网页版，支持查看已有结果和在线发起新计算。上线后将在主 README 补充访问地址。
+[English instructions](../README.md) · [本机安装](source-installation.zh-CN.md) · [网页端开发与维护方案](web-maintenance-plan.zh-CN.md)
 
 ## 运行方式
 
 | 方式 | 当前状态 | 说明 |
 | --- | --- | --- |
-| Mac 桌面版 | 0.1.2 版 | 在 Mac 上运行，按下方步骤安装。 |
-| 本机源码版 | 当前开发版本 | 使用单独的[源码安装说明](source-installation.zh-CN.md)，目前安装流程面向 Apple Silicon Mac。 |
+| 本机网页版 | 当前开发版本 | 按[源码安装说明](source-installation.zh-CN.md)准备环境，再在浏览器中打开。目前的计算环境安装流程面向 Apple Silicon Mac。 |
 | 服务器网页版 | 准备部署 | 计算与结果存储放在服务器上，见[服务器部署准备说明（英文）](server-deployment.md)。 |
 
-桌面版 **0.1.2（构建号 1）**包含当前网页源码及[匿名访客任务队列（英文说明）](anonymous-queue.md)。安装包、基础数据包和校验文件统一放在 GitHub 版本页；完整历史计算缓存不在本次分发范围内。本版本的验证结果见 [GitHub 版本页](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.2)；既有[桌面版验证报告（英文）](../desktop/VERIFICATION.md)记录的是 0.1.1 版。
+Mac 桌面版已停止维护，桌面外壳和打包工具已从当前源码中移除。[v0.1.2 版本页](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.2)保留历史发布记录，并提供当前使用的基础数据包。
 
-## 在 Mac 上安装并打开
+## 在本机打开网页版
 
-使用 **Apple Silicon（M 系列芯片）Mac，macOS 14 或更新版本**。
+首次使用时，按[源码安装说明](source-installation.zh-CN.md)安装模型数据、Python 计算环境和网页依赖。当前流程需要 Apple Silicon（M 系列芯片）Mac，macOS 14 或更新版本。
 
-1. 打开 [GitHub 0.1.2 版本页](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.2)，下载 **`EEGLayoutLab-0.1.2-macOS-arm64.dmg`**。
-2. 打开 DMG，将 **EEG Layout Lab.app** 拖到“应用程序”。如果收到的是 ZIP，解压后将 App 移到“应用程序”。
-3. 打开 **EEG Layout Lab**。首次启动会准备内置计算环境和模型数据，然后显示 App。
+安装完成后，在仓库根目录运行：
 
-桌面安装包包含界面、计算环境、模型数据及已有结果，无需另外安装 Node.js、Python、Conda 或模型数据。内置仿真在本机运行，不需要联网。
+```sh
+cd webapp
+npm run dev
+```
 
-以后直接从“应用程序”打开 **EEG Layout Lab**，按 **Command + Q** 退出。新结果保存在这台 Mac 上。
+在浏览器中打开 [http://127.0.0.1:3000](http://127.0.0.1:3000)。使用期间保持终端运行；结束使用时，在终端按 **Control + C** 停止服务。
 
-安装、首次打开时的系统提示及数据位置，见 [桌面版快速指南](../desktop/START_HERE.zh-CN.md)。
+仓库目前为私有，获取源码和数据包需要登录有仓库访问权限的 GitHub 账号。数据包及校验文件放在 GitHub 版本页，完整历史计算缓存不包含在数据包内。
 
 ## 使用顺序
 
@@ -52,16 +37,16 @@ EEG Layout Lab 是面向科研社区的研究软件项目，用于设计、查�
 3. **布局设计 → 电极编辑**：打开已保存布局，调整电极位置或启用的电极，再重新计算。使用“坐标导入”可评价已配准到 Ernie 头模坐标系的电极坐标。
 4. **结果库 → 方案对比**：对比所选布局，导出坐标或报告。
 5. **信号仿真**：选择布局，再设置脑源位置、波形和干扰条件，对比接收信号。
-6. **文档 → 使用指南／建模与原理**：查看操作说明和指标解释。
+6. **结果库 → 研究项目**：将布局、编辑结果和信号实验保存为独立快照，记录研究备注与比较要求。访问文件用于在其他浏览器恢复项目；只读分享可以撤销。项目内的存档独立于计算队列，原始布局库仍共享。
+7. **项目交付**：下载包含原始结果、说明、比较要求、版本与校验值的完整交付包。项目访问凭据单独保存，不进入科学交付文件。
+8. **文档 → 使用指南／建模与原理**：查看操作说明和指标解释。
 
-右上角可切换简体中文和英语。“最低保留要求”用于判断现有评分是否达到要求，修改该值不会启动新计算。新计算结果保存在本机，可从结果库再次打开。
+右上角可切换简体中文和英语。“最低保留要求”用于判断现有评分是否达到要求，修改该值不会启动新计算。本机运行时，新结果保存在本机，可从结果库再次打开。
 
-## 修改源代码
+## 开发与部署
 
-需要参与代码开发的合作者，可使用单独的 [源码安装说明](source-installation.zh-CN.md)。
+开发环境和启动命令见[源码安装说明](source-installation.zh-CN.md)。模块职责、升级顺序和验收要求见[网页端开发与维护方案](web-maintenance-plan.zh-CN.md)。服务器上线所需的环境、访问配置和数据持久化工作见[部署准备说明（英文）](server-deployment.md)。
 
 ## 版权与第三方材料
 
-© 2026 Yiming Shen & Yi Wang。
-
-项目支持脑电研究、教育与科研协作。原创源代码及配套文档采用 [GNU 通用公共许可证第 3 版，仅限此版本（GPL-3.0-only）](../LICENSE)。该许可证允许商业使用；分发修改版时须遵守 GPL，包括提供对应源码的要求。第三方软件、头模及数据保留各自的许可条款，其中 Ernie 数据及其派生材料继续适用 CC BY-NC 4.0，详见 [版权与第三方材料说明](../THIRD_PARTY_NOTICES.md)。
+本项目以非营利方式开发并免费提供，用于脑电研究、教育与科研协作。原创源代码及配套文档采用 [GNU 通用公共许可证第 3 版，仅限此版本（GPL-3.0-only）](../LICENSE)。该许可证允许商业使用；分发修改版时须遵守 GPL，包括提供对应源码的要求。第三方软件、头模及数据保留各自的许可条款，其中 Ernie 数据及其派生材料继续适用 CC BY-NC 4.0，详见[版权与第三方材料说明](../THIRD_PARTY_NOTICES.md)。

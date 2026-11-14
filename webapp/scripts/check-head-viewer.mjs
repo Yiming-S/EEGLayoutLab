@@ -1,7 +1,7 @@
 import { chromium } from 'playwright';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-const output = new URL('../outputs/head-viewer/', import.meta.url).pathname;
+const output = (process.env.EEG_QA_OUTPUT || new URL('../outputs/head-viewer/', import.meta.url).pathname).replace(/\/?$/, '/');
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ headless: true, executablePath: process.env.EEG_BROWSER_EXECUTABLE || undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const errors = [];
@@ -9,14 +9,20 @@ const results = [];
 let page;
 try {
   page = await browser.newPage({ viewport: { width: 1440, height: 1050 }, deviceScaleFactor: 1 });
+  page.setDefaultTimeout(30000);
   page.on('pageerror', error => errors.push(error.message));
   const url = process.env.VIEWER_QA_URL ?? 'http://localhost:3000/';
+  await page.context().addCookies([{ name: 'eeg-layout-language', value: 'zh-CN', url: new URL(url).origin }]);
   await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 });
   const canvas = page.locator('.head-stage canvas');
   await page.waitForFunction(() => document.querySelector('.head-stage canvas')?.dataset.electrodeCount === '64', null, { timeout: 60000 });
+  const waitDataset = (key, value) => page.waitForFunction(({key,value}) => document.querySelector('.head-stage canvas')?.dataset[key] === value, {key,value});
+  const referenceToggle = page.getByRole('switch', { name: '标准64导布局', exact: true });
+  if (!await referenceToggle.isChecked()) await referenceToggle.click();
+  await waitDataset('referenceCount','64');
   await page.locator('.head-stage').screenshot({ path: `${output}01-scalp.png` });
   await page.screenshot({ path: `${output}desktop.png`, fullPage: true });
-  results.push({ check: 'Initial 64 region contacts + 64 reference contacts', pass: (await canvas.getAttribute('data-reference-count')) === '64' });
+  results.push({ check: 'Selected layout and enabled reference each have 64 contacts', pass: (await canvas.getAttribute('data-reference-count')) === '64' });
   const before = createHash('sha256').update(await canvas.screenshot()).digest('hex');
   const box = await canvas.boundingBox();
   await page.mouse.move(box.x + box.width * .5, box.y + box.height * .52);
@@ -30,21 +36,32 @@ try {
   await page.locator('.head-stage').screenshot({ path: `${output}03-brain.png` });
   results.push({ check: 'Brain transparency mode', pass: await canvas.getAttribute('data-view-mode') === 'brain' });
   await page.getByRole('button', { name: '头皮视图', exact: true }).click();
+  const library = await (await page.request.get(new URL('/api/local-compute/library',url).href)).json();
   for (const n of [1, 3, 4, 6, 2]) {
-    await page.getByRole('button', { name: String(n), exact: true }).click();
-    await page.waitForFunction(() => document.querySelector('.head-stage canvas')?.dataset.electrodeCount === '64');
+    await page.getByRole('button', { name: `${n}区`, exact: true }).click();
+    const selected = library.records.find(record => record.dataset_id === 'strict_area' && record.mode === 'whole_scalp_free' && record.area_cap_cm2 === 120 && record.region_count === n);
+    if (!selected) throw new Error('Missing strict-area fixture for R=' + n);
+    const detail = await (await page.request.get(new URL('/api/local-compute/library/' + selected.id,url).href)).json();
+    await waitDataset('layoutId', detail.record.layout.id);
+    await waitDataset('electrodeCount','64');
     results.push({ check: `R=${n} keeps 64 contacts`, pass: true });
   }
-  await page.getByRole('switch', { name: '标准64导' }).click();
+  if (!await referenceToggle.isChecked()) await referenceToggle.click();
+  await waitDataset('referenceCount','64');
+  await referenceToggle.click();
+  await waitDataset('referenceCount','0');
   results.push({ check: 'Hide reference overlay', pass: await canvas.getAttribute('data-reference-count') === '0' });
-  await page.getByRole('switch', { name: '区域电极（64点）' }).click();
+  await page.getByRole('switch', { name: /当前布局电极/ }).click();
+  await waitDataset('visibleRegionCount','0');
   results.push({ check: 'Hide both electrode layers independently', pass: await canvas.getAttribute('data-reference-count') === '0' && await canvas.getAttribute('data-visible-region-count') === '0' });
-  await page.getByRole('button', { name: '4', exact: true }).click();
-  results.push({ check: 'Hidden electrode layers stay hidden after layout changes', pass: await canvas.getAttribute('data-visible-region-count') === '0' });
+  await page.getByRole('button', { name: '透视大脑', exact: true }).click();
+  await waitDataset('viewMode','brain');
+  results.push({ check: 'Hidden electrode layers stay hidden when changing view mode', pass: await canvas.getAttribute('data-visible-region-count') === '0' });
   await page.getByRole('switch', { name: '标准64导' }).click();
+  await waitDataset('referenceCount','64');
   results.push({ check: 'Reference-only view', pass: await canvas.getAttribute('data-reference-count') === '64' && await canvas.getAttribute('data-visible-region-count') === '0' });
-  await page.getByRole('switch', { name: '区域电极（64点）' }).click();
-  await page.getByRole('button', { name: '2', exact: true }).click();
+  await page.getByRole('switch', { name: /当前布局电极/ }).click();
+  await page.getByRole('button', { name: '2区', exact: true }).click();
   results.push({ check: 'Wire control removed', pass: await page.getByRole('button', { name: /导线/ }).count() === 0 });
   await page.getByRole('button', { name: '全屏查看三维视图' }).click();
   results.push({ check: 'Fullscreen locks body scroll', pass: await page.evaluate(() => document.body.style.overflow) === 'hidden' });
@@ -78,7 +95,7 @@ try {
   console.log(JSON.stringify({ results, output }, null, 2));
   if (results.some(result => !result.pass)) process.exitCode = 1;
 } catch (error) {
-  console.error(JSON.stringify({ error: error.message, errors, text: await page?.locator('body').innerText().catch(() => '') }, null, 2));
+  console.error(JSON.stringify({ error: error.message, errors, text: await page?.locator('body').innerText().catch(() => ''), datasets: await page?.locator('canvas').evaluateAll(es=>es.map(e=>Object.fromEntries(Object.entries(e.dataset)))).catch(()=>[]) }, null, 2));
   await page?.screenshot({ path: `${output}failure.png` }).catch(() => {});
   process.exitCode = 1;
 } finally { await browser.close(); }

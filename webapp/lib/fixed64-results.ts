@@ -1,4 +1,5 @@
-export type XYZ = [number, number, number];
+import type { XYZ } from '../../contracts/layout';
+export type { XYZ } from '../../contracts/layout';
 export type FieldCondition = {
   snr_db: number;
   field_absolute: number;

@@ -27,6 +27,7 @@ import scipy
 from threadpoolctl import threadpool_info, threadpool_limits
 
 from .paths import PROJECT_ROOT as ROOT
+from . import shared_native_forward
 from compact_eeg.artifacts import sha256_file
 from compact_eeg.forward_pilot import deterministic_npz_bytes
 
@@ -38,6 +39,7 @@ CATALOG_KEYS = ("source_xyz_mm", "source_normals", "source_area_weights",
 CODE_PATHS = ("src/compact_eeg/workflows/__init__.py", "src/compact_eeg/workflows/paths.py",
               "src/compact_eeg/workflows/reception_forward_provider.py",
               "src/compact_eeg/workflows/design_evaluation.py", "src/compact_eeg/workflows/head_model.py",
+              "src/compact_eeg/workflows/shared_native_forward.py",
               "scripts/reception_forward_provider.py", "scripts/design_evaluation.py",
               "scripts/inspect_ernie_cortical_forward.py", "src/compact_eeg/cortical_fem.py",
               "src/compact_eeg/surface_admissibility.py", "src/compact_eeg/artifacts.py",
@@ -420,6 +422,109 @@ def _run_native(root, xyz, progress):
         return design_evaluation.native_field(root, xyz, data, pointer, report, progress)
 
 
+def _shared_expected(bundle, xyz):
+    return {**bundle["catalog"], "baseline_h": bundle["baseline_h"],
+            "baseline_xyz_mm": bundle["baseline_xyz"], "candidate_xyz_mm": xyz}
+
+
+def _read_shared_validated(root, identity, bundle, xyz):
+    cached = shared_native_forward.read(root, identity, _shared_expected(bundle, xyz))
+    if cached is None:
+        return None
+    arrays, manifest, paths = cached
+    try:
+        current_identity = _native_identity(root, _load_bundle(root), xyz)
+    except Exception as error:
+        raise shared_native_forward.IdentityChanged("Native inputs/runtime became invalid while reading shared forward fields") from error
+    if current_identity != identity:
+        raise shared_native_forward.IdentityChanged("Native inputs/runtime changed while reading shared forward fields")
+    metadata = manifest["metadata"]
+    evaluated = arrays["evaluated_candidate_xyz_mm"]
+    if np.linalg.norm(evaluated - xyz, axis=1).max() > PROJECTION_TOLERANCE_MM:
+        raise shared_native_forward.IntegrityError("Shared native projection moved frozen evaluated_xyz_mm")
+    qa = metadata["native_qa"]
+    if (qa.get("head_hashes") != identity["head_hashes"]
+            or not np.isfinite(qa.get("reference_relative_difference", np.nan))
+            or qa["reference_relative_difference"] > 1e-8):
+        raise shared_native_forward.IntegrityError("Shared native head/reference QA mismatch")
+    return _inputs(bundle, xyz, arrays["candidate_h"]), {
+        "forward_mode": "native_fem_cache", "fem_recomputed": False,
+        "provider_id": manifest["key"], "forward_cache_path": paths["cache_path"],
+        "forward_cache_sha256": paths["cache_sha256"], "forward_manifest_path": paths["manifest_path"],
+        "forward_manifest_sha256": paths["manifest_sha256"], "forward_payload_sha256": paths["payload_sha256"],
+        "native_qa": qa, "native_runtime": metadata["runtime"],
+        "candidate_coordinate_identity": identity["candidate_coordinates"],
+        "reference_field_origin": metadata["reference_field_origin"],
+        "evaluated_candidate_xyz_mm": evaluated.tolist(),
+        "shared_forward_producer": metadata["producer"],
+    }
+
+
+def _read_shared(root, identity, bundle, xyz):
+    try:
+        return _read_shared_validated(root, identity, bundle, xyz)
+    except (shared_native_forward.IdentityChanged, shared_native_forward.IntegrityError):
+        raise
+    except Exception as error:
+        raise shared_native_forward.IntegrityError(str(error)) from error
+
+
+@contextmanager
+def design_forward_session(root, requested_xyz):
+    """Serialize design/native work and publish fields without a result receipt.
+
+    The callback takes the exact later reception input and output from that
+    request's unchanged projection/solve path. No future receipt is fabricated.
+    """
+    root = Path(root).resolve()
+    requested_xyz = _matrix(requested_xyz, 64, "design requested coordinates").copy()
+    with _native_lock(root / CACHE_RELATIVE_ROOT):
+        bundle = _load_bundle(root)
+        initial = _native_identity(root, bundle, requested_xyz)
+        started = time.perf_counter()
+
+        def verify_identity():
+            try:
+                current = _native_identity(root, _load_bundle(root), requested_xyz)
+            except Exception as error:
+                raise shared_native_forward.IdentityChanged("Native inputs/runtime became invalid during shared forward computation") from error
+            if current != initial:
+                raise shared_native_forward.IdentityChanged("Native inputs/runtime changed during shared forward computation")
+
+        def publish(xyz, candidate_h, evaluated, qa):
+            xyz = _matrix(xyz, 64, "shared reception input coordinates")
+            evaluated = _matrix(evaluated, 64, "shared reception evaluated coordinates")
+            verify_identity()
+            identity = {**initial, "candidate_coordinates": _array_identity(xyz)}
+            inputs = _inputs(bundle, xyz, candidate_h)
+            if (np.linalg.norm(evaluated - xyz, axis=1).max() > PROJECTION_TOLERANCE_MM
+                    or qa.get("head_hashes") != initial["head_hashes"]
+                    or not np.isfinite(qa.get("reference_relative_difference", np.nan))
+                    or qa["reference_relative_difference"] > 1e-8):
+                raise ValueError("Shared native projection/reference QA failed")
+            existing = _read_shared(root, identity, bundle, xyz)
+            if existing is not None:
+                if _array_identity(existing[0]["candidate_h"]) != _array_identity(inputs["candidate_h"]):
+                    raise shared_native_forward.IntegrityError("Identical shared forward identity produced different numerical bytes")
+                return
+            arrays = {**_shared_expected(bundle, xyz), "candidate_h": inputs["candidate_h"],
+                      "evaluated_candidate_xyz_mm": evaluated}
+            arrays = {name: np.asarray(value) for name, value in arrays.items()}
+            metadata = {"producer": "design_evaluation", "native_qa": qa,
+                "design_requested_coordinates": _array_identity(requested_xyz),
+                "runtime": {"python": sys.version, "numpy": np.__version__, "scipy": scipy.__version__,
+                    "threadpools": threadpool_info(), "thread_limit": 1,
+                    "elapsed_seconds": time.perf_counter() - started},
+                "reference_field_origin": "original SHA256-validated standard64 bank; shared native solve recomputed reference and passed relative difference <=1e-8, but that newly solved reference matrix is not exposed or archived"}
+            shared_native_forward.publish(root, identity, arrays, metadata)
+            _read_shared(root, identity, bundle, xyz)
+
+        yield publish
+        # Even optional preparation/IO failure must not bypass the identity
+        # check of the valid design calculation that is about to be returned.
+        verify_identity()
+
+
 def load_reception_forward(root, record, *, progress=None, allow_native=False):
     """Return (load_inputs-compatible arrays, provenance) for a frozen record.
 
@@ -462,12 +567,20 @@ def load_reception_forward(root, record, *, progress=None, allow_native=False):
     if cached is not None:
         inputs, cache_provenance = cached
         return inputs, {**base, **cache_provenance}
+    shared = _read_shared(root, identity, bundle, xyz)
+    if shared is not None:
+        inputs, cache_provenance = shared
+        return inputs, {**base, **cache_provenance}
     if not allow_native:
         raise ForwardComputationRequired("冻结新坐标尚无接收实验前向缓存；需在本地单任务队列执行一次原位置FEM，不使用邻近电极替代。")
     with _native_lock(cache_root):
         cached = _read_cache(root, entry, identity, bundle, xyz)
         if cached is not None:
             inputs, cache_provenance = cached
+            return inputs, {**base, **cache_provenance}
+        shared = _read_shared(root, identity, bundle, xyz)
+        if shared is not None:
+            inputs, cache_provenance = shared
             return inputs, {**base, **cache_provenance}
         attempt = entry / "attempts" / (datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ") + "_" + uuid.uuid4().hex[:8])
         attempt.mkdir(parents=True, exist_ok=False)

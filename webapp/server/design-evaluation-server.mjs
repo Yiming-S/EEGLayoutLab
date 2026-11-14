@@ -1,10 +1,12 @@
-import { nativePythonPath, NATIVE_RUNTIME_RELATIVE, DESIGN_WORKFLOW } from './project-paths.mjs';
+import { startPythonWorker } from './jobs/python-worker.mjs';
+import { executionSlotFor } from './jobs/execution-slot.mjs';
+import { runtimeConfig } from './runtime/config.mjs';
+import { scientificContext } from './runtime/scientific-context.mjs';
+import { RecordStore } from './storage/records.mjs';
 /** On-device only. Independent result namespace, one shared physical worker slot. */
 import { spawn } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
-import { readFile, mkdir, writeFile, rename, readdir } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
-import { join, dirname, relative } from 'node:path';
+import { join } from 'node:path';
 import { InputIntegrity } from './local-input-integrity.mjs';
 
 const hash = (value) =>
@@ -211,12 +213,6 @@ export function validateDesignResult(r, request, admission) {
       throw new Error('几何失败不能携带评分');
   }
 }
-async function atomic(path, value) {
-  const temp = `${path}.${randomUUID()}.tmp`;
-  await writeFile(temp, JSON.stringify(value), { flag: 'wx' });
-  await rename(temp, path);
-}
-
 export class DesignEvaluationService {
   constructor(
     queue,
@@ -224,6 +220,9 @@ export class DesignEvaluationService {
   ) {
     this.queue = queue;
     this.root = queue.root;
+    this.store = queue.store ?? new RecordStore(this.root);
+    this.recordKind = 'design';
+    this.executionSlot = executionSlotFor(queue);
     this.spawnProcess = spawnProcess;
     this.timeoutMs = timeoutMs;
     this.contextOverride = context;
@@ -232,93 +231,11 @@ export class DesignEvaluationService {
     this.active = null;
     this.submitting = false;
     this.disposed = false;
-    this.python = existsSync(
-      nativePythonPath(this.root),
-    )
-      ? nativePythonPath(this.root)
-      : queue.python;
+    this.python = (queue.runtime ?? runtimeConfig({ repositoryRoot: this.root, python: queue.python })).nativePython;
   }
   async context(request) {
     if (this.contextOverride) return this.contextOverride(request);
-    const pointerFile = 'results/v2/current_multiregion_bank.json';
-    const p = JSON.parse(await readFile(join(this.root, pointerFile), 'utf8'));
-    const admissionFile = 'results/v2/current_surface_admissibility.json';
-    const admission = JSON.parse(await readFile(join(this.root, admissionFile), 'utf8'));
-    const config = JSON.parse(
-      await readFile(
-        join(this.root, 'configs/ernie_fem_point_pilot.json'),
-        'utf8',
-      ),
-    );
-    const files = [
-      ...DESIGN_WORKFLOW,
-      pointerFile,
-      p.path,
-      p.candidates,
-      p.report,
-      admissionFile, admission.path, 'src/compact_eeg/surface_admissibility.py',
-      'scripts/design_evaluation.py',
-      'scripts/inspect_ernie_cortical_forward.py',
-      'src/compact_eeg/cortical_fem.py',
-      'src/compact_eeg/layout_search_metrics.py',
-      'src/compact_eeg/metrics.py',
-      'src/compact_eeg/prototype_localization.py',
-      'src/compact_eeg/inverse_pilot.py',
-      'configs/ernie_fem_point_pilot.json',
-      config.mesh_path,
-      config.external_node_mapping_path,
-    ];
-    const manifestPath = join(
-      dirname(dirname(dirname(p.path))),
-      'run_manifest.json',
-    );
-    const manifest = JSON.parse(
-      await readFile(join(this.root, manifestPath), 'utf8'),
-    );
-    const scalp = dirname(config.external_node_mapping_path);
-    files.push(
-      manifestPath,
-      manifest.source_inputs,
-      join(scalp, 'external_scalp_vertices_m.npy'),
-      join(scalp, 'external_scalp_triangles.npy'),
-    );
-    const runtimeRoot = NATIVE_RUNTIME_RELATIVE;
-    if (this.python === join(this.root, runtimeRoot, 'bin/python')) {
-      files.push(relative(this.root, this.python));
-      const metadata = join(runtimeRoot, 'conda-meta');
-      for (const name of (await readdir(join(this.root, metadata)))
-        .filter((n) => n.endsWith('.json'))
-        .sort())
-        files.push(join(metadata, name));
-      const site = join(runtimeRoot, 'lib/python3.11/site-packages');
-      for (const name of (await readdir(join(this.root, site)))
-        .filter((n) => /^(simnibs|cortech|numpy|scipy)-.*\.dist-info$/.test(n))
-        .sort())
-        files.push(join(site, name, 'METADATA'));
-      files.push(
-        join(site, 'simnibs/simulation/fem.py'),
-        join(site, 'simnibs/mesh_tools/mesh_io.py'),
-      );
-    }
-    const digests = Object.fromEntries(
-      await Promise.all(
-        files.map(async (p) => [p, await this.inputs.digest(p)]),
-      ),
-    );
-    if (digests[p.path] !== p.sha256) throw new Error('前向库身份不匹配');
-    const report = JSON.parse(
-      await readFile(join(this.root, p.report), 'utf8'),
-    );
-    if (digests[p.candidates] !== report.candidate_sha256)
-      throw new Error('候选坐标身份不匹配');
-    if (digests[admission.path] !== admission.sha256 || admission.geometry_sha256 !== report.candidate_sha256) throw new Error('外部表面筛选文件身份不匹配');
-    const identity = {
-      schema: 'design-evaluation-cache/1',
-      digests,
-      python: this.python,
-      threads: 1,
-    };
-    return { identity, admission, key: hash({ request, identity }) };
+    return scientificContext(this, request);
   }
   view(j) {
     return {
@@ -344,9 +261,9 @@ export class DesignEvaluationService {
   workerInput(j) { return j.request; }
   async lookup(raw, context) {
     const request = this.normalize(raw), ctx = context ?? await this.context(request);
-    const directory = join(this.root, this.directoryName || 'results/v2/design_evaluation_jobs', ctx.key);
+    const directory = this.store.path(this.recordKind, ctx.key);
     try {
-      const cache = JSON.parse(await readFile(join(directory, 'cache.json'), 'utf8'));
+      const cache = await this.store.read(join(directory, 'cache.json'));
       if (cache.key !== ctx.key || hash(cache.result) !== cache.result_sha256) return { hit: false };
       this.validate(cache.result, request, ctx.admission);
       return { hit: true, job: this.view({ id: randomUUID(), key: ctx.key, request, ctx,
@@ -362,18 +279,13 @@ export class DesignEvaluationService {
     if (this.submitting)
       return { busy: true, error: '正在处理另一项设计评价请求' };
     this.submitting = true;
+    let release;
     try {
       const ctx = await this.context(request);
       if (this.disposed) throw new Error('本地服务正在重启');
-      const directory = join(
-        this.root,
-        this.directoryName || 'results/v2/design_evaluation_jobs',
-        ctx.key,
-      );
+      const directory = this.store.path(this.recordKind, ctx.key);
       try {
-        const cache = JSON.parse(
-          await readFile(join(directory, 'cache.json'), 'utf8'),
-        );
+        const cache = await this.store.read(join(directory, 'cache.json'));
         if (
           cache.key === ctx.key &&
           hash(cache.result) === cache.result_sha256
@@ -396,28 +308,18 @@ export class DesignEvaluationService {
       }
       if (this.disposed) throw new Error('本地服务正在重启');
       if (this.active?.key === ctx.key) return { job: this.view(this.active) };
-      if (
-        this.active ||
-        this.queue.active ||
-        this.queue.submitting ||
-        this.queue.sources?.active ||
-        this.queue.sources?.submitting ||
-        (this.queue.editor !== this && (this.queue.editor?.active || this.queue.editor?.submitting)) ||
-        (this.queue.designTests !== this && (this.queue.designTests?.active || this.queue.designTests?.submitting))
-      )
-        return {
-          busy: true,
-          error: '本机已有计算任务；完成后可提交。已有缓存仍可读取。',
-        };
+      release = this.executionSlot.acquire(this);
+      if (!release) return { busy: true, maintenance: this.executionSlot.paused };
       const id = randomUUID(),
-        batch = join(directory, id);
-      await mkdir(batch, { recursive: true });
-      await atomic(join(batch, 'request.json'), {
+        batch = await this.store.createBatch(this.recordKind, ctx.key, id);
+      await this.store.write(join(batch, 'request.json'), {
         request,
         identity: ctx.identity,
       });
       if (this.disposed) throw new Error('本地服务正在重启');
+      if (this.executionSlot.paused) return { busy: true, maintenance: true };
       const j = {
+        releaseExecution: release,
         id,
         key: ctx.key,
         request,
@@ -431,87 +333,45 @@ export class DesignEvaluationService {
         result: null,
       };
       this.active = j;
+      release = null;
       this.remember(j);
       this.run(j);
       return { job: this.view(j) };
     } finally {
+      release?.();
       this.submitting = false;
     }
   }
   run(j) {
-    if (this.disposed) {
-      void this.finish(j, 'cancelled', '服务重启，任务未启动');
-      return;
-    }
+    if (this.disposed) { void this.finish(j, 'cancelled', '服务重启，任务未启动'); return; }
     try {
-      j.child = this.spawnProcess(
-        this.python,
-        ['-u', join(this.root, this.scriptName || 'scripts/design_evaluation.py')],
-        {
-          cwd: this.root,
-          shell: false,
-          stdio: ['pipe', 'pipe', 'pipe'],
-          env: {
-            ...process.env,
-            OMP_NUM_THREADS: '1',
-            OPENBLAS_NUM_THREADS: '1',
-            MKL_NUM_THREADS: '1',
-            VECLIB_MAXIMUM_THREADS: '1',
-            PYTHONDONTWRITEBYTECODE: '1',
-          },
-        },
-      );
-    } catch (e) {
-      void this.finish(j, 'failed', e.message);
-      return;
-    }
-    let buffer = '',
-      bytes = 0;
-    j.timer = setTimeout(() => this.cancel(j.id, 'timeout'), this.timeoutMs);
-    j.child.stdout.on('data', (c) => {
-      bytes += c.length;
-      if (bytes > 4 * 1024 * 1024) {
-        this.cancel(j.id, 'output_limit');
-        return;
-      }
-      buffer += c.toString();
-      const lines = buffer.split('\n');
-      buffer = lines.pop();
-      for (const line of lines)
-        try {
-          const e = JSON.parse(line);
-          if (e.type === 'progress' && !j.cancelReason) {
-            j.progress = Math.max(
-              j.progress,
-              Math.min(0.99, Number(e.progress) || 0),
-            );
-            j.message = String(e.message);
+      j.worker = startPythonWorker({
+        spawnProcess: this.spawnProcess, executable: this.python,
+        args: ['-u', join(this.root, this.scriptName || 'scripts/design_evaluation.py')],
+        options: { cwd: this.root, stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env,
+          OMP_NUM_THREADS: '1', OPENBLAS_NUM_THREADS: '1', MKL_NUM_THREADS: '1', VECLIB_MAXIMUM_THREADS: '1', PYTHONDONTWRITEBYTECODE: '1' } },
+        input: this.workerInput(j), timeoutMs: this.timeoutMs, maxOutputBytes: 4 * 1024 * 1024,
+        onEvent: event => {
+          if (event.type === 'progress' && !j.cancelReason) {
+            j.progress = Math.max(j.progress, Math.min(.99, Number(event.progress) || 0));
+            j.message = String(event.message);
           }
-          if (e.type === 'result') j.terminal = e.result;
-          if (e.type === 'error') j.workerError = String(e.message);
-        } catch {
-          /* Native solver logs are not result data. */
-        }
-    });
-    j.child.stderr.on('data', (c) => {
-      j.stderr = (j.stderr + c).slice(-16000);
-    });
-    j.child.stdin.on('error', () => {});
-    j.child.on('error', (e) => {
-      j.workerError = e.message;
-    });
-    j.child.once('close', (code) => {
-      void this.close(j, code);
-    });
-    j.child.stdin.end(JSON.stringify(this.workerInput(j)));
+          if (event.type === 'result') j.terminal = event.result;
+          if (event.type === 'error') j.workerError = String(event.message);
+        },
+        onStderr: text => { j.stderr = text; },
+        onError: error => { j.workerError = error.message; },
+        onStop: reason => { j.cancelReason = reason; j.status = 'cancelling'; j.message = '正在停止计算'; },
+        onClose: code => { void this.close(j, code); },
+      });
+      j.child = j.worker.child;
+    } catch (error) { void this.finish(j, 'failed', error.message); }
   }
   async close(j, code) {
-    clearTimeout(j.timer);
-    clearTimeout(j.killTimer);
     if (j.cancelReason)
       return this.finish(
         j,
-        j.cancelReason === 'timeout' ? 'timeout' : 'cancelled',
+        j.cancelReason === 'timeout' ? 'timeout' : j.cancelReason === 'input_error' ? 'failed' : 'cancelled',
         j.cancelReason === 'timeout'
           ? `达到${Math.round(this.timeoutMs / 60000)}分钟计算时限，未保存未完成结果`
           : '计算已停止',
@@ -539,7 +399,7 @@ export class DesignEvaluationService {
     try {
       if (status === 'completed') {
         j.progress = 1;
-        await atomic(join(j.directory, 'cache.json'), {
+        await this.store.write(join(j.directory, 'cache.json'), {
           key: j.key,
           identity: j.ctx.identity,
           result: j.result,
@@ -547,7 +407,7 @@ export class DesignEvaluationService {
           finished_at: new Date().toISOString(),
         });
       }
-      await atomic(join(j.batch, 'job.json'), {
+      await this.store.write(join(j.batch, 'job.json'), {
         ...this.view(j),
         stderr: j.stderr,
       });
@@ -557,17 +417,14 @@ export class DesignEvaluationService {
       j.message = '结果保存失败：' + e.message;
     } finally {
       if (this.active === j) this.active = null;
+      j.releaseExecution?.(); j.releaseExecution = null;
     }
   }
   cancel(id, reason = 'user') {
     const j = this.jobs.get(id);
     if (!j || !['running', 'cancelling'].includes(j.status)) return;
     if (j.cancelReason) return;
-    j.cancelReason = reason;
-    j.status = 'cancelling';
-    j.message = '正在停止计算';
-    j.child?.kill('SIGTERM');
-    j.killTimer = setTimeout(() => j.child?.kill('SIGKILL'), 2000);
+    j.worker?.stop(reason);
   }
   dispose() {
     this.disposed = true;

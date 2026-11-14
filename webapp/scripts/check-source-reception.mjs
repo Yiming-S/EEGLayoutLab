@@ -213,9 +213,9 @@ void test('cache miss is read-only; source and radius computations share capacit
   const f = await fixture();
   assert.equal((await f.source.lookup(req)).hit, false);
   assert.equal(f.children.length, 0);
-  f.queue.active = { id: 'radius' };
+  const releaseRadius = f.queue.executionSlot.acquire('radius');
   assert.equal((await f.source.submit(req)).busy, true);
-  f.queue.active = null;
+  releaseRadius();
   const j = await f.source.submit(req);
   assert.equal(f.children.length, 1);
   assert.equal((await f.source.submit(req)).job.id, j.job.id);

@@ -36,6 +36,7 @@ export default async function RootLayout({
   const locale = await localeForRequest();
   return (
     <html lang={locale}>
+      <head><link rel="icon" type="image/svg+xml" href="/favicon.svg" /></head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Cpu, LoaderCircle, Play, Square, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { ApiError, apiJson, followTask, submitTask, cancelTask, type TaskConnection } from '@/client/task-client';
 import { MANUAL_COMPUTE_DEFAULT } from '@/lib/lab-workflow';
 import { currentAR, displayJob, jobRunning, matchingResult, requestKey,
   type ComputeHealth, type ComputeJob, type ComputeRequest, type ComputeResult } from '@/lib/local-compute';
@@ -21,6 +22,8 @@ export function LocalComputePanel({ request, arPercent, onResult, onStatus, comp
   const { tx } = useLanguage();
   const [health, setHealth] = useState<ComputeHealth | null>(null);
   const [connection, setConnection] = useState<'checking' | 'ready' | 'unavailable'>('checking');
+  const [taskConnection, setTaskConnection] = useState<TaskConnection>('connected');
+  const [pollRevision, setPollRevision] = useState(0);
   const [job, setJob] = useState<ComputeJob | null>(null);
   const [storedJob, setStoredJob] = useState<ComputeJob | null>(null);
   const [automatic, setAutomatic] = useState(MANUAL_COMPUTE_DEFAULT);
@@ -32,8 +35,10 @@ export function LocalComputePanel({ request, arPercent, onResult, onStatus, comp
   const latestKey = useRef(currentKey);
   useEffect(() => { latestKey.current = currentKey; }, [currentKey]);
   const mounted = useRef(true);
-  const busy = jobRunning(job);
+  const busy = jobRunning(job) && taskConnection !== 'blocked';
   const jobId = job?.id;
+  const jobSnapshot = useRef(job);
+  useEffect(() => { jobSnapshot.current = job; }, [job]);
   const error = errorState.key === currentKey ? errorState.message : '';
   const setError = useCallback((message: string) => setErrorState({ key: latestKey.current, message }), []);
   const shownJob = displayJob(job, storedJob, request);
@@ -47,8 +52,9 @@ export function LocalComputePanel({ request, arPercent, onResult, onStatus, comp
       const data = await response.json() as ComputeHealth;
       if (!mounted.current) return;
       setHealth(data); setConnection(data.available ? 'ready' : 'unavailable');
-      setJob((previous) => data.active_job ?? (jobRunning(previous)
-        ? { ...previous!, status: 'failed', message: '本地任务已结束或服务重启，可重新提交' } : previous));
+      setJob((previous) => data.active_job ?? previous);
+      setTaskConnection('connected');
+      setPollRevision(value => value + 1);
     }).catch(() => { if (mounted.current) { setHealth(null); setConnection('unavailable'); } });
   }, []);
 
@@ -63,10 +69,11 @@ export function LocalComputePanel({ request, arPercent, onResult, onStatus, comp
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
-        const response = await fetch('/api/local-compute/lookup', { method: 'POST', signal: controller.signal,
-          headers: { 'Content-Type': 'application/json', 'X-EEG-Compute-Token': health.token }, body: currentKey });
-        const data = await response.json() as { hit: boolean; job?: ComputeJob; error?: string };
-        if (!response.ok) throw new Error(data.error || '无法读取本地记录');
+        const data = await apiJson<{ hit: boolean; job?: ComputeJob }>('/api/local-compute/lookup', {
+          method: 'POST', signal: controller.signal, token: health.token,
+          headers: { 'Content-Type': 'application/json' }, body: currentKey,
+          errorMessage: '无法读取本地记录',
+        });
         if (controller.signal.aborted) return;
         if (data.hit && data.job) setStoredJob(data.job);
         setLookup({ key: currentKey, state: data.hit ? 'hit' : 'miss' });
@@ -81,41 +88,41 @@ export function LocalComputePanel({ request, arPercent, onResult, onStatus, comp
   }, [currentKey, health, connection, unsupported, setError]);
 
   useEffect(() => {
-    if (!busy || !jobId) return;
+    const initial = jobSnapshot.current;
+    if (!initial || !jobRunning(initial) || !jobId) return;
     const controller = new AbortController();
-    let timer: ReturnType<typeof setTimeout>;
-    const poll = async () => {
-      try {
-        const response = await fetch(`/api/local-compute/jobs/${jobId}`, { signal: controller.signal, cache: 'no-store' });
-        if (!response.ok) throw new Error('任务连接中断，请检查本地服务后重新连接');
-        const data = await response.json() as { job: ComputeJob };
-        if (!controller.signal.aborted) {
-          setJob(data.job);
-          if (jobRunning(data.job)) timer = setTimeout(poll, 800);
-        }
-      } catch (reason) {
-        if (!controller.signal.aborted) { setError(reason instanceof Error ? reason.message : '无法读取计算进度'); setConnection('unavailable'); }
-      }
-    };
-    timer = setTimeout(poll, 300);
-    return () => { controller.abort(); clearTimeout(timer); };
-  }, [jobId, busy, setError]);
+    void followTask({
+      service: 'local-compute', initial, signal: controller.signal,
+      onJob(value) { setJob(current => current?.id === jobId ? value : current); },
+      onConnection(state, failure) {
+        setTaskConnection(state);
+        setError(failure?.message ?? '');
+        if (state === 'blocked') setConnection('unavailable');
+      },
+    }).catch(() => { /* The server status remains the last confirmed status. */ });
+    return () => controller.abort();
+  }, [jobId, job?.status, pollRevision, setError]);
 
   const submit = useCallback(async () => {
     if (!health || connection !== 'ready' || submitting || busy || unsupported) return;
     const submittedKey = requestKey(request);
     setSubmitting(true); setError('');
     try {
-      const response = await fetch('/api/local-compute/jobs', { method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-EEG-Compute-Token': health.token },
-        body: submittedKey });
-      const data = await response.json() as { job?: ComputeJob; active_job?: ComputeJob; error?: string; busy?: boolean };
+      const data = await submitTask<{ job?: ComputeJob }>('local-compute', submittedKey, {
+        errorMessage: '计算服务忙，请稍后再试',
+      });
       if (!mounted.current) return;
-      if (response.status === 409 && data.active_job) { setJob(data.active_job); return; }
-      if (!response.ok || !data.job) throw new Error(data.error || '计算服务忙，请稍后再试');
+      if (!data.job) throw new Error('计算服务忙，请稍后再试');
+      setTaskConnection('connected');
       // Track even an old in-flight submission; matchingResult prevents stale scores/coordinates.
       setJob(data.job);
-    } catch (reason) { if (mounted.current) setError(reason instanceof Error ? reason.message : '无法启动计算'); }
+    } catch (reason) {
+      if (!mounted.current) return;
+      if (reason instanceof ApiError && reason.status === 409 && reason.data?.active_job) {
+        setTaskConnection('connected'); setJob(reason.data.active_job as ComputeJob); return;
+      }
+      setError(reason instanceof Error ? reason.message : '无法启动计算');
+    }
     finally { if (mounted.current) setSubmitting(false); }
   }, [health, connection, submitting, busy, unsupported, request, setError]);
 
@@ -138,11 +145,9 @@ export function LocalComputePanel({ request, arPercent, onResult, onStatus, comp
     if (!health || !job) return;
     setAutomatic(false);
     try {
-      const response = await fetch(`/api/local-compute/jobs/${job.id}/cancel`, { method: 'POST',
-        headers: { 'X-EEG-Compute-Token': health.token } });
-      const data = await response.json() as { job?: ComputeJob; error?: string };
-      if (!response.ok || !data.job) throw new Error(data.error || '无法停止任务');
-      setJob(data.job);
+      const id = job.id;
+      const data = await cancelTask<{ job: ComputeJob }>('local-compute', id, { errorMessage: '无法停止任务' });
+      if (mounted.current) setJob(current => current?.id === id ? data.job : current);
     } catch (reason) { setError(reason instanceof Error ? reason.message : '无法停止任务'); }
   };
   const pass = currentAR(result?.metrics?.conditional_global, arPercent);

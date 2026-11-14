@@ -352,3 +352,233 @@ def test_native_runtime_missing_dependencies_fail_closed(frozen, part, match):
     frozen["runtime_files"][part].unlink()
     with pytest.raises(ValueError, match=match):
         provider.load_reception_forward(frozen["root"], completed_design(frozen))
+
+
+def shared_fields(frozen):
+    record = completed_design(frozen)
+    xyz = np.asarray(record["layout"]["xyzMm"])
+    _, native = fake_native(frozen, shift=1e-14)
+    h, evaluated, _, qa = native(frozen["root"], xyz, None)
+    with provider.design_forward_session(frozen["root"], xyz + [0, .1, 0]) as publish:
+        publish(xyz, h, evaluated, qa)
+    return record, h, evaluated
+
+
+def test_design_prepared_fields_are_read_without_native_solve_or_fabricated_receipt(frozen, monkeypatch):
+    record, h, evaluated = shared_fields(frozen)
+    monkeypatch.setattr(provider, "_run_native", lambda *a: pytest.fail("duplicate native solve"))
+    inputs, provenance = provider.load_reception_forward(frozen["root"], record)
+    assert provenance["forward_mode"] == "native_fem_cache"
+    assert provenance["fem_recomputed"] is False
+    assert provenance["shared_forward_producer"] == "design_evaluation"
+    assert "/shared_fields/" in provenance["forward_cache_path"]
+    assert "native_origin_record" not in provenance
+    assert inputs["candidate_h"].tobytes() == h.tobytes()
+    assert inputs["baseline_h"].tobytes() == frozen["hb"].tobytes()
+    assert np.asarray(provenance["evaluated_candidate_xyz_mm"]).tobytes() == evaluated.tobytes()
+    assert "not exposed or archived" in provenance["reference_field_origin"]
+    manifest = json.loads((frozen["root"] / provenance["forward_manifest_path"]).read_text())
+    assert manifest["schema"] == provider.shared_native_forward.SCHEMA
+    assert "origin_record" not in manifest
+    record["provenance"]["design_result"]["sha256"] = "0" * 64
+    with pytest.raises(ValueError, match="Design result"):
+        provider.load_reception_forward(frozen["root"], record)
+
+
+@pytest.mark.parametrize("file,match", [("fields.npz", "payload hash"), ("manifest.json", "manifest hash")])
+def test_shared_corruption_never_triggers_silent_recalculation(frozen, monkeypatch, file, match):
+    record, _, _ = shared_fields(frozen)
+    _, provenance = provider.load_reception_forward(frozen["root"], record)
+    path = (frozen["root"] / provenance["forward_manifest_path"]).parent / file
+    path.write_bytes(path.read_bytes() + b"corrupted")
+    monkeypatch.setattr(provider, "_run_native", lambda *a: pytest.fail("recomputed corruption"))
+    with pytest.raises(ValueError, match=match):
+        provider.load_reception_forward(frozen["root"], record, allow_native=True)
+
+
+@pytest.mark.parametrize("change", ["runtime", "code", "admission"])
+def test_shared_artifact_is_invalidated_by_current_identity(frozen, change):
+    record, _, _ = shared_fields(frozen)
+    if change == "runtime":
+        path = frozen["runtime_files"]["solver"]
+        path.write_bytes(path.read_bytes() + b"updated solver")
+    elif change == "code":
+        path = frozen["root"] / "src/compact_eeg/workflows/shared_native_forward.py"
+        path.write_bytes(path.read_bytes() + b"\n# updated implementation")
+    else:
+        pointer = json.loads(frozen["admission_pointer"].read_text())
+        pointer["schema_version"] += "/next"
+        write_json(frozen["admission_pointer"], pointer)
+    with pytest.raises(provider.ForwardComputationRequired):
+        provider.load_reception_forward(frozen["root"], record)
+
+
+def test_shared_input_coordinates_must_match_every_bit(frozen):
+    record, _, _ = shared_fields(frozen)
+    record["layout"]["xyzMm"][0][0] += 1e-12
+    path = frozen["root"] / record["provenance"]["design_result"]["path"]
+    saved = json.loads(path.read_text())
+    saved["result"]["evaluated_xyz_mm"] = record["layout"]["xyzMm"]
+    write_json(path, saved)
+    record["provenance"]["design_result"]["sha256"] = provider.sha256_file(path)
+    with pytest.raises(provider.ForwardComputationRequired):
+        provider.load_reception_forward(frozen["root"], record)
+
+
+def test_design_and_reception_share_the_global_native_lock(frozen):
+    record = completed_design(frozen)
+    with provider.design_forward_session(frozen["root"], record["layout"]["xyzMm"]):
+        with pytest.raises(ValueError, match="Another native"):
+            provider.load_reception_forward(frozen["root"], record, allow_native=True)
+
+
+def test_changes_during_design_cannot_publish_shared_fields(frozen):
+    record = completed_design(frozen)
+    xyz = np.asarray(record["layout"]["xyzMm"])
+    _, native = fake_native(frozen)
+    h, evaluated, _, qa = native(frozen["root"], xyz, None)
+    with pytest.raises(provider.shared_native_forward.IdentityChanged):
+        with provider.design_forward_session(frozen["root"], xyz) as publish:
+            path = frozen["runtime_files"]["solver"]
+            path.write_bytes(path.read_bytes() + b"updated during solve")
+            with pytest.raises(provider.shared_native_forward.IdentityChanged, match="changed during shared"):
+                publish(xyz, h, evaluated, qa)
+    assert not (frozen["root"] / provider.shared_native_forward.RELATIVE_ROOT).exists()
+
+
+def test_interrupted_shared_publication_never_leaves_a_cache_hit(frozen, monkeypatch):
+    def interrupted(*args):
+        raise OSError("interrupted before publication")
+    monkeypatch.setattr(provider.shared_native_forward.os, "rename", interrupted)
+    with pytest.raises(OSError, match="interrupted"):
+        shared_fields(frozen)
+    cache = frozen["root"] / provider.shared_native_forward.RELATIVE_ROOT
+    assert not list(cache.iterdir())
+
+
+def test_repeated_shared_publication_preserves_archive_bytes(frozen):
+    record, _, _ = shared_fields(frozen)
+    _, first = provider.load_reception_forward(frozen["root"], record)
+    path = frozen["root"] / first["forward_manifest_path"]
+    before = path.read_bytes()
+    shared_fields(frozen)
+    assert path.read_bytes() == before
+
+
+def test_different_field_for_same_shared_identity_is_rejected(frozen):
+    record, h, evaluated = shared_fields(frozen)
+    xyz = np.asarray(record["layout"]["xyzMm"])
+    _, native = fake_native(frozen)
+    _, _, _, qa = native(frozen["root"], xyz, None)
+    with provider.design_forward_session(frozen["root"], xyz) as publish:
+        h[0, 0] += 1e-12
+        with pytest.raises(ValueError, match="different numerical bytes"):
+            publish(xyz, h, evaluated, qa)
+
+
+@pytest.mark.parametrize("preparation_failure", [None, "projection", "solve", "io", "identity", "corruption", "cancel"])
+def test_design_preparation_retains_both_original_projection_paths(frozen, monkeypatch, preparation_failure):
+    """Two fresh legacy calls must equal one prepared design call, including ULP shifts."""
+    from types import SimpleNamespace
+    from compact_eeg import cortical_fem
+    from compact_eeg.workflows import design_evaluation, head_model
+    data = {"reference_xyz_mm": frozen["ref"], "reference_leadfield_v_per_am": frozen["hb"],
+        "_surface_faces": np.array([[0, 1, 2]]), "_surface_vertices_mm": frozen["xyz"],
+        "_eligible_surface": np.ones(80, dtype=bool)}
+    with np.load(frozen["source_path"]) as source:
+        data.update({name: source[name] for name in ("source_xyz_mm", "generation_xyz_mm")})
+    class Surface:
+        def __init__(self, *args): pass
+        def project_points(self, points, **kwargs):
+            points = np.asarray(points)
+            return (np.zeros(len(points), dtype=int), np.zeros((len(points), 3)),
+                    points + [0, 0, 1e-14], None)
+    monkeypatch.setitem(sys.modules, "cortech", SimpleNamespace(Surface=Surface))
+    monkeypatch.setattr(head_model, "load_head", lambda root: (None, None, frozen["xyz"],
+        data["_surface_faces"], None, frozen["head"]))
+    models = []
+    class Model:
+        def __init__(self, *args, progress):
+            self.progress = progress
+            self.timings = {"source_operator_seconds": 1., "factorization_seconds": 1.}
+            self.source_qa = {"fallback_distance_mm": {"maximum": 0.},
+                "interpolation_row_sum_max_error": 0., "normal_operator_constant_field_max_abs": 0.,
+                "official_operator_sample_check": {"relative_frobenius_difference": 0.}}
+            tags = np.ones(4352, dtype=int)
+            tags[[698, 957, 1559, 3408]] = -1
+            self.source_qa_arrays = {"containing_tissue_tag_or_minus_one": tags}
+            self.calls = 0
+            self.projections = 0
+            models.append(self)
+        def project(self, points):
+            self.projections += 1
+            if self.projections == 2 and preparation_failure == "projection":
+                raise ValueError("Synthetic optional projection failure")
+            points = np.asarray(points)
+            projected = points + [0, 0, 2e-14]
+            return SimpleNamespace(requested_mm=points, projected_mm=projected,
+                triangle_ids=np.zeros(len(points), dtype=int), node_rows=np.zeros((len(points), 3), dtype=int),
+                barycentric_weights=projected.copy(), distances_mm=np.linalg.norm(projected - points, axis=1))
+        def evaluate(self, projection, **kwargs):
+            if self.calls == 1 and preparation_failure == "solve":
+                raise ValueError("Synthetic optional solve QA failure")
+            if self.calls == 1 and preparation_failure == "cancel":
+                raise KeyboardInterrupt("Synthetic cancellation")
+            self.calls += 1
+            self.progress('cortical_fem_electrode_block_complete', completed_electrodes=128, total_electrodes=128)
+            h = np.vstack([frozen["hb"], np.repeat(projection.projected_mm[64:, 2, None] * 1e6, 4352, axis=1)])
+            return h, {"max_relative_full_system_residual": 0., "max_relative_free_dof_residual": 0.,
+                "point_transfer_reciprocity_relative_frobenius": 0.,
+                "net_prescribed_current_A_per_electrode": [0.],
+                "net_assembled_current_A_per_electrode": [0.],
+                "reaction_current_relative_error_per_electrode": [0.]}
+    monkeypatch.setattr(cortical_fem, "FixedMeshLeadfield", Model)
+    pointer = json.loads(frozen["pointer_path"].read_text())
+    report = json.loads(frozen["report_path"].read_text())
+    xyz = frozen["xyz"][:64]
+    legacy_design = design_evaluation.native_field(frozen["root"], xyz, data, pointer, report, lambda *a: None)
+    legacy_signal = design_evaluation.native_field(frozen["root"], legacy_design[1], data, pointer, report, lambda *a: None)
+    assert legacy_design[0].tobytes() != legacy_signal[0].tobytes()
+    stored, progress = [], []
+    def publish(*args):
+        if preparation_failure == "io":
+            raise OSError("Synthetic cache disk failure")
+        if preparation_failure == "identity":
+            raise provider.shared_native_forward.IdentityChanged("Synthetic runtime changed")
+        if preparation_failure == "corruption":
+            raise provider.shared_native_forward.IntegrityError("Synthetic corrupt shared artifact")
+        stored.append(args)
+    def compute():
+        return design_evaluation.native_field(frozen["root"], xyz, data, pointer, report,
+            lambda value, _: progress.append(value), reception_publisher=publish)
+    if preparation_failure in ("identity", "corruption", "cancel"):
+        error_type = {"identity": provider.shared_native_forward.IdentityChanged,
+            "corruption": provider.shared_native_forward.IntegrityError,
+            "cancel": KeyboardInterrupt}[preparation_failure]
+        with pytest.raises(error_type):
+            compute()
+        return
+    optimized = compute()
+    if preparation_failure is not None:
+        assert optimized[0].tobytes() == legacy_design[0].tobytes()
+        assert optimized[1].tobytes() == legacy_design[1].tobytes()
+        assert optimized[3]["reception_preparation"]["status"] == "unavailable"
+        assert stored == []
+        return
+    assert len(models) == 3 and models[-1].calls == 2
+    for old, new in zip(legacy_design[:2], optimized[:2]):
+        assert old.tobytes() == new.tobytes()
+    signal_xyz, signal_h, evaluated, qa = stored[0]
+    assert signal_xyz.tobytes() == legacy_design[1].tobytes()
+    assert signal_h.tobytes() == legacy_signal[0].tobytes()
+    assert evaluated.tobytes() == legacy_signal[1].tobytes()
+    assert qa == legacy_signal[3]
+    assert progress == sorted(progress)
+
+
+def test_design_session_always_rechecks_identity_when_no_artifact_was_prepared(frozen):
+    record = completed_design(frozen)
+    with pytest.raises(provider.shared_native_forward.IdentityChanged):
+        with provider.design_forward_session(frozen["root"], record["layout"]["xyzMm"]):
+            path = frozen["runtime_files"]["solver"]
+            path.write_bytes(path.read_bytes() + b"changed during optional preparation failure")

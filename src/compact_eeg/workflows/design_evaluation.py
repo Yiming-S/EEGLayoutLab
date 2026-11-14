@@ -114,7 +114,7 @@ def load_bank(root):
     return data, p, report
 
 
-def native_field(root, points, data, pointer, bank_report, progress):
+def native_field(root, points, data, pointer, bank_report, progress, *, reception_publisher=None):
     """Direct FEM for all requested points, no montage interpolation."""
     import cortech
     from compact_eeg.cortical_fem import FixedMeshLeadfield
@@ -126,15 +126,18 @@ def native_field(root, points, data, pointer, bank_report, progress):
     mesh, cond, vertices, faces, mapping, head_hashes = load_head(root)
     if not np.array_equal(faces, data['_surface_faces']) or not np.allclose(vertices, data['_surface_vertices_mm'], rtol=0, atol=1e-9):
         raise ValueError('Native and screened surface indexing differ')
-    projection_surface = cortech.Surface(vertices, faces)
-    triangles, weights, projected, _ = projection_surface.project_points(points, pttris=20)
-    if not np.all(data['_eligible_surface'][faces[triangles]]):
-        raise ValueError('坐标投影位于外部曝光筛选未通过的面片；请修改该电极位置后重新评价。')
-    distances = np.linalg.norm(points - projected, axis=1)
-    if distances.max() > 2:
-        raise ValueError(f'坐标距Ernie表面最大{distances.max():.2f} mm，超过2 mm。请先完成配准。')
-    if pdist(projected).min() < 4 - 1e-7:
-        raise ValueError('表面投影后的电极点距小于4 mm。')
+    def project_candidate(requested):
+        projection_surface = cortech.Surface(vertices, faces)
+        triangles, weights, projected, _ = projection_surface.project_points(requested, pttris=20)
+        if not np.all(data['_eligible_surface'][faces[triangles]]):
+            raise ValueError('坐标投影位于外部曝光筛选未通过的面片；请修改该电极位置后重新评价。')
+        distances = np.linalg.norm(requested - projected, axis=1)
+        if distances.max() > 2:
+            raise ValueError(f'坐标距Ernie表面最大{distances.max():.2f} mm，超过2 mm。请先完成配准。')
+        if pdist(projected).min() < 4 - 1e-7:
+            raise ValueError('表面投影后的电极点距小于4 mm。')
+        return projected
+    projected = project_candidate(points)
     manifest = json.loads((root / pointer['path']).parents[2].joinpath('run_manifest.json').read_text())
     if head_hashes != manifest['identity']['head_hashes']:
         raise ValueError('新位置FEM头模与参照前向库不一致；需先统一头模和参照库。')
@@ -146,9 +149,11 @@ def native_field(root, points, data, pointer, bank_report, progress):
         normals = np.vstack([s['source_normals'], s['generation_normals']])
     if not np.array_equal(sources, np.vstack([data['source_xyz_mm'], data['generation_xyz_mm']])):
         raise ValueError('Native sources and existing bank differ')
+    preparing_reception = False
     def advance(stage, **values):
         if stage == 'cortical_fem_electrode_block_complete':
-            progress(.35 + .45 * values['completed_electrodes'] / values['total_electrodes'], f"新位置FEM：{values['completed_electrodes']}/{values['total_electrodes']}点")
+            start, span = (.81, .02) if preparing_reception else (.35, .45)
+            progress(start + span * values['completed_electrodes'] / values['total_electrodes'], f"新位置FEM：{values['completed_electrodes']}/{values['total_electrodes']}点")
         elif stage == 'cortical_fem_factorization_start':
             progress(.3, '分解头模矩阵；本机单任务、单线程')
     model = FixedMeshLeadfield(mesh, cond, vertices, faces, mapping, sources, normals, progress=advance)
@@ -169,16 +174,53 @@ def native_field(root, points, data, pointer, bank_report, progress):
         if any(p['num_threads'] != 1 for p in native_threads):
             raise ValueError('Native FEM thread limit could not be enforced')
         h, qa = model.evaluate(projection, block_size=4)
-    if qa['max_relative_full_system_residual'] > 1e-7 or qa['max_relative_free_dof_residual'] > 1e-7 or qa['point_transfer_reciprocity_relative_frobenius'] > 1e-8 or not np.all(np.isfinite(h)):
-        raise ValueError('Native FEM residual/reciprocity QA failed')
-    for key in ('net_prescribed_current_A_per_electrode', 'net_assembled_current_A_per_electrode', 'reaction_current_relative_error_per_electrode'):
-        if np.max(np.abs(qa[key])) > 1e-7:
-            raise ValueError('Native FEM current conservation QA failed')
-    reference_difference = float(np.linalg.norm(h[:64] - data['reference_leadfield_v_per_am']) / np.linalg.norm(data['reference_leadfield_v_per_am']))
-    if reference_difference > 1e-8:
-        raise ValueError('新FEM参照场与前向库不一致，需统一计算版本。')
+    def checked_qa(field, solve_qa):
+        if solve_qa['max_relative_full_system_residual'] > 1e-7 or solve_qa['max_relative_free_dof_residual'] > 1e-7 or solve_qa['point_transfer_reciprocity_relative_frobenius'] > 1e-8 or not np.all(np.isfinite(field)):
+            raise ValueError('Native FEM residual/reciprocity QA failed')
+        for key in ('net_prescribed_current_A_per_electrode', 'net_assembled_current_A_per_electrode', 'reaction_current_relative_error_per_electrode'):
+            if np.max(np.abs(solve_qa[key])) > 1e-7:
+                raise ValueError('Native FEM current conservation QA failed')
+        reference_difference = float(np.linalg.norm(field[:64] - data['reference_leadfield_v_per_am']) / np.linalg.norm(data['reference_leadfield_v_per_am']))
+        if reference_difference > 1e-8:
+            raise ValueError('新FEM参照场与前向库不一致，需统一计算版本。')
+        return {'head_hashes': head_hashes, 'reference_relative_difference': reference_difference,
+                'source_qa': q, 'fem_qa': solve_qa, 'timings_seconds': dict(model.timings),
+                'threadpools': native_threads}
+    design_qa = checked_qa(h, qa)
     actual = projection.projected_mm[64:]
-    return h[64:], actual, float(np.linalg.norm(points - actual, axis=1).max()), {'head_hashes': head_hashes, 'reference_relative_difference': reference_difference, 'source_qa': q, 'fem_qa': qa, 'timings_seconds': model.timings, 'threadpools': native_threads}
+    if reception_publisher is not None:
+        from .shared_native_forward import IdentityChanged, IntegrityError
+        try:
+            # Reception historically calls native_field(actual), performing both
+            # projections again. Repeat that exact path: even sub-ULP coordinate
+            # changes must not silently substitute the design's numerical field.
+            progress(.81, '复用已分解的头模，准备信号实验的精确前向场')
+            reception_projection = model.project(np.vstack([data['reference_xyz_mm'], project_candidate(actual)]))
+            if reception_projection.distances_mm.max() > 1e-5:
+                raise ValueError('Native surface re-projection moved fixed reference coordinates')
+            same_sampling = all(
+                getattr(reception_projection, name).dtype == getattr(projection, name).dtype
+                and getattr(reception_projection, name).shape == getattr(projection, name).shape
+                and getattr(reception_projection, name).tobytes() == getattr(projection, name).tobytes()
+                for name in ('requested_mm', 'projected_mm', 'triangle_ids', 'barycentric_weights',
+                             'node_rows', 'distances_mm'))
+            if same_sampling:
+                reception_h, reception_qa = h, design_qa
+            else:
+                preparing_reception = True
+                with threadpool_limits(limits=1):
+                    reception_h, reception_solve_qa = model.evaluate(reception_projection, block_size=4)
+                reception_qa = checked_qa(reception_h, reception_solve_qa)
+            reception_publisher(actual, reception_h[64:], reception_projection.projected_mm[64:], reception_qa)
+        except (IdentityChanged, IntegrityError):
+            raise
+        except Exception as error:
+            # Reception is optional: a second-path numerical or cache-write
+            # failure cannot invalidate the already qualified design field.
+            # Cancellation is a BaseException and still propagates unchanged.
+            design_qa['reception_preparation'] = {'status': 'unavailable',
+                'error_type': type(error).__name__, 'message': str(error)}
+    return h[64:], actual, float(np.linalg.norm(points - actual, axis=1).max()), design_qa
 
 
 def evaluate(raw, root=ROOT, progress=lambda *args: None):
@@ -208,7 +250,10 @@ def evaluate(raw, root=ROOT, progress=lambda *args: None):
         projected = data['reference_xyz_mm']
         projection_max = float(np.linalg.norm(projected - xyz, axis=1).max())
     else:
-        h, projected, projection_max, qa = native_field(root, xyz, data, pointer, bank_report, progress)
+        from .reception_forward_provider import design_forward_session
+        with design_forward_session(root, xyz) as publish:
+            h, projected, projection_max, qa = native_field(root, xyz, data, pointer, bank_report, progress,
+                                                           reception_publisher=publish)
         mode = 'direct_fem'
     engine = LayoutSearchMetrics(h[:, :n], hb[:, :n], weights)
     own = engine.evaluate(np.arange(64), snr_db=(20,))['conditions'][0]

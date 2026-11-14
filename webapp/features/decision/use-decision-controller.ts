@@ -2,7 +2,9 @@
 import { useLanguage } from '@/components/language-provider';
 
 /* oxlint-disable next/no-html-link-for-pages -- preserve established vinext navigation */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+
+import { followTask, submitTask, cancelTask, isTaskRunning, type TaskConnection } from '@/client/task-client';
 
 import { canCompareRecord } from '@/lib/workspace-navigation';
 import { safeReturnHref } from '@/lib/ui-language';
@@ -36,6 +38,14 @@ export function useDecisionController(
   const [thresholds, setThresholds] = useState<DecisionThresholds>(jointDecisionThresholds());
   const [imported, setImported] = useState<ElectrodeDesign | null>(null),
     [importError, setImportError] = useState('');
+  const [pollRevision, setPollRevision] = useState(0);
+  const [connection, setConnection] = useState<TaskConnection>('connected');
+  const alive = useRef(true);
+  const requestController = useRef<AbortController | null>(null);
+  useEffect(() => {
+    alive.current = true;
+    return () => { alive.current = false; requestController.current?.abort(); };
+  }, []);
   const [job, setJob] = useState<DesignJob | null>(null);
   const [busy, setBusy] = useState(false),
     [computeError, setComputeError] = useState(''),
@@ -188,38 +198,27 @@ export function useDecisionController(
   const resultQualification = result
     ? qualification({ metrics: result.nominal }, thresholds)
     : null;
+  const jobSnapshot = useRef(job);
+  useEffect(() => { jobSnapshot.current = job; }, [job]);
   const jobId = job?.id,
     jobStatus = job?.status;
   useEffect(() => {
-    if (!jobId || !jobStatus || !['queued', 'running', 'cancelling'].includes(jobStatus))
-      return;
+    const initial = jobSnapshot.current;
+    if (!initial || !isTaskRunning(initial)) return;
     const controller = new AbortController();
-    const timer = setInterval(() => {
-      fetch('/api/design-evaluation/jobs/' + jobId, {
-        signal: controller.signal,
-      })
-        .then(async (r) => {
-          if (!r.ok)
-            throw new Error('任务连接中断，请读取相同配置的缓存或重试。');
-          const data = (await r.json()) as { job: DesignJob };
-          setJob(data.job);
-        })
-        .catch((e) => {
-          if (!controller.signal.aborted) {
-            setComputeError(e.message);
-            setJob((j) => (j ? { ...j, status: 'connection_lost' } : j));
-          }
-        });
-    }, 1000);
-    return () => {
-      clearInterval(timer);
-      controller.abort();
-    };
-  }, [jobId, jobStatus]);
-  const computing =
-    busy || (!!job && ['queued', 'running', 'cancelling'].includes(job.status));
+    void followTask({
+      service: 'design-evaluation', initial, signal: controller.signal,
+      onJob(value) { setJob((current) => current?.id === jobId ? value : current); },
+      onConnection(state, failure) {
+        setConnection(state);
+        setComputeError(failure?.message ?? '');
+      },
+    }).catch(() => { /* Connection errors are separate from backend task status. */ });
+    return () => controller.abort();
+  }, [jobId, jobStatus, pollRevision]);
+  const computing = busy || (isTaskRunning(job) && connection !== 'blocked');
   async function runEvaluation(action: 'evaluate' | 'perturb') {
-    if (!design) return;
+    if (!design || computing) return;
     const submittedIdentity = JSON.stringify({
       action,
       design,
@@ -230,47 +229,29 @@ export function useDecisionController(
     setBusy(true);
     setComputeError('');
     try {
-      const healthResponse = await fetch('/api/local-compute/health');
-      if (!healthResponse.ok) throw new Error('本地计算服务未连接');
-      const health = (await healthResponse.json()) as { token: string };
-      const response = await fetch('/api/design-evaluation/jobs', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-EEG-Compute-Token': health.token,
-        },
-        body: JSON.stringify({ action, design, radius_mm: radius, seed }),
-      });
-      if (!response.headers.get('content-type')?.includes('application/json'))
-        throw new Error('设计评价接口未加载，请重启本地App后再试。');
-      const data = (await response.json()) as {
-        error?: string;
-        job: DesignJob;
-      };
-      if (!response.ok) throw new Error(data.error ?? '计算未启动');
+      const controller = new AbortController();
+      requestController.current = controller;
+      const data = await submitTask<{ job: DesignJob }>('design-evaluation',
+        { action, design, radius_mm: radius, seed }, { signal: controller.signal, errorMessage: '计算未启动' });
+      if (!alive.current) return;
+      setConnection('connected');
+      setPollRevision(value => value + 1);
       setJobIdentity(submittedIdentity);
       setJob(data.job);
     } catch (e) {
-      setComputeError(e instanceof Error ? e.message : '计算未启动');
+      if (alive.current) setComputeError(e instanceof Error ? e.message : '计算未启动');
     } finally {
-      setBusy(false);
+      if (alive.current) setBusy(false);
     }
   }
   async function cancel() {
     if (!job) return;
     try {
-      const h = (await (await fetch('/api/local-compute/health')).json()) as {
-        token: string;
-      };
-      const r = await fetch(
-        '/api/design-evaluation/jobs/' + job.id + '/cancel',
-        { method: 'POST', headers: { 'X-EEG-Compute-Token': h.token } },
-      );
-      const data = (await r.json()) as { error?: string; job: DesignJob };
-      if (!r.ok) throw new Error(data.error);
-      setJob(data.job);
+      const id = job.id;
+      const data = await cancelTask<{ job: DesignJob }>('design-evaluation', id);
+      if (alive.current) setJob(current => current?.id === id ? data.job : current);
     } catch (e) {
-      setComputeError(e instanceof Error ? e.message : '停止请求失败');
+      if (alive.current) setComputeError(e instanceof Error ? e.message : '停止请求失败');
     }
   }
   const referenceLayout = shown[0]?.layout;
@@ -306,6 +287,7 @@ export function useDecisionController(
     setImportError,
     job,
     computeError,
+    connection,
     testTarget,
     setTestTarget,
     radius,

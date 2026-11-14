@@ -1,12 +1,12 @@
-import type { LayoutOptions } from '@/lib/anatomical-head-scene';
+import type { DomainMode, RecordedLayout } from '../../contracts/layout';
 
 export type ComputeRequest = {
   region_count: number;
   radius_mm: number;
-  mode: 'whole_surface' | 'low_hair' | 'preset';
+  mode: DomainMode;
   mask_codes?: string[];
 };
-export type ComputedLayout = NonNullable<LayoutOptions['recordedLayout']>;
+export type ComputedLayout = RecordedLayout;
 export type ComputeResult = {
   status: 'completed' | 'no_layout';
   request: ComputeRequest;

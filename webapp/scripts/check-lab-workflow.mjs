@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { dataTest } from './test-tiers.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { LocalComputeQueue, MASK_CODES, normalizeRequest } from './local-compute-server.mjs';
@@ -21,7 +22,7 @@ void test('AR query parsing is bounded, includes equality, and does not turn mis
   assert.equal(assessment({ ...m, sensitivity_tail: null }, 50).state, 'undefined');
 });
 
-void test('all 30 actual strict-area records have exactly one entry per domain-area-R and preserved metrics', async () => {
+void dataTest('all 30 actual strict-area records have exactly one entry per domain-area-R and preserved metrics', async () => {
   const queue = new LocalComputeQueue({ repositoryRoot: '..', spawnProcess: () => assert.fail('comparison cannot compute') });
   const data = await queue.library.list();
   const ids = new Set();
@@ -97,7 +98,7 @@ void test('manual is default; exact cached B can display while old A runs, never
 });
 
 void test('editor rejects incompatible region presets and area entry stays read-only by construction', async () => {
-  const source = await readFile('app/design/page.tsx', 'utf8');
+  const source = (await Promise.all(['features/design/design-workspace.tsx', 'features/design/use-design-controller.ts'].map(path => readFile(path, 'utf8')))).join('\n');
   assert.ok(source.includes("setChoiceId('')"));
   assert.ok(source.includes("setEditing(false)"));
   assert.ok(source.includes('editing && request && <LocalComputePanel'));
@@ -107,8 +108,8 @@ void test('editor rejects incompatible region presets and area entry stays read-
   assert.ok(!source.includes('?? domainChoices[1]'));
   const panel = await readFile('components/local-compute-panel.tsx', 'utf8');
   assert.ok(panel.includes('useState(MANUAL_COMPUTE_DEFAULT)'));
-  assert.ok(panel.includes("fetch('/api/local-compute/lookup'"));
-  const home = await readFile('app/page.tsx', 'utf8');
+  assert.match(panel, /await apiJson<.*>\('\/api\/local-compute\/lookup'/);
+  const home = (await Promise.all(['features/overview/overview-workspace.tsx', 'features/overview/use-overview-controller.ts'].map(path => readFile(path, 'utf8')))).join('\n');
   assert.ok(!home.includes('/api/local-compute/jobs'));
 });
 
@@ -166,9 +167,9 @@ void test('retention guide separates model scores, fixed examples, protocols, an
 void test('performance cards link to the guide with the current draft, record, and AR preserved', async () => {
   const card = await readFile('components/performance-summary.tsx', 'utf8');
   assert.ok(card.includes("methodLink(returnHref ?? '/?ar=' + ar, ar, '#retention-guide')"));
-  for (const file of ['app/page.tsx', 'app/design/page.tsx', 'app/library/page.tsx']) {
+  for (const file of ['features/overview/overview-workspace.tsx', 'features/design/design-workspace.tsx', 'features/library/library-workspace.tsx']) {
     const source = await readFile(file, 'utf8');
-    assert.match(source, file === 'app/design/page.tsx' ? /<PerformanceSummary[^>]*returnHref=\{here\}/ : /<SavedLayoutDetails[^>]*returnHref=\{here\}/, file);
+    assert.match(source, file === 'features/design/design-workspace.tsx' ? /<PerformanceSummary[^>]*returnHref=\{here\}/ : /<SavedLayoutDetails[^>]*returnHref=\{here\}/, file);
   }
   assert.match(await readFile('components/saved-layout-details.tsx', 'utf8'), /<PerformanceSummary[^>]*returnHref=\{returnHref\}/);
   for (const back of [
@@ -189,10 +190,10 @@ void test('navigation groups existing destinations into four workspaces with vis
   const header = await readFile('components/site-header.tsx', 'utf8');
   assert.deepEqual(WORKSPACES.map(p => p.label), ['结果库', '布局设计', '信号仿真', '文档']);
   assert.deepEqual(WORKSPACE_TABS.design.map(p => p[0]), ['design', 'electrodes', 'coordinates']);
-  assert.deepEqual(WORKSPACE_TABS.results.map(p => p[0]), ['compare', 'library', 'decision']);
+  assert.deepEqual(WORKSPACE_TABS.results.map(p => p[0]), ['compare', 'library', 'decision', 'projects']);
   assert.ok(header.includes('WORKSPACES.map'));
   assert.ok(header.includes('WORKSPACE_TABS[group].map'));
-  for (const [file, current] of [['app/page.tsx', 'compare'], ['app/design/page.tsx', 'design'], ['features/reception/reception-workspace.tsx', 'reception']]) {
+  for (const [file, current] of [['features/overview/overview-workspace.tsx', 'compare'], ['features/design/design-workspace.tsx', 'design'], ['features/reception/reception-workspace.tsx', 'reception']]) {
     const source = await readFile(file, 'utf8');
     assert.ok(source.includes(`current="${current}"`));
     assert.ok(!source.includes('<LabNavigation'));
@@ -242,8 +243,8 @@ void test('metric names stay consistent across current and historical scores; un
 });
 
 void test('historical pages disclose their scope and preserve settings in method links', async () => {
-  const history = await readFile('app/results/page.tsx', 'utf8');
-  const pilot = await readFile('app/pilot-results/page.tsx', 'utf8');
+  const history = await readFile('features/results/radius-results-workspace.tsx', 'utf8');
+  const pilot = await readFile('features/results/pilot-results-workspace.tsx', 'utf8');
   assert.ok(history.includes('历史半径实验'));
   assert.ok(history.includes('min="10"')); assert.ok(!history.includes('min="1"'));
   assert.ok(history.includes('已找到最高 G')); assert.ok(!history.includes('已找到最高AR'));
@@ -264,7 +265,7 @@ void test('method page separates current calculation, historical experiments and
   assert.ok(source.includes('样本量与具体执行方案尚待确定'));
   assert.ok(source.includes('G取三者最低值，用于与接受阈值AR比较'));
   assert.ok(source.includes('得到下尾评分U；相对定位评分Rloc为候选布局U除以标准64导U'));
-  const historical = await readFile('app/results/page.tsx', 'utf8');
+  const historical = await readFile('features/results/radius-results-workspace.tsx', 'utf8');
   assert.ok(historical.includes('下尾定位评分 U（0—1）'));
   assert.ok(!historical.includes('尾部相对定位评分 U'));
 });
@@ -302,8 +303,8 @@ void test('free placement offers all nine backend-supported sites, including non
 });
 
 void test('placement choices remain direct controls; incomplete regional choices cannot display another result', async () => {
-  const home = await readFile('app/page.tsx', 'utf8');
-  const design = await readFile('app/design/page.tsx', 'utf8');
+  const home = await readFile('features/overview/overview-workspace.tsx', 'utf8');
+  const design = (await Promise.all(['features/design/design-workspace.tsx', 'features/design/use-design-controller.ts'].map(path => readFile(path, 'utf8')))).join('\n');
   const controls = await readFile('components/placement-options.tsx', 'utf8');
   assert.ok(home.includes('<HomePlacementOptions'));
   assert.ok(design.includes('<DesignPlacementOptions'));
@@ -335,8 +336,9 @@ void test('display states distinguish pending values from invalid metrics and pr
 });
 
 void test('public copy uses factual scope and correct AR, metric and reference terminology', async () => {
-  const files = ['app/page.tsx', 'app/design/page.tsx', 'app/library/page.tsx', 'app/method/page.tsx',
-    'app/results/page.tsx', 'app/pilot-results/page.tsx', 'features/reception/reception-workspace.tsx', 'features/reception/experiment-result.tsx',
+  const files = ['features/overview/overview-workspace.tsx', 'features/design/design-workspace.tsx', 'features/library/library-workspace.tsx', 'app/method/page.tsx',
+    'features/overview/use-overview-controller.ts', 'features/design/use-design-controller.ts', 'features/library/use-library-controller.ts',
+    'features/results/radius-results-workspace.tsx', 'features/results/pilot-results-workspace.tsx', 'features/reception/reception-workspace.tsx', 'features/reception/experiment-result.tsx', 'features/reception/receiver-comparison.tsx', 'features/reception/result-view-model.ts',
     'components/retention-explainer.tsx', 'components/performance-summary.tsx', 'components/local-compute-panel.tsx'];
   for (const file of files) {
     const text = await readFile(file, 'utf8');
@@ -345,7 +347,7 @@ void test('public copy uses factual scope and correct AR, metric and reference t
   const method = await readFile('app/method/page.tsx', 'utf8');
   assert.ok(method.includes('在AR＝10%时通过模型内判据'));
   assert.ok(method.includes('根据源先验、前向模型和噪声协方差构造LMMSE估计器'));
-  const reception = (await Promise.all(['features/reception/experiment-result.tsx', 'features/reception/reception-workspace.tsx'].map(p => readFile(p, 'utf8')))).join('\n');
+  const reception = (await Promise.all(['features/reception/experiment-result.tsx', 'features/reception/reception-workspace.tsx', 'features/reception/receiver-comparison.tsx', 'features/reception/result-view-model.ts'].map(p => readFile(p, 'utf8')))).join('\n');
   assert.ok(reception.includes('相对指标无法计算，无法判断是否达到AR'));
   assert.ok(reception.includes('方法背景参考：'));
   assert.ok(reception.includes('假设性空间场'));

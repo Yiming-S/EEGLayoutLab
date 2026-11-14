@@ -1,8 +1,9 @@
 /** Read-only adapters. Original experiments are NOT cache hits for the strict-radius algorithm. */
 import { createHash } from 'node:crypto';
-import { readFile, readdir, stat, realpath } from 'node:fs/promises';
+import { readFile, stat, realpath } from 'node:fs/promises';
 import { join, resolve, sep } from 'node:path';
 import { designReceptionRecord } from './reception-v2-support.mjs';
+import { RecordStore } from './storage/records.mjs';
 
 const hash = (value) => createHash('sha256').update(value).digest('hex');
 const idFor = (dataset, id) => hash(`${dataset}:${id}`);
@@ -102,7 +103,7 @@ export function areaRecords(data, provenance, { historical = false } = {}) {
 }
 
 export class LocalDataLibrary {
-  constructor(queue) { this.queue = queue; this.root = queue.root; this.records = new Map(); this.loaded = new Map(); this.warnings = []; }
+  constructor(queue) { this.queue = queue; this.root = queue.root; this.store = queue.store ?? new RecordStore(queue.root); this.records = new Map(); this.loaded = new Map(); this.warnings = []; }
 
   async offline(datasetId, file, convert, digest) {
     const info = await stat(file), fingerprint = `${info.mtimeMs}:${info.size}:${digest || ''}`;
@@ -132,10 +133,8 @@ export class LocalDataLibrary {
         this.warnings.push(`${DATASETS.find((d) => d.id === dataset).label}：${error.code === 'ENOENT' ? '本地数据未提供' : error.message}`);
       }
     }
-    const directory = join(this.root, 'results/v2/local_app_jobs');
-    let keys = [];
-    try { keys = (await readdir(directory, { withFileTypes: true })).filter((d) => d.isDirectory() && /^[a-f0-9]{64}$/.test(d.name)).map((d) => d.name); }
-    catch (error) { if (error.code !== 'ENOENT') throw error; }
+    const directory = this.store.directory('radius');
+    const keys = await this.store.keys('radius');
     // Only summary metadata remains resident for the cache; full arrays load on demand.
     for (const [id, row] of this.records) if (row.dataset_id === 'cache' && !keys.includes(id)) this.records.delete(id);
     const identity = this.queue.getIdentity();
@@ -162,11 +161,8 @@ export class LocalDataLibrary {
         if (error.code !== 'ENOENT') this.warnings.push(`一条本机缓存未载入：${error.message}`);
       }
     }
-    const coordinateDirectory = join(this.root, 'results/v2/design_evaluation_jobs');
-    const coordinateKeys = (await readdir(coordinateDirectory, { withFileTypes: true }).catch(error => {
-      if (error.code === 'ENOENT') return [];
-      throw error;
-    })).filter(entry => entry.isDirectory() && /^[a-f0-9]{64}$/.test(entry.name)).map(entry => entry.name);
+    const coordinateDirectory = this.store.directory('design');
+    const coordinateKeys = await this.store.keys('design');
     for (const [id, row] of this.records) if (row.dataset_id === 'design_evaluation' && !coordinateKeys.includes(id)) this.records.delete(id);
     for (const key of coordinateKeys) {
       try {

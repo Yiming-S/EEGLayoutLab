@@ -69,13 +69,13 @@ void test('editor shares capacity, caches completed results and retains capacity
   const root=await mkdtemp(join(tmpdir(),'eeg-editor-unit-')), queue={root,python:'python',library:{},active:null};
   const children=[];const service=new ElectrodeEditorService(queue,{spawnProcess:()=>{const c=child();children.push(c);return c;}});queue.editor=service;
   service.context=async r=>({identity:{schema:'test'},key:hash({request:r,identity:{schema:'test'}}),parent:{id:parent},parent_digest:digest});
-  queue.designTests={active:{id:'existing'}};assert.equal((await service.submit(request())).busy,true);assert.equal(children.length,0);
-  queue.designTests.active=null;const first=await service.submit(request());assert.equal(children.length,1);
+  const releaseDesign=queue.executionSlot.acquire('existing');assert.equal((await service.submit(request())).busy,true);assert.equal(children.length,0);
+  releaseDesign();const first=await service.submit(request());assert.equal(children.length,1);
   children[0].stdout.write(JSON.stringify({type:'result',result:result(request())})+'\n');children[0].emit('close',0);
   for(let i=0;i<80&&service.active;i++)await wait();assert.equal(service.jobs.get(first.job.id).status,'completed');
-  queue.active={id:'other'};assert.equal((await service.submit(request())).job.cached,true);assert.equal(children.length,1);queue.active=null;
+  const releaseOther=queue.executionSlot.acquire('other');assert.equal((await service.submit(request())).job.cached,true);assert.equal(children.length,1);releaseOther();
   const next=request();next.slots[0].enabled=false;const second=await service.submit(next);service.cancel(second.job.id);
   assert.ok(service.active);children[1].emit('close',0);for(let i=0;i<80&&service.active;i++)await wait();
   assert.equal(service.jobs.get(second.job.id).status,'cancelled');assert.equal(service.jobs.get(second.job.id).result,null);
-  const cache=JSON.parse(await readFile(join(root,service.directoryName,first.job.key,'cache.json'),'utf8'));assert.equal(cache.result.electrode_count,64);
+  const cache=JSON.parse(await readFile(service.store.path(service.recordKind,first.job.key,'cache.json'),'utf8'));assert.equal(cache.result.electrode_count,64);
 });

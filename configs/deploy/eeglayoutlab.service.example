@@ -1,0 +1,27 @@
+# OPTIONAL LINUX SYSTEMD TEMPLATE ONLY. This file is not installed or enabled.
+# Replace every /REPLACE_WITH_* path and service account before use.
+# Validate the target Linux runtime, data and native calculations first.
+# Node must be version 22.13.0 or newer. Build in the chosen checkout beforehand.
+# The private env file must use the same paths as this unit and be readable
+# by the service account only. Never place project credentials in this file.
+[Unit]
+Description=EEG Layout Lab web host
+After=network.target
+
+[Service]
+Type=simple
+User=REPLACE_WITH_SERVICE_USER
+Group=REPLACE_WITH_SERVICE_GROUP
+WorkingDirectory=/REPLACE_WITH_HOST_CHECKOUT
+ExecStart=/REPLACE_WITH_NODE_BINARY --env-file=/REPLACE_WITH_PRIVATE_ENV_FILE /REPLACE_WITH_HOST_CHECKOUT/webapp/server/start.mjs
+Restart=on-failure
+RestartSec=5
+UMask=0077
+KillSignal=SIGTERM
+KillMode=control-group
+# Pause with SIGUSR2 and verify maintenance=true, drained=true before stopping.
+# Adapt this grace period after target-platform qualification.
+TimeoutStopSec=240
+
+[Install]
+WantedBy=multi-user.target

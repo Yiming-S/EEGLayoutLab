@@ -1,186 +1,34 @@
+import { startPythonWorker } from './jobs/python-worker.mjs';
+import { executionSlotFor } from './jobs/execution-slot.mjs';
 import { RECEPTION_WORKFLOW } from './project-paths.mjs';
+import { runtimeConfig } from './runtime/config.mjs';
+import { scientificContext } from './runtime/scientific-context.mjs';
+import { RecordStore } from './storage/records.mjs';
 /** Local-only, bounded time-series experiments. Never changes the layout cache. */
 import { spawn } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
-import { readFile, mkdir, rename, writeFile, stat } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { InputIntegrity } from './local-input-integrity.mjs';
-import { normalizeReceptionRequest, validateReceptionResult, receptionV2Context, receptionLayouts, sourceCatalog } from './reception-v2-support.mjs';
+import { receptionV2Context, receptionLayouts, sourceCatalog } from './reception-v2-support.mjs';
+import { normalizeReceptionRequest, validateReceptionResult } from './contracts/source-reception.mjs';
+export { SOURCE_REGIONS, normalizeSourceRequest, validateSourceResult } from './contracts/source-reception.mjs';
 
-export const SOURCE_REGIONS = [
-  'frontal',
-  'central',
-  'parietal',
-  'occipital',
-  'temporal_left',
-  'temporal_right',
-];
-const TYPES = ['clean', 'ecg', 'eog', 'mixed'];
-const SCALES = [0, 0.5, 1, 2, 4];
 const hash = (x) =>
   createHash('sha256')
     .update(typeof x === 'string' ? x : JSON.stringify(x))
     .digest('hex');
 const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-export function normalizeSourceRequest(x) {
-  if (
-    !x ||
-    Array.isArray(x) ||
-    typeof x !== 'object' ||
-    Object.keys(x).some(
-      (k) =>
-        ![
-          'record_id',
-          'brain_region',
-          'waveform',
-          'artifact_scale',
-          'seed',
-        ].includes(k),
-    )
-  )
-    throw new Error('源实验配置字段无效');
-  if (
-    typeof x.record_id !== 'string' || !/^[a-f0-9]{64}$/.test(x.record_id) ||
-    !SOURCE_REGIONS.includes(x.brain_region) ||
-    !['burst', 'rhythm'].includes(x.waveform) ||
-    !SCALES.includes(x.artifact_scale) ||
-    !Number.isInteger(x.seed) ||
-    x.seed < 0 ||
-    x.seed > 9999
-  )
-    throw new Error('请选择已有完整布局、支持的源区与波形；种子范围0–9999');
-  return {
-    record_id: x.record_id,
-    brain_region: x.brain_region,
-    waveform: x.waveform,
-    artifact_scale: x.artifact_scale,
-    seed: x.seed,
-  };
-}
-export function validateSourceResult(result, request, record) {
-  if (
-    result?.status !== 'completed' ||
-    result.schema_version !== 'source-reception/1' ||
-    !equal(normalizeSourceRequest(result.request), request)
-  )
-    throw new Error('源实验结果身份不一致');
-  if (
-    !equal(result.layout?.xyzMm, record.layout.xyzMm) ||
-    !equal(result.layout?.regionIndices, record.layout.regionIndices) ||
-    !equal(result.layout?.referenceXyzMm, record.layout.referenceXyzMm)
-  )
-    throw new Error('源实验替换了冻结点位');
-  const wave = result.waveforms,
-    n = wave?.time_s?.length;
-  if (
-    n !== 400 ||
-    !wave.time_s.every(Number.isFinite) ||
-    wave.time_s.some((t, i) => i && t <= wave.time_s[i - 1])
-  )
-    throw new Error('时间轴无效');
-  for (const side of ['baseline', 'candidate'])
-    for (const key of [
-      'brain_uv',
-      'ecg_uv',
-      'eog_uv',
-      'noise_uv',
-      'reconstructed_brain_uv',
-      'reconstructed_ecg_uv',
-      'reconstructed_eog_uv',
-      'reconstructed_noise_uv',
-    ]) {
-      const a = wave[side]?.[key];
-      if (
-        !Array.isArray(a) ||
-        a.length !== 64 ||
-        a.some(
-          (row) =>
-            !Array.isArray(row) ||
-            row.length !== n ||
-            !row.every(Number.isFinite),
-        )
-      )
-        throw new Error('64通道波形无效');
-    }
-  if (
-    !Array.isArray(result.conditions) ||
-    result.conditions.length !== 4 ||
-    new Set(result.conditions.map((c) => c.condition)).size !== 4 ||
-    !Array.isArray(result.strength_curve) ||
-    result.strength_curve.length !== 16
-  )
-    throw new Error('缺少对照条件');
-  const combinations = [
-    'clean:0',
-    ...['ecg', 'eog', 'mixed'].flatMap((c) => SCALES.map((s) => `${c}:${s}`)),
-  ].sort();
-  if (
-    !equal(
-      result.strength_curve
-        .map((c) => `${c.condition}:${c.artifact_scale}`)
-        .sort(),
-      combinations,
-    )
-  )
-    throw new Error('干扰曲线点重复或缺失');
-  if (
-    result.conditions.some(
-      (c) =>
-        c.artifact_scale !==
-        (c.condition === 'clean' ? 0 : request.artifact_scale),
-    )
-  )
-    throw new Error('条件强度与请求不符');
-  for (const c of [...result.conditions, ...result.strength_curve]) {
-    if (!TYPES.includes(c.condition) || !SCALES.includes(c.artifact_scale))
-      throw new Error('干扰条件无效');
-    for (const side of ['baseline', 'candidate']) {
-      const m = c[side];
-      if (
-        !m ||
-        !Number.isFinite(m.nmse) ||
-        m.nmse < 0 ||
-        !Number.isFinite(m.explained_energy) ||
-        Math.abs(m.explained_energy - (1 - m.nmse)) > 1e-8 ||
-        (m.brain_artifact_ratio_db !== null &&
-          !Number.isFinite(m.brain_artifact_ratio_db))
-      )
-        throw new Error('重建指标无效');
-    }
-    const expected =
-      c.baseline.explained_energy > 1e-8
-        ? c.candidate.explained_energy / c.baseline.explained_energy
-        : null;
-    if (
-      expected === null
-        ? c.field_retention !== null
-        : !Number.isFinite(c.field_retention) ||
-          Math.abs(expected - c.field_retention) >
-            1e-8 * Math.max(1, Math.abs(expected))
-    )
-      throw new Error('AR相对保留率无效');
-  }
-  if (
-    !result.source?.xyz_mm?.length ||
-    result.source.xyz_mm.some(
-      (x) => x.length !== 3 || !x.every(Number.isFinite),
-    )
-  )
-    throw new Error('缺少实际源坐标');
-}
-async function atomic(path, data) {
-  const temp = `${path}.${randomUUID()}.tmp`;
-  await writeFile(temp, JSON.stringify(data), { flag: 'wx' });
-  await rename(temp, path);
-}
-
 export class SourceReceptionService {
   constructor(
     queue,
-    { spawnProcess = spawn, timeoutMs = 120000, getContext } = {},
+    { spawnProcess = spawn, timeoutMs = 120000, getContext, nativeContext } = {},
   ) {
     this.queue = queue;
     this.root = queue.root;
+    this.store = queue.store ?? new RecordStore(this.root);
+    this.python = (queue.runtime ?? runtimeConfig({ repositoryRoot: this.root, python: queue.python })).nativePython;
+    this.executionSlot = executionSlotFor(queue);
     this.spawnProcess = spawnProcess;
     this.timeoutMs = timeoutMs;
     this.jobs = new Map();
@@ -189,6 +37,7 @@ export class SourceReceptionService {
     this.disposed = false;
     this.inputs = new InputIntegrity(this.root);
     this.customContext = getContext;
+    this.nativeContext = nativeContext ?? (request => scientificContext(this, request));
   }
   async context(request) {
     if (this.customContext) return this.customContext(request);
@@ -253,15 +102,10 @@ export class SourceReceptionService {
     const request = normalizeReceptionRequest(raw),
       ctx = context ?? (await this.context(request));
     try {
-      const path = join(
-        this.root,
-        request.mode ? 'results/v2/source_reception_v2_jobs' : 'results/v2/source_reception_jobs',
-        ctx.key,
-        'cache.json',
-      );
+      const path = this.store.path(request.mode ? 'sourceV2' : 'source', ctx.key, 'cache.json');
       if ((await stat(path)).size > 32 * 1024 * 1024)
         throw new Error('结果记录过大');
-      const cache = JSON.parse(await readFile(path, 'utf8'));
+      const cache = await this.store.read(path);
       if (cache.key !== ctx.key || cache.result_sha256 !== hash(cache.result))
         throw new Error('结果记录校验失败');
       validateReceptionResult(cache.result, request, ctx.record);
@@ -288,13 +132,12 @@ export class SourceReceptionService {
     // The caller authorizes the owning browser's durable receipt before this read.
     if (!/^[a-f0-9]{64}$/.test(key)) throw new Error('Invalid saved signal record');
     const request = normalizeReceptionRequest(raw);
-    const path = join(this.root, request.mode ? 'results/v2/source_reception_v2_jobs' : 'results/v2/source_reception_jobs', key, 'cache.json');
-    let bytes;
+    const path = this.store.path(request.mode ? 'sourceV2' : 'source', key, 'cache.json');
+    let cache;
     try {
       if ((await stat(path)).size > 32 * 1024 * 1024) throw new Error('结果记录过大');
-      bytes = await readFile(path, 'utf8');
+      cache = await this.store.read(path);
     } catch (error) { if (error.code === 'ENOENT') throw new Error('计算记录无法读取，请重新提交'); throw error; }
-    const cache = JSON.parse(bytes);
     if (cache.key !== key || cache.result_sha256 !== hash(cache.result) ||
       !equal(normalizeReceptionRequest(cache.result?.request), request) ||
       (request.mode && (!cache.identity?.layout || hash({ request, identity: cache.identity }) !== key))) throw new Error('结果记录校验失败');
@@ -320,31 +163,27 @@ export class SourceReceptionService {
     const request = normalizeReceptionRequest(raw);
     if (this.submitting) return { busy: true };
     this.submitting = true;
+    let release;
     try {
       const ctx = await this.context(request),
         cached = await this.lookup(request, ctx);
       if (cached.hit) return { job: cached.job };
       if (this.disposed) throw new Error('本地服务正在重启');
       if (this.active?.key === ctx.key) return { job: this.view(this.active) };
-      if (this.active || this.queue.active || this.queue.submitting || this.queue.designTests?.active || this.queue.designTests?.submitting || this.queue.editor?.active || this.queue.editor?.submitting)
-        return {
-          busy: true,
-          error: '本机正在运行另一项计算，请完成后再提交。已有结果仍可读取。',
-        };
+      release = this.executionSlot.acquire(this);
+      if (!release) return { busy: true, maintenance: this.executionSlot.paused };
       const id = randomUUID(),
-        directory = join(
-          this.root,
-          request.mode ? 'results/v2/source_reception_v2_jobs' : 'results/v2/source_reception_jobs',
-          ctx.key,
-        ),
-        batch = join(directory, id);
-      await mkdir(batch, { recursive: true });
-      await atomic(join(batch, 'request.json'), {
+        kind = request.mode ? 'sourceV2' : 'source',
+        directory = this.store.path(kind, ctx.key),
+        batch = await this.store.createBatch(kind, ctx.key, id);
+      await this.store.write(join(batch, 'request.json'), {
         request,
         record: ctx.record,
       });
       if (this.disposed) throw new Error('本地服务正在重启');
+      if (this.executionSlot.paused) return { busy: true, maintenance: true };
       const job = {
+        releaseExecution: release,
         id,
         key: ctx.key,
         request,
@@ -358,96 +197,47 @@ export class SourceReceptionService {
         stderr: '',
       };
       this.active = job;
+      release = null;
       this.remember(job);
       this.run(job);
       return { job: this.view(job) };
     } finally {
+      release?.();
       this.submitting = false;
     }
   }
   run(job) {
+    if (this.disposed) { void this.finish(job, 'cancelled', '服务重启，任务未启动'); return; }
     try {
-      job.child = this.spawnProcess(
-        job.request.mode ? this.queue.designTests.python : this.queue.python,
-        [
-          '-u',
-          join(this.root, job.request.mode ? 'scripts/run_source_reception_v2.py' : 'scripts/run_source_reception.py'),
-          '--repository-root',
-          this.root,
-          '--request',
-          join(job.batch, 'request.json'),
-          '--output',
-          join(job.batch, 'result.json'),
-        ],
-        {
-          cwd: this.root,
-          shell: false,
-          stdio: ['ignore', 'pipe', 'pipe'],
-          env: {
-            ...process.env,
-            OMP_NUM_THREADS: job.request.mode ? '1' : '2',
-            OPENBLAS_NUM_THREADS: job.request.mode ? '1' : '2',
-            MKL_NUM_THREADS: job.request.mode ? '1' : '2',
-            VECLIB_MAXIMUM_THREADS: job.request.mode ? '1' : '2',
-            PYTHONDONTWRITEBYTECODE: '1',
-          },
-        },
-      );
-    } catch (e) {
-      void this.finish(job, 'failed', `无法启动计算：${e.message}`);
-      return;
-    }
-    let buffer = '',
-      bytes = 0;
-    job.timer = setTimeout(
-      () => this.cancel(job.id, 'timeout'),
-      job.request.mode ? Math.max(this.timeoutMs, 600000) : this.timeoutMs,
-    );
-    job.child.stdout.on('data', (chunk) => {
-      bytes += chunk.length;
-      if (bytes > 1024 * 1024) {
-        this.cancel(job.id, 'output_limit');
-        return;
-      }
-      buffer += chunk.toString();
-      const lines = buffer.split('\n');
-      buffer = lines.pop();
-      for (const line of lines) {
-        try {
-          const e = JSON.parse(line);
-          if (e.type === 'progress' && !job.cancelReason) {
-            job.progress = Math.max(
-              job.progress,
-              Math.min(0.99, Number(e.progress) || 0),
-            );
-            job.message = String(e.message ?? '正在计算源—接收对照');
+      job.worker = startPythonWorker({
+        spawnProcess: this.spawnProcess,
+        executable: job.request.mode ? this.python : this.queue.python,
+        args: ['-u', join(this.root, job.request.mode ? 'scripts/run_source_reception_v2.py' : 'scripts/run_source_reception.py'),
+          '--repository-root', this.root, '--request', join(job.batch, 'request.json'), '--output', join(job.batch, 'result.json')],
+        options: { cwd: this.root, stdio: ['ignore', 'pipe', 'pipe'], env: {
+          ...process.env, OMP_NUM_THREADS: job.request.mode ? '1' : '2', OPENBLAS_NUM_THREADS: job.request.mode ? '1' : '2',
+          MKL_NUM_THREADS: job.request.mode ? '1' : '2', VECLIB_MAXIMUM_THREADS: job.request.mode ? '1' : '2', PYTHONDONTWRITEBYTECODE: '1' } },
+        timeoutMs: job.request.mode ? Math.max(this.timeoutMs, 600000) : this.timeoutMs, maxOutputBytes: 1024 * 1024,
+        onEvent: (event, diagnostic) => {
+          if (event.type === 'progress' && !job.cancelReason) {
+            job.progress = Math.max(job.progress, Math.min(.99, Number(event.progress) || 0));
+            job.message = String(event.message ?? '正在计算源—接收对照');
           }
-          if (e.type === 'error')
-            job.stderr = (
-              job.stderr + String(e.message ?? 'worker error')
-            ).slice(-16000);
-        } catch {
-          /* Non-JSON diagnostic output is not a result. */
-        }
-      }
-    });
-    job.child.stderr.on('data', (c) => {
-      job.stderr = (job.stderr + c).slice(-16000);
-    });
-    job.child.on('error', (e) => {
-      job.stderr += e.message;
-    });
-    job.child.once('close', (code) => {
-      void this.close(job, code);
-    });
+          if (event.type === 'error') diagnostic(String(event.message ?? 'worker error'));
+        },
+        onStderr: text => { job.stderr = text; },
+        onError: error => { job.stderr = (job.stderr + error.message).slice(-16000); },
+        onStop: reason => { job.cancelReason = reason; job.status = 'cancelling'; job.message = '正在停止源实验'; },
+        onClose: code => { void this.close(job, code); },
+      });
+      job.child = job.worker.child;
+    } catch (error) { void this.finish(job, 'failed', `无法启动计算：${error.message}`); }
   }
   async close(job, code) {
-    clearTimeout(job.timer);
-    clearTimeout(job.killTimer);
     if (job.cancelReason)
       return this.finish(
         job,
-        job.cancelReason === 'timeout' ? 'timeout' : 'cancelled',
+        job.cancelReason === 'timeout' ? 'timeout' : job.cancelReason === 'input_error' ? 'failed' : 'cancelled',
         '计算已停止；没有缓存未完成结果',
       );
     if (code !== 0)
@@ -477,7 +267,7 @@ export class SourceReceptionService {
     if (status !== 'completed') job.result = null;
     try {
       if (status === 'completed') {
-        await atomic(join(job.directory, 'cache.json'), {
+        await this.store.write(join(job.directory, 'cache.json'), {
           key: job.key,
           ...(job.request.mode ? { identity: job.ctx.identity } : {}),
           result: job.result,
@@ -486,7 +276,7 @@ export class SourceReceptionService {
         });
         job.progress = 1;
       }
-      await atomic(join(job.batch, 'job.json'), {
+      await this.store.write(join(job.batch, 'job.json'), {
         ...this.view(job),
         result: undefined,
         stderr: job.stderr,
@@ -497,17 +287,14 @@ export class SourceReceptionService {
       job.message = `保存失败：${e.message}`;
     } finally {
       if (this.active === job) this.active = null;
+      job.releaseExecution?.(); job.releaseExecution = null;
     }
   }
   cancel(id, reason = 'user') {
     const job = this.jobs.get(id);
     if (!job || !['running', 'cancelling'].includes(job.status)) return false;
     if (job.cancelReason) return true;
-    job.cancelReason = reason;
-    job.status = 'cancelling';
-    job.message = '正在停止源实验';
-    job.child?.kill('SIGTERM');
-    job.killTimer = setTimeout(() => job.child?.kill('SIGKILL'), 2000);
+    job.worker?.stop(reason);
     return true;
   }
   dispose() {
@@ -517,7 +304,7 @@ export class SourceReceptionService {
   async handle(req, res, path, send) {
     if (req.method === 'GET' && path === '/api/source-reception/layouts') return send(res, 200, await receptionLayouts(this.queue));
     if (req.method === 'GET' && path === '/api/source-reception/catalog') {
-      this.catalogPromise ??= sourceCatalog(this.queue).finally(() => { this.catalogPromise = null; });
+      this.catalogPromise ??= sourceCatalog(this).finally(() => { this.catalogPromise = null; });
       return send(res, 200, await this.catalogPromise);
     }
     if (req.method === 'GET' && path === '/api/source-reception/health')

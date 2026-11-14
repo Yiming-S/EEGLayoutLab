@@ -22,7 +22,10 @@ dev = ["pytest==9.0.2"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src", "scripts"]
-markers = ["data_bundle: requires the separately restored scientific data bundle"]
+markers = [
+  "data_bundle: requires the separately restored scientific data bundle",
+  "native_runtime: requires the separately installed native scientific runtime",
+]
 
 [tool.setuptools]
 package-dir = {"" = "src"}

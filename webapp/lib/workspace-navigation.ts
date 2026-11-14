@@ -24,6 +24,7 @@ export const WORKSPACE_TABS = {
     ['compare', '实验总览'],
     ['library', '布局记录'],
     ['decision', '方案对比'],
+    ['projects', '研究项目'],
   ],
   design: [
     ['design', '区域设计'],
@@ -131,6 +132,7 @@ export function workingPage(href: string): PageId {
       {
         '/': 'compare',
         '/library': 'library',
+        '/projects': 'projects',
         '/design': 'design',
         '/electrodes': 'electrodes',
         '/coordinates': 'coordinates',
@@ -186,6 +188,7 @@ export function workspaceLinks(
   const links: Record<PageId, string> = {
     compare: '/?' + results,
     library: '/library?' + results,
+    projects: '/projects',
     results: '/results?ar=' + ar,
     design: capabilities.design
       ? radiusDesignLink(record!, ar)!

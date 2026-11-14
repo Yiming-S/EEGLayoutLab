@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import ts from 'typescript';
 
 /** Run a real controller module with deterministic hooks and isolated I/O. */
-export async function createHookHarness({ filename, exportName, imports, globals = {}, maxTimerMs = 20 }) {
+export async function createHookHarness({ filename, exportName, imports, globals = {}, maxTimerMs = 20, args = [] }) {
   let source = await readFile(filename, 'utf8');
   const tree = ts.createSourceFile(String(filename), source, ts.ScriptTarget.Latest, true);
   for (const statement of [...tree.statements].reverse()) {
@@ -87,7 +87,7 @@ export async function createHookHarness({ filename, exportName, imports, globals
   };
   let controller;
   function render() {
-    cursor = 0; current = controller();
+    cursor = 0; current = controller(...args);
     const queued = effects; effects = [];
     for (const effect of queued) effect();
   }

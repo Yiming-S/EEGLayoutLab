@@ -1,3 +1,4 @@
+import * as taskClient from '../client/task-client.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -59,13 +60,13 @@ function environment(href, storage = new Map()) {
       body = { job: { id: 'isolated-job', key: recordKey, parent_digest: digest,
         status: 'completed', progress: 1, cached: true, result } };
     } else throw new Error(`Unexpected test request: ${url}`);
-    return { ok: true, headers: { get: () => 'application/json' }, json: async () => body };
+    return { ok: true, headers: { get: name => name.toLowerCase() === 'content-type' ? 'application/json' : null }, json: async () => body };
   };
   return { window, storage, requests, globals: { window, sessionStorage, fetch } };
 }
 async function open(env) {
   const hook = await createHookHarness({ filename: controllerFile, exportName: 'useElectrodesController',
-    imports: { ...editor, parseAR, useLanguage: () => ({ tx: x => x, locale: 'en', date: x => x }) }, globals: env.globals });
+    imports: { ...taskClient, ...editor, parseAR, useLanguage: () => ({ tx: x => x, locale: 'en', date: x => x }) }, globals: env.globals });
   try { await hook.waitFor(current => !!current.domain && !current.busy); }
   catch (error) { hook.dispose(); throw error; }
   return hook;

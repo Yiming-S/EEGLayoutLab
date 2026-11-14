@@ -1,6 +1,6 @@
 # Source installation
 
-These instructions are for collaborators who want to run and modify the source code. To use the desktop App without installing development tools, follow the [Mac installation guide](../README.md#install-and-open-on-mac).
+These instructions run the maintained web application locally and prepare a checkout for development. The interface opens in a browser; Node and Python/SimNIBS run on the same computer.
 
 [简体中文源码安装说明](source-installation.zh-CN.md)
 
@@ -22,19 +22,19 @@ Use the native Apple Silicon versions of these tools, without Rosetta.
 
 ### 1. Clone the repository
 
-Open Terminal, sign in with the account that has repository access, and clone the release version:
+Open Terminal, sign in with the account that has repository access, and clone the current development source:
 
 ```sh
 gh auth login
-gh repo clone Yiming-S/EEGLayoutLab -- --branch v0.1.2
+gh repo clone Yiming-S/EEGLayoutLab
 cd EEGLayoutLab
 ```
 
-Keep this Terminal window open for the following steps. The repository root is the folder containing `scripts/` and `webapp/`. The release tag keeps the source and data inventory together. Create a working branch with `git switch -c my-changes` before editing the source.
+Keep this Terminal window open for the following steps. The repository root is the folder containing `scripts/` and `webapp/`. Create a working branch with `git switch -c codex/my-changes` before editing the source. The data installer checks the archive against the manifest in this checkout; use the archive named below while that manifest remains the current one.
 
 ### 2. Install the model data
 
-Download the matching `eeglayoutlab-data-v1.tar.gz` archive and checksum from [Release v0.1.2](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.2). Source checkouts require this separate archive; the desktop installer already includes its model data. This repository is private, so the release page and assets require repository access.
+Download the matching `eeglayoutlab-data-v1.tar.gz` archive and checksum from [Release v0.1.2](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.2). Install this archive separately from the source code. This repository is private, so the release page and assets require repository access.
 
 From the repository root, download and check the archive:
 
@@ -64,9 +64,9 @@ From the repository root, run:
 python3 scripts/bootstrap_runtime.py --execute
 ```
 
-Wait for installation and the environment check to finish successfully before continuing. The App selects this environment automatically; no manual Conda activation is needed.
+Wait for installation and the environment check to finish successfully before continuing. The web service selects this environment automatically; no manual Conda activation is needed.
 
-### 4. Install the web dependencies and open the App
+### 4. Install the web dependencies and open the browser interface
 
 ```sh
 cd webapp
@@ -74,7 +74,7 @@ npm ci
 npm run dev
 ```
 
-Open [http://127.0.0.1:3000](http://127.0.0.1:3000) in your browser. Keep Terminal running while using the App. Press **Control + C** in Terminal to stop it.
+Open [http://127.0.0.1:3000](http://127.0.0.1:3000) in your browser. Keep Terminal running while using the application. Press **Control + C** in Terminal to stop it.
 
 ## Open after installation
 
@@ -87,4 +87,4 @@ npm run dev
 
 Then open [http://127.0.0.1:3000](http://127.0.0.1:3000). You do not need to reinstall the data or dependencies each time.
 
-For the App's workflow, see [How to use](../README.md#how-to-use).
+For the application's workflow, see [How to use](../README.md#how-to-use).

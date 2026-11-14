@@ -1,7 +1,7 @@
 import tailwindcss from '@tailwindcss/postcss';
 import vinext from 'vinext';
 import { defineConfig } from 'vite';
-import { localComputePlugin } from './server/local-compute-server.mjs';
+import { localComputePlugin } from './server/host/development.mjs';
 
 // This checkout runs locally, without a hosted Worker backend.
 export default defineConfig({

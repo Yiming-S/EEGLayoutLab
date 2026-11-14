@@ -300,7 +300,7 @@ export default function ReceptionPage() {
           <p className="md:col-span-3 xl:col-span-6 text-sm text-muted-foreground">
             {tx(
               selected?.dataset_id === 'design_evaluation' &&
-                '已评价坐标使用独立前向缓存；首次接收仿真会在本机计算精确FEM，随后复用。',
+                '已评价坐标按完整身份检查前向场：优先复用已有精确场，缺失时进入计算队列。',
             )}
             {tx(
               '1×标定：心电为标准64全脑先验信号标准差的1倍，眼电为3倍；随后共用同一空间场采样两套布局。2×表示干扰幅度翻倍、功率变为4倍。幅度倍数与接收SNR分别表示。',
@@ -397,6 +397,8 @@ export default function ReceptionPage() {
               ar={ar}
               setAR={setAR}
               cached={Boolean(job?.cached)}
+              receiptId={job?.status === 'completed' ? job.id : undefined}
+              sourceResultKey={job?.status === 'completed' ? job.key : undefined}
               onReduceArtifacts={lowerArtifactScale(scale) === null ? undefined : () => setScale(lowerArtifactScale(scale)!)}
             />
           ) : (

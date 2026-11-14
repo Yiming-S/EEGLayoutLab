@@ -1,70 +1,10 @@
-/** Exercise display events with real Three.js geometry and controls, without WebGL. */
+/** Exercise display events with the actual scene and layers, without WebGL. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
-import ts from 'typescript';
-import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { createDemandRenderer } from '../lib/demand-renderer.ts';
+import { sceneFixture } from './helpers/viewer-fixture.mjs';
 
-const text = readFileSync(new URL('../lib/anatomical-head-scene.ts', import.meta.url), 'utf8');
-const source = ts.createSourceFile('scene.ts', text, ts.ScriptTarget.Latest, true);
-const js = ts.transpileModule(source.statements.filter(node => !ts.isImportDeclaration(node))
-  .map(node => node.getText(source)).join('\n').replace(/^export /gm, '') + '\nglobalThis.createScene = createHeadScene;',
-{ compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
-
-function sceneFixture() {
-  const queue = new Map();
-  let nextFrame = 0;
-  const frames = {
-    request(callback) { const id = nextFrame++; queue.set(id, callback); return id; },
-    cancel(id) { queue.delete(id); },
-  };
-  const document = new EventTarget();
-  document.hidden = false;
-  class Canvas extends EventTarget {
-    style = {}; dataset = {}; ownerDocument = document;
-    setAttribute() {} getRootNode() { return document; } remove() { this.removed = true; }
-  }
-  const canvases = [], draws = [], viewports = [];
-  class Renderer {
-    constructor() { this.domElement = new Canvas(); canvases.push(this.domElement); }
-    setPixelRatio() {} setSize() {} setScissorTest() {} setClearColor() {} clear() {} setScissor() {}
-    setViewport(...args) { viewports.push(args); }
-    render(scene, camera) { draws.push({ camera, position: camera.position.clone() }); }
-    dispose() {} forceContextLoss() {}
-  }
-  const resizes = [], intersections = [];
-  class ResizeObserver {
-    constructor(callback) { this.callback = callback; resizes.push(this); }
-    observe() {} disconnect() { this.disconnected = true; }
-  }
-  class IntersectionObserver {
-    constructor(callback) { this.callback = callback; intersections.push(this); }
-    observe() {} disconnect() { this.disconnected = true; }
-  }
-  const host = { clientWidth: 800, clientHeight: 400, appendChild() {},
-    getBoundingClientRect: () => ({ width: 800, height: 400, top: 0, bottom: 400, left: 0, right: 800 }) };
-  const sandbox = { THREE: { ...THREE, WebGLRenderer: Renderer }, OrbitControls, document,
-    window: { devicePixelRatio: 1, innerWidth: 1000, innerHeight: 700 }, ResizeObserver, IntersectionObserver,
-    createDemandRenderer: draw => createDemandRenderer(draw, frames), biosemiReference: { channels: [] },
-    mriMmToDisplay: xyz => xyz.map(value => value / 100), sourceRegion: () => undefined,
-    UNASSIGNED_SOURCE_COLOR: '#888888', SOURCE_REGIONS: [], SOURCE_ROI_DEFINITION: 'test' };
-  vm.runInNewContext(js, sandbox);
-  const scene = sandbox.createScene(host, new THREE.SphereGeometry(1, 12, 12), new THREE.SphereGeometry(.8, 8, 8));
-  const settle = () => {
-    let count = 0;
-    while (queue.size && count++ < 200) {
-      const batch = [...queue.values()]; queue.clear(); batch.forEach(callback => callback(0));
-    }
-    assert.equal(queue.size, 0);
-  };
-  return { scene, canvas: canvases[0], host, document, draws, viewports, queue, resizes, intersections, settle };
-}
-
-await test('signal color and selection changes repaint a stationary scene once', () => {
-  const f = sceneFixture();
+await test('signal color and selection changes repaint a stationary scene once', t => {
+  const f = sceneFixture(t);
   try {
     f.scene.setLayout({ regionCount: 1, allocation: [64], domainMode: 'whole_surface', radiusCm: 1,
       recordedLayout: { id: 'display-test', xyzMm: Array.from({ length: 64 }, () => [100, 0, 0]),
@@ -82,8 +22,8 @@ await test('signal color and selection changes repaint a stationary scene once',
   } finally { f.scene.dispose(); }
 });
 
-await test('offscreen and hidden-tab resizes pause rendering, then restore both viewports after focus', () => {
-  const f = sceneFixture();
+await test('offscreen and hidden-tab resizes pause rendering, then restore both viewports after focus', t => {
+  const f = sceneFixture(t);
   try {
     f.scene.setLayout({ regionCount: 1, allocation: [3], domainMode: 'whole_surface', radiusCm: 1 });
     f.settle();
