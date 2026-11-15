@@ -2,6 +2,7 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual, createHmac } from 'node:crypto';
 import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { ANNOTATION_LIMITS } from './annotations/electrode-names.mjs';
 
 const pending = j => ['queued', 'running', 'cancelling'].includes(j.status);
 const digest = text => createHash('sha256').update(text).digest('hex');
@@ -18,11 +19,11 @@ function save(path, value) {
 
 export class CommunityQueue {
   constructor({ directory, adapters, now = Date.now, maxQueued = 50, maxPerVisitor = 3, pollMs = 250,
-    initialMaintenance = false, executionSlot, secureCookies = false, visitorAddress, beforeNewWork = async () => {} } = {}) {
+    initialMaintenance = false, executionSlot, secureCookies = false, visitorAddress, annotations, beforeNewWork = async () => {} } = {}) {
     if (typeof beforeNewWork !== 'function') throw new TypeError('New work admission must be a function.');
     this.beforeNewWork = beforeNewWork; this.resourceBlocked = null; this.stopping = false;
     if (typeof initialMaintenance !== 'boolean') throw new TypeError('initialMaintenance must be boolean');
-    this.directory = directory; this.adapters = adapters; this.now = now;
+    this.directory = directory; this.adapters = adapters; this.now = now; this.annotations = annotations;
     this.executionSlot = executionSlot;
     this.secureCookies = secureCookies;
     this.visitorAddress = visitorAddress ?? (req => req.socket?.remoteAddress || 'unknown');
@@ -152,41 +153,89 @@ export class CommunityQueue {
       if (entry.count > max) throw error('提交过于频繁，请一分钟后重试', 429);
     }
   }
-  async submit(kind, raw, visitor, lookupOnly = false) {
+  async submit(kind, raw, visitor, lookupOnly = false, expectedKey, canAccept) {
+    if (canAccept !== undefined && typeof canAccept !== 'function') throw new TypeError('Task admission guard must be a function.');
+    const accept = prepared => {
+      if (expectedKey !== undefined && prepared.key !== expectedKey) throw error('Scientific identity changed before task acceptance.', 409);
+      if (canAccept && canAccept() !== true) throw Object.assign(error('Study no longer authorizes this child submission.', 409), { studyAdmissionCancelled: true });
+    };
     // This lock establishes server acceptance order before asynchronous identity validation.
     return this.serial(async () => {
       if (this.disposed || this.stopping || this.failure) throw error('计算队列不可用，请稍后重试', 503);
       this.rate(visitor);
       const adapter = this.adapters[kind];
       const prepared = await adapter.prepare(raw);
+      accept(prepared);
       const ready = await adapter.lookup(prepared);
+      accept(prepared);
       if (this.disposed || this.stopping || this.failure) throw error('计算队列不可用，请稍后重试', 503);
       if (ready.hit) {
+        const previous = this.tasks.find(t => t.kind === kind && t.key === prepared.key && t.owners.includes(visitor.id) && t.status === ready.job.status);
+        const annotation = await this.annotationFor(prepared, visitor, previous, false, () => accept(prepared));
+        accept(prepared);
+        if (this.disposed || this.stopping || this.failure) throw error('计算队列不可用，请稍后重试', 503);
         const task = this.receipt(kind, prepared, visitor, ready.job.status);
+        this.attachAnnotation(task, visitor, annotation);
         task.cached = true; task.finished_at = ready.job.finished_at || new Date(this.now()).toISOString();
         task.catalog = receiptCatalog(kind, prepared, ready.job.result);
         this.persist();
-        return { hit: true, job: { ...ready.job, id: task.id, kind } };
+        return { hit: true, job: { ...ready.job, ...taskView(task), ...this.annotationView(task, visitor, annotation?.id) } };
       }
       const existing = this.tasks.find(t => t.kind === kind && t.key === prepared.key && ['queued', 'running'].includes(t.status));
       if (existing) {
+        if (!existing.owners.includes(visitor.id)) this.checkVisitorLimit(visitor);
+        const annotation = await this.annotationFor(prepared, visitor, existing, false, () => accept(prepared));
+        accept(prepared);
+        if (this.disposed || this.stopping || this.failure) throw error('计算队列不可用，请稍后重试', 503);
         if (!existing.owners.includes(visitor.id)) {
-          this.checkVisitorLimit(visitor); existing.owners.push(visitor.id); this.persist();
+          this.checkVisitorLimit(visitor); existing.owners.push(visitor.id);
         }
-        return { hit: true, job: await this.view(existing) };
+        this.attachAnnotation(existing, visitor, annotation); this.persist();
+        return { hit: true, job: await this.view(existing, true, visitor, annotation?.id) };
       }
       if (lookupOnly) return { hit: false };
-      if (this.maintenance) throw error('服务维护中，已有结果仍可读取；请稍后提交新计算', 503);
+      if (this.maintenance) throw Object.assign(error('服务维护中，已有结果仍可读取；请稍后提交新计算', 503), { admissionRejected: true });
       this.checkVisitorLimit(visitor);
       if (this.tasks.filter(pending).length >= this.maxQueued) throw error('队列已满，请稍后提交；已有结果仍可读取', 429);
       await this.beforeNewWork();
+      accept(prepared);
       if (this.disposed || this.stopping || this.failure) throw error('计算队列不可用，请稍后重试', 503);
-      if (this.maintenance || this.executionSlot?.paused) throw error('服务维护中，已有结果仍可读取；请稍后提交新计算', 503);
+      if (this.maintenance || this.executionSlot?.paused) throw Object.assign(error('服务维护中，已有结果仍可读取；请稍后提交新计算', 503), { admissionRejected: true });
       this.resourceBlocked = null;
+      const annotation = await this.annotationFor(prepared, visitor, null, true, () => accept(prepared));
+      accept(prepared);
+      if (this.disposed || this.stopping || this.failure) throw error('计算队列不可用，请稍后重试', 503);
+      if (this.maintenance || this.executionSlot?.paused) throw Object.assign(error('服务维护中，已有结果仍可读取；请稍后提交新计算', 503), { admissionRejected: true });
       const task = this.receipt(kind, prepared, visitor, 'queued');
+      this.attachAnnotation(task, visitor, annotation);
       this.persist();
-      return { job: await this.view(task) };
+      return { job: await this.view(task, true, visitor, annotation?.id) };
     });
+  }
+  async annotationFor(prepared, visitor, task, admitted = false, accept = () => {}) {
+    if (!prepared.electrode_names) return null;
+    if (!this.annotations) throw error('Electrode name storage is unavailable.', 503);
+    const id = this.annotations.identity(prepared, visitor.id).id, refs = task?.annotation_refs?.[visitor.id] ?? [];
+    if (refs.includes(id)) return this.annotations.read(id, visitor.id, prepared.key);
+    if (!refs.includes(id) && refs.length >= ANNOTATION_LIMITS.referencesPerOwner) throw error('This task already has 20 electrode name variants.', 413);
+    if (Object.values(task?.annotation_refs ?? {}).reduce((sum, ids) => sum + ids.length, 0) >= ANNOTATION_LIMITS.referencesPerTask) throw error('This task already has 100 electrode name variants.', 413);
+    if (!admitted) await this.beforeNewWork();
+    accept();
+    if (this.disposed || this.stopping || this.failure) throw error('计算队列不可用，请稍后重试', 503);
+    return this.annotations.create(prepared, visitor.id);
+  }
+  attachAnnotation(task, visitor, annotation) {
+    if (!annotation) return;
+    task.annotation_refs ??= {};
+    const previous = task.annotation_refs[visitor.id] ?? [];
+    task.annotation_refs[visitor.id] = [...previous.filter(id => id !== annotation.id), annotation.id];
+  }
+  annotationView(task, visitor, selected) {
+    if (!visitor) return {};
+    const refs = task.annotation_refs?.[visitor.id] ?? [], id = selected;
+    if (!id) return {};
+    if (!refs.includes(id)) throw error('Electrode name annotation not found.', 404);
+    return { annotation_id: id, electrode_annotation: this.annotations.read(id, visitor.id, task.key) };
   }
   checkVisitorLimit(visitor) {
     if (this.tasks.filter(t => pending(t) && t.owners.includes(visitor.id)).length >= this.maxPerVisitor) throw error('当前浏览器最多保留3个未完成任务', 429);
@@ -201,7 +250,7 @@ export class CommunityQueue {
       catalog: receiptCatalog(kind, prepared) };
     this.tasks.push(task); return task;
   }
-  async view(task, result = true) {
+  async view(task, result = true, visitor, annotationId) {
     const adapter = this.adapters[task.kind];
     const worker = task.backendId ? adapter.get(task.backendId) : null;
     let value = worker || {};
@@ -216,7 +265,7 @@ export class CommunityQueue {
     const combined = { ...value, ...taskView(task), progress: value.progress ?? task.progress, cached: task.cached || Boolean(value.cached), queue_position: position };
     combined.message = task.status === 'queued' ? '已加入计算队列' : task.message || value.message || task.status;
     combined.result = result ? (['completed', 'no_layout'].includes(task.status) ? value.result ?? null : null) : undefined;
-    return combined;
+    return { ...combined, ...this.annotationView(task, visitor, annotationId) };
   }
   own(id, visitor, kind) {
     const task = this.tasks.find(t => t.id === id && (!kind || t.kind === kind) && t.owners.includes(visitor.id));
@@ -297,7 +346,7 @@ export class CommunityQueue {
       running_tasks: Number(Boolean(this.activeId || this.blockedPids.length)),
       available: !this.failure && !this.disposed && !this.stopping, resource_blocked: Boolean(this.resourceBlocked), recovery_blocked: this.blockedPids.length > 0 || Boolean(this.unconfirmedWorker),
       ...this.maintenanceStatus(),
-      jobs: await Promise.all(jobs.map(t => this.view(t, false))) };
+      jobs: await Promise.all(jobs.map(t => this.view(t, false, visitor, t.annotation_refs?.[visitor.id]?.at(-1)))) };
   }
   records(visitor) {
     // The durable receipts are small and already bounded to 500 terminal tasks.
@@ -313,7 +362,7 @@ export class CommunityQueue {
   }
   async active(kind, visitor) {
     const task = this.tasks.find(t => t.kind === kind && pending(t) && t.owners.includes(visitor.id));
-    return task ? this.view(task, false) : null;
+    return task ? this.view(task, false, visitor, task.annotation_refs?.[visitor.id]?.at(-1)) : null;
   }
   releaseLock() {
     if (existsSync(this.lockPath) && JSON.parse(readFileSync(this.lockPath, 'utf8')).token === this.lockToken) unlinkSync(this.lockPath);
@@ -393,15 +442,21 @@ export function communityMiddleware({ scheduler, legacy, queue, guard, send, tok
       if (action === 'health' && req.method === 'GET') return send(res, 200, { ...queue.health(), ...scheduler.maintenanceStatus(), active_job: await scheduler.active(kind, visitor) });
       if (req.method === 'POST' && !tokenMatches(req.headers['x-eeg-compute-token'], queue.token)) return send(res, 403, { error: '本地会话已更新，请刷新页面后重新计算' });
       if (id && action === 'jobs') {
-        if (req.method === 'GET' && !cancel) return send(res, 200, { job: await scheduler.view(scheduler.own(id, visitor, kind)) });
+        if (req.method === 'GET' && !cancel) {
+          const query = new URL(req.url, 'http://localhost').searchParams;
+          if ([...query.keys()].some(key => key !== 'annotation_id') || query.getAll('annotation_id').length > 1) throw error('Unsupported task query.');
+          const annotationId = query.get('annotation_id') ?? undefined;
+          if (annotationId !== undefined && !/^[a-f0-9]{64}$/.test(annotationId)) throw error('Invalid electrode name annotation.');
+          return send(res, 200, { job: await scheduler.view(scheduler.own(id, visitor, kind), true, visitor, annotationId) });
+        }
         if (req.method === 'POST' && cancel) return send(res, 202, { job: await scheduler.cancel(id, visitor, kind) });
       }
       if (req.method === 'POST' && !id && ['jobs', 'lookup'].includes(action)) {
         if (!String(req.headers['content-type']).startsWith('application/json')) return send(res, 415, { error: 'JSON required' });
         const limit = kind === 'design-evaluation' ? 65536 : kind === 'electrode-editor' ? 32768 : 4096;
-        let body = '';
-        for await (const chunk of req) { body += chunk; if (Buffer.byteLength(body) > limit) return send(res, 413, { error: '配置过大' }); }
-        const value = await scheduler.submit(kind, JSON.parse(body), visitor, action === 'lookup');
+        const chunks = []; let bytes = 0;
+        for await (const chunk of req) { const data = Buffer.from(chunk); bytes += data.length; if (bytes > limit) return send(res, 413, { error: '配置过大' }); chunks.push(data); }
+        const value = await scheduler.submit(kind, JSON.parse(Buffer.concat(chunks, bytes).toString('utf8')), visitor, action === 'lookup');
         return send(res, action === 'lookup' ? 200 : 202, value);
       }
       return send(res, 404, { error: 'Unknown queue endpoint' });

@@ -4,6 +4,8 @@ import { executionSlotFor } from './jobs/execution-slot.mjs';
 import { runtimeConfig } from './runtime/config.mjs';
 import { RecordStore } from './storage/records.mjs';
 import { ProjectService } from './projects/service.mjs';
+import { RobustnessStudyService } from './studies/service.mjs';
+import { ElectrodeAnnotations } from './annotations/electrode-names.mjs';
 import { operationsConfig } from './operations/config.mjs';
 import { ResourceGate } from './operations/resource-gate.mjs';
 import { OperationsMonitor } from './operations/monitor.mjs';
@@ -289,23 +291,31 @@ export class LocalComputeQueue {
   dispose() { this.disposed = true; if (this.active) this.cancel(this.active.id, 'server_restart'); }
 }
 
-export function computeMiddleware(queue, guard = createAccessPolicy().guard) {
+export function computeMiddleware(queue, guard = createAccessPolicy().guard, scheduler) {
   return async (req, res, next) => {
     const path = req.url?.split('?')[0];
     if (!path?.startsWith('/api/local-compute') && !path?.startsWith('/api/source-reception') && !path?.startsWith('/api/design-evaluation') && !path?.startsWith('/api/electrode-editor')) return next();
     if (!guard(req)) return send(res, 403, { error: 'Request rejected by access policy.' });
     try {
       if (req.method === 'GET' && path === '/api/local-compute/health') return send(res, 200, queue.health());
-      if (req.method === 'GET' && path === '/api/local-compute/library') return send(res, 200, await queue.library.list());
+      if (req.method === 'GET' && path === '/api/local-compute/library') {
+        const library = await queue.library.list();
+        if (scheduler?.annotations) library.electrode_annotations = scheduler.annotations.list(scheduler.session(req, res).id);
+        return send(res, 200, library);
+      }
       const bundleMatch = path.match(/^\/api\/local-compute\/library\/([a-f0-9]{64})\/bundle$/);
       if (req.method === 'GET' && bundleMatch) {
         const record = await queue.library.get(bundleMatch[1]);
-        return send(res, record ? 200 : 404, record ? await experimentBundle(queue.root, record, { python: queue.python }) : { error: '记录不存在' });
+        if (!record) return send(res, 404, { error: '记录不存在' });
+        const bundle = await experimentBundle(queue.root, record, { python: queue.python });
+        const annotation = readAnnotation(req, res, scheduler, record.id);
+        return send(res, 200, annotation ? { ...bundle, electrode_annotation: annotation, record: { ...bundle.record, electrode_annotation: annotation } } : bundle);
       }
       const recordMatch = path.match(/^\/api\/local-compute\/library\/([a-f0-9]{64})$/);
       if (req.method === 'GET' && recordMatch) {
         const record = await queue.library.get(recordMatch[1]);
-        return send(res, record ? 200 : 404, record ? { record } : { error: '记录不存在或完整性校验未通过' });
+        const annotation = record && readAnnotation(req, res, scheduler, record.id);
+        return send(res, record ? 200 : 404, record ? { record: annotation ? { ...record, electrode_annotation: annotation } : record } : { error: '记录不存在或完整性校验未通过' });
       }
       if (req.method === 'POST' && !tokenMatches(req.headers['x-eeg-compute-token'], queue.token)) {
         return send(res, 403, { error: '本地会话已更新，请刷新页面后重新计算' });
@@ -334,8 +344,16 @@ export function computeMiddleware(queue, guard = createAccessPolicy().guard) {
         if (req.method === 'POST' && match[2]) { queue.cancel(job.id); return send(res, 202, { job: queue.view(job) }); }
       }
       return send(res, 404, { error: '未知本地计算接口' });
-    } catch (error) { return send(res, 500, { error: `本地计算服务错误：${error.message}` }); }
+    } catch (error) { return send(res, error.annotationSafe ? error.status : 500, { error: error.annotationSafe ? error.message : '本地计算记录无法读取' }); }
   };
+}
+
+function readAnnotation(req, res, scheduler, recordId) {
+  const q = new URL(req.url, 'http://localhost').searchParams;
+  if (!q.has('annotation_id')) return null;
+  if (!scheduler?.annotations || [...q.keys()].some(key => key !== 'annotation_id') || q.getAll('annotation_id').length !== 1)
+    throw Object.assign(new Error('Invalid electrode name annotation query.'), { annotationSafe: true, status: 400 });
+  return scheduler.annotations.read(q.get('annotation_id'), scheduler.session(req, res).id, recordId);
 }
 
 export function createLocalComputeService(repositoryRoot, options = {}) {
@@ -358,21 +376,23 @@ export function createLocalComputeService(repositoryRoot, options = {}) {
   const scheduler = new CommunityQueue({ directory: queue.runtime.queueDirectory,
     executionSlot: queue.executionSlot, initialMaintenance,
     secureCookies: policy.secureCookies, visitorAddress: policy.visitorAddress,
-    beforeNewWork: admit, adapters: communityAdapters(queue, normalizeRequest) });
+    annotations: new ElectrodeAnnotations(queue.root), beforeNewWork: admit, adapters: communityAdapters(queue, normalizeRequest) });
   const projects = new ProjectService({ queue, scheduler, guard: policy.guard, send, tokenMatches, beforeWrite: admit });
+  const studies = new RobustnessStudyService({ queue, scheduler, guard: policy.guard, send, tokenMatches, beforeWrite: admit });
   const operations = new OperationsMonitor({ queue, scheduler, gate: resources, config: operationSettings, logger: operationsLogger });
   return {
-    queue, scheduler, projects, operations, resources,
-    middleware: operations.middleware(projects.middleware(communityMiddleware({ scheduler, queue, legacy: computeMiddleware(queue, policy.guard), guard: policy.guard, send, tokenMatches }))),
+    queue, scheduler, projects, studies, operations, resources,
+    middleware: operations.middleware(studies.middleware(projects.middleware(communityMiddleware({ scheduler, queue, legacy: computeMiddleware(queue, policy.guard, scheduler), guard: policy.guard, send, tokenMatches })))),
     dispose() {
       if (disposing) return disposal;
-      disposing = true; projects.close(); scheduler.stopScheduling();
+      disposing = true; studies.stop(); projects.close(); scheduler.stopScheduling();
       queue.sources.dispose(); queue.designTests.dispose(); queue.editor.dispose(); queue.dispose();
       const finish = () => { operations.close(); return operations.flush(); };
-      if (projects.store.pendingWrites || operations.logger.pending || operations.active) {
+      if (projects.store.pendingWrites || studies.store.pendingWrites || studies.inflight.size || operations.logger.pending || operations.active) {
         disposal = Promise.resolve().then(async () => {
           try {
             await projects.flush();
+            await studies.flush(); studies.close();
             // Let accepted responses finish or observe closed sockets before closing the log.
             await new Promise(resolve => setImmediate(resolve));
             await finish();
@@ -380,7 +400,7 @@ export function createLocalComputeService(repositoryRoot, options = {}) {
         });
         return disposal;
       }
-      operations.close(); scheduler.dispose();
+      studies.close(); operations.close(); scheduler.dispose();
     },
   };
 }

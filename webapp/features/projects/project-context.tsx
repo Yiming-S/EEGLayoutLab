@@ -7,13 +7,14 @@ import { RuntimeMessage } from '@/components/runtime-message';
 import { projectRequest, type ProjectEntryKind, type ProjectResponse } from '@/client/projects';
 import { useActiveProject } from './use-active-project';
 import { projectWorkflowFromComparison } from './project-workflow';
+import { recordAnnotationId } from '@/lib/local-library';
 
-export function SaveToProject({ kind, recordId, receiptId }: { kind: ProjectEntryKind; recordId?: string; receiptId?: string }) {
+export function SaveToProject({ kind, recordId, receiptId, annotationId }: { kind: ProjectEntryKind; recordId?: string; receiptId?: string; annotationId?: string }) {
   const { tx } = useLanguage(), active = useActiveProject();
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [savedIdentity, setSavedIdentity] = useState('');
-  const identity = `${active?.project_id}:${kind}:${recordId ?? receiptId}`;
+  const identity = `${active?.project_id}:${kind}:${recordId ?? receiptId}:${annotationId ?? ''}`;
   const saved = savedIdentity === identity;
-  if (!active) return <a className="text-sm text-primary underline" href={'/projects' + (recordId ? '?record=' + recordId : '')}>{tx('选择项目以保存结果')}</a>;
+  if (!active) return <a className="text-sm text-primary underline" href={'/projects' + (recordId ? '?record=' + recordId + (annotationId ? '&annotation_id=' + annotationId : '') : '')}>{tx('选择项目以保存结果')}</a>;
   if (active.role !== 'owner') return <span className="text-xs text-muted-foreground">{tx('当前项目为只读访问')}</span>;
   return <div className="flex flex-wrap items-center gap-2">
     <Button type="button" variant="outline" size="sm" disabled={busy || saved || (kind === 'source' ? !receiptId : !recordId)} onClick={() => {
@@ -21,9 +22,10 @@ export function SaveToProject({ kind, recordId, receiptId }: { kind: ProjectEntr
       void (async () => {
         const current = await projectRequest<ProjectResponse>(active);
         if (current.role !== 'owner') throw new Error('当前项目为只读访问');
-        if (recordId && current.project.entries.some(entry => entry.kind === kind && entry.record_id === recordId)) { setSavedIdentity(identity); return; }
+        if (recordId && current.project.entries.some(entry => entry.kind === kind && entry.record_id === recordId && entry.annotation_id === annotationId)) { setSavedIdentity(identity); return; }
         await projectRequest<ProjectResponse>(active, '/entries', { method: 'POST', body: JSON.stringify({
           revision: current.project.revision, kind, ...(kind === 'source' ? { receipt_id: receiptId } : { record_id: recordId }),
+          ...(annotationId ? { annotation_id: annotationId } : {}),
         }) });
         setSavedIdentity(identity);
       })().catch(caught => setError(caught instanceof Error ? caught.message : '项目操作失败')).finally(() => setBusy(false));
@@ -37,9 +39,10 @@ export function ProjectContext({ recordId, here, currentIsProjects }: { recordId
   const [busy, setBusy] = useState(false), [message, setMessage] = useState('');
   if (!active || currentIsProjects) return null;
   const comparison = new URL(here, 'http://localhost').pathname === '/decision';
+  const annotationId = recordAnnotationId(here, recordId);
   return <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-x-4 gap-y-2 border-t px-4 py-2 text-sm sm:px-6 lg:px-8" aria-label={tx('当前研究项目')}>
     <a className="font-medium text-primary underline" href={'/projects?project=' + active.project_id}>{tx('当前研究项目')} · {active.title || active.project_id.slice(0, 8)}</a>
-    {recordId && <SaveToProject kind="layout" recordId={recordId} />}
+    {recordId && <SaveToProject kind="layout" recordId={recordId} annotationId={annotationId} />}
     {comparison && active.role === 'owner' && <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => {
       setBusy(true); setMessage('');
       void (async () => {

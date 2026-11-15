@@ -31,7 +31,7 @@ RECORDS = tuple("results/v2/" + name for name in (
 NATIVE_LOCK = "results/v2/reception_forward/native-worker.lock"
 QUEUE = "results/web-service"
 QUEUE_FILES = ("queue.json", "session-secret.json")
-QUEUE_TREES = ("projects",)
+QUEUE_TREES = ("projects", "studies")
 
 
 def real_directory(path):
@@ -165,7 +165,7 @@ def inventory(root, directory, release):
         name = QUEUE + "/" + filename
         origins[name] = safe_path(directory, filename)
         rows[name] = file_record(origins[name], name)
-    # Project records and immutable snapshots outlive bounded queue receipts.
+    # Project/study records and immutable snapshots outlive bounded queue receipts.
     # Preserve them even when the queue is outside the scientific checkout.
     for base in QUEUE_TREES:
         safe_path(directory, base + "/.inventory-check")

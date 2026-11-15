@@ -1,6 +1,7 @@
 'use client';
 import { CommunityStatus } from './community-status';
 import { ProjectContext } from '@/features/projects/project-context';
+import { recordAnnotationId } from '@/lib/local-library';
 /* oxlint-disable next/no-html-link-for-pages -- preserve established vinext navigation */
 import { useEffect, useRef, useState } from 'react';
 import { Activity, Settings2 } from 'lucide-react';
@@ -100,11 +101,12 @@ export function SiteHeader({
     record: SavedRecord | null;
     error: boolean;
   } | null>(null);
+  const annotationId = recordAnnotationId(here, selection.id);
   useEffect(() => {
     if (!selection.id) return;
     const id = selection.id,
       controller = new AbortController();
-    fetch('/api/local-compute/library/' + id, {
+    fetch('/api/local-compute/library/' + id + (annotationId ? '?annotation_id=' + annotationId : ''), {
       signal: controller.signal,
       cache: 'no-store',
     })
@@ -120,7 +122,7 @@ export function SiteHeader({
           setLoaded({ id, record: null, error: true });
       });
     return () => controller.abort();
-  }, [selection.id]);
+  }, [selection.id, annotationId]);
   const record = loaded?.id === selection.id ? loaded.record : null;
   const links = workspaceLinks(here, ar, record, selection);
   // Stay on the current working URL, including its draft and thresholds.

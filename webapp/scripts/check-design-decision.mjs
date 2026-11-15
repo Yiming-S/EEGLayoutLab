@@ -62,7 +62,7 @@ const baselineResult = () => ({
 
 void test('coordinate round trip preserves all coordinates, order, frame and labels', () => {
   assert.deepEqual(parseDesign(JSON.stringify(design)), design);
-  assert.deepEqual(parseDesign(designCSV(design), 'test'), design);
+  assert.deepEqual(parseDesign(designCSV(design), 'test'), { ...design, electrode_names: Array.from({ length: 64 }, (_, i) => `E${i + 1}`) });
   assert.deepEqual(normalizeDesignRequest(request), request);
 });
 

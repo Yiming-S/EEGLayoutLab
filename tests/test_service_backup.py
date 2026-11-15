@@ -135,6 +135,8 @@ def test_project_archive_survives_backup_restore_independently_of_queue_receipts
     payloads = {
         'projects/experiment/project.json': b'{"title":"Long-term study","revision":3,"owner_hash":"private"}',
         'projects/experiment/snapshots/source.json': b'{"values":[1.42e-14,-0.00000000000001],"seed":2026}',
+        'studies/experiment/study.json': b'{"protocol":"noise_seeds","status":"paused_recovery","owner":"private"}',
+        'studies/experiment/snapshots/source.json': b'{"request":{"seed":42,"radius_mm":6},"nominal":[1.42e-14,-0.00000000000001]}',
     }
     for name, content in payloads.items():
         write(queue, name, content)
@@ -160,6 +162,15 @@ def test_project_archive_symlinks_are_refused_before_backup_publication(checkout
     with pytest.raises(ValueError, match='Symlink|symlink'):
         snapshot(checkout, 'unsafe-project')
     assert not output(checkout, 'unsafe-project').exists()
+
+
+def test_study_archive_symlinks_are_refused_before_backup_publication(checkout, tmp_path):
+    studies = checkout / service.QUEUE / 'studies'
+    studies.mkdir()
+    (studies / 'external').symlink_to(tmp_path, target_is_directory=True)
+    with pytest.raises(ValueError, match='Symlink|symlink'):
+        snapshot(checkout, 'unsafe-study')
+    assert not output(checkout, 'unsafe-study').exists()
 
 
 @pytest.mark.parametrize('change', ['live_owner', 'acquiring', 'running', 'cancelling', 'starting', 'live_worker', 'not_paused', 'bad_secret', 'bad_pid'])

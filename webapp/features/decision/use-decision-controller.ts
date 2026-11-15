@@ -16,6 +16,8 @@ import {
   parseDecisionThresholds,
   decisionHref,
   exportDesign,
+  designSubmission,
+  restoreDesignEvaluation,
   validateDesign,
   qualification,
   type ElectrodeDesign,
@@ -33,6 +35,7 @@ export function useDecisionController(
     [error, setError] = useState(''),
     [ready, setReady] = useState(false);
   const [selectionError, setSelectionError] = useState('');
+  const [annotationRefs, setAnnotationRefs] = useState<Record<string, string>>({});
   const [draftNotice, setDraftNotice] = useState('');
   const [returnTo, setReturnTo] = useState('');
   const [thresholds, setThresholds] = useState<DecisionThresholds>(jointDecisionThresholds());
@@ -47,6 +50,8 @@ export function useDecisionController(
     return () => { alive.current = false; requestController.current?.abort(); };
   }, []);
   const [job, setJob] = useState<DesignJob | null>(null);
+  const [jobIdentity, setJobIdentity] = useState('');
+  const [restoredRecord, setRestoredRecord] = useState('');
   const [busy, setBusy] = useState(false),
     [computeError, setComputeError] = useState(''),
     [testTarget, setTestTarget] = useState(
@@ -62,6 +67,7 @@ export function useDecisionController(
     void Promise.resolve().then(() => {
       if (controller.signal.aborted) return;
       setReturnTo(q.get('returnTo') ?? '');
+      if (mode === 'coordinates' && q.has('a') && q.get('resume') !== '1') setTestTarget('a');
       if (mode === 'coordinates' && q.get('resume') === '1') {
         try {
           const raw = sessionStorage.getItem('eeg-coordinate-tab-draft');
@@ -74,6 +80,8 @@ export function useDecisionController(
               draft.seed <= 9999
             )
               setSeed(draft.seed);
+            if ([3, 6, 10].includes(draft.radius_mm)) setRadius(draft.radius_mm);
+            if (['evaluate', 'perturb'].includes(draft.action)) setAction(draft.action);
             setDraftNotice('已恢复坐标草稿；尚未重新评价。');
           }
         } catch {
@@ -110,6 +118,13 @@ export function useDecisionController(
                 r.mode === a?.mode,
             );
         setIds([a?.id ?? '', b?.id !== a?.id ? (b?.id ?? '') : '']);
+        const refs: Record<string, string> = {};
+        for (const [row, key] of [[a, 'annotation_a'], [b, 'annotation_b']] as const) {
+          const value = q.get(key);
+          if (row && value && /^[a-f0-9]{64}$/.test(value)) refs[row.id] = value;
+        }
+        setAnnotationRefs(refs);
+        if (mode === 'coordinates' && a?.dataset_id === 'design_evaluation' && q.has('a') && q.get('resume') !== '1') setRestoredRecord(a.id);
         if ((q.has('a') && !a) || (q.has('b') && !b))
           setSelectionError('指定记录不支持此工具，请重新选择布局。');
         setReady(true);
@@ -124,52 +139,39 @@ export function useDecisionController(
     const controller = new AbortController();
     Promise.all(
       ids.filter(Boolean).map(async (id) => {
-        const r = await fetch('/api/local-compute/library/' + id, {
+        const r = await fetch('/api/local-compute/library/' + id + (annotationRefs[id] ? '?annotation_id=' + annotationRefs[id] : ''), {
           signal: controller.signal,
         });
         if (!r.ok) throw new Error('所选记录读取失败');
         const value = (await r.json()) as { record: SavedRecord };
         if (value.record?.id !== id) throw new Error('返回记录身份不匹配');
-        return value.record as SavedRecord;
+        let saved;
+        if (id === restoredRecord) {
+          const response = await fetch('/api/local-compute/library/' + id + '/bundle' + (annotationRefs[id] ? '?annotation_id=' + annotationRefs[id] : ''), { signal: controller.signal });
+          if (!response.ok) throw new Error('保存的坐标评价读取失败');
+          saved = restoreDesignEvaluation(await response.json(), value.record);
+        }
+        return { record: value.record, saved };
       }),
     )
       .then((rows) => {
-        setRecords(rows);
+        if (controller.signal.aborted) return;
+        setRecords(rows.map(row => row.record));
+        const saved = rows.find(row => row.saved);
+        if (saved?.saved) {
+          const { design, action, radius_mm, seed, result } = saved.saved;
+          setImported(design); setTestTarget('import'); setAction(action); setRadius(radius_mm); setSeed(seed);
+          setJobIdentity(JSON.stringify({ action, design, radius_mm, seed }));
+          setJob({ id: 'saved-' + saved.record.id, key: saved.record.id, status: 'completed', message: '已载入保存的坐标评价。', progress: 1, result, cached: true,
+            ...(saved.record.electrode_annotation ? { annotation_id: saved.record.electrode_annotation.id, electrode_annotation: saved.record.electrode_annotation } : {}) });
+        }
         setError('');
       })
       .catch((e) => {
         if (!controller.signal.aborted) setError(e.message);
       });
     return () => controller.abort();
-  }, [ids, ready]);
-  const hereUrl = new URL(
-    decisionHref(ids, thresholds).replace(
-      '/decision?',
-      mode === 'coordinates' ? '/coordinates?' : '/decision?',
-    ),
-    'http://localhost',
-  );
-  if (returnTo)
-    hereUrl.searchParams.set('returnTo', safeReturnHref(returnTo, '/library'));
-  if (mode === 'coordinates' && imported)
-    hereUrl.searchParams.set('resume', '1');
-  const here = hereUrl.pathname + hereUrl.search;
-  useEffect(() => {
-    if (mode !== 'coordinates' || !imported) return;
-    try {
-      sessionStorage.setItem(
-        'eeg-coordinate-tab-draft',
-        JSON.stringify({ design: imported, seed }),
-      );
-    } catch {
-      void Promise.resolve().then(() =>
-        setDraftNotice('当前标签页无法暂存坐标；离开前请保留原始文件。'),
-      );
-    }
-  }, [mode, imported, seed]);
-  useEffect(() => {
-    if (ready) window.history.replaceState(null, '', here);
-  }, [ready, here]);
+  }, [ids, ready, annotationRefs, restoredRecord]);
   const shown = records.filter((r) => ids.includes(r.id));
   const loaded =
     ready && ids.filter(Boolean).every((id) => shown.some((r) => r.id === id));
@@ -190,7 +192,6 @@ export function useDecisionController(
     radius_mm: radius,
     seed,
   });
-  const [jobIdentity, setJobIdentity] = useState('');
   const result =
     jobIdentity === requestIdentity && job?.status === 'completed'
       ? job.result
@@ -198,6 +199,36 @@ export function useDecisionController(
   const resultQualification = result
     ? qualification({ metrics: result.nominal }, thresholds)
     : null;
+  const hereUrl = new URL(
+    decisionHref(ids, thresholds).replace(
+      '/decision?',
+      mode === 'coordinates' ? '/coordinates?' : '/decision?',
+    ),
+    'http://localhost',
+  );
+  if (returnTo)
+    hereUrl.searchParams.set('returnTo', safeReturnHref(returnTo, '/library'));
+  if (mode === 'coordinates' && imported)
+    hereUrl.searchParams.set('resume', '1');
+  ids.forEach((id, index) => { if (annotationRefs[id]) hereUrl.searchParams.set(index ? 'annotation_b' : 'annotation_a', annotationRefs[id]); });
+  if (restoredRecord && job?.key === restoredRecord && result) hereUrl.searchParams.delete('resume');
+  const here = hereUrl.pathname + hereUrl.search;
+  useEffect(() => {
+    if (mode !== 'coordinates' || !imported) return;
+    try {
+      sessionStorage.setItem(
+        'eeg-coordinate-tab-draft',
+        JSON.stringify({ design: imported, seed, radius_mm: radius, action }),
+      );
+    } catch {
+      void Promise.resolve().then(() =>
+        setDraftNotice('当前标签页无法暂存坐标；离开前请保留原始文件。'),
+      );
+    }
+  }, [mode, imported, seed, radius, action]);
+  useEffect(() => {
+    if (ready) window.history.replaceState(null, '', here);
+  }, [ready, here]);
   const jobSnapshot = useRef(job);
   useEffect(() => { jobSnapshot.current = job; }, [job]);
   const jobId = job?.id,
@@ -232,7 +263,7 @@ export function useDecisionController(
       const controller = new AbortController();
       requestController.current = controller;
       const data = await submitTask<{ job: DesignJob }>('design-evaluation',
-        { action, design, radius_mm: radius, seed }, { signal: controller.signal, errorMessage: '计算未启动' });
+        designSubmission(design, action, radius, seed), { signal: controller.signal, errorMessage: '计算未启动' });
       if (!alive.current) return;
       setConnection('connected');
       setPollRevision(value => value + 1);

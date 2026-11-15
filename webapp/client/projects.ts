@@ -5,8 +5,10 @@ export type ProjectAccess = { project_id: string; access_key: string; title?: st
 export type ProjectEntryKind = 'layout' | 'editor' | 'source';
 export type ProjectEntry = {
   id: string; kind: ProjectEntryKind; title: string; notes: string; record_id: string;
+  annotation_id?: string;
   created_at: string; snapshot_sha256: string;
-  summary?: { protocol?: string; electrode_count?: number; region_count?: number; parent_id?: string; mode?: string };
+  summary?: { protocol?: string; electrode_count?: number; region_count?: number; parent_id?: string; mode?: string;
+    brain_region?: string; brain_regions?: string[]; source_index?: number; seed?: number };
 };
 export type ResearchProject = {
   id: string; title: string; owner_name: string; notes: string; revision: number;

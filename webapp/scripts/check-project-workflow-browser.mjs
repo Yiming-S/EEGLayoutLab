@@ -215,7 +215,7 @@ try {
   await check('Read-only sharing survives documentation navigation without exposing owner or viewer credentials in URLs', async () => {
     await openProject(ownerPage);
     const details = await openDetails(ownerPage, '项目说明、凭据与分享');
-    const shared = await mutation(ownerPage, `/api/projects/${project.id}/share`, 'POST', () => button(ownerPage, '生成只读分享链接').click());
+    const shared = await mutation(ownerPage, `/api/projects/${project.id}/share`, 'POST', () => button(ownerPage, '生成新的只读链接').click());
     project = shared.project; viewerKey = shared.access_key; secrets.push(viewerKey);
     const link = await label(ownerPage, '只读分享链接').inputValue();
     assert.equal(new URLSearchParams(new URL(link).hash.slice(1)).get('access'), viewerKey);
@@ -225,7 +225,7 @@ try {
     await page.getByRole('heading', { name: project.title, exact: true }).waitFor();
     await page.waitForFunction(() => location.hash === '');
     assert.equal(await button(page, '保存研究任务选择').count(), 0);
-    assert.equal(await button(page, '生成只读分享链接').count(), 0);
+    assert.equal(await button(page, '生成新的只读链接').count(), 0);
     await assertNoCredentialLinks(page);
     await page.getByRole('link', { name: t('文档'), exact: true }).click();
     await page.waitForURL(url => url.pathname === '/guide');

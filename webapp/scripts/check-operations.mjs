@@ -174,3 +174,15 @@ void test('stalled filesystem observations time out, remain bounded and recover 
   resolveProbe({ bsize: 1024n, bavail: 1024n * 1024n }); await new Promise(resolve => setImmediate(resolve));
   assert.equal((await resource.sample()).allowed, true); assert.equal(resource.diskChecks.size, 0);
 });
+
+void test('study operation labels identify actions without retaining study IDs or query data', () => {
+  const id = '18358bf4-143e-4431-8456-b99328462b37';
+  assert.equal(operationRoute('/api/robustness-studies'), 'studies.directory');
+  assert.equal(operationRoute('/api/robustness-studies/' + id + '?secret=private'), 'studies.study');
+  for (const action of ['start', 'resume', 'cancel', 'export']) {
+    const label = operationRoute(`/api/robustness-studies/${id}/${action}?owner=private`);
+    assert.equal(label, 'studies.' + action); assert.equal(label.includes(id), false); assert.equal(label.includes('private'), false);
+  }
+  assert.equal(operationRoute('/robustness?study=' + id), 'page');
+  assert.equal(operationRoute('/deliveries'), 'page');
+});

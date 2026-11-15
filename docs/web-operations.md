@@ -91,7 +91,7 @@ python3 scripts/backup_service.py backup \
 
 This previews the inventory. Repeat with `--execute` to write it. Execution requires `--python`, acquires the queue's exclusive acquisition guard and the native forward-cache lock, verifies payloads, then rechecks inventories after copying. A live queue owner, active/uncertain receipt or native writer prevents backup.
 
-The snapshot contains current source, generated job/forward records, `queue.json`, the browser-session signing secret and the complete private `projects/` tree, including scientific snapshots and credential hashes. Browser-held plaintext project access files are separate private recovery material and are not reconstructed from hashes. It excludes frozen model payloads, installed Python/Node environments, `node_modules`, builds, access logs, process locks and private environment files. Retain the matching data bundle, runtime installation materials and private operator configuration separately. The signing secret, receipts and private project archives make the backup private operational material, not a Git or public-release artifact.
+The snapshot contains current source, generated job/forward records, `queue.json`, the browser-session signing secret and the complete private `projects/` and `studies/` trees, including scientific snapshots, study case archives and project credential hashes. Browser-held plaintext project access files are separate private recovery material and are not reconstructed from hashes. It excludes frozen model payloads, installed Python/Node environments, `node_modules`, builds, access logs, process locks and private environment files. Retain the matching data bundle, runtime installation materials and private operator configuration separately. The signing secret, receipts and private project archives make the backup private operational material, not a Git or public-release artifact.
 
 Record the printed `manifest_sha256` independently from the snapshot. It is the SHA-256 of `backup.json`; restoration requires that expected value.
 
@@ -107,7 +107,7 @@ python3 scripts/backup_service.py restore \
 
 Set `EEG_BACKUP_MANIFEST_SHA256` to the independently retained hash. Preview verifies the manifest, complete file inventory, every payload hash and paused queue state. Repeat with `--execute` to create the fresh directory. Existing destinations are refused. Both backup and restore outputs must be new paths under the source project's `artifacts/`; links, unexpected entries and overlapping restore paths are rejected.
 
-Restore writes the queue to the restored tree's `results/web-service/`, including when the original queue directory was elsewhere; project archives follow that restored queue directory. It never overwrites the live installation. A `.restore-incomplete` marker identifies interrupted publication; do not start such a directory.
+Restore writes the queue to the restored tree's `results/web-service/`, including when the original queue directory was elsewhere; project and study archives follow that restored queue directory. It never overwrites the live installation. A `.restore-incomplete` marker identifies interrupted publication; do not start such a directory.
 
 The restored report states `ready_to_start: false`. Install the exact frozen bundle and a qualified runtime, install web dependencies, build, configure paths and verify the result before starting. Conda environments and dependency installations are not inside the snapshot. Restoring to a new path can change cache identity; retain historical records and verify exact reuse instead of editing hashes.
 
@@ -153,3 +153,9 @@ Projects are private archives under the configured queue directory. They contain
 Creating a read-only share replaces the previous shared credential; revoking it stops subsequent shared reads. Project credentials do not change access to the original shared layout library. A delivery bundle is an offline scientific archive: revoking a credential cannot recall files already downloaded by its holder.
 
 The project store currently bounds entries, snapshot size and total snapshot storage. Removing an entry detaches it from the current project but preserves its immutable project copy and the original scientific record; detached copies still count toward the storage budget. Do not clean projects by deleting arbitrary files beneath `results/`. Define a separate operator retention procedure and make a verified stopped-service backup before any destructive cleanup.
+
+## Interrupted calculations and repeated studies
+
+Use the stopped-service [task reconciliation tool](task-reconciliation.md) to recover interrupted receipts from exact validated completed caches. Preview and apply use a separately saved plan and the original queue SHA-256; scientific outputs remain unchanged. Keep the service stopped while applying the plan.
+
+[Repeated studies](robustness-studies.md) retain per-case requests, outcomes and exact cache copies separately from bounded queue receipts. Startup pauses further study submissions until an explicit study resume. A child previously accepted by the shared queue retains its original queue behavior. Service maintenance and study controls are separate: resuming the service allows scheduling, while resuming a study authorizes its remaining cases.

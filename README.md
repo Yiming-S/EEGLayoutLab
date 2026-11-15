@@ -9,11 +9,12 @@ EEGLayoutLab is developed on a non-profit basis and provided free of charge. Its
 ## Features
 
 - **Explore layouts:** inspect electrode positions, placement regions and evaluation scores on an interactive 3D head model.
-- **Design and edit:** calculate regional layouts, modify electrode coordinates or active contacts, and evaluate imported coordinates registered to the Ernie head model.
+- **Design and edit:** calculate regional layouts, modify electrode coordinates or active contacts, and evaluate imported coordinates registered to the Ernie head model. Preserve electrode names and inspect each input point, evaluated point and projection distance.
 - **Compare layouts:** select a reference and candidate, set shared or independent retention requirements, and compare the recorded metrics.
 - **Simulate signals:** choose source locations, waveforms and interference conditions; inspect the resulting signals, switch channels and replay the saved experiment.
-- **Keep research projects:** save complete layout, editing and signal snapshots with notes and comparison settings; restore access in another browser and create revocable read-only shares.
-- **Export research materials:** download coordinates, original scientific JSON, reports and project delivery packages with checksums and recorded model/runtime identities.
+- **Keep research projects:** save complete layout, editing and signal snapshots with notes and comparison settings; inspect signal experiments by their parent layout, restore access in another browser and create revocable read-only shares.
+- **Repeat evaluations:** run explicit localization-noise seed or candidate-grid displacement studies, preserve every case outcome, and inspect case-level empirical summaries. The [study protocol](docs/robustness-studies.md) records how these batches reuse the original calculations.
+- **Export and review:** download coordinates, original scientific JSON, reports and project delivery packages with checksums and recorded model/runtime identities. Open a local delivery package to inspect its archived coordinates, scores and waveforms without project credentials.
 
 The interface supports English and Simplified Chinese. Its Node service runs Python/SimNIBS workers, reuses exact completed results and keeps a persistent computation queue. Shared viewer resources, compressed model downloads and validated forward-field reuse reduce repeated loading and calculation.
 
@@ -47,13 +48,14 @@ The repository is private: sign in to a GitHub account with repository access to
 
 1. **Browse:** open an existing layout in **Results Library** and inspect its regions, electrode positions, and scores.
 2. **Design:** set the region count, allowed placement range, and maximum region radius in **Layout Design**.
-3. **Edit or import:** change electrode positions or active electrodes, or import coordinates registered to the Ernie head model.
+3. **Edit or import:** change electrode positions or active electrodes, or import named coordinates registered to the Ernie head model. The [coordinate-file interface](docs/coordinate-file-interface.md) also supports explicitly declared electrodes.tsv and coordsystem.json pairs with region metadata.
 4. **Compare:** assess selected layouts under the same requirements and export coordinates, results, or reproducibility bundles.
 5. **Simulate:** select a layout, source locations, waveforms, and interference settings in **Signal Simulation**.
+6. **Repeat:** create a robustness study from imported coordinates, list explicit seed/radius cases, save a draft and start the batch. Opening or refreshing a study reads its saved state; service restart requires an explicit study resume.
 
-Use **Research Projects** to keep selected layouts, edited copies, signal experiments, notes and comparison requirements together. Download the project's access file to restore it in another browser; use a separate read-only link for collaborators. Saved project snapshots remain available independently of the computation queue. Project access protects the project's annotations and saved copies; the existing original layout library remains shared.
+Use **Research Projects** to keep selected layouts, edited copies, signal experiments, notes and comparison requirements together. Download the project's access file to restore it in another browser; use a separate read-only link for collaborators. Generating a new read-only link replaces the previous one. Saved project snapshots remain available independently of the computation queue. Project access protects the project's annotations and saved copies; the existing original layout library remains shared.
 
-The project delivery download includes exact archived scientific JSON files, checksums, a readable report, saved comparison settings and recorded model/runtime identities. Large model payloads are referenced by their manifests. Project access credentials are downloaded separately and are excluded from scientific deliveries.
+The project delivery download includes exact archived scientific JSON files, checksums, a readable report, saved comparison settings and recorded model/runtime identities. Large model payloads are referenced by their manifests. Project access credentials are downloaded separately and are excluded from scientific deliveries. Choose **Open a local delivery package** in Research Projects, or visit `/deliveries`, to read the saved package in a browser. The original project and task APIs are not required; application and display assets must remain accessible.
 
 Use the upper-right language control to switch between English and Simplified Chinese. **Minimum Required Retention** changes how existing scores are judged; it does not start a new calculation.
 
@@ -61,15 +63,15 @@ The current model uses the SimNIBS example subject Ernie. Scores depend on the r
 
 ## Verification
 
-The completed local verification includes **442 web tests**, **460 Python tests and 190 Python subtests**, **33 browser workflow groups** and **20 3D viewer checks**. Type checks, lint and the production build pass. The Python run skips three tests and excludes two native-computation tests.
+Local verification covers coordinate-name round trips, per-electrode review, project experiment associations, read-only sharing, local delivery viewing, scientific regression, repeated studies, task reconciliation and backup/restore. Unit tests, type checks, lint, production builds and real-browser workflows are run for each stage.
 
-Each productization stage reran single-source and multi-source scientific workflows against the saved baseline, with exact array and scientific-output comparisons. The 95 recorded scientific source, configuration, model and data files remained unchanged. The previously qualified `128 × 4352` native forward field and its coordinates were rechecked; this round did not repeat the FEM solve.
+A fresh native FEM run reproduced the qualified `128 × 4352` forward field and projected coordinates exactly. Single-source and multi-source arrays, scientific outputs and non-timing numerical quality fields matched the saved baseline. The 95 recorded scientific source, configuration, model and input files remained unchanged. Eight batch cases were also recomputed independently through the original single-case entry point, with exact scientific values and provenance; the new case-level quantiles were checked independently with NumPy.
 
-Stopped-service backup and fresh-directory restoration were exercised with 13 projects and 21 saved scientific entries. Restored files and scientific snapshot text matched their checksums and original bytes. Test selection, commands and scientific-data requirements are documented in [CONTRIBUTING.md](CONTRIBUTING.md); staged results are summarized in the [productization record](docs/productization-progress.zh-CN.md).
+The [research workflow verification record](docs/research-workflow-progress.zh-CN.md) contains stage-specific checks and results. [CONTRIBUTING.md](CONTRIBUTING.md) explains test selection and external-data requirements; the [native release gate](docs/native-release-gate.md) documents the separate new-solve check. Stopped-service task recovery is documented in [task reconciliation](docs/task-reconciliation.md).
 
 ## Deployment and operations
 
-The application includes explicit scientific and queue-directory configuration, HTTPS reverse-proxy access rules, request identifiers, bounded request logs, local status probes, disk and optional Node-memory admission checks, and maintenance/drain controls. Release manifests record source, data and runtime identities; backup and restore tools preserve scientific records and private project archives.
+The application includes explicit scientific and queue-directory configuration, HTTPS reverse-proxy access rules, request identifiers, bounded request logs, local status probes, disk and optional Node-memory admission checks, and maintenance/drain controls. Release manifests record source, data and runtime identities; backup and restore tools preserve scientific records and private project and study archives.
 
 See [server configuration](docs/server-deployment.md) and [web operations](docs/web-operations.md) for installation requirements, environment examples, monitoring and recovery procedures. The [architecture](docs/architecture.md) documents feature, viewer, task, execution and storage modules.
 

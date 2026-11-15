@@ -23,7 +23,12 @@ import {
   qualification,
 } from '@/lib/design-decision';
 import { useDecisionController } from './use-decision-controller';
+import { SaveToProject } from '@/features/projects/project-context';
 import { DecisionRequirements } from './decision-requirements';
+import { CoordinateReviewPanel } from './coordinate-review-panel';
+import { exportBIDSElectrodes, parseBIDSElectrodes } from '@/lib/bids-electrodes';
+import { evaluationPresentation } from './evaluation-presentation';
+import { CoordinateStudyLink } from '@/features/robustness/coordinate-study-link';
 
 const Head = lazy(() =>
   import('@/components/cluster-head-viewer').then((m) => ({
@@ -83,6 +88,7 @@ export default function DecisionPage({
     cancel,
     preview,
   } = useDecisionController(mode);
+  const presentation = result ? evaluationPresentation(job, result) : null;
   return (
     <main className="lab-page">
       <SiteHeader
@@ -92,16 +98,16 @@ export default function DecisionPage({
             mode === 'coordinates'
               ? result && action === 'evaluate'
                 ? (job?.key ?? null)
-                : null
+                : testTarget !== 'import' ? (shown.find(r => r.id === ids[testTarget === 'b' ? 1 : 0])?.id ?? null) : null
               : (shown.find((r) => r.id === ids[0])?.id ?? null),
           phase:
-            mode === 'coordinates' && !(result && action === 'evaluate')
+            mode === 'coordinates' && testTarget === 'import' && !(result && action === 'evaluate')
               ? 'draft'
               : 'saved',
           channels: mode === 'coordinates' && design ? 64 : undefined,
         }}
         arPercent={thresholds.field}
-        returnHref={here}
+        returnHref={result && job?.annotation_id ? here + '&annotation_record=' + job.key + '&annotation_id=' + job.annotation_id : here}
       />
       <div className="lab-container space-y-5 pb-10">
         <header className="flex flex-wrap items-end justify-between gap-4 pt-6">
@@ -178,6 +184,7 @@ export default function DecisionPage({
                       )}
                     </select>
                   </label>
+
                 )),
               )}
             </section>
@@ -428,6 +435,18 @@ export default function DecisionPage({
                       }}
                     />
                   </label>
+                  <label className="lab-label">{tx('导入BIDS坐标文件')}
+                    <input className="mt-2 block w-full text-sm" type="file" multiple accept=".tsv,.json" onChange={async event => {
+                      const files = Array.from(event.target.files ?? []);
+                      if (!files.length) return;
+                      try {
+                        if (files.length > 3 || files.some(file => file.size > 65536)) throw new Error('请成对选择electrodes.tsv和coordsystem.json，每个文件不超过64 KB。');
+                        const design = parseBIDSElectrodes(await Promise.all(files.map(async file => ({ name: file.name, text: await file.text() }))));
+                        setImported(design); setImportError(''); setTestTarget('import');
+                      } catch (caught) { setImported(null); setImportError(caught instanceof Error ? caught.message : '导入失败'); }
+                    }} />
+                  </label>
+                  <p className="text-xs text-muted-foreground">{tx('同时选择electrodes.tsv和coordsystem.json；region列为本软件的零基区域扩展，可附electrodes.json说明。只接受显式Ernie原生空间和mm单位。')}</p>
                   {tx(
                     importError && (
                       <p role="alert" className="text-sm text-red-800">
@@ -603,20 +622,26 @@ export default function DecisionPage({
                   </Suspense>
                 ),
               )}
+              {design && <details className="mt-3 rounded-lg border p-3"><summary className="cursor-pointer text-sm">{tx('查看电极名称与区域')}</summary>
+                <div className="mt-2 max-h-64 overflow-auto"><table className="w-full text-left text-sm"><thead><tr><th>{tx('电极')}</th><th>{tx('区域')}</th><th>X (mm)</th><th>Y (mm)</th><th>Z (mm)</th></tr></thead>
+                  <tbody>{design.xyz_mm.map((point, index) => <tr key={index}><td>{design.electrode_names?.[index] ?? `E${index + 1}`}</td><td>{design.region_indices[index]}</td>{point.map((value, axis) => <td className="font-mono" key={axis}>{value}</td>)}</tr>)}</tbody>
+                </table></div>
+              </details>}
+              {design && <CoordinateReviewPanel design={design} result={result} />}
+              {design && mode === 'coordinates' && <CoordinateStudyLink design={design} />}
+              {mode === 'coordinates' && design && <details className="mt-3 rounded-lg border p-3"><summary className="cursor-pointer text-sm">{tx('BIDS坐标文件接口')}</summary>
+                <p className="mt-2 text-xs text-muted-foreground">{tx('以下文件保留原输入坐标，包含本软件区域扩展；这不是完整BIDS数据集导出。请同时保留三个文件。')}</p>
+                <div className="mt-3 flex flex-wrap gap-2">{exportBIDSElectrodes(design).map(file => <Button key={file.name} variant="outline" size="sm" onClick={() => download(file.name, file.text, file.name.endsWith('.tsv') ? 'text/tab-separated-values;charset=utf-8' : 'application/json')}>{tx('下载')} {file.name}</Button>)}</div>
+              </details>}
             </div>
           </div>
           {tx(
             result && (
               <div className="mt-5 overflow-x-auto border-t pt-4">
                 <h3 className="font-semibold">
-                  {tx('本次新评价 ·')}
-                  {tx(' ')}
-                  {tx(
-                    result.forward_mode === 'direct_fem'
-                      ? '新位置FEM'
-                      : '直接FEM缓存',
-                  )}
+                  {tx(presentation!.heading)}
                 </h3>
+                <p className="mt-1 text-xs text-muted-foreground">{tx('原结果来源')} · {tx(presentation!.origin)}</p>
                 <p className="mt-2 text-sm">
                   {tx('重建保留率 ')}
                   {tx(pct(result.nominal?.field_relative))}{' '}
@@ -630,6 +655,11 @@ export default function DecisionPage({
                   {tx(' ')}
                   {tx(mm(result.projection_max_mm))}。
                 </p>
+                {action === 'evaluate' && job?.key && <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <SaveToProject kind="layout" recordId={job.key} annotationId={job.annotation_id} />
+                  <a className="text-sm text-primary underline" href={'/coordinates?a=' + job.key + (job.annotation_id ? '&annotation_a=' + job.annotation_id : '')}>{tx('打开保存的坐标评价')}</a>
+                  <Button variant="outline" size="sm" onClick={() => design && download('eeg-evaluated-coordinates.csv', designCSV({ ...design, xyz_mm: result.evaluated_xyz_mm }), 'text/csv;charset=utf-8')}>{tx('导出实际评价坐标')}</Button>
+                </div>}
                 {tx(
                   action === 'evaluate' && job?.key && (
                     <a
@@ -637,6 +667,7 @@ export default function DecisionPage({
                       href={
                         '/reception?record=' +
                         job.key +
+                        (job.annotation_id ? '&annotation_id=' + job.annotation_id : '') +
                         '&ar=' +
                         thresholds.field +
                         '&returnTo=' +

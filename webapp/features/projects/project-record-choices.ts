@@ -3,7 +3,8 @@ import type { SavedSummary } from '../../lib/local-library';
 import { localizedRecordTitle } from '../../lib/i18n/records.ts';
 import type { Locale } from '../../lib/i18n/core';
 
-export type ProjectRecordChoice = { kind: ProjectEntryKind; id: string; title: string };
+export type ProjectRecordChoice = { kind: ProjectEntryKind; id: string; title: string; annotation_id?: string };
+export const projectChoiceId = (choice: ProjectRecordChoice) => `${choice.kind}:${choice.id}${choice.annotation_id ? ':' + choice.annotation_id : ''}`;
 const kinds: ProjectEntryKind[] = ['layout', 'editor', 'source'];
 const hash = /^[a-f0-9]{64}$/;
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
@@ -16,7 +17,10 @@ export function projectRecordChoices(kind: ProjectEntryKind, value: unknown, loc
     if (kind === 'layout') {
       if (row.status !== 'completed' || typeof row.id !== 'string' || !hash.test(row.id)) return [];
       if (typeof row.label !== 'string') return [];
-      return [{ kind, id: row.id, title: localizedRecordTitle(row as unknown as SavedSummary, locale) }];
+      const base = { kind, id: row.id, title: localizedRecordTitle(row as unknown as SavedSummary, locale) };
+      const annotations = Array.isArray(value.electrode_annotations) ? value.electrode_annotations.filter(object).filter(annotation => annotation.record_id === row.id && typeof annotation.id === 'string' && hash.test(annotation.id) && Array.isArray(annotation.electrode_names) && annotation.electrode_names.every(name => typeof name === 'string')) : [];
+      return [base, ...annotations.map(annotation => ({ ...base, annotation_id: annotation.id as string,
+        title: `${base.title} · ${(annotation.electrode_names as string[])[0] ?? ''} · ${(annotation.id as string).slice(0, 8)}` }))];
     }
     if (kind === 'editor') {
       if (typeof row.key !== 'string' || !hash.test(row.key)) return [];

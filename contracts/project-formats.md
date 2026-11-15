@@ -51,3 +51,17 @@ The comparison page retains its established interpretation. Joint requirements u
 The export host is identified separately from the original calculation identities inside each snapshot. Model payloads are referenced through recorded manifests and checksums. Original scientific provenance, including original calculation paths, is retained. Project access keys, credential hashes and private operator configuration are excluded.
 
 Current limits are 16 MiB per scientific snapshot, 128 MiB of physical snapshot data and 100 snapshot files per project, 512 KiB of project metadata, and 32 MiB per serialized delivery bundle. One delivery is prepared at a time. Oversized requests return `413`; concurrent export preparation returns `429`. The browser verifies file and manifest hashes before download. Cancelling download preparation does not cancel scientific tasks or delete saved results.
+
+## Named coordinate copies
+
+A coordinate design can carry `electrode_names` (64 unique ordered labels) and `source_metadata` (the bounded coordinate-file declaration described in `docs/coordinate-file-interface.md`). The browser submits these as presentation metadata in a `design-submission/1` envelope around the original mathematical request. Bare legacy requests remain valid.
+
+Per-electrode labels and source declarations do not enter the scientific request or cache key. The legacy overall `design.name` field retains its original request/key semantics. Two label sets can therefore reference one scientific result while retaining separate immutable annotation IDs.
+
+A project entry may contain `annotation_id`. Its `research-project-snapshot/1` file then carries `electrode_annotation` beside `payload`. The original scientific payload remains unchanged. The outer snapshot checksum includes the annotation, so differently named copies have different snapshot checksums even when their scientific record ID is identical. Explicit annotation selection is required when reopening a named copy; an unrelated latest label set is not substituted.
+
+## Repeated studies
+
+Repeated studies use separate `eeg-robustness-study/1` and `eeg-robustness-study-export/1` schemas. They are stored under the configured queue's `studies/` tree and owned by the existing browser session. Each case retains a normalized original `design-evaluation/1` request, scientific key, receipt reference, outcome and verified cache copy. Export includes `cache_json`, the original UTF-8 cache text, and `source_sha256`, its checksum. The parsed `cache` is supplied for reading the values.
+
+See `docs/robustness-studies.md` for protocols, case-level summaries and recovery. These study wrappers keep the original scientific evaluation and its default trial/noise counts.

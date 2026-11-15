@@ -422,7 +422,7 @@ void test('project snapshot layout and edited metrics render bilingual values di
   const result = { schema: 'electrode-editor/1', electrode_count: 63, edited_metrics: metrics, evaluated_xyz_mm: [[1.25, -2.5, 3.75]] };
   const editorEntry = { id: 'editor', kind: 'editor', record_id: 'e'.repeat(64) };
   const layoutEntry = { id: 'layout', kind: 'layout', record_id: 'a'.repeat(64) };
-  const record = { id: layoutEntry.record_id, metrics, layout: { xyzMm: result.evaluated_xyz_mm } };
+  const record = { id: layoutEntry.record_id, metrics, layout: { xyzMm: result.evaluated_xyz_mm, regionIndices: [0] } };
   const snapshots = [
     { entry: editorEntry, snapshot: { schema: 'research-project-snapshot/1', kind: 'editor', record_id: editorEntry.record_id, payload: { cache: { result } } } },
     { entry: layoutEntry, snapshot: { schema: 'research-project-snapshot/1', kind: 'layout', record_id: layoutEntry.record_id, payload: { record } } },

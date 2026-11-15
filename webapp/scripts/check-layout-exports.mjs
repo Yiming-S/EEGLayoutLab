@@ -30,7 +30,7 @@ void test('coordinate and layout exports reuse the import schema and preserve or
   const csv = layoutExportFile(record, 'coordinates_csv', 32);
   const design = layoutExportFile(record, 'design_json', 32);
   assert.equal(csv.content, designCSV(exportDesign(record)) + '\n');
-  assert.deepEqual(parseDesign(csv.content, record.label), exportDesign(record));
+  assert.deepEqual(parseDesign(csv.content, record.label), { ...exportDesign(record), electrode_names: Array.from({ length: 64 }, (_, i) => `E${i + 1}`) });
   assert.deepEqual(parseDesign(design.content), exportDesign(record));
   assert.equal(parseDesign(design.content).xyz_mm[63][2], -6.3);
   assert.match(csv.content, /^# coordinate_system=ernie_native_mm; unit=mm; region=zero_based/);

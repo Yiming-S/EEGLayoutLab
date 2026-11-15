@@ -1,5 +1,5 @@
 import type { ProjectEntry } from '../../client/projects';
-import type { SavedRecord } from '../../lib/local-library';
+import type { SavedRecord, ElectrodeAnnotation } from '../../lib/local-library';
 import type { EditorResult } from '../../lib/electrode-editor';
 import type { SourceResult } from '../../lib/source-reception';
 
@@ -13,8 +13,12 @@ export function projectSnapshotView(entry: ProjectEntry, snapshot: unknown): Pro
   const payload = snapshot.payload;
   if (entry.kind === 'source' && ['source-reception/1', 'source-reception/2'].includes(String(payload.schema_version)) && object(payload.waveforms) && Array.isArray(payload.waveforms.time_s) && Array.isArray(payload.conditions))
     return { kind: 'source', result: payload as unknown as SourceResult };
-  if (entry.kind === 'layout' && object(payload.record) && payload.record.id === entry.record_id && object(payload.record.layout) && Array.isArray(payload.record.layout.xyzMm))
-    return { kind: 'layout', record: payload.record as SavedRecord };
+  if (entry.kind === 'layout' && object(payload.record) && payload.record.id === entry.record_id && object(payload.record.layout) && Array.isArray(payload.record.layout.xyzMm)) {
+    const annotation = snapshot.electrode_annotation;
+    if (annotation !== undefined && (!object(annotation) || annotation.schema !== 'eeg-electrode-annotation/1' || annotation.record_id !== entry.record_id || annotation.id !== entry.annotation_id ||
+        !Array.isArray(annotation.electrode_names) || annotation.electrode_names.length !== 64 || annotation.electrode_names.some(name => typeof name !== 'string'))) throw new Error('项目电极名称与记录不匹配');
+    return { kind: 'layout', record: annotation ? { ...payload.record, electrode_annotation: annotation as ElectrodeAnnotation } as SavedRecord : payload.record as SavedRecord };
+  }
   if (entry.kind === 'editor' && object(payload.cache) && object(payload.cache.result) && payload.cache.result.schema === 'electrode-editor/1' && Array.isArray(payload.cache.result.evaluated_xyz_mm))
     return { kind: 'editor', result: payload.cache.result as EditorResult };
   throw new Error('项目科学副本格式无效');

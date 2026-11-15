@@ -2,6 +2,8 @@ import type { SavedRecord } from './local-library';
 import { translateText, type Locale } from './i18n/core.ts';
 import { localizedRecordTitle } from './i18n/records.ts';
 import { parseAR } from './lab-workflow.ts';
+import { validateCoordinateSource } from '../contracts/coordinate-source.mjs';
+import type { CoordinateSourceMetadata } from '../contracts/coordinate-source';
 
 export type ElectrodeDesign = {
   schema: 'eeg-electrode-design/1';
@@ -10,6 +12,8 @@ export type ElectrodeDesign = {
   name: string;
   xyz_mm: [number, number, number][];
   region_indices: number[];
+  electrode_names?: string[];
+  source_metadata?: CoordinateSourceMetadata;
 };
 export type DecisionThresholds = {
   mode?: 'joint' | 'custom';
@@ -54,9 +58,15 @@ export type DesignJob = {
   result: DesignResult | null;
   key?: string;
   cached?: boolean;
+  annotation_id?: string;
+  electrode_annotation?: SavedRecord['electrode_annotation'];
 };
 const finite = (n: unknown): n is number =>
   typeof n === 'number' && Number.isFinite(n);
+function hasNameControl(value: string) {
+  for (let index = 0; index < value.length; index++) if (value.charCodeAt(index) < 32 || value.charCodeAt(index) === 127) return true;
+  return false;
+}
 export function jointDecisionThresholds(field = 90): DecisionThresholds {
   field = parseAR(String(field));
   return { mode: 'joint', field, sensitivity: field, localization: field, p90_mm: null };
@@ -154,6 +164,10 @@ export function validateDesign(input: unknown): ElectrodeDesign {
   ).sort((a, b) => b - a);
   if (counts.some((n, i) => n !== Math.floor(64 / r) + Number(i < 64 % r)))
     throw new Error('每区电极数须均衡分配，总数64。');
+  if (d.electrode_names !== undefined && (!Array.isArray(d.electrode_names) ||
+      d.electrode_names.length !== 64 || new Set(d.electrode_names).size !== 64 ||
+      d.electrode_names.some(n => typeof n !== 'string' || !n.trim() || n.length > 128 || hasNameControl(n))))
+    throw new Error('需要64个不重复的电极名称，每个名称最多128个字符且不含控制字符。');
   return {
     schema: d.schema,
     coordinate_system: d.coordinate_system,
@@ -161,7 +175,35 @@ export function validateDesign(input: unknown): ElectrodeDesign {
     name: typeof d.name === 'string' ? d.name.slice(0, 100) : '导入布局',
     xyz_mm: d.xyz_mm,
     region_indices: d.region_indices,
+    ...(d.electrode_names === undefined ? {} : { electrode_names: [...d.electrode_names] }),
+    ...(d.source_metadata === undefined ? {} : { source_metadata: validateCoordinateSource(d.source_metadata) as CoordinateSourceMetadata }),
   };
+}
+
+/** Names are presentation metadata; this is the unchanged scientific input. */
+export function scientificDesign(design: ElectrodeDesign) {
+  const { electrode_names: _names, source_metadata: _source, ...request } = validateDesign(design);
+  return request;
+}
+
+export function designSubmission(design: ElectrodeDesign, action: 'evaluate' | 'perturb', radius_mm: number, seed: number) {
+  const request = { action, design: scientificDesign(design), radius_mm, seed };
+  return design.electrode_names || design.source_metadata ? { schema: 'design-submission/1', request,
+    electrode_names: design.electrode_names ?? Array.from({ length: 64 }, (_, index) => `E${index + 1}`),
+    ...(design.source_metadata ? { source_metadata: design.source_metadata } : {}) } : request;
+}
+
+/** Restore saved original inputs; evaluated coordinates remain a separate result. */
+export function restoreDesignEvaluation(bundle: unknown, record: SavedRecord) {
+  const value = bundle as { schema?: string; record_id?: string; reproduction?: { request?: { action?: string; design?: unknown; radius_mm?: number; seed?: number } }; original_record?: { result?: DesignResult & { request?: unknown } } };
+  const request = value?.reproduction?.request, result = value?.original_record?.result;
+  if (value?.schema !== 'eeg-reproducibility-bundle/1' || value.record_id !== record.id || request?.action !== 'evaluate' ||
+      ![3, 6, 10].includes(request.radius_mm ?? 0) || !Number.isInteger(request.seed) || request.seed! < 0 || request.seed! > 9999 ||
+      !result || JSON.stringify(result.request) !== JSON.stringify(request) || JSON.stringify(result.evaluated_xyz_mm) !== JSON.stringify(record.layout?.xyzMm))
+    throw new Error('保存的坐标评价与原始输入不匹配');
+  const design = validateDesign({ ...validateDesign(request.design), ...(record.electrode_annotation ? { electrode_names: record.electrode_annotation.electrode_names,
+    ...(record.electrode_annotation.source_metadata ? { source_metadata: record.electrode_annotation.source_metadata } : {}) } : {}) });
+  return { design, action: 'evaluate' as const, radius_mm: request.radius_mm!, seed: request.seed!, result };
 }
 
 export function exportDesign(record: SavedRecord): ElectrodeDesign {
@@ -173,6 +215,8 @@ export function exportDesign(record: SavedRecord): ElectrodeDesign {
     name: record.label,
     xyz_mm: record.layout.xyzMm,
     region_indices: record.layout.regionIndices,
+    ...(record.electrode_annotation ? { electrode_names: record.electrode_annotation.electrode_names } : {}),
+    ...(record.electrode_annotation?.source_metadata ? { source_metadata: record.electrode_annotation.source_metadata } : {}),
   });
 }
 export function designCSV(design: ElectrodeDesign) {
@@ -180,22 +224,36 @@ export function designCSV(design: ElectrodeDesign) {
     '# coordinate_system=ernie_native_mm; unit=mm; region=zero_based',
     'electrode,region,x_mm,y_mm,z_mm',
     ...design.xyz_mm.map((p, i) =>
-      [`E${i + 1}`, design.region_indices[i], ...p].join(','),
+      [design.electrode_names?.[i] ?? `E${i + 1}`, design.region_indices[i], ...p].map(value => {
+        const cell = String(value);
+        return /[",\r\n]/.test(cell) || cell.trim() !== cell ? '"' + cell.replaceAll('"', '""') + '"' : cell;
+      }).join(','),
     ),
   ].join('\n');
 }
 export function parseDesign(text: string, name = '导入布局') {
   if (text.trimStart().startsWith('{')) return validateDesign(JSON.parse(text));
-  const rows = text.trim().split(/\r?\n/);
+  const rows = text.replace(/\r\n/g, '\n').replace(/\n+$/, '').split('\n');
   if (
     rows.shift()?.trim() !==
       '# coordinate_system=ernie_native_mm; unit=mm; region=zero_based' ||
     rows.shift()?.trim() !== 'electrode,region,x_mm,y_mm,z_mm'
   )
     throw new Error('CSV须包含模板的坐标系声明和表头。');
-  const cells = rows.map((row) => row.split(',').map((x) => x.trim()));
+  const cells = rows.map(row => {
+    const cells: string[] = []; let value = '', quoted = false, closed = false;
+    for (let i = 0; i < row.length; i++) {
+      const c = row[i];
+      if (quoted) { if (c === '"' && row[i + 1] === '"') { value += '"'; i++; } else if (c === '"') { quoted = false; closed = true; } else value += c; }
+      else if (c === ',') { cells.push(value); value = ''; closed = false; }
+      else if (c === '"' && !value && !closed) quoted = true;
+      else { if (closed || c === '"') throw new Error('CSV引号格式无效。'); value += c; }
+    }
+    if (quoted) throw new Error('CSV引号格式无效。');
+    cells.push(value); return cells;
+  });
   if (
-    cells.some((p) => p.length !== 5 || p.some((x) => !x)) ||
+    cells.some((p) => p.length !== 5 || p.some((x) => !x.trim())) ||
     new Set(cells.map((p) => p[0])).size !== 64
   )
     throw new Error('CSV需要64行不重复的电极名称和完整数值。');
@@ -206,6 +264,7 @@ export function parseDesign(text: string, name = '导入布局') {
     name,
     xyz_mm: cells.map((p) => p.slice(2).map(Number)),
     region_indices: cells.map((p) => Number(p[1])),
+    electrode_names: cells.map(p => p[0]),
   });
 }
 export function minimumDistance(design: ElectrodeDesign) {
@@ -390,7 +449,7 @@ export function decisionMarkdown(
   if (supplement)
     lines.push(
       '',
-      '## 新计算结果（与原表分开）',
+      '## 坐标评价结果（与原表分开）',
       '',
       '```json',
       JSON.stringify(supplement, null, 2),

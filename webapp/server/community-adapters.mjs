@@ -1,4 +1,5 @@
 import { normalizeReceptionRequest } from './reception-v2-support.mjs';
+import { designSubmission } from './annotations/electrode-names.mjs';
 
 export function communityAdapters(queue, normalizeRadius) {
   const adapter = (service, normalize, context) => ({
@@ -14,7 +15,10 @@ export function communityAdapters(queue, normalizeRadius) {
     'local-compute': adapter(queue, normalizeRadius, r => queue.identityFor(r)),
     'source-reception': { ...adapter(queue.sources, normalizeReceptionRequest, r => queue.sources.context(r)),
       savedResult: (key, request) => queue.sources.savedResult(key, request) },
-    'design-evaluation': adapter(queue.designTests, r => queue.designTests.normalize(r), r => queue.designTests.context(r)),
+    'design-evaluation': { ...adapter(queue.designTests, r => queue.designTests.normalize(r), r => queue.designTests.context(r)),
+      async prepare(raw) { const input = designSubmission(raw), request = queue.designTests.normalize(input.request), ctx = await queue.designTests.context(request);
+        return { request, key: ctx.key, ctx, ...(input.electrode_names ? { electrode_names: input.electrode_names } : {}),
+          ...(input.source_metadata ? { source_metadata: input.source_metadata } : {}) }; } },
     'electrode-editor': adapter(queue.editor, r => queue.editor.normalize(r), r => queue.editor.context(r)),
   };
 }

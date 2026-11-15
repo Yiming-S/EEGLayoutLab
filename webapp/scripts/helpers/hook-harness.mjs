@@ -104,6 +104,7 @@ export async function createHookHarness({ filename, exportName, imports, globals
   return {
     get current() { if (renderError) throw renderError; return current; },
     flush,
+    async rerender() { render(); await flush(); },
     async act(fn) { const value = await fn(current); await flush(); return value; },
     async waitFor(predicate, { timeoutMs = 1000 } = {}) {
       const deadline = Date.now() + timeoutMs;

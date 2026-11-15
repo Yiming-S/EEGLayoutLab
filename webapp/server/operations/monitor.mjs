@@ -19,6 +19,10 @@ export function correlateOperation(res, job) {
 export function operationRoute(url) {
   const path = typeof url === 'string' ? url.split('?')[0] : '';
   if (path === '/api/operations/status') return 'operations.status';
+  if (path === '/api/robustness-studies') return 'studies.directory';
+  if (/^\/api\/robustness-studies\/[a-f0-9-]{36}$/.test(path)) return 'studies.study';
+  const study = path.match(/^\/api\/robustness-studies\/[a-f0-9-]{36}\/(start|resume|cancel|export)$/);
+  if (study) return 'studies.' + study[1];
   if (path === '/api/projects') return 'projects.create';
   if (/^\/api\/projects\/[a-f0-9-]{36}$/.test(path)) return 'projects.project';
   if (/^\/api\/projects\/[a-f0-9-]{36}\/(share|revoke-share|export)$/.test(path)) return 'projects.' + path.split('/').at(-1);
@@ -31,7 +35,7 @@ export function operationRoute(url) {
   if (path.startsWith('/api/')) return 'api.other';
   if (path.startsWith('/models/')) return 'asset.model';
   if (path.startsWith('/_next/') || path.startsWith('/assets/') || path.startsWith('/favicon.')) return 'asset.web';
-  if (['/', '/projects', '/design', '/coordinates', '/electrodes', '/decision', '/reception', '/library', '/results', '/pilot-results', '/guide', '/method'].includes(path)) return 'page';
+  if (['/', '/projects', '/deliveries', '/robustness', '/design', '/coordinates', '/electrodes', '/decision', '/reception', '/library', '/results', '/pilot-results', '/guide', '/method'].includes(path)) return 'page';
   return 'other';
 }
 export function directOperatorRequest(req) {

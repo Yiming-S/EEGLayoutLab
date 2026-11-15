@@ -3,6 +3,7 @@ import { constants } from 'node:fs';
 import { lstat, mkdir, open, readdir, realpath } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 import { atomicJson } from '../storage/records.mjs';
+import { validateElectrodeAnnotation } from '../annotations/electrode-names.mjs';
 
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
 const SHA = /^[a-f0-9]{64}$/;
@@ -78,6 +79,7 @@ function validateRecord(record, id) {
     if (![record.created_at, record.updated_at].every(value => typeof value === 'string' && Number.isFinite(Date.parse(value)))) throw new Error();
     const ids = new Set(); let bytes = 0;
     for (const entry of record.entries) {
+      if (entry.annotation_id !== undefined && (entry.kind !== 'layout' || !SHA.test(entry.annotation_id))) throw new Error();
       if (!validProjectId(entry.id) || ids.has(entry.id) || !['layout', 'editor', 'source'].includes(entry.kind) || !SHA.test(entry.record_id) || !SHA.test(entry.snapshot_sha256) || !Number.isSafeInteger(entry.snapshot_bytes) || entry.snapshot_bytes < 2 || entry.snapshot_bytes > PROJECT_LIMITS.snapshotBytes || !object(entry.summary)) throw new Error();
       ids.add(entry.id); bytes += entry.snapshot_bytes;
       text(entry.title, 'entry title', 200, true); text(entry.notes, 'entry notes', 8000);
@@ -197,14 +199,15 @@ export class ProjectStore {
     return this.mutate(id, key, input.revision, record => { record.viewer_key_hash = null; });
   }
   attach(id, key, input, snapshot, summary) {
-    fields(input, ['revision', 'kind', 'record_id', 'receipt_id', 'title', 'notes']);
+    fields(input, ['revision', 'kind', 'record_id', 'receipt_id', 'title', 'notes', 'annotation_id']);
     if (!object(snapshot) || snapshot.schema !== 'research-project-snapshot/1' || !['layout', 'editor', 'source'].includes(snapshot.kind) || !SHA.test(snapshot.record_id) || snapshot.kind !== input.kind || !object(snapshot.payload) || !object(summary)) throw projectError('Invalid scientific snapshot.');
+    this.validateAnnotation(snapshot, input.annotation_id);
     const snapshot_json = JSON.stringify(snapshot), frozenSnapshot = JSON.parse(snapshot_json), frozenSummary = clone(summary), snapshot_bytes = Buffer.byteLength(snapshot_json), snapshot_sha256 = digest(snapshot_json);
     if (snapshot_bytes > PROJECT_LIMITS.snapshotBytes) throw projectError('Scientific snapshot exceeds the project size limit.', 413);
     const title = text(input.title ?? `${snapshot.kind} ${snapshot.record_id.slice(0, 8)}`, 'entry title', 200, true), notes = text(input.notes ?? '', 'entry notes', 8000);
     return this.mutate(id, key, input.revision, async record => {
       if (record.entries.length >= PROJECT_LIMITS.entries || record.entries.reduce((sum, entry) => sum + entry.snapshot_bytes, snapshot_bytes) > PROJECT_LIMITS.projectBytes) throw projectError('Project entry or storage limit reached.', 413);
-      if (record.entries.some(entry => entry.kind === snapshot.kind && entry.record_id === snapshot.record_id)) throw projectError('This scientific result is already saved in the project.', 409);
+      if (record.entries.some(entry => entry.kind === snapshot.kind && entry.record_id === snapshot.record_id && entry.annotation_id === input.annotation_id)) throw projectError('This scientific result is already saved in the project.', 409);
       const directory = await this.projectDirectory(id), snapshots = join(directory, 'snapshots'); await this.safeDirectory(snapshots);
       const path = join(snapshots, `${snapshot_sha256}.json`);
       // Detached immutable copies still consume storage; count them in the budget.
@@ -223,7 +226,7 @@ export class ProjectStore {
       if (storedBytes + (alreadyStored ? 0 : snapshot_bytes) > PROJECT_LIMITS.projectBytes || storedCount + Number(!alreadyStored) > PROJECT_LIMITS.entries) throw projectError('Project snapshot storage limit reached.', 413);
       try { const bytes = await this.file(path, PROJECT_LIMITS.snapshotBytes); if (digest(bytes) !== snapshot_sha256) throw projectError('Scientific snapshot failed integrity checks.', 409); }
       catch (error) { if (error.code !== 'ENOENT') throw error; await atomicJson(path, frozenSnapshot); }
-      const entry = { id: randomUUID(), kind: snapshot.kind, record_id: snapshot.record_id, title, notes, created_at: this.now(), snapshot_sha256, snapshot_bytes, summary: frozenSummary };
+      const entry = { id: randomUUID(), kind: snapshot.kind, record_id: snapshot.record_id, ...(input.annotation_id ? { annotation_id: input.annotation_id } : {}), title, notes, created_at: this.now(), snapshot_sha256, snapshot_bytes, summary: frozenSummary };
       record.entries.push(entry); return { entry: clone(entry) };
     });
   }
@@ -251,7 +254,13 @@ export class ProjectStore {
     if (bytes.length !== entry.snapshot_bytes || digest(bytes) !== entry.snapshot_sha256) throw projectError('Scientific snapshot failed integrity checks.', 409);
     let value; try { value = JSON.parse(bytes); } catch { throw projectError('Scientific snapshot failed integrity checks.', 409); }
     if (value.schema !== 'research-project-snapshot/1' || value.kind !== entry.kind || value.record_id !== entry.record_id || !object(value.payload)) throw projectError('Scientific snapshot identity mismatch.', 409);
+    this.validateAnnotation(value, entry.annotation_id);
     return { snapshot: value, snapshot_json: bytes.toString('utf8') };
+  }
+  validateAnnotation(snapshot, id) {
+    if (id === undefined && snapshot.electrode_annotation === undefined) return;
+    try { if (snapshot.kind !== 'layout' || !SHA.test(id) || snapshot.electrode_annotation?.id !== id) throw new Error(); validateElectrodeAnnotation(snapshot.electrode_annotation, snapshot.record_id); }
+    catch { throw projectError('Project electrode names failed integrity checks.', 409); }
   }
   async getEntry(id, key, entryId) {
     if (!validProjectId(entryId)) throw projectError('Invalid project entry identifier.');

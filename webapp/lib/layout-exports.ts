@@ -81,7 +81,8 @@ export function layoutExportFile(record: SavedRecord, kind: Exclude<LayoutExport
 /** Invoked only by the export click handler. This endpoint packages existing records. */
 export async function fetchReproducibilityBundle(record: SavedRecord, fetcher: typeof fetch = fetch, signal?: AbortSignal): Promise<ExportFile> {
   if (!/^[a-f0-9]{64}$/.test(record.id)) throw new Error(catalog.exports_invalid_id.source);
-  const response = await fetcher(`/api/local-compute/library/${record.id}/bundle`, { method: 'GET', cache: 'no-store', signal });
+  const annotation = record.electrode_annotation?.id;
+  const response = await fetcher(`/api/local-compute/library/${record.id}/bundle${annotation ? '?annotation_id=' + encodeURIComponent(annotation) : ''}`, { method: 'GET', cache: 'no-store', signal });
   if (!response.ok) throw new Error(catalog.exports_bundle_failed.source);
   const value: unknown = await response.json();
   if (!value || typeof value !== 'object') throw new Error(catalog.exports_bundle_mismatch.source);

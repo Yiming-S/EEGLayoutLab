@@ -1,0 +1,1227 @@
+{
+  "workflow_000": {
+    "source": "生成新的只读链接",
+    "en": "Generate a new read-only link"
+  },
+  "workflow_001": {
+    "source": "新链接生成后，之前的只读链接将失效。查看项目和下载文件不会更换链接。",
+    "en": "Generating a new link invalidates previous read-only links. Viewing the project or downloading files does not replace a link."
+  },
+  "workflow_002": {
+    "source": "查看已有面积约束布局",
+    "en": "View a saved area-constrained layout"
+  },
+  "workflow_003": {
+    "source": "当前显示总面积上限约束的原始布局。可查看指标、编辑电极，或新建每区半径约束方案。",
+    "en": "This is the original layout from a total-area-constrained experiment. Review its metrics, edit electrodes, or create a radius-constrained configuration."
+  },
+  "workflow_004": {
+    "source": "设置半径约束布局",
+    "en": "Set up a radius-constrained layout"
+  },
+  "workflow_005": {
+    "source": "已有匹配结果会自动读取；没有记录时，设置区域部位和每区半径后点击“开始布局计算”。",
+    "en": "Matching saved results load automatically. Otherwise, choose the region locations and per-region radius, then click “Compute layout”."
+  },
+  "workflow_006": {
+    "source": "布局计算已排队",
+    "en": "Layout computation queued"
+  },
+  "workflow_007": {
+    "source": "当前配置已提交，等待计算。",
+    "en": "The current configuration has been submitted and is waiting to run."
+  },
+  "workflow_008": {
+    "source": "正在计算布局",
+    "en": "Computing the layout"
+  },
+  "workflow_009": {
+    "source": "当前配置正在搜索和评价，完成后显示布局与指标。",
+    "en": "The current configuration is being searched and evaluated. The layout and metrics appear when it finishes."
+  },
+  "workflow_010": {
+    "source": "正在停止布局计算",
+    "en": "Stopping layout computation"
+  },
+  "workflow_011": {
+    "source": "停止请求已提交，等待任务返回最终状态。",
+    "en": "The stop request has been submitted. Waiting for the task’s final status."
+  },
+  "workflow_012": {
+    "source": "查看已完成的半径约束布局",
+    "en": "View a completed radius-constrained layout"
+  },
+  "workflow_013": {
+    "source": "任务已完成，布局与指标尚未载入。",
+    "en": "The task has completed; its layout and metrics have not loaded yet."
+  },
+  "workflow_014": {
+    "source": "正在读取布局结果",
+    "en": "Loading the layout result"
+  },
+  "workflow_015": {
+    "source": "布局计算失败",
+    "en": "Layout computation failed"
+  },
+  "workflow_016": {
+    "source": "查看计算面板中的原因后，可重试或调整条件。",
+    "en": "Check the reason in the computation panel, then retry or adjust the configuration."
+  },
+  "workflow_017": {
+    "source": "布局计算已超时",
+    "en": "Layout computation timed out"
+  },
+  "workflow_018": {
+    "source": "可调整条件后重试，或重新提交当前配置。",
+    "en": "Adjust the configuration and retry, or resubmit the current configuration."
+  },
+  "workflow_019": {
+    "source": "布局计算已停止",
+    "en": "Layout computation stopped"
+  },
+  "workflow_020": {
+    "source": "可调整条件或重新提交当前配置。",
+    "en": "Adjust the configuration or resubmit the current configuration."
+  },
+  "workflow_021": {
+    "source": "本次搜索未找到完整布局",
+    "en": "No complete layout found in this search"
+  },
+  "workflow_022": {
+    "source": "查看布局参数与计算",
+    "en": "View layout settings and computation"
+  },
+  "workflow_023": {
+    "source": "查看任务状态",
+    "en": "View task status"
+  },
+  "workflow_024": {
+    "source": "查看原因与计算设置",
+    "en": "View the reason and computation settings"
+  },
+  "workflow_025": {
+    "source": "布局示意（非计算结果）",
+    "en": "Layout illustration (not a computed result)"
+  },
+  "workflow_026": {
+    "source": "正在读取所选布局",
+    "en": "Loading the selected layout"
+  },
+  "workflow_027": {
+    "source": "正在读取布局记录和参数。",
+    "en": "Loading the layout record and configuration."
+  },
+  "workflow_028": {
+    "source": "所选方案无法读取",
+    "en": "Unable to load the selected layout"
+  },
+  "workflow_029": {
+    "source": "当前显示完整布局及其评价结果。",
+    "en": "The complete layout and its evaluation results are shown."
+  },
+  "workflow_030": {
+    "source": "查看电极名称与区域",
+    "en": "View electrode names and regions"
+  },
+  "workflow_031": {
+    "source": "打开保存的坐标评价",
+    "en": "Open the saved coordinate evaluation"
+  },
+  "workflow_032": {
+    "source": "导出实际评价坐标",
+    "en": "Export evaluated coordinates"
+  },
+  "workflow_033": {
+    "source": "项目电极名称与记录不匹配",
+    "en": "Project electrode names do not match the record"
+  },
+  "workflow_034": {
+    "source": "需要64个不重复的电极名称，每个名称最多128个字符且不含控制字符。",
+    "en": "Provide 64 unique electrode names, each at most 128 characters and without control characters."
+  },
+  "workflow_035": {
+    "source": "CSV引号格式无效。",
+    "en": "Invalid CSV quoting."
+  },
+  "workflow_036": {
+    "source": "已载入保存的坐标评价。",
+    "en": "Loaded the saved coordinate evaluation."
+  },
+  "workflow_037": {
+    "source": "保存的坐标评价读取失败",
+    "en": "Unable to load the saved coordinate evaluation"
+  },
+  "workflow_038": {
+    "source": "保存的坐标评价与原始输入不匹配",
+    "en": "The saved coordinate evaluation does not match its original input"
+  },
+  "workflow_039": {
+    "source": "已保存布局副本",
+    "en": "Saved layout copies"
+  },
+  "workflow_040": {
+    "source": "不同科学布局",
+    "en": "Distinct scientific layouts"
+  },
+  "workflow_041": {
+    "source": "项目全部信号记录",
+    "en": "All project signal records"
+  },
+  "workflow_042": {
+    "source": "当前候选布局的信号记录",
+    "en": "Signal records for the current candidate"
+  },
+  "workflow_043": {
+    "source": "查看候选布局的信号记录",
+    "en": "View the candidate’s signal records"
+  },
+  "workflow_044": {
+    "source": "未记录",
+    "en": "Not recorded"
+  },
+  "workflow_045": {
+    "source": "信号实验关联与条件",
+    "en": "Signal experiment links and conditions"
+  },
+  "workflow_046": {
+    "source": "父布局",
+    "en": "Parent layout"
+  },
+  "workflow_047": {
+    "source": "项目中未保存此布局",
+    "en": "This layout is not saved in the project"
+  },
+  "workflow_048": {
+    "source": "父布局科学编号",
+    "en": "Parent layout scientific ID"
+  },
+  "workflow_049": {
+    "source": "场景模式",
+    "en": "Scenario mode"
+  },
+  "workflow_050": {
+    "source": "这些名称副本共用同一份科学布局记录。",
+    "en": "These name copies share the same scientific layout record."
+  },
+  "workflow_051": {
+    "source": "已保存的脑源请求条件",
+    "en": "Saved source request conditions"
+  },
+  "workflow_052": {
+    "source": "请求的源编号",
+    "en": "Requested source index"
+  },
+  "workflow_053": {
+    "source": "请求的脑区",
+    "en": "Requested brain region"
+  },
+  "workflow_054": {
+    "source": "请求的跨区脑源区域",
+    "en": "Requested cross-region source regions"
+  },
+  "workflow_055": {
+    "source": "缺失字段显示为“未记录”。",
+    "en": "Missing fields are shown as “Not recorded”."
+  },
+  "workflow_056": {
+    "source": "项目实验筛选",
+    "en": "Project experiment filter"
+  },
+  "workflow_057": {
+    "source": "全部实验记录",
+    "en": "All experiment records"
+  },
+  "workflow_058": {
+    "source": "只看当前候选的信号记录",
+    "en": "Only the current candidate’s signal records"
+  },
+  "workflow_059": {
+    "source": "当前候选布局",
+    "en": "Current candidate layout"
+  },
+  "workflow_060": {
+    "source": "尚未选择项目候选布局。",
+    "en": "No project candidate layout is selected."
+  },
+  "workflow_061": {
+    "source": "显示记录数",
+    "en": "Records shown"
+  },
+  "workflow_062": {
+    "source": "当前候选布局尚无已关联的信号记录。",
+    "en": "No signal records are linked to the current candidate layout."
+  },
+  "workflow_063": {
+    "source": "逐电极坐标检查",
+    "en": "Per-electrode coordinate review"
+  },
+  "workflow_064": {
+    "source": "坐标声明：Ernie原生空间，单位mm。此接口不执行坐标配准。",
+    "en": "Declared frame: Ernie native coordinates, in mm. This interface does not register coordinates."
+  },
+  "workflow_065": {
+    "source": "坐标来源",
+    "en": "Coordinate source"
+  },
+  "workflow_066": {
+    "source": "合格表示已验证结果的逐点投影移动不超过现有2 mm限制；数值评分另行显示。",
+    "en": "Pass means that each validated projection stays within the existing 2 mm movement limit. Scientific scores are shown separately."
+  },
+  "workflow_067": {
+    "source": "尚未评价；原输入坐标不能作为已投影合格的结果。",
+    "en": "Not evaluated. Original input coordinates have not been validated as projected positions."
+  },
+  "workflow_068": {
+    "source": "原输入坐标（mm）",
+    "en": "Original input coordinates (mm)"
+  },
+  "workflow_069": {
+    "source": "实际评价坐标（mm）",
+    "en": "Evaluated coordinates (mm)"
+  },
+  "workflow_070": {
+    "source": "投影移动（mm）",
+    "en": "Projection movement (mm)"
+  },
+  "workflow_071": {
+    "source": "坐标检查",
+    "en": "Coordinate review"
+  },
+  "workflow_072": {
+    "source": "未评价",
+    "en": "Not evaluated"
+  },
+  "workflow_073": {
+    "source": "合格",
+    "en": "Pass"
+  },
+  "workflow_074": {
+    "source": "超出投影限制",
+    "en": "Outside projection limit"
+  },
+  "workflow_075": {
+    "source": "导出逐电极检查JSON",
+    "en": "Export per-electrode review JSON"
+  },
+  "workflow_076": {
+    "source": "导入BIDS坐标文件",
+    "en": "Import BIDS coordinate files"
+  },
+  "workflow_077": {
+    "source": "请成对选择electrodes.tsv和coordsystem.json，每个文件不超过64 KB。",
+    "en": "Select electrodes.tsv and coordsystem.json together. Each file must be at most 64 KB."
+  },
+  "workflow_078": {
+    "source": "同时选择electrodes.tsv和coordsystem.json；region列为本软件的零基区域扩展，可附electrodes.json说明。只接受显式Ernie原生空间和mm单位。",
+    "en": "Select electrodes.tsv and coordsystem.json together; region is the EEGLayoutLab zero-based region extension. An electrodes.json description can accompany them. The frame must be explicitly Ernie native, in mm."
+  },
+  "workflow_079": {
+    "source": "BIDS坐标文件接口",
+    "en": "BIDS coordinate file interface"
+  },
+  "workflow_080": {
+    "source": "以下文件保留原输入坐标，包含本软件区域扩展；这不是完整BIDS数据集导出。请同时保留三个文件。",
+    "en": "These files preserve the original input coordinates and the EEGLayoutLab region extension. They do not form a complete BIDS dataset. Keep all three files together."
+  },
+  "workflow_081": {
+    "source": "下载",
+    "en": "Download"
+  },
+  "workflow_082": {
+    "source": "BIDS坐标文件的名称前缀必须一致。",
+    "en": "BIDS coordinate files must have matching filename prefixes."
+  },
+  "workflow_083": {
+    "source": "仅接受显式声明Ernie原生坐标系的文件；MNI、head及其他坐标须先在外部配准。",
+    "en": "Files must explicitly declare the Ernie native frame. MNI, head and other coordinates require external registration first."
+  },
+  "workflow_084": {
+    "source": "BIDS坐标接口目前只接受明确的mm单位，不执行单位推断或换算。",
+    "en": "The BIDS coordinate interface accepts explicit mm units only. It does not infer or convert units."
+  },
+  "workflow_085": {
+    "source": "electrodes.tsv须包含name、x、y、z和明确分配的region列；不能自动分配区域。",
+    "en": "electrodes.tsv must contain name, x, y, z and an explicitly assigned region column. Regions are not assigned automatically."
+  },
+  "workflow_086": {
+    "source": "region列须使用本软件的零基区域扩展，并声明EEGLayoutLabRegionIndexBase为0。",
+    "en": "The region column must use the EEGLayoutLab zero-based extension and declare EEGLayoutLabRegionIndexBase as 0."
+  },
+  "workflow_087": {
+    "source": "electrodes.json须说明region列的含义。",
+    "en": "electrodes.json must describe the region column."
+  },
+  "workflow_088": {
+    "source": "请在electrodes.json或EEGLayoutLabRegionDescription中说明region列。",
+    "en": "Describe the region column in electrodes.json or EEGLayoutLabRegionDescription."
+  },
+  "workflow_089": {
+    "source": "BIDS坐标文件需要64个命名电极和完整数值；不接受n/a坐标。",
+    "en": "BIDS coordinate files require 64 named electrodes with complete numeric coordinates. n/a coordinates are not accepted."
+  },
+  "workflow_090": {
+    "source": "坐标来源说明与当前文件声明不一致。",
+    "en": "The saved source description does not match the current file declaration."
+  },
+  "workflow_091": {
+    "source": "坐标来源说明格式无效",
+    "en": "Invalid coordinate source metadata"
+  },
+  "workflow_092": {
+    "source": "交付快照格式无效",
+    "en": "Invalid delivery snapshot format"
+  },
+  "workflow_093": {
+    "source": "交付快照与记录不匹配",
+    "en": "The delivery snapshot does not match its record"
+  },
+  "workflow_094": {
+    "source": "交付布局坐标或指标无效",
+    "en": "Invalid delivered layout coordinates or metrics"
+  },
+  "workflow_095": {
+    "source": "交付编辑结果格式无效",
+    "en": "Invalid delivered editing result"
+  },
+  "workflow_096": {
+    "source": "交付信号结果格式无效",
+    "en": "Invalid delivered signal result"
+  },
+  "workflow_097": {
+    "source": "交付电极名称与记录不匹配",
+    "en": "Delivered electrode names do not match the record"
+  },
+  "workflow_098": {
+    "source": "交付比较条件无效",
+    "en": "Invalid delivered comparison settings"
+  },
+  "workflow_099": {
+    "source": "交付比较条件与记录不匹配",
+    "en": "Delivered comparison settings do not match the records"
+  },
+  "workflow_100": {
+    "source": "交付包超过大小上限",
+    "en": "The delivery exceeds the size limit"
+  },
+  "workflow_101": {
+    "source": "交付包不是有效JSON",
+    "en": "The delivery is not valid JSON"
+  },
+  "workflow_102": {
+    "source": "交付包格式无效",
+    "en": "Invalid research delivery format"
+  },
+  "workflow_103": {
+    "source": "交付项目说明无效",
+    "en": "Invalid delivered project metadata"
+  },
+  "workflow_104": {
+    "source": "交付版本说明无效",
+    "en": "Invalid delivered version metadata"
+  },
+  "workflow_105": {
+    "source": "交付文件清单无效",
+    "en": "Invalid delivery file inventory"
+  },
+  "workflow_106": {
+    "source": "交付文件路径无效",
+    "en": "Invalid delivery file path"
+  },
+  "workflow_107": {
+    "source": "交付文件大小或校验值不一致",
+    "en": "Delivery file size or checksum mismatch"
+  },
+  "workflow_108": {
+    "source": "交付包缺少说明文件",
+    "en": "The delivery is missing its README"
+  },
+  "workflow_109": {
+    "source": "交付清单校验失败",
+    "en": "Delivery manifest checksum mismatch"
+  },
+  "workflow_110": {
+    "source": "交付记录说明无效",
+    "en": "Invalid delivered record metadata"
+  },
+  "workflow_111": {
+    "source": "交付记录缺少科学文件",
+    "en": "A delivered scientific file is missing"
+  },
+  "workflow_112": {
+    "source": "交付包阅读",
+    "en": "Delivery Reader"
+  },
+  "workflow_113": {
+    "source": "打开本地交付包",
+    "en": "Open a local delivery package"
+  },
+  "workflow_114": {
+    "source": "在当前浏览器读取项目交付包，查看说明、指标、坐标与波形。",
+    "en": "Read a project delivery package in this browser to view its notes, metrics, coordinates and waveforms."
+  },
+  "workflow_115": {
+    "source": "选择交付包文件",
+    "en": "Select a delivery file"
+  },
+  "workflow_116": {
+    "source": "项目交付包 JSON",
+    "en": "Project delivery JSON"
+  },
+  "workflow_117": {
+    "source": "文件上限",
+    "en": "File size limit"
+  },
+  "workflow_118": {
+    "source": "正在读取并校验交付包…",
+    "en": "Reading and verifying the delivery package…"
+  },
+  "workflow_119": {
+    "source": "取消读取",
+    "en": "Cancel reading"
+  },
+  "workflow_120": {
+    "source": "读取已取消。",
+    "en": "Reading cancelled."
+  },
+  "workflow_121": {
+    "source": "交付包无法打开",
+    "en": "Unable to open the delivery package"
+  },
+  "workflow_122": {
+    "source": "已校验的交付项目",
+    "en": "Verified delivery project"
+  },
+  "workflow_123": {
+    "source": "关闭交付包",
+    "en": "Close delivery package"
+  },
+  "workflow_124": {
+    "source": "文件名称",
+    "en": "File name"
+  },
+  "workflow_125": {
+    "source": "导出时间",
+    "en": "Exported at"
+  },
+  "workflow_126": {
+    "source": "交付记录数",
+    "en": "Delivered records"
+  },
+  "workflow_127": {
+    "source": "下载原始交付包",
+    "en": "Download the original package"
+  },
+  "workflow_128": {
+    "source": "查看交付说明",
+    "en": "Read the delivery notes"
+  },
+  "workflow_129": {
+    "source": "交付记录浏览",
+    "en": "Browse delivered records"
+  },
+  "workflow_130": {
+    "source": "选择交付记录",
+    "en": "Select a delivered record"
+  },
+  "workflow_131": {
+    "source": "下载此记录的原始快照",
+    "en": "Download this record’s original snapshot"
+  },
+  "workflow_132": {
+    "source": "交付包中没有实验记录。",
+    "en": "This delivery package contains no experiment records."
+  },
+  "workflow_133": {
+    "source": "已读取保存的坐标评价",
+    "en": "Loaded saved coordinate evaluation"
+  },
+  "workflow_134": {
+    "source": "坐标评价结果",
+    "en": "Coordinate evaluation result"
+  },
+  "workflow_135": {
+    "source": "原结果来源",
+    "en": "Original result source"
+  },
+  "workflow_136": {
+    "source": "已有前向库FEM",
+    "en": "Existing FEM forward bank"
+  },
+  "workflow_137": {
+    "source": "## 坐标评价结果（与原表分开）",
+    "en": "## Coordinate evaluation result (separate from the table)"
+  },
+  "workflow_138": {
+    "source": "Choose a study protocol and 1–12 explicit cases.",
+    "en": "Choose a study protocol and 1–12 explicit cases.",
+    "zh": "请选择重复评估协议，并列出1至12个明确案例。"
+  },
+  "workflow_139": {
+    "source": "Completed case failed scientific cache integrity checks.",
+    "en": "Completed case failed scientific cache integrity checks.",
+    "zh": "已完成案例的科学缓存未通过完整性检查。"
+  },
+  "workflow_140": {
+    "source": "Duplicate seed/radius cases are not independent study cases.",
+    "en": "Duplicate seed/radius cases are not independent study cases.",
+    "zh": "案例的种子与半径组合不能重复。"
+  },
+  "workflow_141": {
+    "source": "Duplicate seed/radius cases are not allowed.",
+    "en": "Duplicate seed/radius cases are not allowed.",
+    "zh": "案例的种子与半径组合不能重复。"
+  },
+  "workflow_142": {
+    "source": "Each case requires only an explicit seed and radius_mm.",
+    "en": "Each case requires only an explicit seed and radius_mm.",
+    "zh": "每个案例须填写明确的随机种子和半径。"
+  },
+  "workflow_143": {
+    "source": "Invalid study JSON.",
+    "en": "Invalid study JSON.",
+    "zh": "研究请求不是有效的JSON。"
+  },
+  "workflow_144": {
+    "source": "Invalid study title or notes.",
+    "en": "Invalid study title or notes.",
+    "zh": "研究名称或备注无效。"
+  },
+  "workflow_145": {
+    "source": "JSON is required.",
+    "en": "JSON is required.",
+    "zh": "请求须使用JSON格式。"
+  },
+  "workflow_146": {
+    "source": "No owned receipt or verified cache confirms the interrupted submission. It was not resubmitted.",
+    "en": "No owned receipt or verified cache confirms the interrupted submission. It was not resubmitted.",
+    "zh": "未找到本浏览器回执或合格缓存，本案例未重新提交。"
+  },
+  "workflow_147": {
+    "source": "Noise-seed studies hold radius fixed; radius affects displacement trials only.",
+    "en": "Noise-seed studies hold radius fixed; radius affects displacement trials only.",
+    "zh": "定位噪声种子研究须固定半径；半径只影响位置偏移试验。"
+  },
+  "workflow_148": {
+    "source": "Refresh the page before changing a study.",
+    "en": "Refresh the page before changing a study.",
+    "zh": "请刷新页面后再修改研究。"
+  },
+  "workflow_149": {
+    "source": "Request rejected by access policy.",
+    "en": "Request rejected by access policy.",
+    "zh": "请求未通过访问检查。"
+  },
+  "workflow_150": {
+    "source": "Scientific identity changed while preparing the study.",
+    "en": "Scientific identity changed while preparing the study.",
+    "zh": "准备研究期间，科学源码或模型身份发生变化。"
+  },
+  "workflow_151": {
+    "source": "Scientific identity changed. Create a new study to use the updated model.",
+    "en": "Scientific identity changed. Create a new study to use the updated model.",
+    "zh": "科学源码或模型身份已改变。使用新模型时须创建新研究。"
+  },
+  "workflow_152": {
+    "source": "Start a draft study or explicitly resume a paused study.",
+    "en": "Start a draft study or explicitly resume a paused study.",
+    "zh": "请启动研究草稿，或明确恢复已暂停的研究。"
+  },
+  "workflow_153": {
+    "source": "Study API queries are not supported.",
+    "en": "Study API queries are not supported.",
+    "zh": "研究接口不接受网址查询参数。"
+  },
+  "workflow_154": {
+    "source": "Study case not found.",
+    "en": "Study case not found.",
+    "zh": "未找到该研究案例。"
+  },
+  "workflow_155": {
+    "source": "Study case snapshot is too large.",
+    "en": "Study case snapshot is too large.",
+    "zh": "研究案例快照超过大小上限。"
+  },
+  "workflow_156": {
+    "source": "Study child receipt identity mismatch.",
+    "en": "Study child receipt identity mismatch.",
+    "zh": "研究案例与计算回执身份不匹配。"
+  },
+  "workflow_157": {
+    "source": "Study control requests require an empty JSON object.",
+    "en": "Study control requests require an empty JSON object.",
+    "zh": "研究控制请求须使用空JSON对象。"
+  },
+  "workflow_158": {
+    "source": "Study count limit reached.",
+    "en": "Study count limit reached.",
+    "zh": "已达到可保存的研究数量上限。"
+  },
+  "workflow_159": {
+    "source": "Study directory limit exceeded.",
+    "en": "Study directory limit exceeded.",
+    "zh": "研究目录超过数量上限。"
+  },
+  "workflow_160": {
+    "source": "Study directory needs inspection.",
+    "en": "Study directory needs inspection.",
+    "zh": "研究目录中存在异常文件，需要检查。"
+  },
+  "workflow_161": {
+    "source": "Study metadata exceeds the size limit.",
+    "en": "Study metadata exceeds the size limit.",
+    "zh": "研究说明超过大小上限。"
+  },
+  "workflow_162": {
+    "source": "Study metadata failed integrity checks.",
+    "en": "Study metadata failed integrity checks.",
+    "zh": "研究说明未通过完整性检查。"
+  },
+  "workflow_163": {
+    "source": "Study metadata path is unsafe.",
+    "en": "Study metadata path is unsafe.",
+    "zh": "研究说明的文件路径无效。"
+  },
+  "workflow_164": {
+    "source": "Study not found.",
+    "en": "Study not found.",
+    "zh": "未找到该研究。"
+  },
+  "workflow_165": {
+    "source": "Study processing paused. Inspect the recorded cases before resuming.",
+    "en": "Study processing paused. Inspect the recorded cases before resuming.",
+    "zh": "研究已暂停。请核对已记录的案例后再恢复。"
+  },
+  "workflow_166": {
+    "source": "Study request is too large.",
+    "en": "Study request is too large.",
+    "zh": "研究请求超过大小上限。"
+  },
+  "workflow_167": {
+    "source": "Study scientific cache identity mismatch.",
+    "en": "Study scientific cache identity mismatch.",
+    "zh": "研究科学缓存的身份不匹配。"
+  },
+  "workflow_168": {
+    "source": "Study service is stopping.",
+    "en": "Study service is stopping.",
+    "zh": "研究服务正在停止。"
+  },
+  "workflow_169": {
+    "source": "Study snapshot capacity reached.",
+    "en": "Study snapshot capacity reached.",
+    "zh": "研究快照存储已达到上限。"
+  },
+  "workflow_170": {
+    "source": "Study snapshot checksum mismatch.",
+    "en": "Study snapshot checksum mismatch.",
+    "zh": "研究快照的校验值不匹配。"
+  },
+  "workflow_171": {
+    "source": "Study snapshot file limit reached.",
+    "en": "Study snapshot file limit reached.",
+    "zh": "研究快照文件数已达到上限。"
+  },
+  "workflow_172": {
+    "source": "Study snapshot path is unsafe.",
+    "en": "Study snapshot path is unsafe.",
+    "zh": "研究快照的文件路径无效。"
+  },
+  "workflow_173": {
+    "source": "Study storage capacity reached.",
+    "en": "Study storage capacity reached.",
+    "zh": "研究存储空间已达到上限。"
+  },
+  "workflow_174": {
+    "source": "Study storage contains an unsafe entry.",
+    "en": "Study storage contains an unsafe entry.",
+    "zh": "研究存储中存在无效文件或链接。"
+  },
+  "workflow_175": {
+    "source": "Study storage needs inspection.",
+    "en": "Study storage needs inspection.",
+    "zh": "研究存储中存在异常文件，需要检查。"
+  },
+  "workflow_176": {
+    "source": "Study storage or scientific input is unavailable.",
+    "en": "Study storage or scientific input is unavailable.",
+    "zh": "研究存储或科学输入当前无法读取。"
+  },
+  "workflow_177": {
+    "source": "Submission did not return a confirmed receipt. Resume only to reconcile its original outcome.",
+    "en": "Submission did not return a confirmed receipt. Resume only to reconcile its original outcome.",
+    "zh": "提交结果尚未确认。恢复操作将先核对原始回执。"
+  },
+  "workflow_178": {
+    "source": "The original queue deferred this case. Resume explicitly when resources are available.",
+    "en": "The original queue deferred this case. Resume explicitly when resources are available.",
+    "zh": "计算队列暂缓了该案例。资源恢复后，请手动继续。"
+  },
+  "workflow_179": {
+    "source": "This browser already has an active study.",
+    "en": "This browser already has an active study.",
+    "zh": "本浏览器已有一项正在运行的研究。"
+  },
+  "workflow_180": {
+    "source": "This browser no longer owns the child subscription.",
+    "en": "This browser no longer owns the child subscription.",
+    "zh": "本浏览器已不再订阅该计算案例。"
+  },
+  "workflow_181": {
+    "source": "Unsupported study method.",
+    "en": "Unsupported study method.",
+    "zh": "研究接口不支持该请求方法。"
+  },
+  "workflow_182": {
+    "source": "Unsupported study operation.",
+    "en": "Unsupported study operation.",
+    "zh": "不支持该研究操作。"
+  },
+  "workflow_183": {
+    "source": "研究目录无法读取",
+    "en": "The study directory could not be read"
+  },
+  "workflow_184": {
+    "source": "研究无法读取",
+    "en": "The study could not be read"
+  },
+  "workflow_185": {
+    "source": "已恢复原始坐标与名称草稿；尚未创建或启动研究。",
+    "en": "Original coordinates and names restored. No study has been created or started."
+  },
+  "workflow_186": {
+    "source": "没有可恢复的坐标草稿，请重新导入。",
+    "en": "No coordinate draft is available. Import it again."
+  },
+  "workflow_187": {
+    "source": "研究坐标草稿无法恢复",
+    "en": "The coordinate draft could not be restored"
+  },
+  "workflow_188": {
+    "source": "研究连接中断",
+    "en": "The study connection was interrupted"
+  },
+  "workflow_189": {
+    "source": "操作返回前连接中断。请重新读取研究或刷新目录，核对已保存状态后再操作。",
+    "en": "The connection ended before the operation returned. Read the study or refresh the directory to check its saved state before continuing."
+  },
+  "workflow_190": {
+    "source": "请先打开研究",
+    "en": "Open a study first"
+  },
+  "workflow_191": {
+    "source": "研究坐标草稿超过64 KiB",
+    "en": "The coordinate draft exceeds 64 KiB"
+  },
+  "workflow_192": {
+    "source": "研究坐标草稿格式无效",
+    "en": "Invalid coordinate draft format"
+  },
+  "workflow_193": {
+    "source": "请先导入64电极坐标",
+    "en": "Import coordinates for 64 electrodes first"
+  },
+  "workflow_194": {
+    "source": "请填写研究名称；名称上限200字，备注上限2000字",
+    "en": "Enter a study title. The title limit is 200 characters and the notes limit is 2,000 characters."
+  },
+  "workflow_195": {
+    "source": "请列出1至12个明确案例",
+    "en": "List 1 to 12 explicit cases"
+  },
+  "workflow_196": {
+    "source": "每个案例须填写0至9999的整数种子和3、6或10 mm半径",
+    "en": "Each case requires an integer seed from 0 to 9999 and a radius of 3, 6 or 10 mm"
+  },
+  "workflow_197": {
+    "source": "案例的种子与半径组合不能重复",
+    "en": "Seed and radius combinations must be unique"
+  },
+  "workflow_198": {
+    "source": "随机种子研究的所有案例须保持同一半径参数",
+    "en": "All noise-seed cases must use the same radius parameter"
+  },
+  "workflow_199": {
+    "source": "研究请求超过64 KiB",
+    "en": "The study request exceeds 64 KiB"
+  },
+  "workflow_200": {
+    "source": "研究草稿",
+    "en": "Study draft"
+  },
+  "workflow_201": {
+    "source": "研究运行中",
+    "en": "Study running"
+  },
+  "workflow_202": {
+    "source": "等待明确恢复",
+    "en": "Waiting for explicit resume"
+  },
+  "workflow_203": {
+    "source": "资源不足，研究已暂停",
+    "en": "Study paused for resources"
+  },
+  "workflow_204": {
+    "source": "正在取消研究",
+    "en": "Cancelling study"
+  },
+  "workflow_205": {
+    "source": "研究已完成",
+    "en": "Study completed"
+  },
+  "workflow_206": {
+    "source": "研究已结束，部分案例失败",
+    "en": "Study ended with failed cases"
+  },
+  "workflow_207": {
+    "source": "研究已取消",
+    "en": "Study cancelled"
+  },
+  "workflow_208": {
+    "source": "待开始",
+    "en": "Pending"
+  },
+  "workflow_209": {
+    "source": "正在提交案例",
+    "en": "Submitting case"
+  },
+  "workflow_210": {
+    "source": "案例排队中",
+    "en": "Case queued"
+  },
+  "workflow_211": {
+    "source": "案例失败",
+    "en": "Case failed"
+  },
+  "workflow_212": {
+    "source": "提交结果未确认",
+    "en": "Submission outcome unconfirmed"
+  },
+  "workflow_213": {
+    "source": "几何约束拒绝",
+    "en": "Geometry rejected"
+  },
+  "workflow_214": {
+    "source": "案例运行中",
+    "en": "Case running"
+  },
+  "workflow_215": {
+    "source": "正在取消案例",
+    "en": "Cancelling case"
+  },
+  "workflow_216": {
+    "source": "案例已完成",
+    "en": "Case completed"
+  },
+  "workflow_217": {
+    "source": "案例已取消",
+    "en": "Case cancelled"
+  },
+  "workflow_218": {
+    "source": "研究坐标草稿无法保存",
+    "en": "The coordinate draft could not be saved"
+  },
+  "workflow_219": {
+    "source": "用此坐标创建稳健性研究",
+    "en": "Create a robustness study from these coordinates"
+  },
+  "workflow_220": {
+    "source": "研究导出失败",
+    "en": "Study export failed"
+  },
+  "workflow_221": {
+    "source": "坐标文件无法读取",
+    "en": "The coordinate file could not be read"
+  },
+  "workflow_222": {
+    "source": "定位噪声随机种子重复",
+    "en": "Localization noise seed repeats"
+  },
+  "workflow_223": {
+    "source": "候选网格位置偏移重复",
+    "en": "Candidate-grid displacement repeats"
+  },
+  "workflow_224": {
+    "source": "固定估计器场保留率",
+    "en": "Fixed-estimator field retention"
+  },
+  "workflow_225": {
+    "source": "无有效读数",
+    "en": "No valid reading"
+  },
+  "workflow_226": {
+    "source": "有效案例数",
+    "en": "Cases with a valid reading"
+  },
+  "workflow_227": {
+    "source": "研究草稿无法保存",
+    "en": "The study draft could not be saved"
+  },
+  "workflow_228": {
+    "source": "稳健性研究",
+    "en": "Robustness studies"
+  },
+  "workflow_229": {
+    "source": "可复现的重复评估",
+    "en": "Reproducible repeated evaluation"
+  },
+  "workflow_230": {
+    "source": "按明确的种子与偏移参数重复原评价协议，逐项保存请求、结果及失败原因。",
+    "en": "Repeat the original evaluation with explicit seeds and displacement parameters. Keep each request, result and failure reason."
+  },
+  "workflow_231": {
+    "source": "本浏览器的稳健性研究",
+    "en": "Robustness studies in this browser"
+  },
+  "workflow_232": {
+    "source": "已保存研究",
+    "en": "Saved studies"
+  },
+  "workflow_233": {
+    "source": "刷新研究目录",
+    "en": "Refresh study directory"
+  },
+  "workflow_234": {
+    "source": "编辑新的研究草稿",
+    "en": "Edit a new study draft"
+  },
+  "workflow_235": {
+    "source": "选择已保存研究",
+    "en": "Select a saved study"
+  },
+  "workflow_236": {
+    "source": "选择研究以读取状态",
+    "en": "Select a study to read its state"
+  },
+  "workflow_237": {
+    "source": "操作结果待核对，写入按钮已暂停。重新读取当前研究，或刷新目录并打开已保存研究。",
+    "en": "The operation outcome needs checking. Write actions are paused. Read the current study, or refresh the directory and open a saved study."
+  },
+  "workflow_238": {
+    "source": "正在提交研究操作…",
+    "en": "Submitting study operation…"
+  },
+  "workflow_239": {
+    "source": "正在读取研究…",
+    "en": "Reading study…"
+  },
+  "workflow_240": {
+    "source": "创建稳健性研究草稿",
+    "en": "Create a robustness study draft"
+  },
+  "workflow_241": {
+    "source": "创建研究草稿",
+    "en": "Create a study draft"
+  },
+  "workflow_242": {
+    "source": "导入64电极CSV或JSON",
+    "en": "Import 64-electrode CSV or JSON"
+  },
+  "workflow_243": {
+    "source": "使用导入的原始坐标；名称和来源说明独立保存。",
+    "en": "Use the original imported coordinates. Names and source declarations are stored separately."
+  },
+  "workflow_244": {
+    "source": "查看研究输入坐标与名称",
+    "en": "View study input coordinates and names"
+  },
+  "workflow_245": {
+    "source": "研究名称",
+    "en": "Study title"
+  },
+  "workflow_246": {
+    "source": "重复评估协议",
+    "en": "Repeated-evaluation protocol"
+  },
+  "workflow_247": {
+    "source": "改变定位噪声随机种子；固定原坐标及半径参数，每案例仍使用原16次定位噪声重复。",
+    "en": "Vary the localization-noise seed while keeping coordinates and the radius parameter fixed. Each case retains the original 16 localization-noise repetitions."
+  },
+  "workflow_248": {
+    "source": "每案例执行原4次网格偏移；仅支持候选前向库中的64点，半径使用毫米。",
+    "en": "Each case runs the original four grid displacements. All 64 points must belong to the candidate forward bank. Radius is in millimetres."
+  },
+  "workflow_249": {
+    "source": "固定半径参数（mm）",
+    "en": "Fixed radius parameter (mm)"
+  },
+  "workflow_250": {
+    "source": "案例",
+    "en": "Case"
+  },
+  "workflow_251": {
+    "source": "偏移半径（mm）",
+    "en": "Displacement radius (mm)"
+  },
+  "workflow_252": {
+    "source": "删除案例",
+    "en": "Remove case"
+  },
+  "workflow_253": {
+    "source": "删除",
+    "en": "Remove"
+  },
+  "workflow_254": {
+    "source": "添加明确案例",
+    "en": "Add an explicit case"
+  },
+  "workflow_255": {
+    "source": "研究备注",
+    "en": "Study notes"
+  },
+  "workflow_256": {
+    "source": "每项研究最多12个案例。保存草稿后，点击开始才提交计算。",
+    "en": "A study has at most 12 cases. Save the draft, then click Start to submit computation."
+  },
+  "workflow_257": {
+    "source": "正在保存研究草稿…",
+    "en": "Saving study draft…"
+  },
+  "workflow_258": {
+    "source": "保存研究草稿",
+    "en": "Save study draft"
+  },
+  "workflow_259": {
+    "source": "当前稳健性研究",
+    "en": "Current robustness study"
+  },
+  "workflow_260": {
+    "source": "取消意图已保存；恢复操作只保存已有结果并完成取消。",
+    "en": "The cancellation request is saved. Resume only saves existing results and completes cancellation."
+  },
+  "workflow_261": {
+    "source": "版本",
+    "en": "Revision"
+  },
+  "workflow_262": {
+    "source": "本研究描述Ernie头模内这批案例的经验分布。中位数、P10和P90按案例计算，使用第7型线性插值。",
+    "en": "This study describes the empirical distribution of these cases within the Ernie head model. Median, P10 and P90 use cases as the unit and type-7 linear interpolation."
+  },
+  "workflow_263": {
+    "source": "服务重启后，后续案例等待明确恢复。原队列已接受的单个案例保留其队列状态。",
+    "en": "After a service restart, remaining submissions wait for an explicit resume. A case already accepted by the original queue keeps its queue state."
+  },
+  "workflow_264": {
+    "source": "开始此研究",
+    "en": "Start this study"
+  },
+  "workflow_265": {
+    "source": "保存已有结果并完成取消",
+    "en": "Save existing results and finish cancellation"
+  },
+  "workflow_266": {
+    "source": "继续后续案例",
+    "en": "Continue remaining cases"
+  },
+  "workflow_267": {
+    "source": "取消此研究",
+    "en": "Cancel this study"
+  },
+  "workflow_268": {
+    "source": "重新读取研究状态",
+    "en": "Read study state again"
+  },
+  "workflow_269": {
+    "source": "正在导出研究…",
+    "en": "Exporting study…"
+  },
+  "workflow_270": {
+    "source": "下载完整研究JSON",
+    "en": "Download complete study JSON"
+  },
+  "workflow_271": {
+    "source": "正在重新连接研究状态…",
+    "en": "Reconnecting to study state…"
+  },
+  "workflow_272": {
+    "source": "状态读取已暂停，请重新读取研究。",
+    "en": "State polling has paused. Read the study again."
+  },
+  "workflow_273": {
+    "source": "全部案例",
+    "en": "All cases"
+  },
+  "workflow_274": {
+    "source": "完成案例",
+    "en": "Completed cases"
+  },
+  "workflow_275": {
+    "source": "失败案例",
+    "en": "Failed cases"
+  },
+  "workflow_276": {
+    "source": "取消案例",
+    "en": "Cancelled cases"
+  },
+  "workflow_277": {
+    "source": "未结束案例",
+    "en": "Unfinished cases"
+  },
+  "workflow_278": {
+    "source": "逐案例结果",
+    "en": "Per-case results"
+  },
+  "workflow_279": {
+    "source": "有效偏移次数",
+    "en": "Valid displacement trials"
+  },
+  "workflow_280": {
+    "source": "几何拒绝次数",
+    "en": "Geometry-rejected trials"
+  },
+  "workflow_281": {
+    "source": "原始固定坐标指标",
+    "en": "Original fixed-coordinate metrics"
+  },
+  "workflow_282": {
+    "source": "原协议偏移序号",
+    "en": "Original displacement trial"
+  },
+  "workflow_283": {
+    "source": "偏移已完成",
+    "en": "Displacement completed"
+  },
+  "workflow_284": {
+    "source": "查看该案例的原始请求与摘要",
+    "en": "View the original case request and summary"
+  },
+  "workflow_285": {
+    "source": "案例级汇总",
+    "en": "Case-level summary"
+  },
+  "workflow_286": {
+    "source": "半径参数",
+    "en": "Radius parameter"
+  },
+  "workflow_287": {
+    "source": "原始固定坐标指标分布",
+    "en": "Distribution of original fixed-coordinate metrics"
+  },
+  "workflow_288": {
+    "source": "先汇总每个案例内的有效偏移，再对案例摘要计算分布。几何拒绝保留在案例表中。",
+    "en": "Summarize valid displacements within each case, then compute the distribution across case summaries. Geometry rejections remain in the case table."
+  },
+  "workflow_289": {
+    "source": "各案例偏移中位数的分布",
+    "en": "Distribution of within-case displacement medians"
+  },
+  "workflow_290": {
+    "source": "各案例偏移P10的分布",
+    "en": "Distribution of within-case displacement P10 values"
+  },
+  "workflow_291": {
+    "source": "研究编号无效",
+    "en": "Invalid study identifier"
+  },
+  "workflow_292": {
+    "source": "研究导出格式无效",
+    "en": "Invalid study export format"
+  },
+  "workflow_293": {
+    "source": "研究导出与所选研究不匹配",
+    "en": "The study export does not match the selected study"
+  },
+  "workflow_294": {
+    "source": "本案例有效偏移摘要",
+    "en": "Valid displacement summary for this case"
+  }
+}

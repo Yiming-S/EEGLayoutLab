@@ -1,5 +1,5 @@
 import type { SavedRecord, SavedSummary } from './local-library';
-import { canSimulateRecord } from './local-library.ts';
+import { canSimulateRecord, recordAnnotationId } from './local-library.ts';
 import { radiusDesignLink, parseAR } from './lab-workflow.ts';
 import { safeReturnHref, type PageId } from './ui-language.ts';
 import { documentationHref } from './documentation.ts';
@@ -206,6 +206,14 @@ export function workspaceLinks(
     guide: documentationHref(url.pathname, url.search, 'guide'),
     method: documentationHref(url.pathname, url.search, 'method'),
   };
+  const annotation = recordAnnotationId(here, selection.id) ?? record?.electrode_annotation?.id;
+  if (annotation && selection.phase === 'saved' && selection.id) {
+    for (const page of ['compare', 'library', 'reception', 'decision', 'coordinates'] as const) {
+      const target = new URL(links[page], url), key = ['decision', 'coordinates'].includes(page) ? 'annotation_a' : 'annotation_id';
+      target.searchParams.set(key, annotation); links[page] = target.pathname + target.search;
+    }
+    links.projects = '/projects?record=' + selection.id + '&annotation_id=' + annotation;
+  }
   for (const page of [
     'design',
     'electrodes',

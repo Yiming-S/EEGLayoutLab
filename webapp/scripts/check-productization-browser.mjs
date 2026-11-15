@@ -94,8 +94,10 @@ try {
   let share;
   await check('Read-only sharing restores access without revealing an owner credential', async () => {
     await openDetails(page, '项目说明、凭据与分享');
+    await page.getByText(t('新链接生成后，之前的只读链接将失效。查看项目和下载文件不会更换链接。'), { exact: true }).waitFor();
+    assert.equal(await button(page, '生成新的只读链接').getAttribute('aria-describedby'), 'project-share-replacement');
     const sharing = page.waitForResponse(response => new URL(response.url()).pathname.endsWith('/share') && response.request().method() === 'POST');
-    await button(page, '生成只读分享链接').click(); assert.equal((await sharing).status(), 200);
+    await button(page, '生成新的只读链接').click(); assert.equal((await sharing).status(), 200);
     share = await page.getByLabel(t('只读分享链接'), { exact: true }).inputValue();
     assert.ok(!share.includes(access.access_key));
     const viewerContext = await context(), viewer = await viewerContext.newPage();
@@ -108,6 +110,22 @@ try {
     await viewer.screenshot({ path: join(output, 'readonly-project.png'), fullPage: true });
     await viewerContext.close();
     return { readonly_controls: true, fragment_cleared: true };
+  });
+  await check('Explicitly generating a new link invalidates the previous link without changing scientific snapshots', async () => {
+    const previousKey = new URLSearchParams(new URL(share).hash.slice(1)).get('access');
+    await openDetails(page, '项目说明、凭据与分享');
+    const replacement = page.waitForResponse(response => new URL(response.url()).pathname.endsWith('/share') && response.request().method() === 'POST');
+    await button(page, '生成新的只读链接').click(); assert.equal((await replacement).status(), 200);
+    share = await page.getByLabel(t('只读分享链接'), { exact: true }).inputValue();
+    const currentKey = new URLSearchParams(new URL(share).hash.slice(1)).get('access');
+    assert.notEqual(currentKey, previousKey);
+    const oldRead = await ownerContext.request.get(`${base.origin}/api/projects/${savedProject.id}`, { headers: { 'X-EEG-Project-Key': previousKey } });
+    assert.equal(oldRead.status(), 403);
+    const currentRead = await ownerContext.request.get(`${base.origin}/api/projects/${savedProject.id}`, { headers: { 'X-EEG-Project-Key': currentKey } });
+    assert.equal(currentRead.status(), 200);
+    const snapshot = await (await ownerContext.request.get(`${base.origin}/api/projects/${savedProject.id}/entries/${savedProject.entries[0].id}`, { headers: { 'X-EEG-Project-Key': access.access_key } })).json();
+    assert.deepEqual(snapshot.snapshot, snapshotBefore.snapshot);
+    return { old_link_status: 403, new_link_status: 200, scientific_snapshot_unchanged: true };
   });
   await check('Revoking a share denies its credential while preserving the owner and science', async () => {
     await openDetails(page, '项目说明、凭据与分享');

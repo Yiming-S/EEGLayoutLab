@@ -29,7 +29,7 @@ export function ProjectSnapshotViewer({ entry, snapshot }: { entry: ProjectEntry
     </dl><p className="mt-3 text-xs text-muted-foreground">{tx('编辑副本保留其独立评价协议，不进入固定64点信号仿真。')}</p></section>}
     <details className="rounded-lg border p-4"><summary className="cursor-pointer font-medium">{tx('查看已保存坐标')} · {xyz.length}</summary>
       <p className="mt-2 text-xs text-muted-foreground">{tx('坐标系：Ernie 原生空间，单位毫米。')}</p>
-      <div className="mt-3 max-h-80 overflow-auto"><table className="w-full text-left text-sm"><thead><tr><th>{tx('电极')}</th><th>X (mm)</th><th>Y (mm)</th><th>Z (mm)</th></tr></thead><tbody>{xyz.map((point, index) => <tr key={index}><td>E{index + 1}</td>{point.map((value, axis) => <td key={axis} className="font-mono">{value.toFixed(6)}</td>)}</tr>)}</tbody></table></div>
+      <div className="mt-3 max-h-80 overflow-auto"><table className="w-full text-left text-sm"><thead><tr><th>{tx('电极')}</th>{view.kind === 'layout' && <th>{tx('区域')}</th>}<th>X (mm)</th><th>Y (mm)</th><th>Z (mm)</th></tr></thead><tbody>{xyz.map((point, index) => <tr key={index}><td>{view.kind === 'layout' ? view.record.electrode_annotation?.electrode_names[index] ?? `E${index + 1}` : `E${index + 1}`}</td>{view.kind === 'layout' && <td>{view.record.layout!.regionIndices[index]}</td>}{point.map((value, axis) => <td key={axis} className="font-mono">{value.toFixed(6)}</td>)}</tr>)}</tbody></table></div>
     </details>
   </div>;
 }

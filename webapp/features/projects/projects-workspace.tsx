@@ -12,10 +12,11 @@ import {
   validateProjectAccess, type ProjectAccess, type ProjectEntry, type ProjectEntryKind,
   type ProjectResponse, type ResearchProject,
 } from '@/client/projects';
-import { collectProjectRecordChoices, type ProjectRecordChoice } from './project-record-choices';
+import { collectProjectRecordChoices, projectChoiceId, type ProjectRecordChoice } from './project-record-choices';
 import { activateProject, readActiveProject } from './active-project';
 import { ProjectWorkflowEditor } from './project-workflow-editor';
 import { ProjectDeliveryPanel } from './project-delivery-panel';
+import { filterProjectExperiments, projectExperimentAssociations, sourceLayoutAssociation, sourceScenarioSummary, type ProjectExperimentFilter } from './project-experiment-associations';
 const ProjectSnapshotViewer = lazy(() => import('./project-snapshot-viewer').then(module => ({ default: module.ProjectSnapshotViewer })));
 
 function download(text: string, filename: string) {
@@ -25,13 +26,13 @@ function download(text: string, filename: string) {
 }
 const kindLabel = { layout: '布局评价', editor: '电极编辑副本', source: '信号实验' };
 
-function EntryCard({ entry, owner, busy, inspect, update, remove }: {
-  entry: ProjectEntry; owner: boolean; busy: boolean;
+function EntryCard({ entry, entries, owner, busy, inspect, update, remove }: {
+  entry: ProjectEntry; entries: ProjectEntry[]; owner: boolean; busy: boolean;
   inspect: () => void; update: (title: string, notes: string) => void; remove: () => void;
 }) {
   const { tx, date } = useLanguage();
   const [title, setTitle] = useState(entry.title), [notes, setNotes] = useState(entry.notes);
-  return <article className="rounded-xl border p-4" aria-label={entry.title}>
+  return <article className="rounded-xl border p-4" aria-label={entry.title} data-project-entry-id={entry.id} data-entry-kind={entry.kind}>
     <div className="flex flex-wrap items-start justify-between gap-3"><div>
       <h3 className="font-semibold">{entry.title}</h3>
       <p className="mt-1 text-sm text-muted-foreground">{tx(kindLabel[entry.kind])} · {date(entry.created_at, true)}</p>
@@ -41,6 +42,7 @@ function EntryCard({ entry, owner, busy, inspect, update, remove }: {
       <div><dt className="text-muted-foreground">{tx('评价协议')}</dt><dd>{String(entry.summary.protocol ?? '—')}</dd></div>
       <div><dt className="text-muted-foreground">{tx('电极数量')}</dt><dd>{String(entry.summary.electrode_count ?? '—')}</dd></div>
     </dl>}
+    {entry.kind === 'source' && <SourceExperimentDetails entry={entry} entries={entries} />}
     {owner ? <details className="mt-4"><summary className="cursor-pointer text-sm font-medium">{tx('编辑实验说明')}</summary><form className="mt-3 space-y-3" onSubmit={event => { event.preventDefault(); update(title, notes); }}>
       <label className="lab-label">{tx('实验名称')}<input className="lab-select" value={title} maxLength={200} required onChange={event => setTitle(event.target.value)} /></label>
       <label className="lab-label">{tx('实验备注')}<textarea className="lab-select min-h-20" value={notes} maxLength={8000} onChange={event => setNotes(event.target.value)} /></label>
@@ -48,6 +50,25 @@ function EntryCard({ entry, owner, busy, inspect, update, remove }: {
     </form></details> : entry.notes && <p className="mt-3 whitespace-pre-wrap text-sm">{entry.notes}</p>}
     <p className="mt-3 break-all text-xs text-muted-foreground">SHA-256: {entry.snapshot_sha256}</p>
   </article>;
+}
+
+function SourceExperimentDetails({ entry, entries }: { entry: ProjectEntry; entries: ProjectEntry[] }) {
+  const { tx } = useLanguage(), association = sourceLayoutAssociation(entry, entries), scenario = sourceScenarioSummary(entry);
+  const absent = tx('未记录');
+  return <section className="mt-4 space-y-2 border-t pt-3" aria-label={tx('信号实验关联与条件')}>
+    <dl className="space-y-2 text-sm">
+      <div><dt className="text-muted-foreground">{tx('父布局')}</dt><dd>{association.layouts.length ? association.layouts.map(layout => layout.title).join(' / ') : association.parentId ? tx('项目中未保存此布局') : absent}</dd></div>
+      <div><dt className="text-muted-foreground">{tx('父布局科学编号')}</dt><dd className="break-all font-mono text-xs">{association.parentId ?? absent}</dd></div>
+      <div><dt className="text-muted-foreground">{tx('场景模式')}</dt><dd>{scenario.mode ?? absent}</dd></div>
+      <div><dt className="text-muted-foreground">{tx('随机种子')}</dt><dd>{scenario.seed ?? absent}</dd></div>
+    </dl>
+    {association.layouts.length > 1 && <p className="text-xs text-muted-foreground">{tx('这些名称副本共用同一份科学布局记录。')}</p>}
+    <details className="text-sm"><summary className="cursor-pointer font-medium">{tx('已保存的脑源请求条件')}</summary><dl className="mt-3 grid gap-3 sm:grid-cols-2">
+      <div><dt className="text-muted-foreground">{tx('请求的源编号')}</dt><dd>{scenario.sourceIndex ?? absent}</dd></div>
+      <div><dt className="text-muted-foreground">{tx('请求的脑区')}</dt><dd>{scenario.brainRegion ?? absent}</dd></div>
+      <div><dt className="text-muted-foreground">{tx('请求的跨区脑源区域')}</dt><dd>{scenario.brainRegions ? scenario.brainRegions.join(', ') : absent}</dd></div>
+    </dl><p className="mt-3 text-xs text-muted-foreground">{tx('缺失字段显示为“未记录”。')}</p></details>
+  </section>;
 }
 
 export default function ProjectsWorkspace() {
@@ -64,6 +85,8 @@ export default function ProjectsWorkspace() {
   const [entryTitle, setEntryTitle] = useState(''), [entryNotes, setEntryNotes] = useState('');
   const [snapshot, setSnapshot] = useState<{ entry: ProjectEntry; snapshot: unknown } | null>(null);
   const [initialRecord, setInitialRecord] = useState('');
+  const [initialAnnotation, setInitialAnnotation] = useState('');
+  const [entryView, setEntryView] = useState<{ projectId: string; filter: ProjectExperimentFilter }>({ projectId: '', filter: 'all' });
 
   const remember = (credential: ProjectAccess) => {
     try { setVault(saveProjectAccess(localStorage, credential)); }
@@ -96,7 +119,7 @@ export default function ProjectsWorkspace() {
       try { rows = readProjectAccess(localStorage); }
       catch { setNotice('浏览器无法保存访问凭据，请下载项目凭据文件。'); }
       setVault(rows);
-      const url = new URL(window.location.href); setInitialRecord(url.searchParams.get('record') ?? '');
+      const url = new URL(window.location.href); setInitialRecord(url.searchParams.get('record') ?? ''); setInitialAnnotation(url.searchParams.get('annotation_id') ?? '');
       // Remove the fragment before any API operation or navigation.
       const fragment = url.hash; url.hash = ''; window.history.replaceState(null, '', url.pathname + url.search);
       try {
@@ -122,27 +145,32 @@ export default function ProjectsWorkspace() {
       if (controller.signal.aborted) return;
       const { choices: available, warnings } = collectProjectRecordChoices(results, locale);
       setChoices(available); setChoicesWarnings(warnings); setChoicesLoading(false);
-      const current = available.find(row => row.kind === 'layout' && row.id === initialRecord);
-      if (current) setChoice(current.kind + ':' + current.id);
+      const current = available.find(row => row.kind === 'layout' && row.id === initialRecord && (row.annotation_id ?? '') === initialAnnotation);
+      if (current) setChoice(projectChoiceId(current));
     });
     return () => controller.abort();
-  }, [initialRecord, project?.id, choicesRetry, locale]);
+  }, [initialRecord, initialAnnotation, project?.id, choicesRetry, locale]);
   const mutate = (suffix: string, method: string, body: Record<string, unknown>) => perform(async () => {
     if (!access || !project) return;
     const result = await projectRequest<ProjectResponse>(access, suffix, { method, body: JSON.stringify({ revision: project.revision, ...body }) });
     apply(result, access); setNotice('项目已保存。');
   });
   const attach = (event: { preventDefault(): void }) => {
-    event.preventDefault(); const selected = choices.find(row => `${row.kind}:${row.id}` === choice);
+    event.preventDefault(); const selected = choices.find(row => projectChoiceId(row) === choice);
     if (!selected) return;
     void mutate('/entries', 'POST', { kind: selected.kind, ...(selected.kind === 'source' ? { receipt_id: selected.id } : { record_id: selected.id }),
+      ...(selected.annotation_id ? { annotation_id: selected.annotation_id } : {}),
       ...(entryTitle ? { title: entryTitle } : {}), notes: entryNotes });
   };
   const owner = role === 'owner';
+  const entryFilter = project && entryView.projectId === project.id ? entryView.filter : 'all';
+  const associations = project ? projectExperimentAssociations(project.entries, project.workflow?.candidate_entry_id) : null;
+  const visibleEntries = project ? filterProjectExperiments(project.entries, entryFilter, project.workflow?.candidate_entry_id) : [];
+  const filterEntries = (filter: ProjectExperimentFilter) => { if (project) setEntryView({ projectId: project.id, filter }); };
   return <main className="lab-page">
     <SiteHeader current="projects" />
     <div className="lab-container space-y-5 py-6">
-      <header><h1 className="text-2xl font-semibold">{tx('研究项目')}</h1><p className="mt-2 max-w-3xl text-muted-foreground">{tx('保存布局、编辑副本和信号实验，并记录选择理由。项目记录独立于计算队列保留。')}</p></header>
+      <header><h1 className="text-2xl font-semibold">{tx('研究项目')}</h1><p className="mt-2 max-w-3xl text-muted-foreground">{tx('保存布局、编辑副本和信号实验，并记录选择理由。项目记录独立于计算队列保留。')}</p><a className="mt-3 inline-block text-primary underline" href="/deliveries">{tx('打开本地交付包')}</a></header>
       {error && <p role="alert" className="lab-panel text-red-800">{tx(error)}</p>}
       {notice && <output className="lab-panel block">{tx(notice)}</output>}
       <details key={project ? 'selected-project' : 'no-project'} open={!project} className="rounded-xl border bg-white p-4"><summary className="cursor-pointer font-medium">{tx('新建、恢复或切换项目')}</summary>
@@ -191,21 +219,23 @@ export default function ProjectsWorkspace() {
               try { setVault(forgetProjectAccess(localStorage, access.project_id)); activateProject(null); setProject(null); setAccess(null); setShare(''); setNotice('已移除此浏览器的访问记录，服务器项目仍保留。'); }
               catch { setError('浏览器无法更新项目访问记录'); }
             }}>{tx('移除此浏览器的访问记录')}</Button></div>
-          {owner && <div className="space-y-3 border-t pt-4"><div className="flex flex-wrap gap-2">
-            <Button variant="outline" disabled={busy} onClick={() => void perform(async () => {
+          {owner && <div className="space-y-3 border-t pt-4"><p id="project-share-replacement" className="text-sm text-muted-foreground">{tx('新链接生成后，之前的只读链接将失效。查看项目和下载文件不会更换链接。')}</p><div className="flex flex-wrap gap-2">
+            <Button variant="outline" aria-describedby="project-share-replacement" disabled={busy} onClick={() => void perform(async () => {
               const result = await projectRequest<ProjectResponse & { access_key: string }>(access, '/share', { method: 'POST', body: JSON.stringify({ revision: project.revision }) });
               apply(result, access); setShare(projectShareHref(window.location.origin, { project_id: project.id, access_key: result.access_key }));
-            })}>{tx('生成只读分享链接')}</Button>
+            })}>{tx('生成新的只读链接')}</Button>
             <Button variant="outline" disabled={busy} onClick={() => { setShare(''); void mutate('/revoke-share', 'POST', {}); }}>{tx('撤销只读分享')}</Button>
           </div>{share && <label className="lab-label">{tx('只读分享链接')}<input className="lab-select" readOnly value={share} onFocus={event => event.target.select()} /></label>}</div>}
           </div></details>
         </section>
-        <ProjectWorkflowEditor key={`${project.id}:${project.revision}`} project={project} owner={owner} busy={busy} save={workflow => void mutate('', 'PATCH', { workflow })} />
-        <section className="lab-panel space-y-4" aria-label={tx('项目实验记录')}>
+        <ProjectWorkflowEditor key={`${project.id}:${project.revision}`} project={project} owner={owner} busy={busy} save={workflow => void mutate('', 'PATCH', { workflow })} showCandidateSignals={() => { filterEntries('candidate-source'); document.getElementById('project-experiments')?.scrollIntoView({ block: 'start' }); }} />
+        <section id="project-experiments" className="lab-panel space-y-4" aria-label={tx('项目实验记录')}>
           <h2 className="text-lg font-semibold">{tx('项目实验记录')} · {project.entries.length}</h2>
+          <fieldset className="flex flex-wrap gap-2" aria-label={tx('项目实验筛选')}><Button type="button" variant={entryFilter === 'all' ? 'default' : 'outline'} aria-pressed={entryFilter === 'all'} onClick={() => filterEntries('all')}>{tx('全部实验记录')}</Button><Button type="button" variant={entryFilter === 'candidate-source' ? 'default' : 'outline'} aria-pressed={entryFilter === 'candidate-source'} disabled={!associations?.candidateRecordId} onClick={() => filterEntries('candidate-source')}>{tx('只看当前候选的信号记录')}</Button></fieldset>
+          {entryFilter === 'candidate-source' && <p className="text-sm text-muted-foreground" aria-live="polite">{associations?.candidate ? <>{tx('当前候选布局')}：{associations.candidate.title} · <span className="break-all font-mono text-xs">{associations.candidateRecordId}</span></> : tx('尚未选择项目候选布局。')}{' · '}{tx('显示记录数')}：{visibleEntries.length}</p>}
           {owner && <details open={!project.entries.length} className="rounded-xl border p-4"><summary className="cursor-pointer font-medium">{tx('保存已完成结果到项目')}</summary><form className="mt-3 space-y-3" onSubmit={attach}>
             <h3 className="font-semibold">{tx('保存已完成结果到项目')}</h3>
-            <label className="lab-label">{tx('选择已完成记录')}<select aria-label={tx('选择已完成记录')} className="lab-select" required value={choice} onChange={event => setChoice(event.target.value)}><option value="">{tx('选择记录')}</option>{choices.map(row => <option value={`${row.kind}:${row.id}`} key={`${row.kind}:${row.id}`}>{tx(kindLabel[row.kind])} · {row.title}</option>)}</select></label>
+            <label className="lab-label">{tx('选择已完成记录')}<select aria-label={tx('选择已完成记录')} className="lab-select" required value={choice} onChange={event => setChoice(event.target.value)}><option value="">{tx('选择记录')}</option>{choices.map(row => <option value={projectChoiceId(row)} key={projectChoiceId(row)}>{tx(kindLabel[row.kind])} · {row.title}</option>)}</select></label>
             {choicesLoading && <p className="text-sm text-muted-foreground">{tx('正在读取已完成记录…')}</p>}
             {choicesWarnings.map(warning => <p role="alert" className="text-sm text-amber-800" key={warning.kind}>{tx(kindLabel[warning.kind])} · <RuntimeMessage message={warning.message} /></p>)}
             {!choicesLoading && !choices.length && !choicesWarnings.length && <p className="text-sm text-muted-foreground">{tx('当前还没有可保存的已完成记录。')}</p>}
@@ -216,7 +246,8 @@ export default function ProjectsWorkspace() {
             <p className="text-xs text-muted-foreground">{tx('保存原始科学结果的独立副本，不启动计算。')}</p>
           </form></details>}
           {!project.entries.length && <p className="text-muted-foreground">{tx('项目中还没有保存的实验。先在结果库选择布局，或完成一次信号仿真。')}</p>}
-          {project.entries.map(entry => <EntryCard key={`${entry.id}:${project.revision}`} entry={entry} owner={owner} busy={busy}
+          {project.entries.length > 0 && entryFilter === 'candidate-source' && !visibleEntries.length && <p className="text-muted-foreground">{tx('当前候选布局尚无已关联的信号记录。')}</p>}
+          {visibleEntries.map(entry => <EntryCard key={`${entry.id}:${project.revision}`} entry={entry} entries={project.entries} owner={owner} busy={busy}
             inspect={() => void perform(async () => setSnapshot(await projectRequest(access, `/entries/${entry.id}`)))}
             update={(nextTitle, nextNotes) => void mutate(`/entries/${entry.id}`, 'PATCH', { title: nextTitle, notes: nextNotes })}
             remove={() => void mutate(`/entries/${entry.id}`, 'DELETE', {})} />)}

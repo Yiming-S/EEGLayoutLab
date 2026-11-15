@@ -1,6 +1,6 @@
 /** Browser-side transport and task observation. Only the server owns job status. */
 export type TaskConnection = 'connected' | 'reconnecting' | 'blocked';
-export type TaskState = { id: string; status: string };
+export type TaskState = { id: string; status: string; annotation_id?: string };
 export const isTaskRunning = (job: TaskState | null | undefined) =>
   Boolean(job && ['queued', 'running', 'cancelling'].includes(job.status));
 
@@ -82,9 +82,11 @@ export async function cancelTask<T>(service: string, id: string, options: ApiOpt
   return data;
 }
 
-export async function readTask<T extends TaskState>(service: string, id: string, signal?: AbortSignal) {
-  const data = await apiJson<{ job: T }>(`/api/${service}/jobs/${encodeURIComponent(id)}`, { signal });
+export async function readTask<T extends TaskState>(service: string, id: string, signal?: AbortSignal, annotationId?: string) {
+  const query = annotationId && /^[a-f0-9]{64}$/.test(annotationId) ? `?annotation_id=${annotationId}` : '';
+  const data = await apiJson<{ job: T }>(`/api/${service}/jobs/${encodeURIComponent(id)}${query}`, { signal });
   validateTask(data, id);
+  if (annotationId && data.job.annotation_id !== annotationId) throw new ApiError('Electrode name annotation unavailable', 502);
   return data.job;
 }
 
@@ -111,7 +113,7 @@ export async function followTask<T extends TaskState>({
   while (isTaskRunning(current)) {
     await wait(delay, signal);
     try {
-      const next = await readTask<T>(service, current.id, signal);
+      const next = await readTask<T>(service, current.id, signal, initial.annotation_id);
       if (signal.aborted) throw abortError();
       current = next;
       failures = 0;

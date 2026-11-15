@@ -8,7 +8,8 @@ const hash = value => createHash('sha256').update(JSON.stringify(value)).digest(
 const SHA = /^[a-f0-9]{64}$/;
 const plain = value => value && typeof value === 'object' && !Array.isArray(value);
 function attachment(input) {
-  if (!plain(input) || Object.keys(input).some(key => !['revision', 'kind', 'record_id', 'receipt_id', 'title', 'notes'].includes(key)) || !['layout', 'editor', 'source'].includes(input.kind)) throw projectError('Invalid project attachment.');
+  if (!plain(input) || Object.keys(input).some(key => !['revision', 'kind', 'record_id', 'receipt_id', 'title', 'notes', 'annotation_id'].includes(key)) || !['layout', 'editor', 'source'].includes(input.kind)) throw projectError('Invalid project attachment.');
+  if (input.annotation_id !== undefined && (input.kind !== 'layout' || !SHA.test(input.annotation_id))) throw projectError('Invalid electrode name annotation.');
   if (input.kind === 'source') {
     if (!validProjectId(input.receipt_id) || input.record_id !== undefined) throw projectError('A completed signal task receipt is required.');
   } else if (typeof input.record_id !== 'string' || !SHA.test(input.record_id) || input.receipt_id !== undefined) throw projectError('A saved scientific record is required.');
@@ -52,9 +53,18 @@ export class ProjectService {
       if (!plain(payload) || payload.request?.record_id !== task.request.record_id || !['source-reception/1', 'source-reception/2'].includes(payload.schema_version)) throw projectError('Saved signal result failed integrity checks.', 409);
       record_id = task.key;
       summary = { protocol: payload.schema_version, electrode_count: payload.layout.xyzMm.length, parent_id: payload.request.record_id, mode: payload.request.mode ?? 'legacy' };
+      for (const field of ['brain_region', 'brain_regions', 'source_index', 'seed']) {
+        if (Object.hasOwn(payload.request, field)) summary[field] = structuredClone(payload.request[field]);
+      }
     }
     if (typeof record_id !== 'string' || !SHA.test(record_id)) throw projectError('Scientific record identity is invalid.', 409);
-    return { snapshot: { schema: 'research-project-snapshot/1', kind: input.kind, record_id, payload }, summary };
+    let annotation;
+    if (input.annotation_id !== undefined) {
+      try { annotation = this.scheduler.annotations.read(input.annotation_id, visitor.id, record_id); }
+      catch (cause) { throw projectError(cause.annotationSafe ? cause.message : 'Electrode name annotation is unavailable.', cause.status || 409); }
+    }
+    return { snapshot: { schema: 'research-project-snapshot/1', kind: input.kind, record_id, payload,
+      ...(annotation ? { electrode_annotation: annotation } : {}) }, summary };
   }
   async body(req) {
     if (!String(req.headers['content-type']).startsWith('application/json')) throw projectError('JSON is required.', 415);

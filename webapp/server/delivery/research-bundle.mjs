@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { validateElectrodeAnnotation } from '../annotations/electrode-names.mjs';
 
 export const DELIVERY_SCHEMA = 'eeg-research-delivery/1';
 export const MAX_DELIVERY_BYTES = 32 * 1024 * 1024;
@@ -12,6 +13,11 @@ const SHA = /^[a-f0-9]{64}$/;
 const kinds = ['layout', 'editor', 'source'];
 const timestamp = value => typeof value === 'string' && Number.isFinite(Date.parse(value));
 const fields = (value, allowed) => object(value) && Object.keys(value).every(key => allowed.includes(key));
+function annotationMatches(snapshot, id) {
+  if (id === undefined && snapshot.electrode_annotation === undefined) return true;
+  try { return snapshot.kind === 'layout' && SHA.test(id) && snapshot.electrode_annotation?.id === id && Boolean(validateElectrodeAnnotation(snapshot.electrode_annotation, snapshot.record_id)); }
+  catch { return false; }
+}
 function validateProject(project) {
   return fields(project, ['id', 'title', 'owner_name', 'notes', 'revision', 'created_at', 'updated_at', 'workflow']) && UUID.test(project.id) &&
     typeof project.title === 'string' && project.title.length > 0 && project.title.length <= 200 && typeof project.owner_name === 'string' &&
@@ -127,11 +133,11 @@ export function buildResearchDelivery({ project: sourceProject, entries }, versi
     if (sha256 !== entry.snapshot_sha256 || sha256 !== listed.snapshot_sha256 || bytes !== entry.snapshot_bytes || bytes !== listed.snapshot_bytes) throw fail('Project snapshot checksum mismatch.');
     let snapshot;
     try { snapshot = JSON.parse(snapshot_json); } catch { throw fail('Project snapshot is not valid JSON.'); }
-    if (snapshot.schema !== 'research-project-snapshot/1' || snapshot.kind !== entry.kind || snapshot.record_id !== entry.record_id || !object(snapshot.payload)) throw fail('Project snapshot scientific identity mismatch.');
+    if (snapshot.schema !== 'research-project-snapshot/1' || snapshot.kind !== entry.kind || snapshot.record_id !== entry.record_id || !object(snapshot.payload) || !annotationMatches(snapshot, entry.annotation_id)) throw fail('Project snapshot scientific identity mismatch.');
     total += bytes;
     if (total > maxBytes) throw fail('Project delivery exceeds the export size limit.', 413);
     const path = `records/${entry.id}.json`;
-    records.push(clone({ id: entry.id, kind: entry.kind, record_id: entry.record_id, title: entry.title, notes: entry.notes,
+    records.push(clone({ id: entry.id, kind: entry.kind, record_id: entry.record_id, ...(entry.annotation_id ? { annotation_id: entry.annotation_id } : {}), title: entry.title, notes: entry.notes,
       created_at: entry.created_at, summary: entry.summary, path, snapshot_sha256: sha256 }));
     readings.push({ record: records.at(-1), payload: snapshot.payload });
     files.push({ path, media_type: 'application/json', encoding: 'utf-8', size_bytes: bytes, sha256, content: snapshot_json });
@@ -164,14 +170,14 @@ export function validateResearchDelivery(bundle) {
   if (!names.has('README.md') || bundle.files.length !== bundle.records.length + 1 || bundle.manifest_sha256 !== hash(JSON.stringify(manifest(bundle)))) throw fail('Research delivery manifest failed integrity checks.');
   const recordIds = new Set(), recordPaths = new Set();
   for (const record of bundle.records) {
-    if (!fields(record, ['id', 'kind', 'record_id', 'title', 'notes', 'created_at', 'summary', 'path', 'snapshot_sha256']) || !UUID.test(record.id) ||
+    if (!fields(record, ['id', 'kind', 'record_id', 'annotation_id', 'title', 'notes', 'created_at', 'summary', 'path', 'snapshot_sha256']) || !UUID.test(record.id) ||
       !kinds.includes(record.kind) || !SHA.test(record.record_id) || record.path !== `records/${record.id}.json` || !object(record.summary) ||
       typeof record.title !== 'string' || typeof record.notes !== 'string' || !timestamp(record.created_at) || recordIds.has(record.id) || recordPaths.has(record.path)) throw fail('Research delivery record identity mismatch.');
     recordIds.add(record.id); recordPaths.add(record.path);
     const file = bundle.files.find(value => value.path === record.path);
     if (!file || file.sha256 !== record.snapshot_sha256) throw fail('Research delivery record is missing.');
     const snapshot = JSON.parse(file.content);
-    if (snapshot.schema !== 'research-project-snapshot/1' || snapshot.kind !== record.kind || snapshot.record_id !== record.record_id || !object(snapshot.payload)) throw fail('Research delivery record identity mismatch.');
+    if (snapshot.schema !== 'research-project-snapshot/1' || snapshot.kind !== record.kind || snapshot.record_id !== record.record_id || !object(snapshot.payload) || !annotationMatches(snapshot, record.annotation_id)) throw fail('Research delivery record identity mismatch.');
   }
   return true;
 }
