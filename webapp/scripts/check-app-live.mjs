@@ -13,10 +13,19 @@ if (url.protocol !== 'http:' || !['localhost', '127.0.0.1', '[::1]'].includes(ur
   throw new Error('The integration target must be an explicit local HTTP server.');
 }
 let browserCookie = '';
+// The server admits 20 submissions a minute per visitor. A fully cached run exceeds that, so wait out the window.
+const admitted = async (send) => {
+  for (let attempt = 0; ; attempt++) {
+    const response = await send();
+    if (response.status !== 429 || attempt === 2) return response;
+    await response.arrayBuffer();
+    await new Promise(resolve => setTimeout(resolve, 61000));
+  }
+};
 const json = async (path, options) => {
   const requestHeaders = new Headers(options?.headers);
   if (browserCookie) requestHeaders.set('Cookie', browserCookie);
-  const response = await fetch(base + path, { ...options, headers: requestHeaders });
+  const response = await admitted(() => fetch(base + path, { ...options, headers: requestHeaders }));
   const cookie = response.headers.get('set-cookie');
   if (cookie) browserCookie = cookie.split(';')[0];
   const body = await response.json();
@@ -30,9 +39,9 @@ assert.equal((await json('/api/source-reception/health')).active_job, null);
 const headers = { 'Content-Type': 'application/json', 'X-EEG-Compute-Token': health.token, Origin: base };
 const running = new Set(['running', 'queued', 'cancelling']);
 async function run(endpoint, request, validate) {
-  const started = Date.now();
   const submit = () => json(endpoint + '/jobs', { method: 'POST', headers, body: JSON.stringify(request) });
   let { job } = await submit();
+  const started = Date.now(); // after admission: a rate-limit wait is not job time
   while (running.has(job.status)) {
     if (Date.now() - started > 620000) throw new Error('Integration deadline exceeded: ' + endpoint);
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -81,19 +90,56 @@ const evaluated = await run('/api/design-evaluation', design, validateDesignResu
 assert.deepEqual(evaluated.result.evaluated_xyz_mm, record.layout.xyzMm);
 
 await run('/api/source-reception', { record_id: record.id, brain_region: 'frontal', waveform: 'burst', artifact_scale: 1, seed: 2026 }, (result, request) => validateSourceResult(result, request, record));
+let nativeMode = null;
+const optional = [];
 if (process.argv.includes('--native')) {
   const nativeRequest = { ...design, design: { ...design.design, name: 'Native FEM integration fixture',
     xyz_mm: record.layout.referenceXyzMm.map((p, i) => [p[0] + (i === 0 ? .2 : 0), p[1], p[2]]) } };
   const native = await run('/api/design-evaluation', nativeRequest, validateDesignResult);
-  assert.equal(native.result.forward_mode, 'direct_fem');
+  // A published scalp-node table replaces the per-request solve; otherwise native FEM runs.
+  assert.ok(['direct_fem', 'scalp_node_table'].includes(native.result.forward_mode));
+  if (native.result.forward_mode === 'scalp_node_table') assert.match(native.result.native_qa.scalp_node_table.table_id, /^[a-f0-9]{64}$/);
   assert.ok(native.result.native_qa.reference_relative_difference <= 1e-8);
+  nativeMode = native.result.forward_mode;
   const nativeRecord = { layout: { xyzMm: native.result.evaluated_xyz_mm,
     referenceXyzMm: record.layout.referenceXyzMm, regionIndices: nativeRequest.design.region_indices } };
   for (const scenario of [{ mode: 'single_source', source_index: 2 }, { mode: 'multi_source', brain_region: 'frontal' }]) {
     await run('/api/source-reception', { record_id: native.key, waveform: 'burst', artifact_scale: 1, seed: 2026, ...scenario },
       (result, request) => validateReceptionResult(result, request, nativeRecord));
   }
+  // Optional protocols are separate cached requests whose provenance names the model; none reaches reception.
+  const optionArg = (name) => { const index = process.argv.indexOf(name); return index > 0 ? process.argv[index + 1] : undefined; };
+  const notReceivable = async (key) => {
+    const response = await admitted(() => fetch(base + '/api/source-reception/jobs', { method: 'POST', headers: { ...headers, Cookie: browserCookie },
+      body: JSON.stringify({ record_id: key, mode: 'single_source', source_index: 2, waveform: 'burst', artifact_scale: 1, seed: 2026 }) }));
+    // A rate-limit answer says nothing about the record.
+    assert.ok(response.status >= 400 && response.status < 500 && response.status !== 429, 'reception must refuse ' + key + ': ' + response.status);
+    await response.arrayBuffer();
+  };
+  const spatial = await run('/api/design-evaluation', { ...nativeRequest, noise_model: { kind: 'spatial', rho: 0.5, length_mm: 20 } }, validateDesignResult);
+  assert.equal(spatial.result.provenance.noise_model.kind, 'spatial_gaussian_correlation');
+  assert.notEqual(spatial.key, native.key);
+  await notReceivable(spatial.key);
+  optional.push('spatial_noise');
+  const scenario = optionArg('--scenario');
+  if (scenario) {
+    const mismatched = await run('/api/design-evaluation', { ...nativeRequest, conductivity_scenario: scenario }, validateDesignResult);
+    assert.equal(mismatched.result.provenance.model_mismatch.scenario.name, scenario);
+    assert.ok(mismatched.result.provenance.model_mismatch.matched_model.field_relative > 0);
+    await notReceivable(mismatched.key);
+    optional.push('conductivity_scenario:' + scenario);
+  }
+  const head = optionArg('--head');
+  if (head) {
+    const { heads } = await json('/api/design-evaluation/heads');
+    assert.ok(heads.some((entry) => entry.head_id === head), 'head package not listed: ' + head);
+    const other = await run('/api/design-evaluation', { ...nativeRequest, head_id: head }, validateDesignResult);
+    assert.equal(other.result.provenance.head.head_id, head);
+    assert.ok(other.result.nominal.field_relative > 0 && other.result.nominal.localization_relative > 0);
+    await notReceivable(other.key);
+    optional.push('head:' + head);
+  }
 }
 assert.equal((await fetch(base + '/api/local-compute/jobs', { method: 'POST' })).status, 403);
 assert.equal((await fetch(base + '/api/local-compute/health', { headers: { Origin: 'https://example.org' } })).status, 403);
-console.log(JSON.stringify({ status: 'passed', native_fem_checked: process.argv.includes('--native'), scope: 'Local HTTP, numerical jobs, coordinate evaluation, electrode deletion, source simulation and cache replay. No browser QA; new native FEM and v2 sources only with --native.' }));
+console.log(JSON.stringify({ status: 'passed', native_fem_checked: process.argv.includes('--native'), new_coordinate_forward_mode: nativeMode, optional_protocols: optional, scope: 'Local HTTP, numerical jobs, coordinate evaluation, electrode deletion, source simulation and cache replay. No browser QA; new native FEM and v2 sources only with --native.' }));

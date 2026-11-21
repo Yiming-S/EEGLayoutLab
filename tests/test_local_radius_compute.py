@@ -36,6 +36,16 @@ def test_canonical_request_and_exact_masks():
     assert validate_request({"region_count": 1, "radius_mm": 15, "mode": "whole_surface"})["mask_codes"] == []
 
 
+@pytest.mark.parametrize("noise", [None, {"kind": "iid"}, {"kind": "spatial", "rho": .5, "length_mm": 20.},
+    {"kind": "spatial", "rho": .5, "length_mm": 20, "x": 1}, {"kind": "brain_background", "fraction": .5}])
+def test_optional_fields_accept_only_their_canonical_form(noise):
+    base = {"region_count": 2, "radius_mm": 35, "mode": "low_hair"}
+    spatial = {"kind": "spatial", "rho": .5, "length_mm": 20}
+    assert "noise_model" not in validate_request(base) and validate_request({**base, "noise_model": spatial})["noise_model"] == spatial
+    with pytest.raises(ValueError):
+        validate_request({**base, "noise_model": noise})
+
+
 def chain(n=8, spacing=.005):
     vertices = np.column_stack((np.arange(n) * spacing, np.zeros(n), np.zeros(n)))
     graph = np.zeros((n, n))

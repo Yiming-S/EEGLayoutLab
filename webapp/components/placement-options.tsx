@@ -2,21 +2,23 @@
 import { useLanguage } from '@/components/language-provider';
 
 /* oxlint-disable next/no-html-link-for-pages -- preserve established vinext navigation */
-import { useEffect, useId, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Button } from '@/components/ui/button';
 import { MASK_NAMES } from '@/lib/ui-language';
 import { REGION_COUNTS } from '@/lib/lab-workflow';
 import { placementChoices, placementDesignLink, type PlacementChoice, type PlacementProtocol } from '@/lib/placement-options';
 
-export function LocationRadios({ label, value, onChange, options, compact = false }: {
+export function LocationRadios({ label, value, onChange, options, compact = false, stacked = false }: {
   label: string; value: string; onChange: (value: string) => void;
   options: Array<{ id: string; label: string; description?: string }>; compact?: boolean;
+  /** One option per row, for narrow side panels. */
+  stacked?: boolean;
 }) {
   const { tx } = useLanguage();
   const id = useId();
   return <fieldset className="min-w-0"><legend className="mb-3 text-sm font-semibold">{tx(label)}</legend>
-    <RadioGroup value={value} onValueChange={(v) => onChange(String(v))} className={compact ? 'grid grid-cols-3 gap-2' : 'grid gap-3 sm:grid-cols-2'}>
+    <RadioGroup value={value} onValueChange={(v) => onChange(String(v))} className={stacked ? 'grid gap-2' : compact ? 'grid grid-cols-3 gap-2' : 'grid gap-3 sm:grid-cols-2'}>
       {tx(options.map((option, i) => <label key={option.id} htmlFor={id + '-' + i} className={`flex cursor-pointer items-start gap-2 rounded-lg border p-3 text-sm leading-6 ${value === option.id ? 'border-primary bg-primary/5 text-foreground' : 'border-border bg-card hover:border-primary/50'}`}>
         <RadioGroupItem id={id + '-' + i} value={option.id} className="mt-1" />
         <span><span className="font-medium">{tx(option.label)}</span>{tx(option.description && <span className="mt-1 block text-sm text-muted-foreground">{tx(option.description)}</span>)}</span>
@@ -64,6 +66,13 @@ export function PlacementDesignPresets({ ar }: { ar: number }) {
   </section>;
 }
 
+const PLACEMENT_MODES = [
+  { id: 'whole_surface', label: '全头候选区', description: '不限制毛发位置，由算法选择区域。' },
+  { id: 'low_hair', label: '少毛发候选区（模型近似）', description: '只在耳后、前额与眶周的近似少毛发范围内选择。' },
+  { id: 'regions', label: '指定部位组合', description: '为每个区域指定部位：选常用组合，或逐区自由组合。' },
+] as const;
+
+/** Placement is one decision: a free domain, or named locations for every region. */
 export function DesignPlacementOptions({ count, choices, selected, slots, onSelect, onSlot, onCount, compact = false }: {
   count: number; choices: PlacementChoice[]; selected: string; slots: string[];
   onSelect: (choice: PlacementChoice) => void; onSlot: (index: number, value: string) => void;
@@ -71,16 +80,30 @@ export function DesignPlacementOptions({ count, choices, selected, slots, onSele
   compact?: boolean;
 }) {
   const { tx } = useLanguage();
-  const [customOpen, setCustomOpen] = useState(() => slots.some(Boolean) && !choices.some((choice) => choice.id === selected && choice.mode === 'preset'));
-  return <section className={compact ? 'mb-4 space-y-4' : 'lab-panel mb-4 space-y-5'} aria-label={tx("平铺的布置范围与区域部位")}>
-    <div><h2 className="text-lg font-semibold">{tx("1 · 选择区域数与允许布置范围")}</h2><fieldset className="mt-3 flex flex-wrap gap-2" aria-label={tx("电极分布区域数")}>{tx(REGION_COUNTS.map((r) => <Button key={r} variant={count === r ? 'default' : 'outline'} aria-pressed={count === r} onClick={() => onCount(r)}>{tx(`${r}个区域`)}</Button>))}</fieldset><p className="mt-2 text-sm text-muted-foreground">{tx("总电极数始终64；下方每个区域标明分配数量。")}</p></div>
-    <LocationRadios label={tx("允许布置范围")} value={selected} onChange={(id) => { const c = choices.find((v) => v.id === id); if (c) onSelect(c); }} options={choices.filter((c) => c.mode !== 'preset')} />
-    <div><p className="mb-2 text-sm font-semibold">{tx("常用组合 · ")}{tx(`${count}个区域`)}</p><div className="flex flex-wrap gap-2">{tx(choices.filter((c) => c.mode === 'preset').map((c) => <Button key={c.id} variant={selected === c.id ? 'default' : 'outline'} className="h-auto whitespace-normal py-2 text-left" aria-pressed={selected === c.id} onClick={() => onSelect(c)}>{tx(c.label)}</Button>))}</div></div>
-    <details className="border-t pt-4" open={customOpen} onToggle={(event) => setCustomOpen(event.currentTarget.open)}>
-      <summary className="cursor-pointer text-base font-semibold">{tx("自由组合部位 · 每个区域选一项")}</summary>
-      <p className="mt-1 text-sm leading-6 text-muted-foreground">{tx("可选择预设之外的组合，也可在多个区域选择同一部位。顺序对应各区电极数；仍须满足不同电极、最小间距与区域分离要求。")}</p>
-      <div className={'mt-4 grid items-start gap-5 ' + (compact ? '' : 'lg:grid-cols-2 xl:grid-cols-3')}>{tx(Array.from({ length: count }, (_, i) => <LocationRadios key={i} label={tx(`区域${i + 1} · ${Math.floor(64 / count) + Number(i < 64 % count)}个电极`)} value={slots[i] ?? ''} onChange={(v) => onSlot(i, v)} options={Object.entries(MASK_NAMES).map(([id, label]) => ({ id, label }))} compact />))}</div>
-      <p className="mt-3 text-sm leading-6 text-muted-foreground">{tx("所有部位均按模型坐标近似划定。耳后邻近区覆盖近耳后外侧，耳周扩展区覆盖更大范围，眶周上外侧排除模型中的眼球近似区。眼电干扰在信号仿真页单独评价。")}</p>
-    </details>
+  const presets = choices.filter((c) => c.mode === 'preset');
+  const [customOpen, setCustomOpen] = useState(() => slots.some(Boolean) && !presets.some((choice) => choice.id === selected));
+  const lastRegions = useRef<PlacementChoice | null>(null);
+  const current = choices.find((c) => c.id === selected);
+  // Switching back from a free domain restores the last named combination.
+  useEffect(() => { if (current?.mode === 'preset') lastRegions.current = current; }, [current]);
+  const mode = selected === 'whole_surface' || selected === 'low_hair' ? selected : 'regions';
+  const pickMode = (id: string) => {
+    if (id !== 'regions') { const c = choices.find((v) => v.id === id); if (c) onSelect(c); return; }
+    const previous = lastRegions.current;
+    const next = previous && presets.some((c) => c.id === previous.id) ? previous : presets[0];
+    if (next) onSelect(next); else setCustomOpen(true);
+  };
+  return <section className={compact ? 'mb-4 space-y-4' : 'lab-panel mb-4 space-y-5'} aria-label={tx("布置方式与区域部位")}>
+    <div><h2 className="text-lg font-semibold">{tx("1 · 选择区域数与布置方式")}</h2><fieldset className="mt-3 flex flex-wrap gap-2" aria-label={tx("电极分布区域数")}>{tx(REGION_COUNTS.map((r) => <Button key={r} size="sm" variant={count === r ? 'default' : 'outline'} aria-pressed={count === r} onClick={() => onCount(r)}>{tx(`${r}个区域`)}</Button>))}</fieldset><p className="mt-2 text-sm text-muted-foreground">{tx("总电极数始终64；下方每个区域标明分配数量。")}</p></div>
+    <LocationRadios label={tx("布置方式")} value={mode} onChange={pickMode} options={PLACEMENT_MODES.map((m) => ({ ...m }))} stacked={compact} />
+    {mode === 'regions' && <div className="space-y-4 rounded-lg border border-primary/30 bg-primary/5 p-3">
+      <div><p className="mb-2 text-sm font-semibold">{tx("常用组合 · ")}{tx(`${count}个区域`)}</p><div className="flex flex-wrap gap-2">{tx(presets.map((c) => <Button key={c.id} size="sm" variant={selected === c.id ? 'default' : 'outline'} className="h-auto whitespace-normal py-1.5 text-left" aria-pressed={selected === c.id} onClick={() => onSelect(c)}>{tx(c.label)}</Button>))}</div></div>
+      <details className="border-t pt-3" open={customOpen} onToggle={(event) => setCustomOpen(event.currentTarget.open)}>
+        <summary className="cursor-pointer text-sm font-semibold">{tx("自由组合部位 · 每个区域选一项")}</summary>
+        <p className="mt-1 text-sm leading-6 text-muted-foreground">{tx("可选择预设之外的组合，也可在多个区域选择同一部位。顺序对应各区电极数；仍须满足不同电极、最小间距与区域分离要求。")}</p>
+        <div className={'mt-4 grid items-start gap-5 ' + (compact ? '' : 'lg:grid-cols-2 xl:grid-cols-3')}>{tx(Array.from({ length: count }, (_, i) => <LocationRadios key={i} label={tx(`区域${i + 1} · ${Math.floor(64 / count) + Number(i < 64 % count)}个电极`)} value={slots[i] ?? ''} onChange={(v) => onSlot(i, v)} options={Object.entries(MASK_NAMES).map(([id, label]) => ({ id, label }))} compact />))}</div>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">{tx("所有部位均按模型坐标近似划定。耳后邻近区覆盖近耳后外侧，耳周扩展区覆盖更大范围，眶周上外侧排除模型中的眼球近似区。眼电干扰在信号仿真页单独评价。")}</p>
+      </details>
+    </div>}
   </section>;
 }

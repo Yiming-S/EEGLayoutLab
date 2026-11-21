@@ -82,6 +82,21 @@ export function createHeadScene(
     canvas.dataset.renderCount = '0';
     const controls = new OrbitControls(camera, canvas);
     lifetime.defer(() => controls.dispose());
+    // The page keeps scrolling past the viewer until the visitor engages it: wheel and pinch
+    // zoom start after a click, tap or keyboard focus, and one-finger vertical swipes scroll
+    // the page (OrbitControls sets touch-action none when it connects).
+    canvas.style.touchAction = 'pan-y';
+    controls.enableZoom = false;
+    const engage = () => { controls.enableZoom = true; };
+    const release = () => { controls.enableZoom = false; };
+    canvas.addEventListener('pointerdown', engage);
+    canvas.addEventListener('focus', engage);
+    canvas.addEventListener('blur', release);
+    lifetime.defer(() => {
+      canvas.removeEventListener('pointerdown', engage);
+      canvas.removeEventListener('focus', engage);
+      canvas.removeEventListener('blur', release);
+    });
     controls.enableDamping = true;
     controls.dampingFactor = 0.09;
     controls.enablePan = true;
@@ -530,6 +545,12 @@ export function createHeadScene(
         sourceLayer.select(options.selectedSource);
       },
       setView,
+      /** Full-screen views take every touch gesture; inline views leave vertical swipes to the page. */
+      setGestureCapture(value: boolean) {
+        canvas.style.touchAction = value ? 'none' : 'pan-y';
+        if (value) controls.enableZoom = true;
+        else if (document.activeElement !== canvas) controls.enableZoom = false;
+      },
       setRearView(value: boolean) {
         showRearView = value;
         canvas.dataset.rearView = value ? 'visible' : 'hidden';

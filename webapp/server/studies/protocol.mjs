@@ -5,6 +5,8 @@ import { validateCoordinateSource } from "../../contracts/coordinate-source.mjs"
 export const STUDY_LIMITS = Object.freeze({
   cases: 12,
   perOwner: 10,
+  perNetwork: 15,
+  draftDays: 7,
   studies: 100,
   metadataBytes: 256 * 1024,
   caseBytes: 16 * 1024 * 1024,
@@ -15,6 +17,9 @@ export const studyError = (message, status = 400) =>
   Object.assign(new Error(message), { status, studySafe: true });
 export const terminalCase = (status) =>
   ["completed", "failed", "cancelled", "failed_uncertain"].includes(status);
+export const STUDY_PROTOCOLS = ["noise_seeds", "grid_displacements", "heads"];
+// Evaluation protocols hold the radius fixed; only grid displacements vary it.
+export const studyAction = (protocol) => (protocol === "grid_displacements" ? "perturb" : "evaluate");
 export const nominalMetrics = [
   "field_relative",
   "field_absolute",
@@ -37,9 +42,9 @@ export function normalizeStudyInput(input) {
     if (
       !plain(input) ||
       Object.keys(input).some(
-        (key) => !["protocol", "design", "cases", "title", "notes"].includes(key),
+        (key) => !["protocol", "design", "cases", "title", "notes", "noise_model", "conductivity_scenario"].includes(key),
       ) ||
-      !["noise_seeds", "grid_displacements"].includes(input.protocol) ||
+      !STUDY_PROTOCOLS.includes(input.protocol) ||
       !Array.isArray(input.cases) ||
       !input.cases.length ||
       input.cases.length > STUDY_LIMITS.cases
@@ -55,24 +60,38 @@ export function normalizeStudyInput(input) {
       notes.length > 2000
     )
       throw studyError("Invalid study title or notes.");
-    const action = input.protocol === "noise_seeds" ? "evaluate" : "perturb";
+    const action = studyAction(input.protocol),
+      heads = input.protocol === "heads";
+    if (heads && input.conductivity_scenario !== undefined)
+      throw studyError("Conductivity scenarios are defined on Ernie only.");
     const requests = input.cases.map((value) => {
-      if (!plain(value) || Object.keys(value).sort().join(",") !== "radius_mm,seed")
-        throw studyError("Each case requires only an explicit seed and radius_mm.");
+      if (!plain(value) || Object.keys(value).sort().join(",") !== (heads ? "head_id,radius_mm,seed" : "radius_mm,seed"))
+        throw studyError(heads ? "Each case requires only head_id, seed and radius_mm." : "Each case requires only an explicit seed and radius_mm.");
+      if (heads && (typeof value.head_id !== "string" || !value.head_id))
+        throw studyError("Each cross-head case names one head package.");
       return normalizeDesignRequest({
         action,
         design: input.design,
         radius_mm: value.radius_mm,
         seed: value.seed,
+        ...(input.noise_model !== undefined ? { noise_model: input.noise_model } : {}),
+        ...(input.conductivity_scenario !== undefined ? { conductivity_scenario: input.conductivity_scenario } : {}),
+        ...(heads ? { head_id: value.head_id } : {}),
       });
     });
+    if (heads && new Set(requests.map((request) => request.head_id)).size !== requests.length)
+      throw studyError("Each head package appears once in a cross-head study.");
+    // One shared seed pairs the noise draws across heads.
+    if (heads && new Set(requests.map((request) => request.seed)).size !== 1)
+      throw studyError("Every case in a cross-head study uses the same seed.");
     if (
+      !heads &&
       new Set(requests.map((request) => `${request.seed}:${request.radius_mm}`)).size !==
       requests.length
     )
       throw studyError("Each seed/radius pair must be unique.");
     if (
-      input.protocol === "noise_seeds" &&
+      action === "evaluate" &&
       new Set(requests.map((request) => request.radius_mm)).size !== 1
     )
       throw studyError(
@@ -90,6 +109,9 @@ export function normalizeStudyInput(input) {
       title: title.trim(),
       notes,
       design: requests[0].design,
+      // One noise model for every case; absent means independent noise.
+      ...(requests[0].noise_model ? { noise_model: requests[0].noise_model } : {}),
+      ...(requests[0].conductivity_scenario ? { conductivity_scenario: requests[0].conductivity_scenario } : {}),
       annotation,
       requests,
     };
@@ -139,7 +161,7 @@ export function aggregateStudy(protocol, cases) {
     cancelled_cases: count(["cancelled"]),
     pending_cases: cases.filter((value) => !terminalCase(value.status)).length,
     quantile_method: "type7_linear",
-    interpretation: "Ernie_within_model_empirical_cases",
+    interpretation: protocol === "heads" ? "cross_head_empirical_cases" : "Ernie_within_model_empirical_cases",
     groups: [...new Set(cases.map((value) => value.request.radius_mm))]
       .sort((a, b) => a - b)
       .map((radius_mm) => {

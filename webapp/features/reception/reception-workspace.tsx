@@ -1,4 +1,5 @@
 'use client';
+import { lazy, Suspense } from 'react';
 
 import { RuntimeMessage } from '@/components/runtime-message';
 import { localizedRecordTitle } from '@/lib/i18n/records';
@@ -13,7 +14,8 @@ import { SOURCE_REGIONS, canonicalSourceRegions } from '@/lib/source-regions';
 import { lowerArtifactScale } from '@/lib/source-result-reading';
 
 import { useReceptionController, running } from './use-reception-controller';
-import { ExperimentResult } from './experiment-result';
+// The result view and its charts load with the first result, not with the page.
+const ExperimentResult = lazy(() => import('./experiment-result').then((module) => ({ default: module.ExperimentResult })));
 
 export default function ReceptionPage() {
   const {
@@ -335,8 +337,9 @@ export default function ReceptionPage() {
                     <RuntimeMessage
                       message={active!.message}
                       status={active!.status}
-                    />{' '}
-                    · {tx(Math.round(active!.progress * 100))}%
+                      queuePosition={active!.queue_position}
+                    />
+                    {active!.status !== 'queued' && <>{' '}· {tx(Math.round(active!.progress * 100))}%</>}
                   </output>
                 ),
               )}
@@ -390,6 +393,7 @@ export default function ReceptionPage() {
         )}
         {tx(
           result && selected ? (
+            <Suspense fallback={<section className="lab-panel my-5 py-10 text-center text-sm text-muted-foreground">{tx('正在载入结果视图…')}</section>}>
             <ExperimentResult
               key={key}
               result={result}
@@ -401,6 +405,7 @@ export default function ReceptionPage() {
               sourceResultKey={job?.status === 'completed' ? job.key : undefined}
               onReduceArtifacts={lowerArtifactScale(scale) === null ? undefined : () => setScale(lowerArtifactScale(scale)!)}
             />
+            </Suspense>
           ) : (
             <section className="lab-panel my-5 py-10 text-center">
               <h2 className="text-lg font-semibold">

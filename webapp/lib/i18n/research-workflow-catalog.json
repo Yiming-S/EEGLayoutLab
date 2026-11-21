@@ -837,8 +837,8 @@
     "en": "Seed and radius combinations must be unique"
   },
   "workflow_198": {
-    "source": "随机种子研究的所有案例须保持同一半径参数",
-    "en": "All noise-seed cases must use the same radius parameter"
+    "source": "随机种子研究和跨头模研究的所有案例须保持同一半径参数",
+    "en": "All noise-seed and cross-head cases must use the same radius parameter"
   },
   "workflow_199": {
     "source": "研究请求超过64 KiB",
@@ -1223,5 +1223,354 @@
   "workflow_294": {
     "source": "本案例有效偏移摘要",
     "en": "Valid displacement summary for this case"
+  },
+  "workflow_295": {
+    "source": "头皮节点预计算FEM",
+    "en": "Precomputed scalp-node FEM"
+  },
+  "workflow_296": {
+    "source": "本结果使用头皮节点预计算的FEM前向场。",
+    "en": "This result uses precomputed scalp-node FEM forward fields."
+  },
+  "workflow_297": {
+    "source": "读取Ernie头皮表面，检查坐标到表面的投影",
+    "en": "Reading the Ernie scalp surface and checking coordinate projections"
+  },
+  "workflow_298": {
+    "source": "读取预计算头皮节点FEM前向场",
+    "en": "Reading precomputed scalp-node FEM forward fields"
+  },
+  "workflow_299": {
+    "source": "读取预计算头皮节点FEM前向场，按原投影路径叠加",
+    "en": "Reading precomputed scalp-node FEM forward fields along the original projection path"
+  },
+  "workflow_300": {
+    "source": "投影面片的顶点不在预计算头皮节点表中；表面筛选或表格版本不一致。",
+    "en": "A projected triangle vertex is missing from the precomputed scalp-node table; the surface screening or table version differs."
+  },
+  "workflow_301": {
+    "source": "预计算头皮节点表的数据行校验失败",
+    "en": "A precomputed scalp-node table row failed its integrity check"
+  },
+  "workflow_302": {
+    "source": "预计算头皮节点表与当前前向库、头模、源或表面筛选不一致，需要重新预计算。",
+    "en": "The precomputed scalp-node table does not match the current forward bank, head model, sources or surface screening; rebuild it."
+  },
+  "workflow_303": {
+    "source": "布局评价所用的预计算头皮节点表已更换；请重新评价该坐标后再做信号实验。",
+    "en": "The precomputed scalp-node table used by this layout evaluation has been replaced; evaluate the coordinates again before running the signal experiment."
+  },
+  "workflow_304": {
+    "source": "预计算头皮节点前向场含非有限值",
+    "en": "The precomputed scalp-node forward field contains non-finite values"
+  },
+  "workflow_305": {
+    "source": "预计算头皮节点表身份不匹配",
+    "en": "Precomputed scalp-node table identity mismatch"
+  },
+  "workflow_306": {
+    "source": "噪声模型",
+    "en": "Noise model"
+  },
+  "workflow_307": {
+    "source": "独立噪声（默认）",
+    "en": "Independent noise (default)"
+  },
+  "workflow_308": {
+    "source": "空间相关噪声 ρ=0.5，L=10 mm",
+    "en": "Spatially correlated noise ρ=0.5, L=10 mm"
+  },
+  "workflow_309": {
+    "source": "空间相关噪声 ρ=0.5，L=20 mm",
+    "en": "Spatially correlated noise ρ=0.5, L=20 mm"
+  },
+  "workflow_310": {
+    "source": "空间相关噪声 ρ=0.5，L=40 mm",
+    "en": "Spatially correlated noise ρ=0.5, L=40 mm"
+  },
+  "workflow_311": {
+    "source": "脑背景活动噪声（仅定位，50%）",
+    "en": "Brain background noise (localization only, 50%)"
+  },
+  "workflow_312": {
+    "source": "空间相关噪声使相邻电极共享部分噪声，搜索与评价同时使用；结果与独立噪声分开保存。",
+    "en": "Spatially correlated noise makes neighboring electrodes share part of their noise. It applies to both search and evaluation, and its results are saved separately from independent-noise results."
+  },
+  "workflow_313": {
+    "source": "草稿噪声模型无效",
+    "en": "Invalid noise model in draft"
+  },
+  "workflow_314": {
+    "source": "噪声模型格式无效",
+    "en": "Invalid noise model format"
+  },
+  "workflow_315": {
+    "source": "不支持的噪声模型",
+    "en": "Unsupported noise model"
+  },
+  "workflow_316": {
+    "source": "脑背景噪声只用于定位评价，布局搜索不支持",
+    "en": "Brain background noise applies only to localization evaluation; layout search does not support it"
+  },
+  "workflow_317": {
+    "source": "信号仿真使用独立噪声；空间相关噪声下搜索的布局不进入信号仿真",
+    "en": "Signal simulation uses independent noise; layouts searched under spatially correlated noise are not available there"
+  },
+  "workflow_318": {
+    "source": "信号仿真只接受独立噪声协议下的布局",
+    "en": "Signal simulation accepts only layouts from the independent-noise protocol"
+  },
+  "workflow_319": {
+    "source": "数据生成头模电导率",
+    "en": "Conductivity of the data-generating head"
+  },
+  "workflow_320": {
+    "source": "与反演模型一致（默认）",
+    "en": "Same as the inversion model (default)"
+  },
+  "workflow_321": {
+    "source": "颅骨电导率 ×0.5（反演仍用名义值）",
+    "en": "Skull conductivity ×0.5 (inversion keeps nominal values)"
+  },
+  "workflow_322": {
+    "source": "颅骨电导率 ×2（反演仍用名义值）",
+    "en": "Skull conductivity ×2 (inversion keeps nominal values)"
+  },
+  "workflow_323": {
+    "source": "只用于“评价当前坐标”。数据由改变颅骨电导率的头模生成，重建与定位仍使用名义模型。",
+    "en": "Used only by “Evaluate current coordinates”. Data come from a head with changed skull conductivity; reconstruction and localization keep the nominal model."
+  },
+  "workflow_324": {
+    "source": "不支持的电导率情景",
+    "en": "Unsupported conductivity scenario"
+  },
+  "workflow_325": {
+    "source": "电导率情景只用于坐标评价，不用于网格偏移",
+    "en": "Conductivity scenarios apply to coordinate evaluation only, not grid displacements"
+  },
+  "workflow_326": {
+    "source": "跨头模评价（每案例一个头模）",
+    "en": "Cross-head evaluation (one head per case)"
+  },
+  "workflow_327": {
+    "source": "每案例把同一坐标经MNI映射到一个头模后评价，参考布局同样映射；电导率取默认值。案例构成跨头模分布，不代替Ernie生产结果。",
+    "en": "Each case maps the same coordinates through MNI onto one head and evaluates them there; the reference layout is mapped the same way and conductivities keep their defaults. The cases form a cross-head distribution and do not replace the Ernie production results."
+  },
+  "workflow_328": {
+    "source": "尚无已预计算的头模包",
+    "en": "No precomputed head packages yet"
+  },
+  "workflow_329": {
+    "source": "头模",
+    "en": "Head model"
+  },
+  "workflow_330": {
+    "source": "选择头模",
+    "en": "Choose a head model"
+  },
+  "workflow_331": {
+    "source": "每个跨头模案例须选择一个头模",
+    "en": "Each cross-head case needs one head model"
+  },
+  "workflow_332": {
+    "source": "跨头模研究中每个头模只能出现一次",
+    "en": "Each head model may appear only once in a cross-head study"
+  },
+  "workflow_334": {
+    "source": "头模编号无效",
+    "en": "Invalid head model ID"
+  },
+  "workflow_335": {
+    "source": "其他头模只用于坐标评价，不用于网格偏移",
+    "en": "Other head models apply to coordinate evaluation only, not grid displacements"
+  },
+  "workflow_336": {
+    "source": "电导率情景只定义在Ernie头模上",
+    "en": "Conductivity scenarios are defined on the Ernie head only"
+  },
+  "workflow_337": {
+    "source": "该头模或其头皮节点表尚未预计算",
+    "en": "This head model or its scalp-node table has not been precomputed"
+  },
+  "workflow_338": {
+    "source": "头模头皮节点表身份不匹配",
+    "en": "Head model scalp-node table identity mismatch"
+  },
+  "workflow_339": {
+    "source": "该电导率情景的头皮节点表尚未预计算",
+    "en": "The scalp-node table for this conductivity scenario has not been precomputed"
+  },
+  "workflow_340": {
+    "source": "电导率情景头皮节点表身份不匹配",
+    "en": "Conductivity scenario scalp-node table identity mismatch"
+  },
+  "workflow_341": {
+    "source": "Conductivity scenarios are defined on Ernie only.",
+    "en": "Conductivity scenarios are defined on Ernie only.",
+    "zh": "电导率情景只定义在Ernie头模上。"
+  },
+  "workflow_342": {
+    "source": "Each case requires only head_id, seed and radius_mm.",
+    "en": "Each case requires only head_id, seed and radius_mm.",
+    "zh": "每个案例只需头模、随机种子和半径。"
+  },
+  "workflow_343": {
+    "source": "Each cross-head case names one head package.",
+    "en": "Each cross-head case names one head package.",
+    "zh": "每个跨头模案例须指定一个头模包。"
+  },
+  "workflow_344": {
+    "source": "Each head package appears once in a cross-head study.",
+    "en": "Each head package appears once in a cross-head study.",
+    "zh": "跨头模研究中每个头模包只能出现一次。"
+  },
+  "workflow_345": {
+    "source": "电导率情景 {{0}} 的头皮节点表尚未预计算。",
+    "en": "The scalp-node table for conductivity scenario {{0}} has not been precomputed."
+  },
+  "workflow_346": {
+    "source": "电导率情景评价需要名义头皮节点表，用于核对同一电极采样。",
+    "en": "Conductivity-scenario evaluation requires the nominal scalp-node table to confirm that the electrodes are sampled identically."
+  },
+  "workflow_347": {
+    "source": "情景前向场的表面重投影移动了评价坐标",
+    "en": "Surface reprojection for the scenario forward field moved the evaluated coordinates"
+  },
+  "workflow_348": {
+    "source": "情景前向场与名义前向场的电极采样不一致，需统一计算版本。",
+    "en": "The scenario and nominal forward fields sample the electrodes differently. Align the calculation versions."
+  },
+  "workflow_349": {
+    "source": "映射到头模 {{0}} 并读取其预计算前向场",
+    "en": "Mapping onto head model {{0}} and reading its precomputed forward field"
+  },
+  "workflow_350": {
+    "source": "头模 {{0}} 的头皮节点表尚未预计算。",
+    "en": "The scalp-node table for head model {{0}} has not been precomputed."
+  },
+  "workflow_351": {
+    "source": "头模 {{0}} 的映射基于另一版本的Ernie表面。",
+    "en": "The mapping for head model {{0}} is based on a different version of the Ernie surface."
+  },
+  "workflow_352": {
+    "source": "布局映射到头模 {{0}} 后，有电极落在外部曝光筛选未通过的面片；该布局在此头模上不评价。",
+    "en": "After mapping to head model {{0}}, some electrodes fall on faces that failed external-exposure screening; the layout is not evaluated on this head model."
+  },
+  "workflow_353": {
+    "source": "布局映射到头模 {{0}} 后最小电极间距为 {{1}} mm，低于3 mm；该布局在此头模上不评价。",
+    "en": "After mapping to head model {{0}}, the minimum electrode spacing is {{1}} mm, below 3 mm; the layout is not evaluated on this head model."
+  },
+  "workflow_354": {
+    "source": "头模前向场含非有限值",
+    "en": "The head-model forward field contains non-finite values"
+  },
+  "workflow_355": {
+    "source": "读取电导率情景的预计算前向场",
+    "en": "Reading the precomputed forward field for the conductivity scenario"
+  },
+  "workflow_356": {
+    "source": "复用已分解的头模，准备信号实验的精确前向场",
+    "en": "Reusing the factorized head model to prepare exact forward fields for the signal experiment"
+  },
+  "workflow_357": {
+    "source": "此评价已按其噪声模型或电导率情景标注保存到结果库；信号仿真只接受默认协议下的布局。",
+    "en": "This evaluation is saved in the result library, labelled with its noise model or conductivity scenario. Signal simulation accepts only layouts under the default protocol."
+  },
+  "workflow_359": {
+    "source": "跨头模研究的所有案例须使用同一随机种子",
+    "en": "All cross-head cases must use the same random seed"
+  },
+  "workflow_360": {
+    "source": "本研究描述所列头模上这批案例的经验分布；映射后被拒绝的头模计为失败案例。中位数、P10和P90按案例计算，使用第7型线性插值。",
+    "en": "This study describes the empirical distribution of these cases across the listed head models; a head model that rejects the mapped layout counts as a failed case. Median, P10 and P90 use cases as the unit and type-7 linear interpolation."
+  },
+  "workflow_361": {
+    "source": "头模列表读取失败",
+    "en": "The head model list could not be loaded"
+  },
+  "workflow_362": {
+    "source": "重新读取头模列表",
+    "en": "Reload the head model list"
+  },
+  "workflow_363": {
+    "source": "所有头模共用的随机种子",
+    "en": "Random seed shared by all head models"
+  },
+  "workflow_364": {
+    "source": "头模 {{0}} 上映射后的标准64参照未通过映射筛选（10 mm投影距离、外部曝光或3 mm间距）；该头模不用于评价。",
+    "en": "After mapping onto head model {{0}}, the standard 64 reference fails the mapping screen (10 mm projection distance, external exposure or 3 mm spacing); this head model is not used for evaluation."
+  },
+  "workflow_365": {
+    "source": "{{0}}所在面片的顶点 {{1}} 不在电导率情景所用的预计算头皮节点表中；需按当前顶点规则重新预计算头皮节点表。",
+    "en": "Vertex {{1}} of the face under {{0}} is not in the precomputed scalp-node table used for the conductivity scenario; rebuild the scalp-node table under the current vertex rule."
+  },
+  "workflow_366": {
+    "source": "标准64参照第{{0}}点",
+    "en": "standard 64 reference point {{0}}"
+  },
+  "workflow_367": {
+    "source": "第{{0}}个电极（候选库编号 {{1}}）",
+    "en": "electrode {{0}} (candidate bank index {{1}})"
+  },
+  "workflow_368": {
+    "source": "第{{0}}个电极",
+    "en": "electrode {{0}}"
+  },
+  "workflow_369": {
+    "source": "Every case in a cross-head study uses the same seed.",
+    "en": "Every case in a cross-head study uses the same seed.",
+    "zh": "跨头模研究的所有案例须使用同一随机种子"
+  },
+  "workflow_370": {
+    "source": "其他头模的预计算头皮节点表",
+    "en": "Precomputed scalp-node table of another head model"
+  },
+  "workflow_371": {
+    "source": "电导率情景名称无效",
+    "en": "Invalid conductivity scenario name"
+  },
+  "workflow_372": {
+    "source": "该布局不进入信号仿真：信号仿真只接受独立噪声下得到的已评价64电极布局。",
+    "en": "This layout is not available for signal simulation: signal simulation accepts only evaluated 64-electrode layouts obtained under independent noise."
+  },
+  "workflow_373": {
+    "source": "布局映射到头模 {{0}} 后，有电极距该头模头皮 {{1}} mm，超过10 mm；该布局在此头模上不评价。",
+    "en": "After mapping to head model {{0}}, an electrode lies {{1}} mm from that head model's scalp, more than 10 mm; the layout is not evaluated on this head model."
+  },
+  "workflow_374": {
+    "source": "头模：{{0}}",
+    "en": "Head model: {{0}}"
+  },
+  "workflow_375": {
+    "source": "评价条件不同（噪声模型、电导率情景或头模）：分数不可直接比较。",
+    "en": "Evaluation conditions differ (noise model, conductivity scenario, or head model): the scores are not directly comparable."
+  },
+  "workflow_376": {
+    "source": "跨头模评价只能在结果库或稳健性研究中查看",
+    "en": "Cross-head evaluations can be viewed only in the result library or a robustness study"
+  },
+  "workflow_377": {
+    "source": "保存的评价条件不在当前可选范围内",
+    "en": "The saved evaluation conditions are not among the current options"
+  },
+  "workflow_378": {
+    "source": "筛选记录",
+    "en": "Filter records"
+  },
+  "workflow_379": {
+    "source": "筛选：部位、区域数、名称或编号",
+    "en": "Filter by location, region count, name, or ID"
+  },
+  "workflow_380": {
+    "source": "匹配{{0}}条记录",
+    "en": "{{0}} matching records"
+  },
+  "workflow_381": {
+    "source": "读取搜索过程…",
+    "en": "Loading the search history…"
+  },
+  "workflow_382": {
+    "source": "此坐标评价使用非默认的噪声模型、电导率情景或头模；分数只与相同条件的评价直接比较，信号仿真只接受默认协议下的布局。",
+    "en": "This coordinate evaluation uses a non-default noise model, conductivity scenario, or head model. Compare its scores directly only with evaluations under the same conditions; signal simulation accepts only layouts under the default protocol."
   }
 }

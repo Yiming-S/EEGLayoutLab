@@ -11,7 +11,12 @@ import { createRuntimeIdentityCache } from './runtime/identity-cache.mjs';
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const run = promisify(execFile);
 const runtimeReaders = new WeakMap();
-export async function designReceptionRecord(root, id, store = new RecordStore(root)) {
+/**
+ * A saved coordinate evaluation as a library record. Evaluations under another noise model,
+ * conductivity scenario or head are returned only with `conditions` (the library), carrying
+ * `evaluation_condition`; signal simulation keeps the default protocol.
+ */
+export async function designReceptionRecord(root, id, store = new RecordStore(root), { conditions = false } = {}) {
   if (!/^[a-f0-9]{64}$/.test(id)) return null;
   const path = `results/v2/design_evaluation_jobs/${id}/cache.json`;
   let bytes;
@@ -35,6 +40,13 @@ export async function designReceptionRecord(root, id, store = new RecordStore(ro
   if (r.request?.action === 'perturb') return null;
   validateDesignResult(r, request);
   if (r.request.action !== 'evaluate') return null;
+  const condition = {
+    ...(request.noise_model ? { noise_model: request.noise_model } : {}),
+    ...(request.conductivity_scenario ? { conductivity_scenario: request.conductivity_scenario } : {}),
+    ...(request.head_id ? { head_id: request.head_id } : {}),
+  };
+  const variant = Object.keys(condition).length > 0;
+  if (variant && !conditions) return null;
   const p = JSON.parse(
     await readFile(
       join(root, 'results/v2/current_strict_area_budget_study.json'),
@@ -55,6 +67,7 @@ export async function designReceptionRecord(root, id, store = new RecordStore(ro
     request: null,
     geometry: null,
     finished_at: cache.finished_at,
+    ...(variant ? { evaluation_condition: condition } : {}),
     metrics: {
       ...r.nominal,
       conditional_global: [
@@ -87,7 +100,8 @@ export async function receptionLayouts(queue) {
   const records = library.records.filter(
     (r) =>
       ['cache', 'strict_area'].includes(r.dataset_id) &&
-      r.status === 'completed',
+      r.status === 'completed' &&
+      !r.request?.noise_model,
   );
   const store = queue.store ?? new RecordStore(queue.root);
   const entries = await store.keys('design');
@@ -105,6 +119,10 @@ export async function receptionLayouts(queue) {
   }
   return { ...library, records, warnings };
 }
+/** Signal simulation keeps independent noise; layouts searched under another noise model stay out of it. */
+export function assertIndependentNoiseParent(record) {
+  if (record?.request?.noise_model || record?.evaluation_condition) throw new Error('信号仿真只接受独立噪声协议下的布局');
+}
 export async function receptionV2Context(service, request) {
   const q = service.queue;
   const record =
@@ -116,6 +134,7 @@ export async function receptionV2Context(service, request) {
     !['cache', 'strict_area', 'design_evaluation'].includes(record.dataset_id)
   )
     throw new Error('需要完整的已保存布局或已评价坐标');
+  assertIndependentNoiseParent(record);
   if (
     request.mode === 'multi_source' &&
     !request.region_definition &&

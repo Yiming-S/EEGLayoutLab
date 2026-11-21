@@ -90,6 +90,21 @@ export function savedSourceLink(request: SourceRequest, ar: number, returnTo: st
   else q.set('region', request.brain_region);
   return '/reception?' + q.toString();
 }
+/** The page where a queued or running task shows its progress; each page restores its active task. */
+export function activeTaskLink(task: ExperimentReceipt, ar = 90, returnTo = '/library'): string | null {
+  if (!['queued', 'running'].includes(task.status)) return null;
+  const request = task.request as Record<string, unknown>;
+  if (task.kind === 'local-compute') {
+    const q = new URLSearchParams({ ar: String(ar), draft: '1', r: String(request.region_count), radius: String(request.radius_mm), mode: String(request.mode) });
+    if (Array.isArray(request.mask_codes) && request.mask_codes.length) q.set('masks', request.mask_codes.join(','));
+    return '/design?' + q.toString();
+  }
+  if (task.kind === 'design-evaluation') return '/coordinates';
+  if (task.kind === 'electrode-editor' && typeof request.parent_id === 'string')
+    return '/electrodes?' + new URLSearchParams({ parent: request.parent_id, ar: String(ar), returnTo }).toString();
+  return task.kind === 'source-reception' ? savedSourceLink(task.request as SourceRequest, ar, returnTo) : null;
+}
+
 export function completedTaskLink(task: ExperimentReceipt, ar = 90, returnTo = '/library'): string | null {
   if (!['completed', 'no_layout'].includes(task.status)) return null;
   if (task.kind === 'local-compute') return `/library?record=${task.key}&ar=${ar}`;

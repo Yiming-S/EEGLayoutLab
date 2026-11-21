@@ -4,7 +4,7 @@ import { RuntimeMessage } from "@/components/runtime-message";
 
 /* oxlint-disable next/no-html-link-for-pages -- preserve established vinext navigation */
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   Brain,
   Maximize2,
@@ -57,11 +57,15 @@ export function ClusterHeadViewer(props: Props) {
   const electrodeCount = props.editor
     ? props.editor.active.filter(Boolean).length
     : props.allocation.reduce((sum, count) => sum + count, 0);
+  // Callers build these small arrays inline; keyed by content, a re-render with the same
+  // values does not rebuild the scene's electrodes and regions.
+  const allocationKey = props.allocation.join(','),
+    maskKey = props.maskCodes ? 'm:' + props.maskCodes.join(',') : '';
+  const allocation = useMemo(() => (allocationKey ? allocationKey.split(',').map(Number) : []), [allocationKey]);
+  const maskCodes = useMemo(() => (maskKey ? maskKey.slice(2).split(',').filter(Boolean) : undefined), [maskKey]);
   const {
     regionCount,
-    allocation,
     domainMode,
-    maskCodes,
     radiusCm,
     recordedLayout,
     sourceXyzMm,
@@ -147,6 +151,9 @@ export function ClusterHeadViewer(props: Props) {
     runtime.current?.setRearView(showRearView);
   }, [status, showRearView]);
   useEffect(() => {
+    runtime.current?.setGestureCapture(expanded);
+  }, [status, expanded]);
+  useEffect(() => {
     if (!expanded) return;
     const overflow = document.body.style.overflow;
     const escape = (event: KeyboardEvent) => {
@@ -172,7 +179,7 @@ export function ClusterHeadViewer(props: Props) {
   return (
     <div
       data-compact={props.compact ? 'true' : 'false'}
-      className={`head-stage flex flex-col overflow-hidden ${expanded ? 'fixed inset-0 z-[80] h-[100dvh] rounded-none sm:inset-4 sm:h-auto sm:rounded-2xl' : brain ? 'relative h-[840px] rounded-2xl sm:h-[790px]' : props.compact ? 'relative h-[580px] rounded-2xl sm:h-[520px]' : 'relative h-[640px] rounded-2xl sm:h-[690px]'}`}
+      className={`head-stage flex flex-col overflow-hidden ${expanded ? 'fixed inset-0 z-[80] h-[100dvh] rounded-none sm:inset-4 sm:h-auto sm:rounded-2xl' : brain ? 'relative rounded-2xl sm:h-[790px]' : props.compact ? 'relative rounded-2xl sm:h-[520px]' : 'relative rounded-2xl sm:h-[690px]'}`}
     >
       <div className="relative z-10 flex flex-wrap items-center justify-between gap-2 border-b border-[#e0e7eb] bg-white/90 px-3 py-3 sm:px-5">
         <fieldset
@@ -269,7 +276,9 @@ export function ClusterHeadViewer(props: Props) {
           <p className="mt-1 leading-4 text-[#617680]">{tx('颜色按Ernie皮层的DK图谱标签分组，选源与着色使用同一规则。灰色为其他皮层或分区边界。S编号标记实际生成源；点击图例调整视角。')}</p>
         </>}
       </div>}
-      <div className="relative min-h-0 flex-1">
+      {/* On phones the stage grows with its panels and the canvas keeps a bounded height,
+          so the page can still be scrolled past the viewer. */}
+      <div className={`relative min-h-0 ${expanded ? 'flex-1' : 'h-[min(62svh,480px)] flex-none sm:h-auto sm:flex-1'}`}>
         <div ref={hostRef} className="absolute inset-0" />
         {tx(status !== 'ready' && (
           <output className="absolute inset-0 grid place-items-center bg-[#f8fafb] px-8 text-center text-sm leading-6 text-[#5a6e79]">

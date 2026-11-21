@@ -1,7 +1,7 @@
 'use client';
 
+import { CONDUCTIVITY_SCENARIOS, NOISE_MODEL_PRESETS, conductivityScenarioLabel, noiseModelLabel } from '../../contracts/scientific-options.mjs';
 import { RuntimeMessage } from '@/components/runtime-message';
-import { localizedRecordTitle } from '@/lib/i18n/records';
 
 /* oxlint-disable next/no-html-link-for-pages -- preserve established vinext navigation */
 import { lazy, Suspense } from 'react';
@@ -23,6 +23,7 @@ import {
   qualification,
 } from '@/lib/design-decision';
 import { useDecisionController } from './use-decision-controller';
+import { RecordPicker } from './record-picker';
 import { SaveToProject } from '@/features/projects/project-context';
 import { DecisionRequirements } from './decision-requirements';
 import { CoordinateReviewPanel } from './coordinate-review-panel';
@@ -70,6 +71,10 @@ export default function DecisionPage({
     setRadius,
     seed,
     setSeed,
+    noiseModelId,
+    setNoiseModelId,
+    scenarioId,
+    setScenarioId,
     action,
     showEvaluated,
     setShowEvaluated,
@@ -84,11 +89,17 @@ export default function DecisionPage({
     result,
     resultQualification,
     computing,
+    connection,
+    reconnect,
     runEvaluation,
     cancel,
     preview,
   } = useDecisionController(mode);
   const presentation = result ? evaluationPresentation(job, result) : null;
+  // Every coordinate evaluation is a library record (labelled with its conditions);
+  // signal simulation takes only the default protocol.
+  const savedEvaluation = !!result && action === 'evaluate';
+  const simulationReady = savedEvaluation && noiseModelId === 'iid' && !scenarioId;
   return (
     <main className="lab-page">
       <SiteHeader
@@ -96,12 +107,12 @@ export default function DecisionPage({
         selection={{
           id:
             mode === 'coordinates'
-              ? result && action === 'evaluate'
+              ? savedEvaluation
                 ? (job?.key ?? null)
                 : testTarget !== 'import' ? (shown.find(r => r.id === ids[testTarget === 'b' ? 1 : 0])?.id ?? null) : null
               : (shown.find((r) => r.id === ids[0])?.id ?? null),
           phase:
-            mode === 'coordinates' && testTarget === 'import' && !(result && action === 'evaluate')
+            mode === 'coordinates' && testTarget === 'import' && !savedEvaluation
               ? 'draft'
               : 'saved',
           channels: mode === 'coordinates' && design ? 64 : undefined,
@@ -157,36 +168,10 @@ export default function DecisionPage({
               className="lab-panel grid gap-4 lg:grid-cols-2"
               aria-label={tx('选择对比方案')}
             >
-              {tx(
-                ['方案A', '方案B'].map((label, i) => (
-                  <label key={label} className="lab-label">
-                    {tx(label)}
-                    <select
-                      className="lab-select mt-2"
-                      value={ids[i]}
-                      onChange={(e) =>
-                        setIds((old) =>
-                          old.map((v, k) => (k === i ? e.target.value : v)),
-                        )
-                      }
-                    >
-                      <option value="">{tx('选择已计算布局')}</option>
-                      {tx(
-                        choices.map((r) => (
-                          <option
-                            key={r.id}
-                            value={r.id}
-                            disabled={r.id === ids[1 - i]}
-                          >
-                            {localizedRecordTitle(r, locale)}
-                          </option>
-                        )),
-                      )}
-                    </select>
-                  </label>
-
-                )),
-              )}
+              {['方案A', '方案B'].map((label, i) => (
+                <RecordPicker key={label} label={tx(label)} records={choices} value={ids[i]} exclude={ids[1 - i]}
+                  onChange={(id) => setIds((old) => old.map((v, k) => (k === i ? id : v)))} />
+              ))}
             </section>
             <DecisionRequirements thresholds={thresholds} onChange={setThresholds} />
             {tx(
@@ -376,7 +361,6 @@ export default function DecisionPage({
             )}
           </>
         )}
-        {mode === 'coordinates' && <DecisionRequirements thresholds={thresholds} onChange={setThresholds} />}
         <section className="lab-panel">
           <h2 className="text-lg font-semibold">
             {tx(mode === 'coordinates' ? '坐标导入与评价' : '位置偏移测试')}
@@ -511,6 +495,35 @@ export default function DecisionPage({
                     </select>
                   </label>
                 )}
+                <label className="lab-label col-span-2">
+                  {tx('噪声模型')}
+                  <select
+                    className="lab-select mt-2"
+                    value={noiseModelId}
+                    onChange={(e) => setNoiseModelId(e.target.value)}
+                  >
+                    {NOISE_MODEL_PRESETS.map((preset) => (
+                      <option key={preset.id} value={preset.id}>
+                        {tx(preset.label)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="lab-label col-span-2">
+                  {tx('数据生成头模电导率')}
+                  <select
+                    className="lab-select mt-2"
+                    value={scenarioId}
+                    onChange={(e) => setScenarioId(e.target.value)}
+                  >
+                    {CONDUCTIVITY_SCENARIOS.map((scenario) => (
+                      <option key={scenario.id} value={scenario.id}>
+                        {tx(scenario.label)}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="mt-1 block text-xs font-normal leading-5 text-muted-foreground">{tx('只用于“评价当前坐标”。数据由改变颅骨电导率的头模生成，重建与定位仍使用名义模型。')}</span>
+                </label>
                 <label className="lab-label">
                   {tx('随机种子')}
                   <input
@@ -570,12 +583,17 @@ export default function DecisionPage({
                   </p>
                 ),
               )}
+              {connection === 'blocked' && job && (
+                <Button type="button" size="sm" variant="outline" onClick={reconnect}>
+                  {tx('重新查询任务')}
+                </Button>
+              )}
               {tx(
                 job && (
                   <p aria-live="polite" className="text-sm">
-                    <RuntimeMessage message={job.message} status={job.status} />
+                    <RuntimeMessage message={job.message} status={job.status} queuePosition={job.queue_position} />
                     {tx(
-                      computing ? ` · ${Math.round(job.progress * 100)}%` : '',
+                      computing && job.status !== 'queued' ? ` · ${Math.round(job.progress * 100)}%` : '',
                     )}
                     {tx(job.cached ? ' · 已读取缓存' : '')}
                     {tx(
@@ -642,6 +660,7 @@ export default function DecisionPage({
                   {tx(presentation!.heading)}
                 </h3>
                 <p className="mt-1 text-xs text-muted-foreground">{tx('原结果来源')} · {tx(presentation!.origin)}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{tx('噪声模型')} · {tx(noiseModelLabel(NOISE_MODEL_PRESETS.find((preset) => preset.id === noiseModelId)?.value))}{action === 'evaluate' && scenarioId && <> · {tx('数据生成头模电导率')} · {tx(conductivityScenarioLabel(scenarioId))}</>}</p>
                 <p className="mt-2 text-sm">
                   {tx('重建保留率 ')}
                   {tx(pct(result.nominal?.field_relative))}{' '}
@@ -656,12 +675,17 @@ export default function DecisionPage({
                   {tx(mm(result.projection_max_mm))}。
                 </p>
                 {action === 'evaluate' && job?.key && <div className="mt-3 flex flex-wrap items-center gap-3">
-                  <SaveToProject kind="layout" recordId={job.key} annotationId={job.annotation_id} />
-                  <a className="text-sm text-primary underline" href={'/coordinates?a=' + job.key + (job.annotation_id ? '&annotation_a=' + job.annotation_id : '')}>{tx('打开保存的坐标评价')}</a>
+                  {savedEvaluation && <>
+                    <SaveToProject kind="layout" recordId={job.key} annotationId={job.annotation_id} />
+                    <a className="text-sm text-primary underline" href={'/coordinates?a=' + job.key + (job.annotation_id ? '&annotation_a=' + job.annotation_id : '')}>{tx('打开保存的坐标评价')}</a>
+                  </>}
                   <Button variant="outline" size="sm" onClick={() => design && download('eeg-evaluated-coordinates.csv', designCSV({ ...design, xyz_mm: result.evaluated_xyz_mm }), 'text/csv;charset=utf-8')}>{tx('导出实际评价坐标')}</Button>
                 </div>}
+                {action === 'evaluate' && job?.key && !simulationReady && (
+                  <p className="mt-2 text-xs text-muted-foreground">{tx('此评价已按其噪声模型或电导率情景标注保存到结果库；信号仿真只接受默认协议下的布局。')}</p>
+                )}
                 {tx(
-                  action === 'evaluate' && job?.key && (
+                  action === 'evaluate' && job?.key && simulationReady && (
                     <a
                       className="mt-3 inline-block text-sm font-semibold text-primary underline"
                       href={
@@ -788,6 +812,8 @@ export default function DecisionPage({
             ),
           )}
         </section>
+        {/* Import comes first; the requirements only re-judge the result above. */}
+        {mode === 'coordinates' && <DecisionRequirements thresholds={thresholds} onChange={setThresholds} />}
         <section className="lab-panel">
           <h2 className="text-lg font-semibold">{tx('验证阶段')}</h2>
           <p className="mt-2 text-sm leading-7">

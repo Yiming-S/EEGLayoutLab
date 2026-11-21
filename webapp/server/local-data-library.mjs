@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { readFile, stat, realpath } from 'node:fs/promises';
 import { join, resolve, sep } from 'node:path';
 import { designReceptionRecord } from './reception-v2-support.mjs';
+import { noiseModelLabel } from '../contracts/scientific-options.mjs';
 import { RecordStore } from './storage/records.mjs';
 
 const hash = (value) => createHash('sha256').update(value).digest('hex');
@@ -14,7 +15,7 @@ const familyNames = { bilateral_near_ear: '双侧耳后代理', left_ear_forehea
 const summary = ({ layout: _layout, provenance: _provenance, ...record }) => record;
 const DATASETS = [
   { id: 'design_evaluation', label: '已评价坐标布局', note: '已保存的固定64点坐标评价；保留原坐标与评价协议。' },
-  { id: 'cache', label: '本机计算缓存', note: '严格半径上限快速搜索；完整配置和科学代码身份一致时自动复用。' },
+  { id: 'cache', label: '按需计算缓存', note: '严格半径上限快速搜索；完整配置和科学代码身份一致时自动复用。' },
   { id: 'strict_area', label: '外部曝光筛选 · 30面积布局', note: '4096字典／256源、20 dB；固定 min(field,sensitivity) 分支。所有中心、电极和区域面片使用同一外部曝光筛选。' },
   { id: 'historical_area', label: '历史面积实验 · 原坐标范围', note: '未使用外部曝光筛选；原坐标和分数保留，不属于当前候选表面协议。' },
   { id: 'offline_radius', label: '早期半径实验 · 原始记录', note: '区域允许相交，不保证R个分离区域；不同搜索预算。只能按原实验口径查看，不能替代当前设计结果。' },
@@ -130,7 +131,7 @@ export class LocalDataLibrary {
       } catch (error) {
         for (const [id, row] of this.records) if (row.dataset_id === dataset) this.records.delete(id);
         this.loaded.delete(dataset);
-        this.warnings.push(`${DATASETS.find((d) => d.id === dataset).label}：${error.code === 'ENOENT' ? '本地数据未提供' : error.message}`);
+        this.warnings.push(`${DATASETS.find((d) => d.id === dataset).label}：${error.code === 'ENOENT' ? '数据未提供' : error.message}`);
       }
     }
     const directory = this.store.directory('radius');
@@ -150,7 +151,8 @@ export class LocalDataLibrary {
           this.records.set(key, summary(row)); this.loaded.set(key, stamp);
         }
         row = this.records.get(key);
-        row.compatible = hash(JSON.stringify({ request: row.request, identity: { version: 'local-radius-queue/1', code: identity, threads: 2 } })) === key;
+        // The queue owns the key formula (code identity, threads and, off macOS, the runtime).
+        row.compatible = this.queue.identityFor(row.request, identity).key === key;
         if (row.compatible) {
           const cache = await this.queue.readCache(key);
           try { await this.queue.verifyInputs(cache.result); }
@@ -158,7 +160,7 @@ export class LocalDataLibrary {
         }
       } catch (error) {
         this.records.delete(key); this.loaded.delete(key);
-        if (error.code !== 'ENOENT') this.warnings.push(`一条本机缓存未载入：${error.message}`);
+        if (error.code !== 'ENOENT') this.warnings.push(`一条计算缓存未载入：${error.message}`);
       }
     }
     const coordinateDirectory = this.store.directory('design');
@@ -168,7 +170,7 @@ export class LocalDataLibrary {
       try {
         const info = await stat(join(coordinateDirectory, key, 'cache.json')), stamp = `${info.mtimeMs}:${info.size}`;
         if (this.loaded.get('coordinates:' + key) === stamp && this.records.has(key)) continue;
-        const record = await designReceptionRecord(this.root, key);
+        const record = await designReceptionRecord(this.root, key, this.store, { conditions: true });
         if (record) this.records.set(key, summary(record));
         else this.records.delete(key);
         this.loaded.set('coordinates:' + key, stamp);
@@ -182,7 +184,7 @@ export class LocalDataLibrary {
   cacheRecord(cache, compatible) {
     const r = cache.result, request = cache.request;
     return validateSavedRecord({ id: cache.key, dataset_id: 'cache', status: r.status,
-      label: `${request.region_count}区 · ${request.mode === 'preset' ? request.mask_codes.join(' + ') : domainLabel(request.mode)} · 半径≤${request.radius_mm} mm`,
+      label: `${request.region_count}区 · ${request.mode === 'preset' ? request.mask_codes.join(' + ') : domainLabel(request.mode)} · 半径≤${request.radius_mm} mm${request.noise_model ? ' · ' + noiseModelLabel(request.noise_model) : ''}`,
       region_count: request.region_count, radius_cap_mm: request.radius_mm, mode: request.mode,
       spacing_mm: 4, compatible, request, finished_at: cache.finished_at,
       metrics: r.metrics ?? null, geometry: r.geometry ?? null, layout: r.layout ?? null,
@@ -202,7 +204,7 @@ export class LocalDataLibrary {
     if (!/^[a-f0-9]{64}$/.test(id)) return null;
     await this.refresh();
     const row = this.records.get(id);
-    if (row?.dataset_id === 'design_evaluation') return designReceptionRecord(this.root, id);
+    if (row?.dataset_id === 'design_evaluation') return designReceptionRecord(this.root, id, this.store, { conditions: true });
     if (!row || row.dataset_id !== 'cache') return row ?? null;
     const cache = await this.queue.readCache(id);
     return cache ? this.cacheRecord(cache, row.compatible) : null;

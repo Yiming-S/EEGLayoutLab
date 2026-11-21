@@ -8,7 +8,7 @@ Projects use `research-project/1`. They store research annotations and immutable
 
 Subsequent project requests carry `X-EEG-Project-Key`. Write requests also require the configured origin policy and `X-EEG-Compute-Token`. The computation token grants neither project access nor operator access. Credentials and API parameters must not be put in a project API query string.
 
-The project owner can create or revoke a separate read-only credential. Project lead names are annotations, not authenticated researcher accounts. Public layout-library records retain their existing shared visibility even when a copy is attached to a private project.
+The project owner can create or revoke a separate read-only credential. Project lead names are annotations, not authenticated researcher accounts. Attaching a copy to a private project does not change who sees the original record in the library lists; that follows the library scope described in `docs/anonymous-queue.md`.
 
 ## Endpoints
 

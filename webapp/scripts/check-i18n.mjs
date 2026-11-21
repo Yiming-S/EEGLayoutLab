@@ -8,11 +8,12 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { resolveLocale, translateText, retentionTerminology, localize, formatDate } from '../lib/i18n/core.ts';
 import { localizedRecordTitle, localizedEditorParentTitle, recordSearchText } from '../lib/i18n/records.ts';
-import { decisionMarkdown, designCSV, qualification, jointDecisionThresholds } from '../lib/design-decision.ts';
+import { decisionMarkdown, designCSV, qualification, jointDecisionThresholds, restoreDesignEvaluation } from '../lib/design-decision.ts';
 import { requestKey } from '../lib/local-compute.ts';
 import { sourceKey } from '../lib/source-reception.ts';
 import catalog from '../lib/i18n/catalog.json' with { type: 'json' };
 import simulationCatalog from '../lib/i18n/simulation-catalog.json' with { type: 'json' };
+import researchWorkflowCatalog from '../lib/i18n/research-workflow-catalog.json' with { type: 'json' };
 import { SIMULATION_SECTIONS, SIMULATION_DETAIL_IDS, isSimulationGuideHash } from '../lib/simulation-guide.ts';
 import { COPYRIGHT_NOTICE, copyrightHref, isCopyrightHash } from '../lib/copyright.ts';
 import { documentationHref, METHOD_CONTENTS } from '../lib/documentation.ts';
@@ -488,4 +489,145 @@ void test('date formatting follows selected locale without changing stored times
   const iso='2026-09-09T14:30:15.075Z';
   assert.notEqual(formatDate(iso,'en'), formatDate(iso,'zh-CN'));
   assert.equal(iso,'2026-09-09T14:30:15.075Z');
+});
+
+void test('research workflow catalog has unique sources, English text and matching placeholders', () => {
+  const sources = new Set(), tokens = s => [...s.matchAll(/\{\{(\d+)\}\}/g)].map(m => Number(m[1])).sort((a, b) => a - b);
+  for (const [id, entry] of Object.entries(researchWorkflowCatalog)) {
+    assert.ok(entry.source && entry.en, id);
+    assert.ok(!sources.has(entry.source), id); sources.add(entry.source);
+    assert.doesNotMatch(entry.en, /[㐀-鿿]/, id);
+    assert.deepEqual(tokens(entry.source), tokens(entry.en), id);
+  }
+});
+
+void test('worker diagnostics and progress messages from evaluation sources render in English', () => {
+  const messages = [];
+  for (const file of ['src/compact_eeg/workflows/design_evaluation.py', 'src/compact_eeg/workflows/head_package.py', 'src/compact_eeg/workflows/scalp_node_table.py', 'src/compact_eeg/noise_models.py']) {
+    for (const line of fs.readFileSync(path.join(root, '..', file), 'utf8').split('\n')) {
+      if (!/raise \w+\(|progress\(|message=/.test(line)) continue;
+      // Scan literals in order so f-string fields quoted with the other quote stay inside their literal.
+      for (let i = 0; i < line.length; i++) {
+        if (line[i] === '#') break;
+        if (line[i] !== '"' && line[i] !== "'") continue;
+        const end = line.indexOf(line[i], i + 1);
+        if (end < 0) break;
+        const literal = line.slice(i + 1, end);
+        if (/[㐀-鿿]/.test(literal)) messages.push(line[i - 1] === 'f' ? literal.replace(/\{[^{}]*\}/g, '12') : literal);
+        i = end;
+      }
+    }
+  }
+  assert.ok(messages.length > 20);
+  for (const message of messages) assert.doesNotMatch(translateText(message, 'en'), /[㐀-鿿]|\{\{\d/, message);
+  assert.equal(translateText('布局映射到头模 ixi012 后最小电极间距为 2.50 mm，低于3 mm；该布局在此头模上不评价。', 'en'),
+    'After mapping to head model ixi012, the minimum electrode spacing is 2.50 mm, below 3 mm; the layout is not evaluated on this head model.');
+  assert.equal(translateText('布局映射到头模 ixi012 后，有电极距该头模头皮 51.3 mm，超过10 mm；该布局在此头模上不评价。', 'en'),
+    "After mapping to head model ixi012, an electrode lies 51.3 mm from that head model's scalp, more than 10 mm; the layout is not evaluated on this head model.");
+  // The scenario vertex diagnostic is assembled from a separately chosen subject phrase.
+  for (const who of ['标准64参照第3点', '第3个电极', '第3个电极（候选库编号 1234）'])
+    assert.doesNotMatch(translateText(who + '所在面片的顶点 812 不在电导率情景所用的预计算头皮节点表中；需按当前顶点规则重新预计算头皮节点表。', 'en'), /[\u3400-\u9fff]|\{\{\d/, who);
+});
+
+void test('noise-model record titles translate the base title and the noise suffix separately', () => {
+  const noise_model = { kind: 'spatial', rho: 0.5, length_mm: 20 };
+  for (const base of [record, ...['whole_surface', 'low_hair'].map(mode => ({ ...record, mode, request: { region_count: 2, radius_mm: 35, mode } }))]) {
+    const noisy = { ...base, request: { ...base.request, noise_model } };
+    assert.doesNotMatch(localizedRecordTitle(noisy, 'en'), /[㐀-鿿]/);
+    assert.equal(localizedRecordTitle(noisy, 'en'), localizedRecordTitle(base, 'en') + ' · Spatially correlated noise ρ=0.5, L=20 mm');
+    assert.equal(localizedRecordTitle(noisy, 'zh-CN'), localizedRecordTitle(base, 'zh-CN') + ' · 空间相关噪声 ρ=0.5，L=20 mm');
+  }
+});
+
+void test('non-default coordinate evaluations offer no saved-record, project or simulation hand-off', () => {
+  const key = 'c'.repeat(64), xyz = Array.from({ length: 64 }, (_, i) => [i * 5, 0, 0]);
+  const design = { schema: 'eeg-electrode-design/1', coordinate_system: 'ernie_native_mm', unit: 'mm', name: 'Fixture', xyz_mm: xyz, region_indices: xyz.map((_, i) => Number(i >= 32)) };
+  const metrics = { field_relative: .9, field_absolute: .8, reference_field_absolute: .9, sensitivity_tail: .9, median_mm: 10, p90_mm: 20, localization_relative: .9, reference_median_mm: 9, reference_p90_mm: 18 };
+  const result = { forward_mode: 'scalp_node_table', evaluated_xyz_mm: xyz, nominal: metrics, projection_max_mm: 0, trials: [] };
+  const state = (locale, noiseModelId, scenarioId) => ({ tx: value => localize(value, locale), locale, ids: ['', ''], setIds() {}, error: '', thresholds: jointDecisionThresholds(90), setThresholds() {},
+    setImported() {}, importError: '', draftNotice: '', setImportError() {}, job: { id: 'job', key, status: 'completed', message: '设计评价已完成并保存', progress: 1, result }, computeError: '',
+    testTarget: 'import', setTestTarget() {}, radius: 6, setRadius() {}, seed: 42, setSeed() {}, noiseModelId, setNoiseModelId() {}, scenarioId, setScenarioId() {}, action: 'evaluate',
+    showEvaluated: true, setShowEvaluated() {}, here: '/coordinates?ar=90&resume=1', shown: [], loaded: true, choices: [], notes: [], design, requestIdentity: 'same', jobIdentity: 'same',
+    result, resultQualification: { state: 'pass', missing: [], failed: [] }, computing: false, runEvaluation() {}, cancel() {}, preview: undefined });
+  const workspace = path.join(root, 'features/decision/decision-workspace.tsx'), controller = path.join(root, 'features/decision/use-decision-controller.ts');
+  const previous = [workspace, controller].map(file => [file, modules.get(file)]);
+  let current;
+  modules.delete(workspace); modules.set(controller, { exports: { useDecisionController: () => current } });
+  try {
+    const Page = loadUI('features/decision/decision-workspace.tsx').default;
+    for (const locale of ['zh-CN', 'en']) {
+      current = state(locale, 'iid', '');
+      const saved = render(Page, { mode: 'coordinates' }, locale);
+      assert.ok(saved.includes('/coordinates?a=' + key)); assert.ok(saved.includes('/reception?record=' + key)); assert.ok(saved.includes('/projects?record=' + key));
+      for (const [noise, scenario] of [['spatial_20', ''], ['iid', 'skull_x2']]) {
+        current = state(locale, noise, scenario);
+        const html = render(Page, { mode: 'coordinates' }, locale);
+        assert.ok(html.includes('/coordinates?a=' + key) && html.includes('/projects?record=' + key), noise + scenario);
+        assert.ok(!html.includes('/reception?record=' + key), noise + scenario);
+        assert.match(html, locale === 'en' ? /Signal simulation accepts only layouts under the default protocol/ : /信号仿真只接受默认协议下的布局/);
+        if (locale === 'en') assert.doesNotMatch(visibleText(html), /[㐀-鿿]/);
+      }
+    }
+  } finally {
+    for (const [file, unit] of previous) if (unit) modules.set(file, unit); else modules.delete(file);
+  }
+  const record = { id: key, layout: { xyzMm: xyz } };
+  // Saved evaluations come back with their conditions; cross-head ones stay out of this page.
+  for (const [extra, noise, scenario] of [[{ noise_model: { kind: 'spatial', rho: 0.5, length_mm: 20 } }, 'spatial_20', ''], [{ conductivity_scenario: 'skull_x2' }, 'iid', 'skull_x2']]) {
+    const request = { action: 'evaluate', design, radius_mm: 6, seed: 42, ...extra };
+    const bundle = { schema: 'eeg-reproducibility-bundle/1', record_id: key, reproduction: { request }, original_record: { result: { ...result, request } } };
+    const restored = restoreDesignEvaluation(bundle, record);
+    assert.equal(restored.noise_model_id, noise); assert.equal(restored.conductivity_scenario, scenario);
+  }
+  const headRequest = { action: 'evaluate', design, radius_mm: 6, seed: 42, head_id: 'ixi002' };
+  assert.throws(() => restoreDesignEvaluation({ schema: 'eeg-reproducibility-bundle/1', record_id: key, reproduction: { request: headRequest }, original_record: { result: { ...result, request: headRequest } } }, record), /跨头模评价/);
+});
+
+void test('correlated-noise layouts explain the missing simulation hand-off and head results name their origin', () => {
+  const { SavedLayoutContent } = loadUI('components/saved-layout-details.tsx');
+  const { ProjectWorkflowEditor } = loadUI('features/projects/project-workflow-editor.tsx');
+  const { evaluationPresentation } = loadUI('features/decision/evaluation-presentation.ts');
+  const layout = { xyzMm: Array.from({ length: 64 }, () => [0, 0, 0]), referenceXyzMm: Array.from({ length: 64 }, () => [0, 0, 0]),
+    regionIndices: Array.from({ length: 64 }, (_, i) => i < 32 ? 0 : 1), regionPatchVertexIndices: [[0], [1]] };
+  const noisy = { ...record, layout, request: { ...record.request, noise_model: { kind: 'spatial', rho: 0.5, length_mm: 20 } } };
+  const entry = (simulation) => ({ id: 'layout', kind: 'layout', title: 'Layout', record_id: 'a'.repeat(64), summary: { protocol: 'cache', electrode_count: 64, ...simulation } });
+  const project = (summary) => ({ id: 'p', entries: [entry(summary)], workflow: { reference_entry_id: null, candidate_entry_id: 'layout', comparison_href: null } });
+  for (const locale of ['zh-CN', 'en']) {
+    const sentence = locale === 'en' ? /Signal simulation uses independent noise/ : /空间相关噪声下搜索的布局不进入信号仿真/;
+    const html = render(SavedLayoutContent, { record: noisy, ar: 32, returnHref: '/library?ar=32' }, locale);
+    assert.doesNotMatch(html, /href="\/reception\?/); assert.doesNotMatch(html, /href="\/electrodes\?/); assert.match(html, sentence);
+    assert.doesNotMatch(render(SavedLayoutContent, { record: { ...noisy, request: record.request }, ar: 32, returnHref: '/library?ar=32' }, locale), sentence);
+    const blocked = render(ProjectWorkflowEditor, { project: project({ simulation: false }), owner: false, busy: false, save() {} }, locale);
+    assert.doesNotMatch(blocked, /href="\/reception\?/);
+    assert.match(blocked, locale === 'en' ? /not available for signal simulation/ : /该布局不进入信号仿真/);
+    const short = render(ProjectWorkflowEditor, { project: { ...project({ simulation: false }), entries: [{ ...entry({ simulation: false }), summary: { protocol: 'cache', electrode_count: 32, simulation: false } }] }, owner: false, busy: false, save() {} }, locale);
+    assert.match(short, locale === 'en' ? /64-electrode/ : /选择已评价的64电极候选布局/); assert.doesNotMatch(short, /该布局不进入信号仿真/);
+    for (const summary of [{}, { simulation: true }]) assert.match(render(ProjectWorkflowEditor, { project: project(summary), owner: false, busy: false, save() {} }, locale), /href="\/reception\?record=a{64}"/);
+    if (locale === 'en') for (const content of [html, blocked]) assert.doesNotMatch(visibleText(content), /[㐀-鿿]/);
+  }
+  const origin = evaluationPresentation(null, { forward_mode: 'head_scalp_node_table' }).origin;
+  assert.equal(origin, '其他头模的预计算头皮节点表'); assert.doesNotMatch(translateText(origin, 'en'), /[㐀-鿿]/);
+});
+
+void test('shared-library visibility states and the publish confirmation are translated', () => {
+  const { RecordVisibilityControl, visibilityLabel } = loadUI('components/record-visibility-control.tsx');
+  const view = (state, extra = {}) => ({ scope: 'owner', review: true, owned: true, state, published_by_me: state === 'pending', ...extra });
+  assert.equal(visibilityLabel({ ...view('private'), scope: 'shared' }), null, 'a shared library shows no visibility state');
+  assert.equal(visibilityLabel({ ...view('removed'), scope: 'shared' }), '已被管理员从共享库移除', 'owners still learn about a removal');
+  assert.equal(visibilityLabel({ ...view('removed'), scope: 'shared', owned: false }), null);
+  const sharedRemoved = render(RecordVisibilityControl, { id: 'a'.repeat(64), name: 'Layout', visibility: { ...view('removed', { reason: 'Name' }), scope: 'shared', published_by_me: true } }, 'en');
+  assert.match(sharedRemoved, /Reason for removal: Name/); assert.doesNotMatch(sharedRemoved, /<button/, 'no publication controls in a shared library');
+  assert.equal(visibilityLabel(undefined), null);
+  for (const state of ['private', 'pending', 'public', 'removed']) {
+    assert.doesNotMatch(translateText(visibilityLabel(view(state)), 'en'), /[㐀-鿿]/);
+    const english = render(RecordVisibilityControl, { id: 'a'.repeat(64), name: 'Layout', visibility: view(state, state === 'removed' ? { reason: 'Name' } : {}) }, 'en');
+    assert.doesNotMatch(english, /[㐀-鿿]/, english);
+  }
+  assert.doesNotMatch(translateText(visibilityLabel(view('public', { owned: false })), 'en'), /[㐀-鿿]/);
+  assert.equal(translateText('公开后，所有访客都能在共享库看到这条记录：名称「Ear layout」、电极坐标、计算参数和指标。可随时撤回公开。确认公开？', 'en'),
+    'Once published, every visitor can see this record in the shared library: the name “Ear layout”, the electrode coordinates, the computation settings and the metrics. You can withdraw it at any time. Publish?');
+  for (const message of ['只有提交过这条记录的浏览器才能更改公开状态', '管理员已将这条记录从共享库移除，不能再次公开', '请选择是否公开这条记录', '公开状态未能更新，请刷新后重试'])
+    assert.doesNotMatch(translateText(message, 'en'), /[㐀-鿿]/, message);
+  const library = fs.readFileSync(path.join(root, 'features/library/library-workspace.tsx'), 'utf8');
+  for (const note of library.match(/'本浏览器提交的计算[^']+'/g)) assert.doesNotMatch(translateText(note.slice(1, -1), 'en'), /[㐀-鿿]/);
 });

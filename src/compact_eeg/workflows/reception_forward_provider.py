@@ -2,8 +2,11 @@
 
 Existing bank rows are used only at exactly identical coordinates. Previously
 evaluated non-bank coordinates require direct native FEM, never montage or
-nearest-neighbour interpolation. Native solves are opt-in, single-threaded and
-protected by one process lock; the application's shared worker is the scheduler.
+nearest-neighbour interpolation. A design evaluated from the precomputed
+scalp-node table instead reuses that same table (checked by ID) along the same
+projection path; see ``scalp_node_table``. Native solves are opt-in,
+single-threaded and protected by one process lock; the application's shared
+worker is the scheduler.
 This module never modifies v1 records, banks, objectives, or cache pointers.
 """
 from __future__ import annotations
@@ -188,6 +191,8 @@ def _validate_record(root, record, bundle):
             raise ValueError("Completed design and current reference bank differ")
         proof = {"path": str(path.relative_to(root)), "sha256": link["sha256"],
                  "forward_mode": result.get("forward_mode"), "frozen_coordinate_identity": _array_identity(actual)}
+        if result.get("forward_mode") == "scalp_node_table":
+            proof["scalp_node_table_id"] = (result.get("native_qa") or {}).get("scalp_node_table", {}).get("table_id")
     return xyz, {"record_id": record["id"], "record_dataset_id": record.get("dataset_id"),
         "resolved_record_sha256": _json_sha(record), "design_result": proof}
 
@@ -422,6 +427,38 @@ def _run_native(root, xyz, progress):
         return design_evaluation.native_field(root, xyz, data, pointer, report, progress)
 
 
+def _run_table(root, xyz, progress):
+    """Same projection path as the design's table evaluation; no native import."""
+    from . import design_evaluation
+    data, pointer, report = design_evaluation.load_bank(root)
+    return design_evaluation.table_field(root, xyz, data, pointer, report, progress)
+
+
+def _table_forward(root, bundle, xyz, record_provenance, base, progress):
+    """Reception fields for a design evaluated from the precomputed scalp-node table.
+
+    The same table (by ID) must still be current: a rebuilt table requires a new
+    design evaluation rather than silently pairing two different field sources.
+    """
+    progress(.08, "读取预计算头皮节点FEM前向场，按原投影路径叠加")
+    candidate_h, evaluated, projection_max, qa = _run_table(root, xyz, progress)
+    evaluated = _matrix(evaluated, 64, "table evaluated coordinates")
+    movement = float(np.linalg.norm(evaluated - xyz, axis=1).max())
+    if not np.isfinite(projection_max) or projection_max > PROJECTION_TOLERANCE_MM or movement > PROJECTION_TOLERANCE_MM:
+        raise ValueError("Table re-projection moved frozen evaluated_xyz_mm by more than 1e-7 mm; old record coordinates may not change")
+    if (qa.get("head_hashes") != bundle["provenance"]["head_hashes"]
+            or not np.isfinite(qa.get("reference_relative_difference", np.nan))
+            or qa["reference_relative_difference"] > 1e-8):
+        raise ValueError("Table reference/head identity did not reproduce the frozen baseline")
+    table = qa["scalp_node_table"]
+    if table["table_id"] != record_provenance["design_result"].get("scalp_node_table_id"):
+        raise ValueError("布局评价所用的预计算头皮节点表已更换；请重新评价该坐标后再做信号实验。")
+    return _inputs(bundle, xyz, candidate_h), {**base, "forward_mode": "scalp_node_table",
+        "fem_recomputed": False, "native_qa": qa, "scalp_node_table": table,
+        "evaluated_candidate_xyz_mm": evaluated.tolist(),
+        "reference_field_origin": "original SHA256-validated standard64 bank; the superposed table reference passed relative difference <=1e-8"}
+
+
 def _shared_expected(bundle, xyz):
     return {**bundle["catalog"], "baseline_h": bundle["baseline_h"],
             "baseline_xyz_mm": bundle["baseline_xyz"], "candidate_xyz_mm": xyz}
@@ -557,6 +594,8 @@ def load_reception_forward(root, record, *, progress=None, allow_native=False):
             "reference_field_origin": "original SHA256-validated frozen standard64 bank"}
     if record_provenance["design_result"] is None:
         raise ValueError("Non-bank coordinates require a SHA256-linked completed design_evaluation record; nearest-neighbour replacement is forbidden")
+    if record_provenance["design_result"]["forward_mode"] == "scalp_node_table":
+        return _table_forward(root, bundle, xyz, record_provenance, base, progress)
     identity = _native_identity(root, bundle, xyz)
     provider_id = _json_sha(identity)
     cache_root = root / CACHE_RELATIVE_ROOT

@@ -174,7 +174,9 @@ export default function ElectrodesPage() {
           <output className="lab-panel mb-4 block">
             <div className="flex items-center justify-between">
               <span>
-                {tx('正在处理布局')} · {Math.round((job?.progress ?? 0) * 100)}%
+                {job?.status === 'queued'
+                  ? <RuntimeMessage message={job.message} status="queued" queuePosition={job.queue_position} />
+                  : <>{tx('正在处理布局')} · {Math.round((job?.progress ?? 0) * 100)}%</>}
               </span>
               <Button
                 variant="outline"
@@ -362,7 +364,7 @@ export default function ElectrodesPage() {
                     {tx('评价并另存此布局')}
                   </Button>
                   <Button variant="outline" onClick={saveDraft} disabled={busy}>
-                    {tx('保存草稿到本机浏览器')}
+                    {tx('保存草稿到当前浏览器')}
                   </Button>
                   <Button variant="outline" onClick={readDraft} disabled={busy}>
                     {tx('读取已存草稿')}

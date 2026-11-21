@@ -32,7 +32,12 @@ export function createAccessPolicy({ publicOrigin, trustedProxyAddresses = [] } 
     req.headers['x-forwarded-proto'] === 'https' && typeof req.headers['x-forwarded-for'] === 'string' &&
     Boolean(isIP(req.headers['x-forwarded-for'])) &&
     (!req.headers.origin || req.headers.origin === origin.origin) && sameSite(req);
+  // On a public host, a loopback request that carries forwarding headers came through the
+  // proxy (for example with a rewritten Host); it must not pass as a local operator request,
+  // or every visitor would share 127.0.0.1 and its rate and queue limits.
+  const forwarded = req => ['x-forwarded-for', 'x-forwarded-proto', 'x-forwarded-host', 'forwarded', 'via'].some(name => req.headers[name] !== undefined);
+  const localRequest = req => loopbackRequest(req) && !forwarded(req);
   return { localOnly: false, secureCookies: true, publicOrigin: origin.origin,
-    guard: req => loopbackRequest(req) || isProxyRequest(req),
+    guard: req => localRequest(req) || isProxyRequest(req),
     visitorAddress: req => isProxyRequest(req) ? normalizedIP(req.headers['x-forwarded-for']) : req.socket?.remoteAddress || 'unknown' };
 }

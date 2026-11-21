@@ -1,4 +1,4 @@
-import type { SavedRecord } from './local-library';
+import type { RecordVisibility, SavedRecord } from './local-library';
 import type { XYZ } from '../../contracts/layout';
 export type { XYZ } from '../../contracts/layout';
 export type Slot = { bank_index: number; enabled: boolean };
@@ -42,6 +42,8 @@ export type EditorResult = {
 };
 export type EditorJob = {
   id: string;
+  /** Server FIFO position while queued; 1 means next to start. */
+  queue_position?: number;
   key: string;
   status: string;
   progress: number;
@@ -60,6 +62,7 @@ export type EditorRecord = {
   active_regions: number;
   metrics: EditorMetrics;
   request: EditorRequest;
+  visibility?: RecordVisibility;
 };
 export const initialSlots = (domain: EditorDomain): Slot[] =>
   domain.original_indices.map((bank_index) => ({ bank_index, enabled: true }));

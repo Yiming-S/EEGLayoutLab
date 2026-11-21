@@ -1,7 +1,9 @@
 import { createAccessPolicy } from './http/access-policy.mjs';
+import { normalizeNoiseModel } from '../contracts/scientific-options.mjs';
 import { startPythonWorker } from './jobs/python-worker.mjs';
 import { executionSlotFor } from './jobs/execution-slot.mjs';
 import { runtimeConfig } from './runtime/config.mjs';
+import { runtimeIdentity } from './runtime/python-fingerprint.mjs';
 import { RecordStore } from './storage/records.mjs';
 import { ProjectService } from './projects/service.mjs';
 import { RobustnessStudyService } from './studies/service.mjs';
@@ -17,6 +19,8 @@ import { join } from 'node:path';
 import { LocalDataLibrary } from './local-data-library.mjs';
 import { InputIntegrity } from './local-input-integrity.mjs';
 import { SourceReceptionService } from './source-reception-server.mjs';
+import { receptionLayouts } from './reception-v2-support.mjs';
+import { RecordVisibility, libraryConfig } from './library/record-visibility.mjs';
 import { experimentBundle } from './experiment-bundle.mjs';
 import { DesignEvaluationService } from './design-evaluation-server.mjs';
 import { ElectrodeEditorService } from './electrode-editor-server.mjs';
@@ -30,9 +34,12 @@ const hash = (value) => createHash('sha256').update(value).digest('hex');
 
 export function normalizeRequest(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('配置必须是JSON对象');
-  if (Object.keys(input).some((key) => !['region_count', 'radius_mm', 'mode', 'mask_codes'].includes(key))) {
+  if (Object.keys(input).some((key) => !['region_count', 'radius_mm', 'mode', 'mask_codes', 'noise_model'].includes(key))) {
     throw new Error('配置含未支持字段');
   }
+  // Independent noise is the default and is omitted, keeping existing request keys and search seeds.
+  const noiseModel = normalizeNoiseModel(input.noise_model, { allowBrainBackground: false });
+  const noise = noiseModel ? { noise_model: noiseModel } : {};
   const { region_count, radius_mm, mode } = input;
   if (![1, 2, 3, 4, 6].includes(region_count)) throw new Error('区域数只支持1、2、3、4、6');
   if (!Number.isInteger(radius_mm) || radius_mm < 15 || radius_mm > 80 || radius_mm % 5) {
@@ -44,12 +51,12 @@ export function normalizeRequest(input) {
         input.mask_codes.some((code) => !MASK_CODES.includes(code))) {
       throw new Error('该组合的细分解剖掩膜尚未建立；请选择已支持的耳后、耳周、前额或眶周代理区域');
     }
-    return { region_count, radius_mm, mode, mask_codes: [...input.mask_codes] };
+    return { region_count, radius_mm, mode, mask_codes: [...input.mask_codes], ...noise };
   }
   if (input.mask_codes !== undefined && (!Array.isArray(input.mask_codes) || input.mask_codes.length)) {
     throw new Error('自由中心模式不接受指定掩膜');
   }
-  return { region_count, radius_mm, mode };
+  return { region_count, radius_mm, mode, ...noise };
 }
 
 export { loopbackRequest } from './http/access-policy.mjs';
@@ -102,7 +109,7 @@ export function codeIdentity(repositoryRoot) {
 
 export class LocalComputeQueue {
   constructor({ repositoryRoot, python, queueDirectory, timeoutMs = 180000,
-    spawnProcess = spawn, getIdentity, verifyInputs } = {}) {
+    spawnProcess = spawn, getIdentity, getRuntime, verifyInputs } = {}) {
     this.runtime = runtimeConfig({ repositoryRoot, python, queueDirectory });
     this.root = this.runtime.repositoryRoot;
     this.store = new RecordStore(this.root);
@@ -111,6 +118,7 @@ export class LocalComputeQueue {
     this.timeoutMs = timeoutMs;
     this.spawnProcess = spawnProcess;
     this.getIdentity = getIdentity || (() => codeIdentity(this.root));
+    this.getRuntime = getRuntime || (getIdentity ? () => null : () => runtimeIdentity(this.python));
     const inputs = new InputIntegrity(this.root);
     this.verifyInputs = verifyInputs || (getIdentity ? async () => {} : (result) => inputs.verify(result.provenance));
     this.jobs = new Map();
@@ -136,9 +144,10 @@ export class LocalComputeQueue {
       source: job.cached ? 'local_cache' : 'local_compute' };
   }
 
-  identityFor(request) {
+  identityFor(request, code = this.getIdentity()) {
     // Preserve the existing key format so records made before the library remain reusable.
-    const identity = { version: 'local-radius-queue/1', code: this.getIdentity(), threads: 2 };
+    const runtime = this.getRuntime();
+    const identity = { version: 'local-radius-queue/1', code, threads: 2, ...(runtime ? { runtime } : {}) };
     return { identity, key: hash(JSON.stringify({ request, identity })) };
   }
 
@@ -169,7 +178,7 @@ export class LocalComputeQueue {
     if (!cache) return { hit: false };
     await this.verifyInputs(cache.result);
     const job = { id: randomUUID(), key, request, status: cache.result.status, stage: 'cached',
-      progress: 1, message: '已读取相同模型与配置的本地计算记录', result: cache.result,
+      progress: 1, message: '已读取相同模型与配置的已有计算记录', result: cache.result,
       created_at: new Date().toISOString(), finished_at: cache.finished_at, cached: true };
     this.jobs.set(job.id, job);
     while (this.jobs.size > 100) {
@@ -181,7 +190,7 @@ export class LocalComputeQueue {
   }
 
   async submit(raw) {
-    if (this.disposed) throw new Error('本地计算服务正在重启');
+    if (this.disposed) throw new Error('计算服务正在重启');
     const request = normalizeRequest(raw);
     if (this.submitting) return { busy: true };
     this.submitting = true;
@@ -191,7 +200,7 @@ export class LocalComputeQueue {
       // Reading a ready result does not consume compute capacity, even while another job runs.
       const stored = await this.lookup(request, { key });
       if (stored.hit) return { job: stored.job };
-      if (this.disposed) throw new Error('本地计算服务正在重启');
+      if (this.disposed) throw new Error('计算服务正在重启');
       if (this.active) {
         if (this.active.key === key) return { job: this.view(this.active) };
         return { busy: true, active_job: this.view(this.active) };
@@ -201,10 +210,10 @@ export class LocalComputeQueue {
       const cachePath = this.store.path('radius', key, 'cache.json');
       const id = randomUUID(), batch = await this.store.createBatch('radius', key, id);
       await this.store.write(join(batch, 'request.json'), { request, identity, key });
-      if (this.disposed) throw new Error('本地计算服务正在重启');
+      if (this.disposed) throw new Error('计算服务正在重启');
       if (this.executionSlot.paused) return { busy: true, maintenance: true };
       const job = { releaseExecution: release, id, key, request, status: 'queued', stage: 'queued', progress: 0,
-        message: '等待本地计算进程启动', created_at: new Date().toISOString(), batch, cachePath,
+        message: '等待计算进程启动', created_at: new Date().toISOString(), batch, cachePath,
         events: [], stderr: '', result: null, child: null, identity };
       this.jobs.set(id, job);
       this.active = job;
@@ -298,27 +307,48 @@ export function computeMiddleware(queue, guard = createAccessPolicy().guard, sch
     if (!guard(req)) return send(res, 403, { error: 'Request rejected by access policy.' });
     try {
       if (req.method === 'GET' && path === '/api/local-compute/health') return send(res, 200, queue.health());
+      const access = libraryAccess(req, res, scheduler);
       if (req.method === 'GET' && path === '/api/local-compute/library') {
         const library = await queue.library.list();
         if (scheduler?.annotations) library.electrode_annotations = scheduler.annotations.list(scheduler.session(req, res).id);
+        if (access) {
+          library.records = access.present(library.records);
+          if (Array.isArray(library.datasets)) library.datasets = library.datasets.map(d => ({ ...d, count: library.records.filter(r => r.dataset_id === d.id).length }));
+          library.library_scope = access.settings;
+        }
         return send(res, 200, library);
+      }
+      if (req.method === 'GET' && access && path === '/api/electrode-editor/records')
+        return send(res, 200, { records: access.present(await queue.editor.records(), r => r.key, () => true) });
+      if (req.method === 'GET' && access && path === '/api/electrode-editor/parents')
+        return send(res, 200, { records: await queue.editor.parents(rows => access.present(rows)) });
+      if (req.method === 'GET' && access && path === '/api/source-reception/layouts') {
+        const layouts = await receptionLayouts(queue);
+        return send(res, 200, { ...layouts, records: access.present(layouts.records) });
       }
       const bundleMatch = path.match(/^\/api\/local-compute\/library\/([a-f0-9]{64})\/bundle$/);
       if (req.method === 'GET' && bundleMatch) {
         const record = await queue.library.get(bundleMatch[1]);
-        if (!record) return send(res, 404, { error: '记录不存在' });
+        if (!record || (access && !access.readable(record))) return send(res, 404, { error: '记录不存在' });
         const bundle = await experimentBundle(queue.root, record, { python: queue.python });
         const annotation = readAnnotation(req, res, scheduler, record.id);
         return send(res, 200, annotation ? { ...bundle, electrode_annotation: annotation, record: { ...bundle.record, electrode_annotation: annotation } } : bundle);
       }
       const recordMatch = path.match(/^\/api\/local-compute\/library\/([a-f0-9]{64})$/);
       if (req.method === 'GET' && recordMatch) {
-        const record = await queue.library.get(recordMatch[1]);
+        let record = await queue.library.get(recordMatch[1]);
+        if (record && access && !access.readable(record)) record = null;
+        if (record && access && VISITOR_DATASETS.has(record.dataset_id)) record = { ...record, visibility: access.view(record.id) };
         const annotation = record && readAnnotation(req, res, scheduler, record.id);
         return send(res, record ? 200 : 404, record ? { record: annotation ? { ...record, electrode_annotation: annotation } : record } : { error: '记录不存在或完整性校验未通过' });
       }
       if (req.method === 'POST' && !tokenMatches(req.headers['x-eeg-compute-token'], queue.token)) {
-        return send(res, 403, { error: '本地会话已更新，请刷新页面后重新计算' });
+        return send(res, 403, { error: '会话已更新，请刷新页面后重新计算' });
+      }
+      const visibilityMatch = path.match(/^\/api\/local-compute\/library\/([a-f0-9]{64})\/visibility$/);
+      if (visibilityMatch) {
+        if (req.method !== 'POST' || !access) return send(res, access ? 405 : 404, { error: access ? '请使用POST' : '未知计算接口' });
+        return send(res, 200, { visibility: await publishRecord(req, queue, scheduler, access, visibilityMatch[1]) });
       }
       if (path.startsWith('/api/source-reception') && queue.sources) return await queue.sources.handle(req, res, path, send);
       if (path.startsWith('/api/design-evaluation') && queue.designTests) return await queue.designTests.handle(req, res, path, send);
@@ -343,9 +373,50 @@ export function computeMiddleware(queue, guard = createAccessPolicy().guard, sch
         if (req.method === 'GET' && !match[2]) return send(res, 200, { job: queue.view(job) });
         if (req.method === 'POST' && match[2]) { queue.cancel(job.id); return send(res, 202, { job: queue.view(job) }); }
       }
-      return send(res, 404, { error: '未知本地计算接口' });
-    } catch (error) { return send(res, error.annotationSafe ? error.status : 500, { error: error.annotationSafe ? error.message : '本地计算记录无法读取' }); }
+      return send(res, 404, { error: '未知计算接口' });
+    } catch (error) {
+      const safe = error.annotationSafe || error.visibilitySafe || error.status === 429;
+      return send(res, safe ? error.status : 500, { error: safe ? error.message : '计算记录无法读取' });
+    }
   };
+}
+
+const VISITOR_DATASETS = new Set(['cache', 'design_evaluation']);
+/** One browser's view of the shared lists; null when no scheduler (and so no visitor) is mounted. */
+function libraryAccess(req, res, scheduler) {
+  const visibility = scheduler?.visibility;
+  if (!visibility) return null;
+  const owner = scheduler.session(req, res).id;
+  return {
+    owner, visibility, settings: { scope: visibility.scope, review: visibility.review },
+    present: (rows, idOf = r => r.id, visitorRow = r => VISITOR_DATASETS.has(r.dataset_id)) => visibility.present(rows, owner, idOf, visitorRow),
+    readable: record => !VISITOR_DATASETS.has(record.dataset_id) || visibility.readable(record.id, owner),
+    view: id => visibility.view(id, owner),
+  };
+}
+
+async function publishRecord(req, queue, scheduler, access, id) {
+  if (!String(req.headers['content-type']).startsWith('application/json')) throw Object.assign(new Error('JSON required'), { status: 415, visibilitySafe: true });
+  const chunks = []; let bytes = 0;
+  for await (const chunk of req) {
+    const data = Buffer.from(chunk); bytes += data.length;
+    if (bytes > 256) throw Object.assign(new Error('配置过大'), { status: 413, visibilitySafe: true });
+    chunks.push(data);
+  }
+  let body;
+  try { body = JSON.parse(Buffer.concat(chunks, bytes).toString('utf8')); } catch { body = null; }
+  if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).join() !== 'public')
+    throw Object.assign(new Error('请选择是否公开这条记录'), { status: 400, visibilitySafe: true });
+  scheduler.rate({ id: access.owner, ip: scheduler.visitorAddress(req) });
+  // Only completed visitor records can be listed; the label is kept for the operator's review list.
+  const record = await queue.library.get(id);
+  let label = VISITOR_DATASETS.has(record?.dataset_id) && record.status === 'completed' ? record.label : null;
+  if (label === null) {
+    const edit = (await queue.editor.records()).find(value => value.key === id);
+    if (edit) label = `${edit.parent_label ?? ''} · 电极编辑 · ${edit.electrode_count}电极`;
+  }
+  if (label === null) throw Object.assign(new Error('记录不存在'), { status: 404, visibilitySafe: true });
+  return access.visibility.publish(id, access.owner, body.public, label);
 }
 
 function readAnnotation(req, res, scheduler, recordId) {
@@ -358,7 +429,7 @@ function readAnnotation(req, res, scheduler, recordId) {
 
 export function createLocalComputeService(repositoryRoot, options = {}) {
   const { initialMaintenance = false, policy = createAccessPolicy(), operations: operationSettings = operationsConfig(),
-    resourceGate, operationsLogger, ...queueOptions } = options;
+    library: librarySettings = libraryConfig({}), resourceGate, operationsLogger, ...queueOptions } = options;
   const queue = new LocalComputeQueue({ ...queueOptions, repositoryRoot });
   queue.localOnly = policy.localOnly;
   queue.sources = new SourceReceptionService(queue);
@@ -376,7 +447,8 @@ export function createLocalComputeService(repositoryRoot, options = {}) {
   const scheduler = new CommunityQueue({ directory: queue.runtime.queueDirectory,
     executionSlot: queue.executionSlot, initialMaintenance,
     secureCookies: policy.secureCookies, visitorAddress: policy.visitorAddress,
-    annotations: new ElectrodeAnnotations(queue.root), beforeNewWork: admit, adapters: communityAdapters(queue, normalizeRequest) });
+    annotations: new ElectrodeAnnotations(queue.root), beforeNewWork: admit, adapters: communityAdapters(queue, normalizeRequest),
+    visibility: new RecordVisibility({ directory: queue.runtime.queueDirectory, ...librarySettings }) });
   const projects = new ProjectService({ queue, scheduler, guard: policy.guard, send, tokenMatches, beforeWrite: admit });
   const studies = new RobustnessStudyService({ queue, scheduler, guard: policy.guard, send, tokenMatches, beforeWrite: admit });
   const operations = new OperationsMonitor({ queue, scheduler, gate: resources, config: operationSettings, logger: operationsLogger });

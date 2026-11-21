@@ -25,7 +25,7 @@ type SourceResponse = { job: SourceJob; error?: string; hit?: boolean };
 const jobMessage = (job: SourceJob) =>
   job.status === 'completed'
     ? job.cached
-      ? '已读取本地缓存，不重新计算。'
+      ? '已读取已有结果，不重新计算。'
       : '源—接收对照已计算并保存'
     : job.status === 'queued'
       ? '已加入计算队列'
@@ -127,7 +127,7 @@ export function useReceptionController() {
     ])
       .then(async ([l, h]) => {
         if (!l.ok || !h.ok)
-          throw new Error('源实验服务未连接，请确认本地App正在运行。');
+          throw new Error('信号仿真服务暂不可用，请稍后重试。');
         const data = (await l.json()) as LocalLibrary,
           health = (await h.json()) as {
             token: string;
@@ -286,7 +286,7 @@ export function useReceptionController() {
     setError({ key, message: '' });
     try {
       const data = await submitTask<SourceResponse>('source-reception', key, {
-        errorMessage: '本机正忙，请稍后手动重试',
+        errorMessage: '服务器正忙，请稍后手动重试',
       });
       if (currentKey.current !== key) return;
       setConnection('connected');

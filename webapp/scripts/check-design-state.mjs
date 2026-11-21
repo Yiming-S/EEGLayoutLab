@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { NOISE_MODEL_PRESETS, noiseModelId } from '../contracts/scientific-options.mjs';
 import assert from 'node:assert/strict';
 import { designViewState } from '../features/design/design-state.ts';
 import { requestKey } from '../lib/local-compute.ts';
@@ -82,7 +83,7 @@ async function controller(t, search) {
   const harness = await createHookHarness({
     filename: new URL('../features/design/use-design-controller.ts', import.meta.url), exportName: 'useDesignController',
     imports: {
-      requestKey, comparisonLink, parseAR, REGION_COUNTS, MASK_NAMES, placementChoices, choiceFromSlots,
+      requestKey, NOISE_MODEL_PRESETS, presetIdFor: noiseModelId, comparisonLink, parseAR, REGION_COUNTS, MASK_NAMES, placementChoices, choiceFromSlots,
       apiJson: async (url, options) => {
         calls.push({ url, options });
         if (url === '/data/experiment_protocol_v2.json') return { anatomical_preset_matrix: { 2: [{ masks: ['PL', 'PR'] }] } };

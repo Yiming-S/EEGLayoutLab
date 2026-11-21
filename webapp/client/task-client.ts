@@ -16,6 +16,10 @@ export class ApiError extends Error {
   get retryable() {
     return this.status === 0 || this.status === 408 || this.status === 429 || this.status >= 500;
   }
+  /** The outcome is unknown (no answer, timeout, server fault), unlike a request the server rejected. */
+  get connectionLost() {
+    return this.status === 0 || this.status === 408 || this.status >= 500;
+  }
 }
 const abortError = () => new DOMException('Aborted', 'AbortError');
 const taskStatuses = ['queued', 'running', 'cancelling', 'completed', 'no_layout', 'failed', 'cancelled', 'timeout'];
@@ -61,7 +65,7 @@ export async function apiJson<T>(url: string, options: ApiOptions = {}): Promise
 
 export async function sessionToken(signal?: AbortSignal) {
   const health = await apiJson<{ token: string }>('/api/local-compute/health', { signal });
-  if (typeof health.token !== 'string' || !health.token) throw new ApiError('本地计算服务未连接', 502);
+  if (typeof health.token !== 'string' || !health.token) throw new ApiError('计算服务未连接', 502);
   return health.token;
 }
 

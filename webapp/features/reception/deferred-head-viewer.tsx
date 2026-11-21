@@ -16,10 +16,10 @@ export function DeferredHeadViewer(
   const { tx, locale } = useLanguage();
   const { active, hostRef, activate } = useDeferredHead();
   const height = props.sourceXyzMm?.length
-    ? 'h-[840px] sm:h-[790px]'
+    ? 'h-[min(80svh,700px)] sm:h-[790px]'
     : props.compact
-      ? 'h-[580px] sm:h-[520px]'
-      : 'h-[640px] sm:h-[690px]';
+      ? 'h-[min(75svh,580px)] sm:h-[520px]'
+      : 'h-[min(75svh,640px)] sm:h-[690px]';
   const placeholder = (
     <div
       className={`${height} flex items-center justify-center rounded-2xl border bg-muted/20`}

@@ -13,6 +13,11 @@ export function attachLocalApi(server, service) {
 
 export async function startProductionHost({ webappRoot, port, service }) {
   const started = await startProdServer({ port, host: '127.0.0.1', outDir: resolve(webappRoot, 'dist'), silent: true });
+  // Request bodies are at most 64 KB; a client that trickles one ties up a socket.
+  // Node's defaults (300 s per request, 60 s for headers) are far longer than any API needs.
+  started.server.requestTimeout = 30000;
+  started.server.headersTimeout = 15000;
+  started.server.keepAliveTimeout = 5000;
   attachLocalApi(started.server, service);
   return started;
 }

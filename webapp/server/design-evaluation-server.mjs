@@ -6,8 +6,10 @@ import { RecordStore } from './storage/records.mjs';
 /** On-device only. Independent result namespace, one shared physical worker slot. */
 import { spawn } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
-import { join } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import { InputIntegrity } from './local-input-integrity.mjs';
+import { normalizeConductivityScenario, normalizeHeadId, normalizeNoiseModel } from '../contracts/scientific-options.mjs';
+import { readFile, readdir, realpath, stat } from 'node:fs/promises';
 
 const hash = (value) =>
   createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -17,9 +19,14 @@ export function normalizeDesignRequest(x) {
     !x ||
     typeof x !== 'object' ||
     Array.isArray(x) ||
-    Object.keys(x).sort().join(',') !== 'action,design,radius_mm,seed'
+    !['action', 'design', 'radius_mm', 'seed'].every((key) => key in x) ||
+    Object.keys(x).some((key) => !['action', 'design', 'radius_mm', 'seed', 'noise_model', 'conductivity_scenario', 'head_id'].includes(key))
   )
     throw new Error('设计评价字段错误');
+  // Optional model choices are kept only when non-default, so default requests keep their original cache keys.
+  const noiseModel = normalizeNoiseModel(x.noise_model);
+  const scenario = normalizeConductivityScenario(x.conductivity_scenario, x.action);
+  const head = normalizeHeadId(x.head_id, x.action, scenario);
   const d = x.design;
   if (
     !d ||
@@ -81,6 +88,9 @@ export function normalizeDesignRequest(x) {
     },
     radius_mm: x.radius_mm,
     seed: x.seed,
+    ...(noiseModel ? { noise_model: noiseModel } : {}),
+    ...(scenario ? { conductivity_scenario: scenario } : {}),
+    ...(head ? { head_id: head } : {}),
   };
 }
 export function validateDesignResult(r, request, admission) {
@@ -89,7 +99,8 @@ export function validateDesignResult(r, request, admission) {
     r?.schema !== 'design-evaluation/1' ||
     r.status !== 'completed' ||
     !same(r.request, request) ||
-    !['cached_fem', 'direct_fem'].includes(r.forward_mode)
+    // A head result always uses its own table mode; an Ernie result never may.
+    (request.head_id ? r.forward_mode !== 'head_scalp_node_table' : !['cached_fem', 'direct_fem', 'scalp_node_table'].includes(r.forward_mode))
   )
     throw new Error('设计评价结果身份错误');
   if (
@@ -274,7 +285,7 @@ export class DesignEvaluationService {
     }
   }
   async submit(raw) {
-    if (this.disposed) throw new Error('本地服务正在重启');
+    if (this.disposed) throw new Error('计算服务正在重启');
     const request = this.normalize(raw);
     if (this.submitting)
       return { busy: true, error: '正在处理另一项设计评价请求' };
@@ -282,7 +293,7 @@ export class DesignEvaluationService {
     let release;
     try {
       const ctx = await this.context(request);
-      if (this.disposed) throw new Error('本地服务正在重启');
+      if (this.disposed) throw new Error('计算服务正在重启');
       const directory = this.store.path(this.recordKind, ctx.key);
       try {
         const cache = await this.store.read(join(directory, 'cache.json'));
@@ -306,7 +317,7 @@ export class DesignEvaluationService {
       } catch (e) {
         if (['EACCES', 'EPERM'].includes(e.code)) throw e;
       }
-      if (this.disposed) throw new Error('本地服务正在重启');
+      if (this.disposed) throw new Error('计算服务正在重启');
       if (this.active?.key === ctx.key) return { job: this.view(this.active) };
       release = this.executionSlot.acquire(this);
       if (!release) return { busy: true, maintenance: this.executionSlot.paused };
@@ -316,7 +327,7 @@ export class DesignEvaluationService {
         request,
         identity: ctx.identity,
       });
-      if (this.disposed) throw new Error('本地服务正在重启');
+      if (this.disposed) throw new Error('计算服务正在重启');
       if (this.executionSlot.paused) return { busy: true, maintenance: true };
       const j = {
         releaseExecution: release,
@@ -430,7 +441,35 @@ export class DesignEvaluationService {
     this.disposed = true;
     if (this.active) this.cancel(this.active.id, 'restart');
   }
+  /** Head packages with a published table; read-only, never starts Python. */
+  async heads() {
+    const base = join(this.root, 'results/v2/heads');
+    let entries = [];
+    try { entries = await readdir(base, { withFileTypes: true }); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    // Offer only what scientificContext will digest: plain directories whose files resolve inside the project.
+    const root = this.inputs.root, file = async (path) => {
+      const real = await realpath(resolve(root, path));
+      if (!real.startsWith(root + sep) || !(await stat(real)).isFile()) throw new Error('outside');
+    };
+    const heads = [];
+    for (const entry of entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
+      const head_id = entry.name, head = `results/v2/heads/${head_id}`;
+      if (!entry.isDirectory() || head_id.length > 40 || !/^[a-z0-9]+(?:[_-][a-z0-9]+)*$/.test(head_id)) continue;
+      try {
+        if (!(await realpath(resolve(root, head))).startsWith(root + sep)) continue;
+        await Promise.all(['package.json', 'scalp.npz', 'admissibility.npz', 'sources.npz', 'mapping.npz', 'table.json'].map(name => file(`${head}/${name}`)));
+        const manifest = JSON.parse(await readFile(join(this.root, head, 'package.json'), 'utf8'));
+        const table = JSON.parse(await readFile(join(this.root, head, 'table.json'), 'utf8'));
+        const directory = dirname(table.manifest_path);
+        await Promise.all([join(directory, 'index.npz'), join(directory, 'rows.npy')].map(file));
+        if (manifest.head_id !== head_id || await this.inputs.digest(table.manifest_path) !== table.manifest_sha256) continue;
+        heads.push({ head_id, dataset: manifest.dataset?.name ?? '', subject: manifest.dataset?.subject ?? '' });
+      } catch { /* incomplete or uncontained packages are not offered */ }
+    }
+    return heads;
+  }
   async handle(req, res, path, send) {
+    if (req.method === 'GET' && path === '/api/design-evaluation/heads') return send(res, 200, { heads: await this.heads() });
     if (req.method === 'POST' && path === '/api/design-evaluation/jobs') {
       if (!String(req.headers['content-type']).startsWith('application/json'))
         return send(res, 415, { error: '须提交JSON配置' });

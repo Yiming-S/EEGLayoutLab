@@ -16,7 +16,7 @@
 - [GitHub 命令行工具](https://cli.github.com/)（`gh`），以及拥有此私有仓库访问权限的 GitHub 账号。
 - 安装依赖时需要联网。
 
-使用上述工具的原生 Apple Silicon 版本，不通过 Rosetta 运行。
+使用上述工具的原生 Apple Silicon 版本，不通过 Rosetta 运行。运行环境本身保持原生；只有用 `charm` 构建头模包时，还需安装 Rosetta 2 来运行 SimNIBS 自带的 x86_64 工具（见 [server deployment](server-deployment.md#building-head-packages)）。
 
 ## 首次安装
 

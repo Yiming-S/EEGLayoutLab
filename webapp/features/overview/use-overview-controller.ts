@@ -25,7 +25,7 @@ export function useOverviewController() {
   }, []);
   useEffect(() => {
     const controller = new AbortController();
-    void apiJson<LocalLibrary>('/api/local-compute/library', { signal: controller.signal, errorMessage: '当前比较需要连接本机数据服务。请启动本地App后重新读取。' }).then((value) => {
+    void apiJson<LocalLibrary>('/api/local-compute/library', { signal: controller.signal, errorMessage: '当前比较需要数据服务，请稍后重新读取。' }).then((value) => {
       if (value.schema !== 'local-data-library/1') throw new Error('结果目录格式不符');
       setData(value); setError('');
     }).catch((e) => { if (!controller.signal.aborted) setError(e.message); });
@@ -38,7 +38,7 @@ export function useOverviewController() {
     areaRows(data?.records ?? [], domain, a).forEach((row, i) => { const value = row?.metrics?.[metric]; point[`r${REGION_COUNTS[i]}`] = value == null ? null : value * 100; });
     return point;
   }), [data, domain, metric]);
-  const inspect = (count: number) => { setR(count); document.getElementById('selected-layout')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+  const inspect = (count: number) => setR(count);
   const here = preserveResultsContext(`/?domain=${domain}&area=${area}&r=${r}&ar=${ar}&metric=${metric}`, viewContext);
   return { data, domain, setDomain, area, setArea, r, setR, ar, setAR, metric, setMetric, error, setRetry, rows, selected, curve, inspect, here };
 }

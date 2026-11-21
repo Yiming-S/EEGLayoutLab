@@ -3,7 +3,10 @@ import { translateText, type Locale } from './i18n/core.ts';
 import { localizedRecordTitle } from './i18n/records.ts';
 import { parseAR } from './lab-workflow.ts';
 import { validateCoordinateSource } from '../contracts/coordinate-source.mjs';
+import { CONDUCTIVITY_SCENARIOS, NOISE_MODEL_PRESETS } from '../contracts/scientific-options.mjs';
 import type { CoordinateSourceMetadata } from '../contracts/coordinate-source';
+
+export type NoiseModel = { kind: 'spatial'; rho: 0.5; length_mm: 10 | 20 | 40 } | { kind: 'brain_background'; fraction: 0.5 };
 
 export type ElectrodeDesign = {
   schema: 'eeg-electrode-design/1';
@@ -52,12 +55,16 @@ export type DesignResult = {
 };
 export type DesignJob = {
   id: string;
+  /** Server FIFO position while queued; 1 means next to start. */
+  queue_position?: number;
   status: string;
   message: string;
   progress: number;
   result: DesignResult | null;
   key?: string;
   cached?: boolean;
+  /** Normalized request echoed by the queue; present on receipts and active jobs. */
+  request?: { action?: string; design?: unknown; radius_mm?: number; seed?: number; noise_model?: unknown; conductivity_scenario?: string };
   annotation_id?: string;
   electrode_annotation?: SavedRecord['electrode_annotation'];
 };
@@ -186,8 +193,10 @@ export function scientificDesign(design: ElectrodeDesign) {
   return request;
 }
 
-export function designSubmission(design: ElectrodeDesign, action: 'evaluate' | 'perturb', radius_mm: number, seed: number) {
-  const request = { action, design: scientificDesign(design), radius_mm, seed };
+export function designSubmission(design: ElectrodeDesign, action: 'evaluate' | 'perturb', radius_mm: number, seed: number, noise_model?: NoiseModel, conductivity_scenario?: string) {
+  // Independent noise is the default and is omitted, preserving existing request keys.
+  const request = { action, design: scientificDesign(design), radius_mm, seed, ...(noise_model ? { noise_model } : {}),
+    ...(conductivity_scenario && action === 'evaluate' ? { conductivity_scenario } : {}) };
   return design.electrode_names || design.source_metadata ? { schema: 'design-submission/1', request,
     electrode_names: design.electrode_names ?? Array.from({ length: 64 }, (_, index) => `E${index + 1}`),
     ...(design.source_metadata ? { source_metadata: design.source_metadata } : {}) } : request;
@@ -195,15 +204,22 @@ export function designSubmission(design: ElectrodeDesign, action: 'evaluate' | '
 
 /** Restore saved original inputs; evaluated coordinates remain a separate result. */
 export function restoreDesignEvaluation(bundle: unknown, record: SavedRecord) {
-  const value = bundle as { schema?: string; record_id?: string; reproduction?: { request?: { action?: string; design?: unknown; radius_mm?: number; seed?: number } }; original_record?: { result?: DesignResult & { request?: unknown } } };
+  const value = bundle as { schema?: string; record_id?: string; reproduction?: { request?: { action?: string; design?: unknown; radius_mm?: number; seed?: number; noise_model?: unknown; conductivity_scenario?: unknown; head_id?: unknown } }; original_record?: { result?: DesignResult & { request?: unknown } } };
   const request = value?.reproduction?.request, result = value?.original_record?.result;
   if (value?.schema !== 'eeg-reproducibility-bundle/1' || value.record_id !== record.id || request?.action !== 'evaluate' ||
       ![3, 6, 10].includes(request.radius_mm ?? 0) || !Number.isInteger(request.seed) || request.seed! < 0 || request.seed! > 9999 ||
       !result || JSON.stringify(result.request) !== JSON.stringify(request) || JSON.stringify(result.evaluated_xyz_mm) !== JSON.stringify(record.layout?.xyzMm))
     throw new Error('保存的坐标评价与原始输入不匹配');
+  if (request.head_id !== undefined) throw new Error('跨头模评价只能在结果库或稳健性研究中查看');
+  // The page restores the evaluation conditions with the inputs, so the result is never shown as independent noise.
+  const noise_model_id = request.noise_model === undefined ? 'iid'
+    : NOISE_MODEL_PRESETS.find(preset => JSON.stringify(preset.value ?? null) === JSON.stringify(request.noise_model))?.id;
+  const conductivity_scenario = request.conductivity_scenario === undefined ? ''
+    : CONDUCTIVITY_SCENARIOS.find(scenario => scenario.id && scenario.id === request.conductivity_scenario)?.id;
+  if (noise_model_id === undefined || conductivity_scenario === undefined) throw new Error('保存的评价条件不在当前可选范围内');
   const design = validateDesign({ ...validateDesign(request.design), ...(record.electrode_annotation ? { electrode_names: record.electrode_annotation.electrode_names,
     ...(record.electrode_annotation.source_metadata ? { source_metadata: record.electrode_annotation.source_metadata } : {}) } : {}) });
-  return { design, action: 'evaluate' as const, radius_mm: request.radius_mm!, seed: request.seed!, result };
+  return { design, action: 'evaluate' as const, radius_mm: request.radius_mm!, seed: request.seed!, noise_model_id, conductivity_scenario, result };
 }
 
 export function exportDesign(record: SavedRecord): ElectrodeDesign {
@@ -357,6 +373,11 @@ export function comparisonNotes(records: SavedRecord[]) {
       : pb.sha256;
   if (!identityA || !identityB || identityA !== identityB)
     notes.push('模型或计算版本身份未匹配，需要同协议复评。');
+  // Scores under another noise model, conductivity scenario or head are a different quantity.
+  const condition = (r: SavedRecord) => JSON.stringify({ noise: r.request?.noise_model ?? r.evaluation_condition?.noise_model ?? null,
+    scenario: r.evaluation_condition?.conductivity_scenario ?? null, head: r.evaluation_condition?.head_id ?? null });
+  if (condition(a) !== condition(b))
+    notes.push('评价条件不同（噪声模型、电导率情景或头模）：分数不可直接比较。');
   if (
     a.mode !== b.mode ||
     JSON.stringify(a.request?.mask_codes) !==

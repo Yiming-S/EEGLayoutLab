@@ -76,6 +76,18 @@ void test('record actions and workspace links expose simulation only for complet
   }
 });
 
+void test('layouts searched under correlated noise offer neither signal simulation nor electrode editing', () => {
+  const noisy = { ...record, request: { ...record.request, noise_model: { kind: 'spatial', rho: 0.5, length_mm: 20 } } };
+  assert.equal(canSimulateRecord(noisy), false);
+  const cap = layoutCapabilities(noisy, saved);
+  assert.equal(cap.edit, false); assert.equal(cap.reception, false); assert.equal(cap.compare, true);
+  const actions = savedLayoutActions(noisy, 32, '/library');
+  assert.equal(actions.edit, null); assert.equal(actions.reception, null); assert.ok(actions.compare);
+  const links = workspaceLinks('/library?record=' + id, 32, noisy, saved);
+  assert.equal(url(links.reception).searchParams.has('record'), false);
+  assert.equal(url(links.electrodes).searchParams.has('parent'), false);
+});
+
 void test('drafts and edited copies never use their parent as a completed evaluation', () => {
   for (const phase of ['draft', 'edited']) {
     const selection = { id, phase, channels: 56, regions: 2 };

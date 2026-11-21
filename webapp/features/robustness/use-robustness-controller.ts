@@ -61,7 +61,15 @@ export function useRobustnessController() {
     listing.current = controller;
     try {
       const value = await listRobustnessStudies(controller.signal);
-      if (!controller.signal.aborted && mounted.current) setDirectory(value.studies);
+      if (!controller.signal.aborted && mounted.current) {
+        setDirectory(value.studies);
+        // With no study open, the refreshed directory is the saved state the visitor was asked to check.
+        if (!selectedId.current && uncertainRef.current) {
+          uncertainRef.current = false;
+          setUncertain(false);
+          setError("");
+        }
+      }
     } catch (caught) {
       if (!controller.signal.aborted && mounted.current)
         setError(caught instanceof Error ? caught.message : "研究目录无法读取");

@@ -90,7 +90,7 @@
   "editor.redo": { "source": "重做", "en": "Redo" },
   "editor.reset": { "source": "恢复原始布局", "en": "Reset to original" },
   "editor.saveDraft": {
-    "source": "保存草稿到本机浏览器",
+    "source": "保存草稿到当前浏览器",
     "en": "Save draft in this browser"
   },
   "editor.restoreDraft": { "source": "读取已存草稿", "en": "Load saved draft" },

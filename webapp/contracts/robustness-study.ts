@@ -2,10 +2,11 @@ import type {
   ElectrodeDesign,
   DesignResult,
   DesignTrial,
+  NoiseModel,
 } from '../lib/design-decision';
 import type { CoordinateSourceMetadata } from './coordinate-source';
 
-export type StudyProtocol = 'noise_seeds' | 'grid_displacements';
+export type StudyProtocol = 'noise_seeds' | 'grid_displacements' | 'heads';
 export type StudyStatus =
   | 'draft'
   | 'running'
@@ -36,6 +37,9 @@ export type StudyRequest = {
   design: Omit<ElectrodeDesign, 'electrode_names' | 'source_metadata'>;
   radius_mm: number;
   seed: number;
+  noise_model?: NoiseModel;
+  conductivity_scenario?: string;
+  head_id?: string;
 };
 export type StudyCaseSummary = {
   nominal: DesignResult['nominal'];
@@ -64,7 +68,7 @@ export type StudyAggregation = {
   cancelled_cases: number;
   pending_cases: number;
   quantile_method: 'type7_linear';
-  interpretation: 'Ernie_within_model_empirical_cases';
+  interpretation: 'Ernie_within_model_empirical_cases' | 'cross_head_empirical_cases';
   groups: {
     radius_mm: number;
     case_count: number;
@@ -87,6 +91,8 @@ export type RobustnessStudy = {
   created_at: string;
   updated_at: string;
   design: StudyRequest['design'];
+  noise_model?: NoiseModel;
+  conductivity_scenario?: string;
   annotation: {
     electrode_names?: string[];
     source_metadata?: CoordinateSourceMetadata;

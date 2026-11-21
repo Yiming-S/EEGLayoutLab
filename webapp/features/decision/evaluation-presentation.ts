@@ -4,7 +4,10 @@ import type { DesignJob, DesignResult } from '../../lib/design-decision';
 export function evaluationPresentation(job: Pick<DesignJob, 'cached'> | null, result: Pick<DesignResult, 'forward_mode'>) {
   return {
     heading: job?.cached ? '已读取保存的坐标评价' : '坐标评价结果',
-    origin: result.forward_mode === 'direct_fem' ? '新位置FEM' : result.forward_mode === 'cached_fem' ? '已有前向库FEM' : '未记录',
+    origin: result.forward_mode === 'direct_fem' ? '新位置FEM'
+      : result.forward_mode === 'scalp_node_table' ? '头皮节点预计算FEM'
+      : result.forward_mode === 'head_scalp_node_table' ? '其他头模的预计算头皮节点表'
+      : result.forward_mode === 'cached_fem' ? '已有前向库FEM' : '未记录',
     forward_mode: result.forward_mode,
   };
 }

@@ -45,6 +45,7 @@ export class ElectrodeEditorService extends DesignEvaluationService {
   async context(request) {
     const parent = await this.queue.library.get(request.parent_id);
     if (parent?.status !== 'completed' || !parent.layout?.regionPatchVertexIndices) throw new Error('Choose a completed layout with saved region boundaries');
+    if (parent.request?.noise_model) throw new Error('The electrode editor scores with independent noise; choose a layout searched under independent noise');
     const parent_digest = hash(parent);
     if (request.action === 'evaluate' && request.parent_digest !== parent_digest) throw new Error('Parent changed; reload the layout before editing');
     const base = await super.context(request);
@@ -74,16 +75,18 @@ export class ElectrodeEditorService extends DesignEvaluationService {
     }
     return records.sort((a, b) => b.finished_at.localeCompare(a.finished_at));
   }
-  async handle(req, res, path, send) {
-    if (req.method === 'GET' && path === '/api/electrode-editor/parents') {
-      const library = await this.queue.library.list();
-      const records = [];
-      for (const summary of library.records.filter(r => r.status === 'completed' && ['strict_area', 'cache'].includes(r.dataset_id))) {
-        const r = await this.queue.library.get(summary.id);
-        if (r?.layout?.regionPatchVertexIndices) records.push(summary);
-      }
-      return send(res, 200, { records });
+  /** Library layouts with region patches; `visible` narrows the library rows to one browser's view first. */
+  async parents(visible = rows => rows) {
+    const library = await this.queue.library.list();
+    const records = [];
+    for (const summary of visible(library.records).filter(r => r.status === 'completed' && ['strict_area', 'cache'].includes(r.dataset_id) && !r.request?.noise_model)) {
+      const r = await this.queue.library.get(summary.id);
+      if (r?.layout?.regionPatchVertexIndices) records.push(summary);
     }
+    return records;
+  }
+  async handle(req, res, path, send) {
+    if (req.method === 'GET' && path === '/api/electrode-editor/parents') return send(res, 200, { records: await this.parents() });
     if (req.method === 'GET' && path === '/api/electrode-editor/records') return send(res, 200, { records: await this.records() });
     if (req.method === 'POST' && path === '/api/electrode-editor/jobs') {
       if (!String(req.headers['content-type']).startsWith('application/json')) return send(res, 415, { error: 'JSON required' });

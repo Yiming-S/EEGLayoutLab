@@ -72,7 +72,7 @@ export function LocalComputePanel({ request, arPercent, onResult, onStatus, comp
         const data = await apiJson<{ hit: boolean; job?: ComputeJob }>('/api/local-compute/lookup', {
           method: 'POST', signal: controller.signal, token: health.token,
           headers: { 'Content-Type': 'application/json' }, body: currentKey,
-          errorMessage: '无法读取本地记录',
+          errorMessage: '无法读取已有记录',
         });
         if (controller.signal.aborted) return;
         if (data.hit && data.job) setStoredJob(data.job);
@@ -80,7 +80,7 @@ export function LocalComputePanel({ request, arPercent, onResult, onStatus, comp
       } catch (reason) {
         if (!controller.signal.aborted) {
           setLookup({ key: currentKey, state: 'error' });
-          setError(reason instanceof Error ? reason.message : '无法读取本地记录');
+          setError(reason instanceof Error ? reason.message : '无法读取已有记录');
         }
       }
     }, 250);
@@ -154,23 +154,25 @@ export function LocalComputePanel({ request, arPercent, onResult, onStatus, comp
   const thisJob = shownJob && requestKey(shownJob.request) === currentKey;
 
   return (
-    <div className="rounded-2xl border border-[#c9ddd6] bg-[#f2f8f5] p-4" aria-label={tx("本地仿真计算")}>
+    <div className={'rounded-2xl border border-[#c9ddd6] bg-[#f2f8f5] ' + (compact ? 'p-3' : 'p-4')} aria-label={tx("本地仿真计算")}>
       <div className="flex items-center gap-2 font-semibold text-[#173640]">
-        <Cpu className="size-4" /> {tx(compact ? '2 · 生成布局并评估' : '生成布局并评估（优先复用结果）')}
+        <Cpu className="size-4" /> {tx(compact ? '3 · 生成布局并评估' : '生成布局并评估（优先复用结果）')}
       </div>
-      <p className="mt-2 text-sm leading-6 text-[#526b71]">
-        {tx("先查相同配置的本地记录；没有结果时才优化64个点并保存。复用预计算的电位传递矩阵，直接计算各项指标。")}</p>
-      {tx(connection === 'checking' ? <p className="mt-3 text-sm">{tx("正在连接本地计算服务…")}</p> : connection === 'unavailable' ? (
+      {!compact && <p className="mt-2 text-sm leading-6 text-[#526b71]">
+        {tx("先查相同配置的已有记录；没有结果时才优化64个点并保存。复用预计算的电位传递矩阵，直接计算各项指标。")}</p>}
+      {tx(connection === 'checking' ? <p className="mt-3 text-sm">{tx("正在连接计算服务…")}</p> : connection === 'unavailable' ? (
         <div className="mt-3 space-y-2 text-sm leading-6 text-[#806a37]">
-          <p>{tx("本地计算服务未连接。此功能需在这台电脑运行本地App；公开网页不会调用电脑资源。")}</p>
+          <p>{tx("计算服务暂不可用，请稍后重试；已有结果仍可查看。")}</p>
           <Button size="sm" variant="outline" onClick={() => { attempted.current = ''; setConnection('checking'); void refreshConnection(); }}>{tx("重新连接")}</Button>
         </div>
       ) : (
         <>
           <details className="mt-3 text-sm"><summary className="cursor-pointer text-[#526b71]">{tx("修改条件后自动计算（默认关闭）")}</summary><label className="mt-3 flex cursor-pointer items-center gap-2 text-sm" htmlFor="automatic-local-compute">
             <Switch id="automatic-local-compute" checked={automatic} onCheckedChange={setAutomatic} />
-            {tx("无已有结果时自动启动计算")}</label></details>
-          <p className="mt-2 text-xs leading-5 text-[#687c82]">{tx("关闭自动计算仍会读取已有结果。新计算：每次1个任务 · 2线程 · 运行上限180秒，超时后可重新提交。")}</p>
+            {tx("无已有结果时自动启动计算")}</label>
+            {compact && <p className="mt-2 text-xs leading-5 text-[#687c82]">{tx("先查相同配置的已有记录；没有结果时才优化64个点并保存。复用预计算的电位传递矩阵，直接计算各项指标。")}</p>}
+            {compact && <p className="mt-2 text-xs leading-5 text-[#687c82]">{tx("关闭自动计算仍会读取已有结果。新计算：每次1个任务 · 2线程 · 运行上限180秒，超时后可重新提交。")}</p>}</details>
+          {!compact && <p className="mt-2 text-xs leading-5 text-[#687c82]">{tx("关闭自动计算仍会读取已有结果。新计算：每次1个任务 · 2线程 · 运行上限180秒，超时后可重新提交。")}</p>}
           {tx(unsupported && <p className="mt-3 text-sm leading-6 text-[#806a37]">{tx("该位置范围暂不可计算。请选择全头候选区、少毛发候选区或当前支持的部位组合。")}</p>)}
           <div className="mt-3 flex flex-wrap gap-2">
             <Button size="sm" className="bg-[#117d72] hover:bg-[#0e6d64]" disabled={busy || submitting || !!unsupported}
@@ -183,12 +185,12 @@ export function LocalComputePanel({ request, arPercent, onResult, onStatus, comp
         </>
       ))}
       {tx(busy && job && <div className="mt-3 text-sm leading-6" aria-live="polite">
-          <p>{requestKey(job.request) === currentKey ? <RuntimeMessage message={job.message} status={job.status} /> : tx(result ? '另一配置仍在计算；当前配置直接显示已有缓存。' : automatic ? '上一配置正在计算；当前没有匹配缓存，完成后处理最新参数。' : '上一配置正在计算；当前方案尚未提交，完成后可手动计算。')}</p>
+          <p>{requestKey(job.request) === currentKey ? <RuntimeMessage message={job.message} status={job.status} queuePosition={job.queue_position} /> : tx(result ? '另一配置仍在计算；当前配置直接显示已有缓存。' : automatic ? '上一配置正在计算；当前没有匹配缓存，完成后处理最新参数。' : '上一配置正在计算；当前方案尚未提交，完成后可手动计算。')}</p>
           <progress aria-label={tx("仿真任务进度")} max={1} value={job.progress} className="mt-2 h-2 w-full accent-[#117d72]" />
         </div>)}
       <output className="mt-3 block text-sm leading-6" aria-live="polite">
         {tx(result?.metrics && compact ? <p className="font-medium text-[#117d72]">{tx(shownJob?.cached ? '已有结果已读取，未重新计算。' : '计算完成，结果已自动保存。')}</p> : result?.metrics ? <>
-          <p className="flex items-center gap-2 font-semibold text-[#117d72]"><CheckCircle2 className="size-4" />{tx(shownJob?.cached ? '已读取本地缓存 · 未重新计算' : '新计算完成 · 已保存到本地')}</p>
+          <p className="flex items-center gap-2 font-semibold text-[#117d72]"><CheckCircle2 className="size-4" />{tx(shownJob?.cached ? '已读取已有结果 · 未重新计算' : '新计算完成 · 已保存到结果库')}</p>
           <dl className="mt-3 space-y-2 text-[#405963]">
             {tx([
               ['信号重建保留率', pct(result.metrics.field_relative)],
@@ -208,12 +210,12 @@ export function LocalComputePanel({ request, arPercent, onResult, onStatus, comp
         </div>
           : thisJob && shownJob && ['failed', 'timeout', 'cancelled'].includes(shownJob.status) ? <p className="text-[#806a37]"><RuntimeMessage message={shownJob.message} status={shownJob.status} /></p>
           : busy ? null
-          : connection === 'ready' && !unsupported ? <p className="text-[#526b71]">{tx(lookup.key !== currentKey || lookup.state === 'checking' ? '正在查找匹配的本地数据…' : lookup.state === 'error' ? '本地记录读取失败；未自动启动计算。' : automatic ? '没有匹配记录，等待参数稳定后计算…' : '没有匹配记录。点击按钮可计算并保存。')}</p> : null)}
+          : connection === 'ready' && !unsupported ? <p className="text-[#526b71]">{tx(lookup.key !== currentKey || lookup.state === 'checking' ? '正在查找匹配的已有结果…' : lookup.state === 'error' ? '已有记录读取失败；未自动启动计算。' : automatic ? '没有匹配记录，等待参数稳定后计算…' : '没有匹配记录。点击按钮可计算并保存。')}</p> : null)}
       </output>
       {tx(error && <p role="alert" className="mt-3 text-sm leading-6 text-red-800"><AlertTriangle className="mr-1 inline size-4" /><RuntimeMessage message={error} /></p>)}
       {tx(!compact && <><p className="mt-3 border-t border-[#d7e4de] pt-3 text-xs leading-5 text-[#687c82]">
         {tx("单Ernie头模 · 标准64导名义SNR＝20 dB · 有限网格搜索。位置范围采用模型坐标近似；独立头模验证另列阶段。")}</p>
-      <a href="/method#local-compute" className="mt-2 inline-block text-sm font-semibold text-[#117d72] underline underline-offset-2">{tx("本地计算的方法与限制")}</a>
+      <a href="/method#local-compute" className="mt-2 inline-block text-sm font-semibold text-[#117d72] underline underline-offset-2">{tx("按需计算的方法与限制")}</a>
       <a href="/library" className="mt-2 block text-sm font-semibold text-[#117d72] underline underline-offset-2">{tx("打开计算记录")}</a></>)}
     </div>
   );

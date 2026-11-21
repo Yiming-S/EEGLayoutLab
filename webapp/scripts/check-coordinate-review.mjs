@@ -35,6 +35,7 @@ void test('reading a cached native-FEM result is labelled as a read while preser
   assert.equal(evaluationPresentation({ cached: false }, original).heading, '坐标评价结果');
   const bank = evaluationPresentation({ cached: true }, { forward_mode: 'cached_fem' });
   assert.equal(bank.heading, loaded.heading); assert.equal(bank.origin, '已有前向库FEM');
+  assert.equal(evaluationPresentation({ cached: true }, { forward_mode: 'scalp_node_table' }).origin, '头皮节点预计算FEM');
   assert.equal(evaluationPresentation({ cached: true }, { forward_mode: 'unknown' }).origin, '未记录');
   assert.equal(JSON.stringify(original), before);
 });

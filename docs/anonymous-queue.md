@@ -1,6 +1,6 @@
 # Anonymous visitors and the computation queue
 
-The web application runs without registration or sign-in. Scientific computation runs on the configured scientific checkout. Anonymous task ownership and the shared scientific results library are separate: a task receipt is browser-owned; the results library is shared. Public deployment remains pending.
+The web application runs without registration or sign-in. Scientific computation runs on the configured scientific checkout. A task receipt is owned by the browser that submitted it. Finished records are listed in the shared result library to every visitor; the operator can remove a record from it (see [Shared library visibility](#shared-library-visibility)). Public deployment remains pending.
 
 ## In the interface
 
@@ -14,11 +14,46 @@ anonymous cookie; private windows and separate browsers count separately. The
 interface refreshes these counts every 15 seconds. Hidden pages do not renew
 online presence. An unavailable service displays an unavailable state, not zero.
 
-The server assigns an opaque, signed HttpOnly, SameSite=Strict cookie automatically. Explicit HTTPS proxy configuration also sets Secure. There is no
+The server assigns an opaque, signed HttpOnly, SameSite=Strict cookie automatically. It lasts 30 days and each page visit renews it. Explicit HTTPS proxy configuration also sets Secure. There is no
 account, email or password. Clearing that cookie removes the browser's ability
-to manage its prior task receipts. Saved scientific records remain in the
-existing result library. Only the submitting browser or another browser that
-submits the same exact experiment can access that shared task's receipt.
+to manage its prior task receipts; the records themselves stay in the shared
+library. Only the submitting
+browser or another browser that submits the same exact experiment can access
+that shared task's receipt.
+
+## Shared library visibility
+
+Every finished record is listed in the shared library to every visitor: the
+official experiment records and the records produced by visitors' computations
+(radius designs, coordinate evaluations and electrode edits), including the
+names visitors gave their coordinate files. Signal experiments stay limited to
+the submitting browser's receipts, robustness studies to the browser that
+created them, and projects to their credentials.
+
+The browsers that submitted or looked up a record are recorded as its owners
+(hashed browser identifiers in `<queue directory>/library/records/<id>.json`;
+back them up with the rest of the queue directory). A browser that cancelled or
+left a shared task before it finished does not own the result.
+
+The operator can remove a visitor record. A removed record disappears from every
+list, its links (`/library?record=<id>`, comparison links and bundles) stop
+working for everyone except its owners, and its owners see the removal and its
+reason. The record identifier is in the record's link. Run the tool on the
+server from `webapp/`; the running server rereads
+`<queue directory>/library/moderation.json` on its next list request:
+
+```sh
+npm run library:moderate -- --queue-directory /srv/eeg/queue remove <id> --reason "text shown to the owner"
+npm run library:moderate -- --queue-directory /srv/eeg/queue restore <id>
+npm run library:moderate -- --queue-directory /srv/eeg/queue list
+```
+
+`EEG_LIBRARY_SCOPE=owner` is an optional stricter mode: a visitor's records are
+listed only to its owners until an owner publishes them from the record page,
+and with `EEG_LIBRARY_REVIEW=1` (the default in that mode) a publication is
+listed to others only after `approve <id>`; `list --pending` shows the waiting
+ones. Records made before owners were recorded have no owner and are listed to
+no one in that mode. Unlisted records still open from their links.
 
 ## Scheduling and reuse
 
@@ -35,10 +70,20 @@ evaluation, electrode editing, and source reception (both signal protocols).
 6. Release the slot only after the worker has closed and its service has finished
    result validation and persistence.
 
-Queue limits are 50 unfinished unique tasks globally and 3 unfinished subscribed
-tasks per browser. Submission and lookup limits are 20 requests per browser and
-100 per connecting IP per minute. Cached reads still count toward request-rate
-limits but do not consume queue capacity. Worker timeouts start on execution,
+Queue limits are 50 unfinished unique tasks globally, 3 unfinished subscribed
+tasks per browser and 6 per client network. Submission and lookup limits are 20
+requests per browser and 100 per client network per minute. A client network is
+an IPv4 address or an IPv6 /64, the block one subscriber usually controls; the
+queue stores only a keyed hash of it. Network limits exist because a fresh cookie
+costs nothing. Cached reads still count toward request-rate limits but do not
+consume queue capacity.
+
+Other per-network shares: 15 robustness studies, 30 research projects and 60 new
+electrode-name sets per hour. Study drafts that were never started are deleted
+after 7 days, and projects that were never edited and hold no entries after 30
+days, so abandoned drafts do not hold the global limits (100 studies, 1000
+projects). Saved signal results are about 8 MB; at most two are serialized at a
+time, and the two most recently verified files are kept in memory. Worker timeouts start on execution,
 not while waiting. Existing service timeouts and thread limits are unchanged.
 
 Cancelling a waiting task is immediate. Cancelling a running task waits for
@@ -51,9 +96,22 @@ remains. New submissions do not join a task that is already stopping.
 Service management files default to `<scientific root>/results/web-service/`, already excluded from Git. `EEG_QUEUE_DIRECTORY` or the service's `queueDirectory` option selects an explicit absolute directory. `queue.json` stores bounded task receipts, normalized requests, frozen keys,
 sequence numbers and hashed browser ownership. Numerical results are kept in
 the existing `results/v2/*_jobs` caches, not duplicated in the queue snapshot.
-The newest 500 terminal receipts are retained; older scientific results can
-still be obtained by submitting their exact configuration or opening the
-result library. Queued and unresolved worker records are never evicted.
+Terminal receipts are kept in two pools. Receipts of computed tasks, which are
+bounded by compute throughput, keep the newest 1000. Receipts created by opening
+an existing result cost nothing to request, so they keep the newest 300, at most
+40 per client network: a script cannot push other visitors' results out, and a
+visitor who loses such a receipt gets it back by opening the result again. Older
+scientific results can still be obtained by submitting their exact configuration
+or opening the result library. Queued and unresolved worker records are never
+evicted.
+
+Errors from the file system or from server code are answered with status 500
+and a generic message; the full error goes to the service log, and absolute
+server paths are removed from every error and job message. A failed queue write
+(for example a full disk) stops new work and is retried on each scheduling tick,
+so freeing space resumes service. A shutdown that arrives while a worker launch
+is still in flight puts that task back in the queue; a launch that failed with an
+unknown outcome keeps its recovery guard for the operator.
 
 Queue updates use a temporary file, fsync, atomic rename and directory fsync.
 One server owns the directory using an exclusive lock. Do not run independent
@@ -89,7 +147,7 @@ Private access logs contain UTC time, the configured visitor IP and a hashed ano
 
 Production binds to `127.0.0.1`. Without explicit public-origin/proxy configuration, Host, Origin and Fetch Metadata checks restrict API access to local requests; forwarding headers do not determine visitor IPs. A local installation therefore logs loopback addresses.
 
-With `EEG_PUBLIC_ORIGIN` and explicit `EEG_TRUSTED_PROXIES`, a listed proxy must overwrite Host with the configured public host, `X-Forwarded-Proto` with `https`, and `X-Forwarded-For` with one actual client IP. Chains and untrusted forwarding headers are rejected. Cookies become Secure. Write-token and same-origin checks remain active. Cookie resets can bypass browser limits; IP limits do not establish a person's identity.
+With `EEG_PUBLIC_ORIGIN` and explicit `EEG_TRUSTED_PROXIES`, a listed proxy must overwrite Host with the configured public host, `X-Forwarded-Proto` with `https`, and `X-Forwarded-For` with one actual client IP. Chains and untrusted forwarding headers are rejected. Cookies become Secure. Write-token and same-origin checks remain active. Cookie resets can bypass browser limits; IP limits do not establish a person's identity. On a public host, a loopback request that carries any forwarding header (`X-Forwarded-*`, `Forwarded`, `Via`) is rejected, so a proxy that rewrites Host to `localhost` cannot make every visitor share 127.0.0.1. Do not enable Caddy's `trusted_proxies`: it turns `X-Forwarded-For` into a list, which this server rejects. Node closes requests whose headers take longer than 15 s or whose body takes longer than 30 s.
 
 This policy has local tests. The actual proxy, public URL, access rules and record-sharing policy still need server acceptance. See [deployment preparation](server-deployment.md) and [dependency status](security.md).
 

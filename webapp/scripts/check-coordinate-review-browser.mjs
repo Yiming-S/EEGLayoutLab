@@ -105,7 +105,7 @@ async function evaluate(design) {
   const job = (await response.json()).job; assert.equal(job.cached, true); assert.equal(job.status, 'completed'); assert.equal(job.key, cached.key);
   assert.deepEqual(job.request, baseline); assert.deepEqual(job.result, cached.result); assert.match(job.annotation_id, /^[a-f0-9]{64}$/);
   await page.getByRole('heading', { name: t('已读取保存的坐标评价'), exact: true }).waitFor();
-  await page.getByText(`${t('原结果来源')} · ${t(job.result.forward_mode === 'direct_fem' ? '新位置FEM' : '已有前向库FEM')}`, { exact: true }).waitFor();
+  await page.getByText(`${t('原结果来源')} · ${t({ direct_fem: '新位置FEM', scalp_node_table: '头皮节点预计算FEM' }[job.result.forward_mode] ?? '已有前向库FEM')}`, { exact: true }).waitFor();
   await button(page, '导出实际评价坐标').waitFor(); await page.waitForLoadState('networkidle'); return job;
 }
 const filePayloads = files => files.map(file => ({ name: file.name, mimeType: file.name.endsWith('.tsv') ? 'text/tab-separated-values' : 'application/json', buffer: Buffer.from(file.text) }));

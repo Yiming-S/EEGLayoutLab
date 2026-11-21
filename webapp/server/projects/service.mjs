@@ -30,17 +30,23 @@ export class ProjectService {
     if (this.store.closed) throw projectError('Project store is stopping.', 503);
   }
   flush() { return this.store.flush(); }
+  /** A record the operator removed from the shared library can be attached only by its owners. */
+  readable(id, dataset, visitor) {
+    return !['cache', 'design_evaluation', 'editor'].includes(dataset) || !this.scheduler?.visibility || this.scheduler.visibility.readable(id, visitor?.id);
+  }
   async resolveSnapshot(input, visitor) {
     attachment(input);
     let record_id, payload, summary;
     if (input.kind === 'layout') {
       const record = await this.queue.library.get(input.record_id);
-      if (record?.status !== 'completed' || !record.layout) throw projectError('Choose a completed layout evaluation.', 404);
+      if (record?.status !== 'completed' || !record.layout || !this.readable(record.id, record.dataset_id, visitor)) throw projectError('Choose a completed layout evaluation.', 404);
       payload = await this.bundle(this.queue.root, record, { python: this.queue.python }); record_id = record.id;
-      summary = { protocol: record.dataset_id, electrode_count: record.layout.xyzMm.length, region_count: record.region_count };
+      // Same rule as the library's canSimulateRecord: signal simulation rejects layouts searched under correlated noise.
+      summary = { protocol: record.dataset_id, electrode_count: record.layout.xyzMm.length, region_count: record.region_count,
+        simulation: ['cache', 'strict_area', 'design_evaluation'].includes(record.dataset_id) && record.layout.xyzMm.length === 64 && !record.request?.noise_model };
     } else if (input.kind === 'editor') {
       const records = await this.queue.editor.records(), record = records.find(value => value.key === input.record_id);
-      if (!record) throw projectError('Completed electrode edit not found.', 404);
+      if (!record || !this.readable(record.key, 'editor', visitor)) throw projectError('Completed electrode edit not found.', 404);
       const cache = await this.queue.editor.store.read(this.queue.editor.store.path('editor', input.record_id, 'cache.json'));
       if (cache.key !== input.record_id || hash(cache.result) !== cache.result_sha256 || hash({ request: cache.result?.request, identity: cache.identity }) !== input.record_id || cache.result?.request?.action !== 'evaluate') throw projectError('Electrode edit failed integrity checks.', 409);
       this.queue.editor.validate(cache.result, cache.result.request);
@@ -88,7 +94,7 @@ export class ProjectService {
           if (req.method !== 'POST') return send(405, { error: 'Projects are opened with their identifier and credential.' });
           const visitor = this.scheduler.session(req, res); this.scheduler.rate(visitor);
           await this.admitWrite();
-          return send(201, await this.store.create(await this.body(req)));
+          return send(201, await this.store.create(await this.body(req), { network: visitor.network }));
         }
         const match = path.match(/^\/api\/projects\/([a-f0-9-]{36})(?:\/(share|revoke-share|entries|export)(?:\/([a-f0-9-]{36}))?)?$/);
         if (!match || !validProjectId(match[1])) throw projectError('Project endpoint not found.', 404);
