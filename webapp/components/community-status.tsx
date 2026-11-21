@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useLanguage } from './language-provider';
 import { RuntimeMessage } from './runtime-message';
+import { useDismissibleDetails } from './use-dismissible-details';
 import { activeTaskLink, completedTaskLink, type ExperimentReceipt } from '@/lib/records-catalog';
 import { downloadExperimentReceipt } from './catalog-experiment-details';
 
@@ -14,6 +15,7 @@ const labels: Record<string, string> = {
 };
 export function CommunityStatus() {
   const { tx, date } = useLanguage();
+  const menu = useDismissibleDetails();
   const [status, setStatus] = useState<Status | null>(null);
   const [failure, setFailure] = useState('');
   useEffect(() => {
@@ -59,7 +61,7 @@ export function CommunityStatus() {
       }
     } catch (e) { setFailure(e instanceof Error ? e.message : '无法读取任务'); }
   };
-  return <details className="relative text-sm">
+  return <details ref={menu} className="relative text-sm">
     <summary className="cursor-pointer rounded-lg px-2 py-2 text-xs text-[#53686e]" aria-label={tx('查看任务与计算队列')}>
       {tx('任务 / 队列')}{status ? <> {status.queued_tasks}{status.running_tasks > 0 && <> · {tx('计算中')} {status.running_tasks}</>}</> : <span className="hidden sm:inline"> · {tx('服务未连接')}</span>}
     </summary>
