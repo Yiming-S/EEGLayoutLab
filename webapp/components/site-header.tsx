@@ -6,6 +6,7 @@ import { recordAnnotationId } from '@/lib/local-library';
 import { useEffect, useRef, useState } from 'react';
 import { Activity, Settings2 } from 'lucide-react';
 import { LanguageSwitch } from '@/components/language-switch';
+import { useDismissibleDetails } from '@/components/use-dismissible-details';
 import { useLanguage } from '@/components/language-provider';
 import { localizedRecordTitle } from '@/lib/i18n/records';
 import { PAGES, safeReturnHref, type PageId } from '@/lib/ui-language';
@@ -36,6 +37,7 @@ export function SiteHeader({
   selection?: WorkspaceSelection;
 }) {
   const { tx, locale } = useLanguage();
+  const settings = useDismissibleDetails();
   const headerRef = useRef<HTMLElement>(null);
   useEffect(() => {
     if (!headerRef.current || typeof ResizeObserver === 'undefined') return;
@@ -228,7 +230,7 @@ export function SiteHeader({
         </nav>
         <div className="ml-auto flex items-center gap-1 min-[1000px]:ml-0">
           <CommunityStatus />
-          <details className="relative">
+          <details ref={settings} className="relative">
             <summary aria-label={tx('界面设置')} className="flex size-9 cursor-pointer list-none items-center justify-center rounded-lg border bg-white text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
               <Settings2 className="size-4" />
             </summary>
