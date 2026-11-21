@@ -34,3 +34,14 @@ def test_shared_request_corpus(sample):
         with pytest.raises(ValueError):
             validate(sample['service'], request)
     assert request == original
+
+
+NON_CANONICAL_DESIGN = [sample for sample in CORPUS['cases']
+                        if sample['service'] == 'design' and sample['valid'] and sample['request'] != sample['canonical']]
+
+
+@pytest.mark.parametrize('sample', NON_CANONICAL_DESIGN, ids=lambda sample: sample['name'])
+def test_design_worker_accepts_only_the_canonical_form(sample):
+    # Node drops default choices (null, iid, ''); a direct Python caller must not echo them into a result request.
+    with pytest.raises(ValueError):
+        validate_design(deepcopy(sample['request']))

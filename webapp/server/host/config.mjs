@@ -3,6 +3,7 @@ import { isAbsolute, resolve } from 'node:path';
 import { repositoryRootForWebapp } from '../project-paths.mjs';
 import { createAccessPolicy } from '../http/access-policy.mjs';
 import { operationsConfig } from '../operations/config.mjs';
+import { libraryConfig } from '../library/record-visibility.mjs';
 
 export function hostConfig({ webappRoot, env = process.env, ...options }) {
   const port = options.port ?? Number(env.PORT || 3000);
@@ -17,5 +18,6 @@ export function hostConfig({ webappRoot, env = process.env, ...options }) {
   const policy = createAccessPolicy({ publicOrigin: options.publicOrigin ?? env.EEG_PUBLIC_ORIGIN,
     trustedProxyAddresses: options.trustedProxyAddresses ?? (env.EEG_TRUSTED_PROXIES || '').split(',').map(ip => ip.trim()).filter(Boolean) });
   return { port, repositoryRoot: root, queueDirectory: options.queueDirectory ?? env.EEG_QUEUE_DIRECTORY,
-    python: options.python ?? env.EEG_COMPUTE_PYTHON, initialMaintenance, policy, operations: options.operations ?? operationsConfig(env) };
+    python: options.python ?? env.EEG_COMPUTE_PYTHON, initialMaintenance, policy, operations: options.operations ?? operationsConfig(env),
+    library: options.library ?? libraryConfig(env) };
 }

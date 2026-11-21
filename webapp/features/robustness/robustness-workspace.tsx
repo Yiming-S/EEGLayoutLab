@@ -1,12 +1,15 @@
 "use client";
 /* oxlint-disable next/no-html-link-for-pages -- preserve established local navigation */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { LanguageSwitch } from "@/components/language-switch";
+import { SiteHeader } from "@/components/site-header";
 import { RuntimeMessage } from "@/components/runtime-message";
 import { useLanguage } from "@/components/language-provider";
 import type { EmpiricalSummary, StudyProtocol } from "@/contracts/robustness-study";
 import { useRobustnessController } from "./use-robustness-controller";
+import { listHeadPackages, type HeadPackageEntry } from "@/client/robustness";
+import { CONDUCTIVITY_SCENARIOS, NOISE_MODEL_PRESETS, conductivityScenarioLabel, noiseModelLabel } from "../../contracts/scientific-options.mjs";
+import type { NoiseModel } from "@/lib/design-decision";
 import { useStudyDesignDraft } from "./use-study-design-draft";
 import { useStudyExport } from "./use-study-export";
 import {
@@ -17,12 +20,14 @@ import {
   studyCaseStatusLabel,
   STUDY_CASE_LIMIT,
   STUDY_RADII,
+  fillHeads,
   type CaseDraft,
 } from "./robustness-draft";
 
 const protocols = {
   noise_seeds: "定位噪声随机种子重复",
   grid_displacements: "候选网格位置偏移重复",
+  heads: "跨头模评价（每案例一个头模）",
 };
 const metricLabels: Record<string, string> = {
   field_relative: "场重建保留率",
@@ -111,33 +116,39 @@ export default function RobustnessWorkspace() {
   const [notes, setNotes] = useState("");
   const [protocol, setProtocol] = useState<StudyProtocol>("noise_seeds"),
     [cases, setCases] = useState<CaseDraft[]>([{ seed: "42", radius: "6" }]);
+  const [noiseModelId, setNoiseModelId] = useState("iid"),
+    [scenarioId, setScenarioId] = useState("");
   const [formError, setFormError] = useState("");
+  const [heads, setHeads] = useState<HeadPackageEntry[] | null>(null),
+    [headsError, setHeadsError] = useState("");
+  useEffect(() => {
+    if (protocol !== "heads" || heads || headsError) return;
+    const abort = new AbortController();
+    listHeadPackages(abort.signal)
+      .then(({ heads: found }) => {
+        setHeads(found);
+        setCases((rows) => fillHeads(rows, found));
+      })
+      .catch((caught) => {
+        if (!abort.signal.aborted) setHeadsError(caught instanceof Error && caught.message ? caught.message : "头模列表读取失败");
+      });
+    return () => abort.abort();
+  }, [protocol, heads, headsError]);
   const exporting = useStudyExport(controller.study?.id, controller.exportText, download);
   const study = controller.study,
     disabled = controller.busy || controller.uncertain;
   const create = async () => {
     setFormError("");
     try {
-      await controller.create(createStudyInput(design, protocol, cases, title, notes));
+      const noiseModel = NOISE_MODEL_PRESETS.find((preset) => preset.id === noiseModelId)?.value as NoiseModel | undefined;
+      await controller.create(createStudyInput(design, protocol, cases, title, notes, noiseModel, protocol === "noise_seeds" ? scenarioId || undefined : undefined));
     } catch (caught) {
       setFormError(caught instanceof Error ? caught.message : "研究草稿无法保存");
     }
   };
   return (
     <main className="lab-page">
-      <header className="border-b bg-white">
-        <div className="lab-container flex flex-wrap items-center justify-between gap-4 py-4">
-          <a href="/coordinates" className="font-semibold">
-            EEG Layout Lab · {tx("稳健性研究")}
-          </a>
-          <div className="flex flex-wrap items-center gap-4">
-            <a className="text-sm text-primary underline" href="/projects">
-              {tx("研究项目")}
-            </a>
-            <LanguageSwitch />
-          </div>
-        </div>
-      </header>
+      <SiteHeader current="robustness" />
       <div className="lab-container space-y-5 py-6">
         <header>
           <h1 className="text-2xl font-semibold">{tx("可复现的重复评估")}</h1>
@@ -279,6 +290,7 @@ export default function RobustnessWorkspace() {
                     setProtocol(next);
                     if (next === "noise_seeds")
                       setCases((rows) => rows.map((row) => ({ ...row, radius: rows[0].radius })));
+                    if (next === "heads") setCases((rows) => fillHeads(rows, heads ?? []));
                   }}
                 >
                   {Object.entries(protocols).map(([value, label]) => (
@@ -288,15 +300,60 @@ export default function RobustnessWorkspace() {
                   ))}
                 </select>
               </label>
+              <label className="lab-label">
+                {tx("噪声模型")}
+                <select
+                  className="lab-select"
+                  aria-label={tx("噪声模型")}
+                  value={noiseModelId}
+                  onChange={(event) => setNoiseModelId(event.target.value)}
+                >
+                  {NOISE_MODEL_PRESETS.map((preset) => (
+                    <option key={preset.id} value={preset.id}>
+                      {tx(preset.label)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {protocol === "noise_seeds" && (
+                <label className="lab-label">
+                  {tx("数据生成头模电导率")}
+                  <select
+                    className="lab-select"
+                    aria-label={tx("数据生成头模电导率")}
+                    value={scenarioId}
+                    onChange={(event) => setScenarioId(event.target.value)}
+                  >
+                    {CONDUCTIVITY_SCENARIOS.map((scenario) => (
+                      <option key={scenario.id} value={scenario.id}>
+                        {tx(scenario.label)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
             </div>
             <p className="text-sm text-muted-foreground">
               {tx(
                 protocol === "noise_seeds"
                   ? "改变定位噪声随机种子；固定原坐标及半径参数，每案例仍使用原16次定位噪声重复。"
-                  : "每案例执行原4次网格偏移；仅支持候选前向库中的64点，半径使用毫米。",
+                  : protocol === "heads"
+                    ? "每案例把同一坐标经MNI映射到一个头模后评价，参考布局同样映射；电导率取默认值。案例构成跨头模分布，不代替Ernie生产结果。"
+                    : "每案例执行原4次网格偏移；仅支持候选前向库中的64点，半径使用毫米。",
               )}
             </p>
-            {protocol === "noise_seeds" && (
+            {protocol === "heads" && heads?.length === 0 && (
+              <p className="text-sm text-destructive">{tx("尚无已预计算的头模包")}</p>
+            )}
+            {protocol === "heads" && headsError && (
+              <div role="alert" className="flex flex-wrap items-center gap-3 text-sm text-red-800">
+                <RuntimeMessage message={headsError} />
+                <Button type="button" size="sm" variant="outline" onClick={() => setHeadsError("")}>
+                  {tx("重新读取头模列表")}
+                </Button>
+              </div>
+            )}
+            {protocol !== "grid_displacements" && (
               <label className="lab-label max-w-xs">
                 {tx("固定半径参数（mm）")}
                 <select
@@ -315,11 +372,29 @@ export default function RobustnessWorkspace() {
                 </select>
               </label>
             )}
+            {protocol === "heads" && (
+              <label className="lab-label max-w-xs">
+                {tx("所有头模共用的随机种子")}
+                <input
+                  className="lab-input"
+                  type="number"
+                  aria-label={tx("所有头模共用的随机种子")}
+                  min={0}
+                  max={9999}
+                  step={1}
+                  value={cases[0].seed}
+                  onChange={(event) =>
+                    setCases((rows) => rows.map((row) => ({ ...row, seed: event.target.value })))
+                  }
+                />
+              </label>
+            )}
             <div className="overflow-x-auto">
               <table className="w-full min-w-[400px] text-left text-sm">
                 <thead>
                   <tr>
                     <th>{tx("案例")}</th>
+                    {protocol === "heads" && <th>{tx("头模")}</th>}
                     <th>{tx("随机种子")}</th>
                     <th>{tx("半径参数")} (mm)</th>
                     <th>{tx("操作")}</th>
@@ -329,11 +404,36 @@ export default function RobustnessWorkspace() {
                   {cases.map((entry, index) => (
                     <tr key={index}>
                       <th className="py-2 font-normal">{index + 1}</th>
+                      {protocol === "heads" && (
+                        <td>
+                          <select
+                            className="lab-select"
+                            aria-label={`${tx("案例")} ${index + 1} ${tx("头模")}`}
+                            value={entry.head ?? ""}
+                            onChange={(event) =>
+                              setCases((rows) =>
+                                rows.map((row, rowIndex) =>
+                                  rowIndex === index ? { ...row, head: event.target.value } : row,
+                                ),
+                              )
+                            }
+                          >
+                            <option value="">{tx("选择头模")}</option>
+                            {(heads ?? []).map((head) => (
+                              <option key={head.head_id} value={head.head_id}>
+                                {head.head_id}
+                                {head.dataset ? ` · ${head.dataset}` : ""}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                      )}
                       <td>
                         <input
                           className="lab-input"
                           type="number"
                           aria-label={`${tx("案例")} ${index + 1} ${tx("随机种子")}`}
+                          disabled={protocol === "heads"}
                           min={0}
                           max={9999}
                           step={1}
@@ -351,7 +451,7 @@ export default function RobustnessWorkspace() {
                         <select
                           className="lab-select"
                           aria-label={`${tx("案例")} ${index + 1} ${tx("半径参数")} (mm)`}
-                          disabled={protocol === "noise_seeds"}
+                          disabled={protocol !== "grid_displacements"}
                           value={entry.radius}
                           onChange={(event) =>
                             setCases((rows) =>
@@ -390,9 +490,13 @@ export default function RobustnessWorkspace() {
             <Button
               type="button"
               variant="outline"
-              disabled={cases.length >= STUDY_CASE_LIMIT}
+              disabled={
+                cases.length >= STUDY_CASE_LIMIT ||
+                (protocol === "heads" && cases.length >= (heads?.length ?? 0))
+              }
               onClick={() =>
                 setCases((rows) => {
+                  if (protocol === "heads") return fillHeads([...rows, { seed: rows[0].seed, radius: rows[0].radius }], heads ?? []);
                   const used = new Set(rows.map((row) => Number(row.seed)));
                   let next = 0;
                   while (used.has(next)) next++;
@@ -431,7 +535,7 @@ export default function RobustnessWorkspace() {
                 <div>
                   <h2 className="text-xl font-semibold">{study.title}</h2>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {tx(protocols[study.protocol])} · {date(study.created_at, true)}
+                    {tx(protocols[study.protocol])} · {tx(noiseModelLabel(study.noise_model))}{study.conductivity_scenario && <> · {tx(conductivityScenarioLabel(study.conductivity_scenario))}</>} · {date(study.created_at, true)}
                   </p>
                 </div>
                 <output className="rounded-full bg-primary/10 px-3 py-1 text-sm" aria-live="polite">
@@ -450,7 +554,9 @@ export default function RobustnessWorkspace() {
               </p>
               <p className="text-sm text-muted-foreground">
                 {tx(
-                  "本研究描述Ernie头模内这批案例的经验分布。中位数、P10和P90按案例计算，使用第7型线性插值。",
+                  study.protocol === "heads"
+                    ? "本研究描述所列头模上这批案例的经验分布；映射后被拒绝的头模计为失败案例。中位数、P10和P90按案例计算，使用第7型线性插值。"
+                    : "本研究描述Ernie头模内这批案例的经验分布。中位数、P10和P90按案例计算，使用第7型线性插值。",
                 )}
               </p>
               <p className="text-sm text-muted-foreground">
@@ -534,22 +640,44 @@ export default function RobustnessWorkspace() {
                   <thead>
                     <tr>
                       <th>{tx("案例")}</th>
+                      {study.protocol === "heads" && <th>{tx("头模")}</th>}
                       <th>{tx("随机种子")}</th>
                       <th>{tx("半径参数")} (mm)</th>
                       <th>{tx("状态")}</th>
-                      <th>{tx("有效偏移次数")}</th>
-                      <th>{tx("几何拒绝次数")}</th>
+                      {study.protocol === "heads" ? (
+                        <>
+                          <th>{tx(metricLabels.field_relative)}</th>
+                          <th>{tx(metricLabels.localization_relative)}</th>
+                          <th>{tx(metricLabels.median_mm)}</th>
+                        </>
+                      ) : (
+                        <>
+                          <th>{tx("有效偏移次数")}</th>
+                          <th>{tx("几何拒绝次数")}</th>
+                        </>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
                     {study.cases.map((entry) => (
                       <tr key={entry.index} className="border-b">
                         <th className="py-3 font-normal">{entry.index + 1}</th>
+                        {study.protocol === "heads" && <td>{entry.request.head_id}</td>}
                         <td>{entry.request.seed}</td>
                         <td>{entry.request.radius_mm}</td>
                         <td>{tx(studyCaseStatusLabel(entry.status))}</td>
-                        <td>{entry.summary?.valid_trials ?? "—"}</td>
-                        <td>{entry.summary?.rejected_trials ?? "—"}</td>
+                        {study.protocol === "heads" ? (
+                          ["field_relative", "localization_relative", "median_mm"].map((metric) => (
+                            <td key={metric}>
+                              {entry.summary ? tx(reading(entry.summary.nominal[metric as keyof typeof entry.summary.nominal], metric)) : "—"}
+                            </td>
+                          ))
+                        ) : (
+                          <>
+                            <td>{entry.summary?.valid_trials ?? "—"}</td>
+                            <td>{entry.summary?.rejected_trials ?? "—"}</td>
+                          </>
+                        )}
                       </tr>
                     ))}
                   </tbody>

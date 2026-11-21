@@ -32,6 +32,11 @@ function EntryCard({ entry, entries, owner, busy, inspect, update, remove }: {
 }) {
   const { tx, date } = useLanguage();
   const [title, setTitle] = useState(entry.title), [notes, setNotes] = useState(entry.notes);
+  // Unsaved edits survive saves of other entries; a new saved text for this entry replaces them.
+  const [saved, setSaved] = useState({ title: entry.title, notes: entry.notes });
+  if (saved.title !== entry.title || saved.notes !== entry.notes) {
+    setSaved({ title: entry.title, notes: entry.notes }); setTitle(entry.title); setNotes(entry.notes);
+  }
   return <article className="rounded-xl border p-4" aria-label={entry.title} data-project-entry-id={entry.id} data-entry-kind={entry.kind}>
     <div className="flex flex-wrap items-start justify-between gap-3"><div>
       <h3 className="font-semibold">{entry.title}</h3>
@@ -46,7 +51,7 @@ function EntryCard({ entry, entries, owner, busy, inspect, update, remove }: {
     {owner ? <details className="mt-4"><summary className="cursor-pointer text-sm font-medium">{tx('编辑实验说明')}</summary><form className="mt-3 space-y-3" onSubmit={event => { event.preventDefault(); update(title, notes); }}>
       <label className="lab-label">{tx('实验名称')}<input className="lab-select" value={title} maxLength={200} required onChange={event => setTitle(event.target.value)} /></label>
       <label className="lab-label">{tx('实验备注')}<textarea className="lab-select min-h-20" value={notes} maxLength={8000} onChange={event => setNotes(event.target.value)} /></label>
-      <div className="flex flex-wrap gap-2"><Button type="submit" variant="outline" disabled={busy}>{tx('保存实验说明')}</Button><Button type="button" variant="outline" disabled={busy} onClick={remove}>{tx('从项目移除')}</Button></div>
+      <div className="flex flex-wrap gap-2"><Button type="submit" variant="outline" disabled={busy}>{tx('保存实验说明')}</Button><Button type="button" variant="outline" disabled={busy} onClick={() => { if (window.confirm(tx('从项目移除此实验记录？项目保存的副本会被删除，原始结果不受影响。'))) remove(); }}>{tx('从项目移除')}</Button></div>
     </form></details> : entry.notes && <p className="mt-3 whitespace-pre-wrap text-sm">{entry.notes}</p>}
     <p className="mt-3 break-all text-xs text-muted-foreground">SHA-256: {entry.snapshot_sha256}</p>
   </article>;
@@ -88,6 +93,15 @@ export default function ProjectsWorkspace() {
   const [initialAnnotation, setInitialAnnotation] = useState('');
   const [entryView, setEntryView] = useState<{ projectId: string; filter: ProjectExperimentFilter }>({ projectId: '', filter: 'all' });
 
+  // The title and note fields follow the saved project, but an unsaved edit survives a save
+  // of another part of the same project.
+  const [synced, setSynced] = useState<{ id: string; title: string; notes: string } | null>(null);
+  if (project && (synced?.id !== project.id || synced.title !== project.title || synced.notes !== project.notes)) {
+    const same = synced?.id === project.id;
+    setSynced({ id: project.id, title: project.title, notes: project.notes });
+    if (!same || title === synced.title) setTitle(project.title);
+    if (!same || notes === synced.notes) setNotes(project.notes);
+  }
   const remember = (credential: ProjectAccess) => {
     try { setVault(saveProjectAccess(localStorage, credential)); }
     catch { setNotice('浏览器无法保存访问凭据，请下载项目凭据文件。'); }
@@ -95,7 +109,6 @@ export default function ProjectsWorkspace() {
   const apply = (value: ProjectResponse, credential: ProjectAccess) => {
     const saved = { ...credential, role: value.role, title: value.project.title };
     setProject(value.project); setRole(value.role); setAccess(saved);
-    setTitle(value.project.title); setNotes(value.project.notes);
     setSnapshot(null); remember(saved);
     try { activateProject(saved); }
     catch { setNotice('此标签页无法记住活动项目，可在项目页手动保存已完成结果。'); }
@@ -224,7 +237,7 @@ export default function ProjectsWorkspace() {
               const result = await projectRequest<ProjectResponse & { access_key: string }>(access, '/share', { method: 'POST', body: JSON.stringify({ revision: project.revision }) });
               apply(result, access); setShare(projectShareHref(window.location.origin, { project_id: project.id, access_key: result.access_key }));
             })}>{tx('生成新的只读链接')}</Button>
-            <Button variant="outline" disabled={busy} onClick={() => { setShare(''); void mutate('/revoke-share', 'POST', {}); }}>{tx('撤销只读分享')}</Button>
+            <Button variant="outline" disabled={busy} onClick={() => { if (!window.confirm(tx('撤销后，所有已发出的只读链接立即失效。继续？'))) return; setShare(''); void mutate('/revoke-share', 'POST', {}); }}>{tx('撤销只读分享')}</Button>
           </div>{share && <label className="lab-label">{tx('只读分享链接')}<input className="lab-select" readOnly value={share} onFocus={event => event.target.select()} /></label>}</div>}
           </div></details>
         </section>
@@ -247,7 +260,7 @@ export default function ProjectsWorkspace() {
           </form></details>}
           {!project.entries.length && <p className="text-muted-foreground">{tx('项目中还没有保存的实验。先在结果库选择布局，或完成一次信号仿真。')}</p>}
           {project.entries.length > 0 && entryFilter === 'candidate-source' && !visibleEntries.length && <p className="text-muted-foreground">{tx('当前候选布局尚无已关联的信号记录。')}</p>}
-          {visibleEntries.map(entry => <EntryCard key={`${entry.id}:${project.revision}`} entry={entry} entries={project.entries} owner={owner} busy={busy}
+          {visibleEntries.map(entry => <EntryCard key={entry.id} entry={entry} entries={project.entries} owner={owner} busy={busy}
             inspect={() => void perform(async () => setSnapshot(await projectRequest(access, `/entries/${entry.id}`)))}
             update={(nextTitle, nextNotes) => void mutate(`/entries/${entry.id}`, 'PATCH', { title: nextTitle, notes: nextNotes })}
             remove={() => void mutate(`/entries/${entry.id}`, 'DELETE', {})} />)}

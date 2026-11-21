@@ -5,7 +5,10 @@ export type ComputeRequest = {
   radius_mm: number;
   mode: DomainMode;
   mask_codes?: string[];
+  /** Optional search noise model; absent means independent equal noise. */
+  noise_model?: SearchNoiseModel;
 };
+export type SearchNoiseModel = { kind: 'spatial'; rho: 0.5; length_mm: 10 | 20 | 40 };
 export type ComputedLayout = RecordedLayout;
 export type ComputeResult = {
   status: 'completed' | 'no_layout';
@@ -31,6 +34,8 @@ export type ComputeResult = {
 };
 export type ComputeJob = {
   id: string;
+  /** Server FIFO position while queued; 1 means next to start. */
+  queue_position?: number;
   key: string;
   request: ComputeRequest;
   status: 'queued' | 'running' | 'cancelling' | 'completed' | 'no_layout' | 'failed' | 'cancelled' | 'timeout';
@@ -50,7 +55,8 @@ export type ComputeHealth = {
 
 export function requestKey(request: ComputeRequest) {
   return JSON.stringify({ region_count: request.region_count, radius_mm: request.radius_mm,
-    mode: request.mode, ...(request.mode === 'preset' ? { mask_codes: request.mask_codes } : {}) });
+    mode: request.mode, ...(request.mode === 'preset' ? { mask_codes: request.mask_codes } : {}),
+    ...(request.noise_model ? { noise_model: request.noise_model } : {}) });
 }
 
 export function matchingResult(job: ComputeJob | null, request: ComputeRequest) {

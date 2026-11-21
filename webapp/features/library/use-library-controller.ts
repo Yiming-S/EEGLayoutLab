@@ -33,7 +33,7 @@ export function useLibraryController() {
     const controller = new AbortController();
     const read = <T>(url: string, errorMessage: string) => apiJson<T>(url, { signal: controller.signal, errorMessage });
     void Promise.allSettled([
-      read<LocalLibrary>('/api/local-compute/library', '本机数据服务未连接。请启动本地App后重新读取。'),
+      read<LocalLibrary>('/api/local-compute/library', '数据服务暂不可用，请稍后重新读取。'),
       read<{ records: EditorRecord[] }>('/api/electrode-editor/records', '电极编辑记录未载入，请刷新记录。'),
       read<{ schema: string; records: ExperimentReceipt[] }>('/api/community/records', '当前浏览器的信号记录未载入，请刷新记录。'),
     ]).then(([layouts, edits, signals]) => {
@@ -48,6 +48,23 @@ export function useLibraryController() {
     return () => controller.abort();
   }, [retry]);
   const catalog = useMemo(() => buildRecordCatalog(data?.records ?? [], editors, receipts), [data, editors, receipts]);
+  // The same radius request computed by older code versions: keep the current-code (else newest)
+  // record in the list and fold the others away; they still open from their links.
+  const [showSuperseded, setShowSuperseded] = useState(false);
+  const superseded = useMemo(() => {
+    const groups = new Map<string, CatalogEntry[]>(), hidden = new Set<string>();
+    for (const entry of catalog) if ('summary' in entry && entry.summary.dataset_id === 'cache' && entry.summary.request) {
+      const key = JSON.stringify(entry.summary.request);
+      groups.set(key, [...(groups.get(key) ?? []), entry]);
+    }
+    for (const rows of groups.values()) {
+      if (rows.length < 2) continue;
+      const rank = (entry: CatalogEntry) => ('summary' in entry && entry.summary.compatible ? 1 : 0);
+      rows.sort((a, b) => rank(b) - rank(a) || (Date.parse(b.finished_at ?? '') || 0) - (Date.parse(a.finished_at ?? '') || 0) || a.id.localeCompare(b.id));
+      for (const entry of rows.slice(1)) hidden.add(entry.id);
+    }
+    return hidden;
+  }, [catalog]);
   const title = useCallback((entry: CatalogEntry) => {
     if ('summary' in entry) return localizedRecordTitle(entry.summary, locale);
     if (entry.kind === 'editor') return `${tx('编辑布局')} · ${entry.electrode_count} ${tx('电极')} · ${localizedEditorParentTitle(entry.editor, data?.records ?? [], locale)}`;
@@ -56,7 +73,7 @@ export function useLibraryController() {
       : tx(SOURCE_REGIONS.find(region => region.id === entry.request.brain_region)?.label ?? entry.request.brain_region ?? '历史源定义');
     return `${tx('信号实验')} · ${source} · ${tx(entry.request.waveform === 'burst' ? '短时爆发' : '持续节律')}`;
   }, [locale, tx, data]);
-  const choices = useMemo(() => catalog.filter(entry => {
+  const matched = useMemo(() => catalog.filter(entry => {
     if (!matchesCatalogFilters(entry, view)) return false;
     const parent = data?.records.find(record => record.id === entry.parent_id);
     const search = ['summary' in entry ? recordSearchText(entry.summary) : '', parent ? recordSearchText(parent) : '',
@@ -65,12 +82,20 @@ export function useLibraryController() {
   }).sort((a, b) => view.sort === 'name' ? title(a).localeCompare(title(b)) || a.id.localeCompare(b.id)
     : view.sort === 'electrodes' ? (a.electrode_count ?? Infinity) - (b.electrode_count ?? Infinity) || a.id.localeCompare(b.id)
       : (view.sort === 'oldest' ? 1 : -1) * ((Date.parse(a.finished_at ?? '') || 0) - (Date.parse(b.finished_at ?? '') || 0)) || a.id.localeCompare(b.id)), [catalog, view, data, title, tx]);
+  const choices = useMemo(() => showSuperseded ? matched : matched.filter(entry => !superseded.has(entry.id)), [matched, superseded, showSuperseded]);
+  const foldedCount = matched.length - choices.length;
   const pages = Math.max(1, Math.ceil(choices.length / 10)), displayPage = Math.min(view.page, pages - 1);
-  const selected = explicitSelection ? catalog.find(entry => entry.id === selectedId) : choices.find(entry => entry.id === selectedId) ?? choices[displayPage * 10] ?? choices[0];
+  // Details (and their full record) load only for a record the visitor opened.
+  const selected = explicitSelection ? catalog.find(entry => entry.id === selectedId) : undefined;
   const id = selected?.id, listed = choices.slice(displayPage * 10, (displayPage + 1) * 10);
   const here = preserveResultsContext(catalogViewLink(ar, id ?? (explicitSelection ? selectedId : ''), { ...view, page: displayPage }), viewContext);
   useEffect(() => { if (ready && !loading) window.history.replaceState(null, '', here); }, [ready, loading, here]);
-  const choose = (value: string) => { setSelectedId(value); setExplicitSelection(true); document.getElementById('record-details')?.scrollIntoView({ behavior: 'smooth' }); };
+  const choose = (value: string) => {
+    // A new history entry, so Back returns to the list rather than leaving the page.
+    window.history.pushState(null, '', preserveResultsContext(catalogViewLink(ar, value, { ...view, page: displayPage }), viewContext));
+    setSelectedId(value); setExplicitSelection(true);
+    requestAnimationFrame(() => document.getElementById('record-details')?.scrollIntoView({ behavior: 'smooth' }));
+  };
   const changeView = (patch: Partial<CatalogView>) => { setView(value => ({ ...value, ...patch, page: 0 })); setSelectedId(''); setExplicitSelection(false); };
   const layout = selected && 'summary' in selected ? selected.summary : data?.records.find(record => record.id === selected?.parent_id);
   const editHref = layout ? radiusDesignLink(layout, ar) : null;
@@ -84,5 +109,5 @@ export function useLibraryController() {
   const electrodeCounts = [...new Set(catalog.flatMap(entry => entry.electrode_count === null ? [] : [entry.electrode_count]))].sort((a, b) => a - b);
   const locations = [...new Set(catalog.flatMap(entry => entry.locations))];
   const regionCounts = [...new Set(catalog.flatMap(entry => entry.region_count === null ? [] : [entry.region_count]))].sort((a, b) => a - b);
-  return { ar, setAR, labHref, here, layout, selected, loading, setLoading, retry, setRetry, error, view, changeView, electrodeCounts, locations, regionCounts, data, catalogWarnings, catalog, listed, id, title, protocol, score, choose, choices, displayPage, setView, pages, explicitSelection, related };
+  return { showSuperseded, setShowSuperseded, foldedCount, ar, setAR, labHref, here, layout, selected, loading, setLoading, retry, setRetry, error, view, changeView, electrodeCounts, locations, regionCounts, data, catalogWarnings, catalog, listed, id, title, protocol, score, choose, choices, displayPage, setView, pages, explicitSelection, related };
 }

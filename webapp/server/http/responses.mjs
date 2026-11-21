@@ -1,6 +1,7 @@
 /** Additive API metadata. Existing endpoints and error strings remain supported. */
 import { sendJsonPayload } from './compression.mjs';
 import { correlateOperation } from '../operations/monitor.mjs';
+import { redactPayload } from './public-errors.mjs';
 export const API_VERSION = '1';
 const codes = {
   400: 'invalid_request', 401: 'authentication_required', 403: 'request_forbidden',
@@ -11,8 +12,9 @@ const codes = {
 
 export function sendJson(res, status, data) {
   correlateOperation(res, data?.job);
-  const body = status >= 400 && typeof data?.error === 'string'
-    ? { ...data, code: data.code || codes[status] || 'request_failed' } : data;
+  const visible = redactPayload(data);
+  const body = status >= 400 && typeof visible?.error === 'string'
+    ? { ...visible, code: visible.code || codes[status] || 'request_failed' } : visible;
   sendJsonPayload(res, status, JSON.stringify(body), {
     'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store',
     'X-Content-Type-Options': 'nosniff', 'Cross-Origin-Resource-Policy': 'same-origin',

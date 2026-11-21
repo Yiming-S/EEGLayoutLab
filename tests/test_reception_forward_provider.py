@@ -135,6 +135,25 @@ def fake_native(frozen, *, shift=0.):
     return calls, native
 
 
+
+def table_design(frozen, table_id):
+    record = completed_design(frozen)
+    path = frozen["root"] / record["provenance"]["design_result"]["path"]
+    payload = json.loads(path.read_text())
+    payload["result"].update(forward_mode="scalp_node_table", native_qa={"scalp_node_table": {"table_id": table_id}})
+    path.unlink()
+    write_json(path, payload)
+    record["provenance"]["design_result"]["sha256"] = provider.sha256_file(path)
+    return record
+
+
+def fake_table(frozen, table_id, *, head=None):
+    def run(root, xyz, progress):
+        return frozen["hc"][:64].copy(), xyz.copy(), 0., {
+            "head_hashes": head or frozen["head"], "reference_relative_difference": 1e-13,
+            "scalp_node_table": {"table_id": table_id}}
+    return run
+
 def test_catalog_verifies_normals_source_order_and_identities(frozen):
     catalog, provenance = provider.load_frozen_source_catalog(frozen["root"])
     assert catalog["generation_normals"].shape == (256, 3)
@@ -582,3 +601,25 @@ def test_design_session_always_rechecks_identity_when_no_artifact_was_prepared(f
         with provider.design_forward_session(frozen["root"], record["layout"]["xyzMm"]):
             path = frozen["runtime_files"]["solver"]
             path.write_bytes(path.read_bytes() + b"changed during optional preparation failure")
+
+
+def test_table_design_reuses_its_table_without_native_identity_or_cache(frozen, monkeypatch):
+    record = table_design(frozen, "t" * 64)
+    monkeypatch.setattr(provider, "_run_native", lambda *a: pytest.fail("native solve for table design"))
+    monkeypatch.setattr(provider, "_native_identity", lambda *a: pytest.fail("native runtime inspected"))
+    monkeypatch.setattr(provider, "_run_table", fake_table(frozen, "t" * 64))
+    data, p = provider.load_reception_forward(frozen["root"], record)
+    np.testing.assert_array_equal(data["candidate_h"], frozen["hc"][:64])
+    assert p["forward_mode"] == "scalp_node_table" and not p["fem_recomputed"]
+    assert p["design_result"]["scalp_node_table_id"] == "t" * 64
+    assert not (frozen["root"] / provider.CACHE_RELATIVE_ROOT).exists()
+
+
+@pytest.mark.parametrize("change", ["table", "head"])
+def test_table_design_rejects_a_replaced_table_or_head(frozen, monkeypatch, change):
+    record = table_design(frozen, "t" * 64)
+    run = (fake_table(frozen, "u" * 64) if change == "table"
+           else fake_table(frozen, "t" * 64, head={**frozen["head"], "mesh": "0" * 64}))
+    monkeypatch.setattr(provider, "_run_table", run)
+    with pytest.raises(ValueError, match="已更换" if change == "table" else "head identity"):
+        provider.load_reception_forward(frozen["root"], record)

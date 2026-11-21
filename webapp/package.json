@@ -20,6 +20,7 @@
     "test:results": "node --test scripts/check-fixed64-results.mjs scripts/check-single-head-results.mjs",
     "test:upgrade": "node --test scripts/check-source-upgrade.mjs",
     "test:i18n": "node --test scripts/check-i18n.mjs",
+    "library:moderate": "node scripts/library-moderation.mjs",
     "test:editor": "node --test scripts/check-electrode-editor.mjs",
     "test:compute": "node --test scripts/check-local-compute.mjs scripts/check-local-data-library.mjs scripts/check-lab-workflow.mjs scripts/check-source-reception.mjs scripts/check-design-decision.mjs scripts/check-surface-patches.mjs"
   },

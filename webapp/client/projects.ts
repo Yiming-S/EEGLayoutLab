@@ -8,7 +8,7 @@ export type ProjectEntry = {
   annotation_id?: string;
   created_at: string; snapshot_sha256: string;
   summary?: { protocol?: string; electrode_count?: number; region_count?: number; parent_id?: string; mode?: string;
-    brain_region?: string; brain_regions?: string[]; source_index?: number; seed?: number };
+    brain_region?: string; brain_regions?: string[]; source_index?: number; seed?: number; simulation?: boolean };
 };
 export type ResearchProject = {
   id: string; title: string; owner_name: string; notes: string; revision: number;

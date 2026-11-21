@@ -64,3 +64,17 @@ Record at least the layout coordinates and order, source/dictionary specificatio
 The production 30-condition fixed-area collection uses the 4,096 dictionary and 256 generation-source protocol. Separate 512-new-source validation belongs to another protocol and is not the default production score. Preserve this distinction in exported reports and comparisons.
 
 Source attribution and data-specific terms are provided in [`data/SOURCES.md`](../data/SOURCES.md) and [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md). The Ernie-derived data retain their third-party attribution and noncommercial terms.
+
+## Optional scenario tables and head packages
+
+Conductivity-scenario tables (`results/v2/scalp_node_table_scenarios/`) and head packages (`results/v2/heads/`) are generated outputs of `scripts/build_scalp_node_table.py` and `scripts/build_head_package.py`. They are not members of `data/manifest.json` or of the data bundle. Each records its own input hashes, code hashes and source terms in its manifest. A head package records the code hash of each build stage, so a package rebuilt after a code change has a new SHA256 and its table must be rebuilt. After the builder code last changed, the nominal table, both scenario tables and five head tables (`ernie_xh`, IXI002, IXI012, IXI013, IXI230) were rebuilt. Their `rows.npy` and `index.npz` matched the previous builds byte for byte. Only the recorded code hashes, build timings and, for heads, the package SHA256 and table ID changed. Each published table passes `build_scalp_node_table.py --verify`. Builds run on the Mac; `charm` needs Rosetta 2 on Apple silicon and peaks at 34–38 GB (see [server deployment](server-deployment.md#building-head-packages)).
+
+- **`ernie_xh`.** Built from the full SimNIBS example dataset v4.1: the same `ernie.msh` bytes as the bundle, plus that dataset's central and registered sphere surfaces. It carries the dataset's CC BY-NC 4.0 terms.
+- **`ixi*` packages.** Derived by SimNIBS `charm` from the [IXI dataset](https://brain-development.org/ixi-dataset/) under CC BY-SA 3.0 (attribution: "IXI dataset, https://brain-development.org/ixi-dataset/"). Redistributing them is subject to those share-alike terms.
+  - Archives: `IXI-T1.tar`, MD5 `34901a0593b41dd19c1a1f746eac2d58`; `IXI-T2.tar`, MD5 `e3140d78730ecdd32ba92da48c0a9aaa`.
+  - Subjects: at each site, the lowest-numbered subjects that have both T1 and T2. Guys: IXI002, IXI017, IXI019, IXI020. HH: IXI012, IXI013, IXI015. IOP: IXI035, IXI230, IXI231.
+    - IXI014 was skipped before any build: its T2 has 28 slices of 5 mm.
+    - IXI016 is not published. Its `charm` run finished, but the package failed source QA: 15 cortical sources in the right parietal lobe lie in skull labels, up to 4.2 mm from grey matter, over the 3 mm limit. IXI020, the next Guys subject, replaces it.
+  - Demographic data were not used to select them.
+  - IXI002 and IXI012 first failed in `charm`'s spherical registration (`CAT_Surf2Sphere`, Rosetta 2 not installed), before the surface-based label update. Their m2m folders were continued with `charm <id> --surfaces --mesh`, and the builder adopts them with `--charm-resume` (`charm_action: "adopt"`).
+  - IXI015, IXI017, IXI019, IXI020, IXI035 and IXI231 are built with `--charm-forceqform`. In their headers the qform and sform matrices differ by rounding, at most 2.3e-5 per entry. `charm` refused IXI017, IXI019, IXI035 and IXI231 without that option; IXI015 and IXI020 were built with it from the start. Their `package.json` records `charm_forceqform: true`.

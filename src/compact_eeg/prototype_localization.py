@@ -60,6 +60,8 @@ def evaluate_grid_localization(
     scan_batch_size: int = 128,
     require_off_dictionary: bool = True,
     off_dictionary_distance_tolerance_mm: float = 1e-6,
+    physical_noise_covariance_v2: np.ndarray | None = None,
+    noise_model: object = "iid_equal_variance",
 ) -> PrototypeLocalizationResult:
     """Evaluate a 64-electrode layout against a frozen fixed-normal dictionary.
 
@@ -77,6 +79,11 @@ def evaluate_grid_localization(
     Equal weights assume the generation points were sampled uniformly by
     cortical area. Optional supplied weights affect the source-tail utility;
     reported error quantiles remain unweighted simulated-trial summaries.
+
+    ``physical_noise_covariance_v2`` (64x64, V^2) replaces the iid noise for
+    correlated models: the same standard-normal stream is coloured by the
+    Cholesky factor of its reference-free projection and the scanner whitens
+    with that projection. None keeps the original iid path exactly.
     """
     hd = np.asarray(dictionary_leadfield, dtype=float)
     hg = np.asarray(generation_leadfield, dtype=float)
@@ -118,11 +125,19 @@ def evaluate_grid_localization(
     contrast = helmert_contrast(64)
     hd_reference_free = contrast @ (hd - hd.mean(axis=0, keepdims=True))
     hg_reference_free = contrast @ (hg - hg.mean(axis=0, keepdims=True))
-    observations = (
-        hg_reference_free[:, :, None] * source_moment_am + sigma * standard_noise
-    ).reshape(63, -1)
+    if physical_noise_covariance_v2 is None:
+        noise = sigma * standard_noise
+        whitening = variance * np.eye(63)
+    else:
+        covariance = np.asarray(physical_noise_covariance_v2, dtype=float)
+        if covariance.shape != (64, 64) or not np.all(np.isfinite(covariance)) or not np.allclose(covariance, covariance.T, rtol=1e-10, atol=0):
+            raise ValueError("physical_noise_covariance_v2 must be a finite symmetric 64x64 matrix")
+        whitening = contrast @ covariance @ contrast.T
+        whitening = .5 * (whitening + whitening.T)
+        noise = np.einsum("ij,jqr->iqr", np.linalg.cholesky(whitening), standard_noise)
+    observations = (hg_reference_free[:, :, None] * source_moment_am + noise).reshape(63, -1)
     indices = fixed_normal_scan(
-        hd_reference_free, observations, variance * np.eye(63),
+        hd_reference_free, observations, whitening,
         batch_size=scan_batch_size,
     ).reshape(count, int(noise_repetitions))
     errors = np.linalg.norm(xd[indices] - xg[:, None, :], axis=2)
@@ -144,6 +159,7 @@ def evaluate_grid_localization(
         "physical_electrode_noise_std_v": sigma,
         "physical_electrode_noise_variance_v2": variance,
         "noise_scale_origin": "caller_supplied_reference_calibration; never_renormalized_to_this_layout",
+        **({} if physical_noise_covariance_v2 is None else {"noise_model": noise_model}),
         "noise_seed": int(noise_seed),
         "layout_noise_stream_sha256": stream_key,
         "noise_generator": "NumPy_PCG64_with_SeedSequence_from_SHA256(base_seed,layout_id)",

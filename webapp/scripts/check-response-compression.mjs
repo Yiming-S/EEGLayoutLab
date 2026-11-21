@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { sendJsonPayload, selectJsonEncoding } from '../server/http/compression.mjs';
-import { precompressModels } from './precompress-models.mjs';
+import { precompressAssets, precompressModels } from './precompress-models.mjs';
 
 const values = { potentials: Array.from({ length: 4096 }, (_, i) => Math.sin(i / 17) * 1e-12),
   coordinates: [[-0, 1e-14, -112.31415926535898]], text: '脑电源与通道' };
@@ -156,4 +156,20 @@ void test('build variants preserve binary models and replace stale sidecars on r
   assert.equal(await readFile(join(directory, 'index.json'), 'utf8'), '{"version":1}');
   await symlink(path, join(directory, 'alias.bin'));
   await assert.rejects(() => precompressModels(root), /symlink/);
+});
+
+void test('client build text assets get sidecars; fonts and model binaries are left to their own rules', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'eeg-asset-compression-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(join(root, '_next/static'), { recursive: true }); await mkdir(join(root, 'models/ernie'), { recursive: true });
+  const script = Buffer.from('export const value = ' + JSON.stringify('x'.repeat(4096)) + ';\n');
+  await writeFile(join(root, '_next/static/app.js'), script);
+  await writeFile(join(root, '_next/static/font.woff2'), Buffer.alloc(4096, 7));
+  await writeFile(join(root, 'models/ernie/index.json'), JSON.stringify({ rows: 'y'.repeat(4096) }));
+  const outputs = await precompressAssets(root);
+  assert.deepEqual(outputs.map(entry => entry.file.slice(root.length)).sort((a, b) => a.localeCompare(b)), ['/_next/static/app.js', '/_next/static/app.js']);
+  assert.deepEqual(brotliDecompressSync(await readFile(join(root, '_next/static/app.js.br'))), script);
+  assert.deepEqual(gunzipSync(await readFile(join(root, '_next/static/app.js.gz'))), script);
+  await assert.rejects(readFile(join(root, '_next/static/font.woff2.br')), { code: 'ENOENT' });
+  await assert.rejects(readFile(join(root, 'models/ernie/index.json.br')), { code: 'ENOENT' });
 });

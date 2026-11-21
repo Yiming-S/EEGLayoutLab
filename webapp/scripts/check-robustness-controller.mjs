@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { ApiError } from '../client/task-client.ts';
 import { createHookHarness } from './helpers/hook-harness.mjs';
 import { parseDesign } from '../lib/design-decision.ts';
-import { createStudyInput, readStudyHandoff, saveStudyHandoff, studyRunning, STUDY_DRAFT_KEY, STUDY_DRAFT_LIMIT, studyCaseStatusLabel, studyStatusLabel } from '../features/robustness/robustness-draft.ts';
+import { createStudyInput, fillHeads, readStudyHandoff, saveStudyHandoff, studyRunning, STUDY_DRAFT_KEY, STUDY_DRAFT_LIMIT, studyCaseStatusLabel, studyStatusLabel } from '../features/robustness/robustness-draft.ts';
 const id = '18358bf4-143e-4431-8456-b99328462b37', otherId = '18358bf4-143e-4431-8456-b99328462b38';
 const date = '2026-11-14T00:00:00Z';
 const result = (studyId = id, status = 'draft', revision = 1) => ({ schema: 'eeg-robustness-study/1', id: studyId, status, revision, title: studyId, protocol: 'noise_seeds', created_at: date, updated_at: date, cases: [], aggregation: { completed_cases: 0 } });
@@ -77,6 +77,18 @@ void test('case form rejects duplicates, excess cases, bad values and false nois
   for (const rows of [[{ seed: '42', radius: '6' }, { seed: '42', radius: '6' }], [{ seed: '42', radius: '3' }, { seed: '43', radius: '6' }], [{ seed: '-1', radius: '6' }], [{ seed: '42', radius: '4' }], Array.from({ length: 13 }, (_, i) => ({ seed: String(i), radius: '6' }))]) assert.throws(() => createStudyInput(design(), 'noise_seeds', rows, 'title', ''));
   assert.equal(createStudyInput(design(), 'grid_displacements', [{ seed: '42', radius: '3' }, { seed: '42', radius: '6' }], 'title', '').cases.length, 2);
   for (const raw of ['not JSON', '{}', ' '.repeat(65537)]) assert.throws(() => readStudyHandoff({ getItem: () => raw }));
+});
+void test('cross-head drafts fill unused heads, pair one seed and radius, and reject repeated heads', () => {
+  const heads = [{ head_id: 'ernie_xh' }, { head_id: 'ixi002' }, { head_id: 'ixi012' }];
+  const rows = fillHeads([{ seed: '7', radius: '3', head: 'ixi002' }, { seed: '9', radius: '10' }, { seed: '1', radius: '6', head: 'gone' }], heads);
+  assert.deepEqual(rows.map((row) => [row.head, row.seed, row.radius]), [['ixi002', '7', '3'], ['ernie_xh', '7', '3'], ['ixi012', '7', '3']]);
+  assert.equal(fillHeads([...rows, { seed: '7', radius: '3' }], heads)[3].head, '');
+  const input = createStudyInput(design(), 'heads', rows, 'title', '', undefined, 'skull_x2');
+  assert.deepEqual(input.cases, [{ seed: 7, radius_mm: 3, head_id: 'ixi002' }, { seed: 7, radius_mm: 3, head_id: 'ernie_xh' }, { seed: 7, radius_mm: 3, head_id: 'ixi012' }]);
+  assert.equal(input.conductivity_scenario, undefined);
+  for (const bad of [[rows[0], rows[0]], [{ ...rows[0], head: '' }], [rows[0], { ...rows[1], radius: '6' }]])
+    assert.throws(() => createStudyInput(design(), 'heads', bad, 'title', ''));
+  assert.throws(() => createStudyInput(design(), 'heads', [rows[0], { ...rows[1], seed: '8' }], 'title', ''), /同一随机种子/);
 });
 void test('parent and child status labels retain their separate subjects', () => {
   assert.equal(studyStatusLabel('completed'), '研究已完成'); assert.equal(studyCaseStatusLabel('completed'), '案例已完成'); assert.equal(studyCaseStatusLabel('cancelled'), '案例已取消');

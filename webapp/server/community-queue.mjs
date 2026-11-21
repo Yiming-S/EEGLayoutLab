@@ -3,6 +3,9 @@ import { createHash, randomBytes, randomUUID, timingSafeEqual, createHmac } from
 import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ANNOTATION_LIMITS } from './annotations/electrode-names.mjs';
+import { networkId, NetworkWindow } from './http/network-identity.mjs';
+import { publicFailure, publicMessage } from './http/public-errors.mjs';
+import { Gate } from './http/concurrency.mjs';
 
 const pending = j => ['queued', 'running', 'cancelling'].includes(j.status);
 const digest = text => createHash('sha256').update(text).digest('hex');
@@ -11,24 +14,34 @@ const error = (message, status = 400) => Object.assign(new Error(message), { sta
 function save(path, value) {
   const tmp = `${path}.${randomUUID()}.tmp`;
   const fd = openSync(tmp, 'wx', 0o600);
-  try { writeFileSync(fd, JSON.stringify(value)); fsyncSync(fd); } finally { closeSync(fd); }
-  renameSync(tmp, path);
+  try {
+    try { writeFileSync(fd, JSON.stringify(value)); fsyncSync(fd); } finally { closeSync(fd); }
+    renameSync(tmp, path);
+  } catch (e) {
+    // A full disk must not also leave a partial temporary file behind.
+    try { unlinkSync(tmp); } catch {}
+    throw e;
+  }
   const dir = openSync(join(path, '..'), 'r');
   try { fsyncSync(dir); } finally { closeSync(dir); }
 }
 
 export class CommunityQueue {
-  constructor({ directory, adapters, now = Date.now, maxQueued = 50, maxPerVisitor = 3, pollMs = 250,
-    initialMaintenance = false, executionSlot, secureCookies = false, visitorAddress, annotations, beforeNewWork = async () => {} } = {}) {
+  constructor({ directory, adapters, now = Date.now, maxQueued = 50, maxPerVisitor = 3, maxPerNetwork = 6, pollMs = 250,
+    receiptLimits = RECEIPT_LIMITS, initialMaintenance = false, executionSlot, secureCookies = false, visitorAddress, annotations, visibility, beforeNewWork = async () => {} } = {}) {
     if (typeof beforeNewWork !== 'function') throw new TypeError('New work admission must be a function.');
     this.beforeNewWork = beforeNewWork; this.resourceBlocked = null; this.stopping = false;
     if (typeof initialMaintenance !== 'boolean') throw new TypeError('initialMaintenance must be boolean');
-    this.directory = directory; this.adapters = adapters; this.now = now; this.annotations = annotations;
+    this.directory = directory; this.adapters = adapters; this.now = now; this.annotations = annotations; this.visibility = visibility;
     this.executionSlot = executionSlot;
     this.secureCookies = secureCookies;
     this.visitorAddress = visitorAddress ?? (req => req.socket?.remoteAddress || 'unknown');
     this.maintenance = initialMaintenance;
-    this.maxQueued = maxQueued; this.maxPerVisitor = maxPerVisitor;
+    this.maxQueued = maxQueued; this.maxPerVisitor = maxPerVisitor; this.maxPerNetwork = maxPerNetwork;
+    this.receiptLimits = { ...RECEIPT_LIMITS, ...receiptLimits };
+    // Electrode-name variants are cheap to request and each one is a file; bound them per network.
+    this.annotationWindow = new NetworkWindow({ limit: 60, windowMs: 3600000, now: () => this.now(),
+      message: '同一网络一小时内最多新建60组电极名称，请稍后再试' });
     this.tasks = []; this.sequence = 0; this.visitors = new Map(); this.rates = new Map();
     this.chain = Promise.resolve(); this.disposed = false; this.activeId = null; this.blockedPids = [];
     mkdirSync(directory, { recursive: true, mode: 0o700 });
@@ -79,13 +92,18 @@ export class CommunityQueue {
     return next;
   }
   persist() {
-    // Retain active tasks and the newest 500 terminal receipts. Results live in scientific caches.
-    const terminal = this.tasks.filter(t => !pending(t)).slice(-500);
-    this.tasks = this.tasks.filter(t => pending(t) || t.workerPid || t.starting || terminal.includes(t));
+    this.tasks = retainReceipts(this.tasks, this.receiptLimits);
     try { save(join(this.directory, 'queue.json'), { version: 1, sequence: this.sequence, maintenance: this.maintenance, tasks: this.tasks }); }
-    catch (e) { this.failClosed(e); throw e; }
+    catch (e) { this.persistFailed = true; this.failClosed(e); throw e; }
   }
-  failClosed(e) { this.failure = e.message; }
+  failClosed(e) { this.failure = e.message; console.error('[eeg] computation queue stopped:', e); }
+  /** A failed write (for example a full disk) stops the queue; retry it so freeing space resumes service. */
+  recoverPersistence() {
+    if (!this.persistFailed || this.disposed || this.stopping) return false;
+    try { save(join(this.directory, 'queue.json'), { version: 1, sequence: this.sequence, maintenance: this.maintenance, tasks: this.tasks }); }
+    catch { return false; }
+    this.persistFailed = false; this.failure = null; return true;
+  }
   setMaintenance(enabled) {
     if (typeof enabled !== 'boolean') throw new TypeError('Maintenance state must be boolean');
     if (this.disposed || this.stopping || this.failure) throw error('计算队列不可用，请稍后重试', 503);
@@ -105,7 +123,7 @@ export class CommunityQueue {
       drained: Boolean(this.maintenance && !this.disposed && !this.failure && !this.activeId && !guarded &&
         !this.executionSlot?.busy && !Object.values(this.adapters).some(adapter => adapter.busy())) };
   }
-  session(req, res) {
+  session(req, res, { renew = false } = {}) {
     const cookies = String(req.headers.cookie || '').split(';').map(s => s.trim());
     let value = cookies.find(s => s.startsWith('eeg_visitor='))?.slice(12);
     const valid = v => {
@@ -114,13 +132,16 @@ export class CommunityQueue {
       const expected = createHmac('sha256', this.secret).update(id).digest('hex');
       return timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
     };
-    if (!valid(value)) {
+    const fresh = !valid(value);
+    if (fresh) {
       const id = randomBytes(32).toString('hex');
       value = `${id}.${createHmac('sha256', this.secret).update(id).digest('hex')}`;
-      res.setHeader('Set-Cookie', `eeg_visitor=${value}; Path=/; HttpOnly; SameSite=Strict; Max-Age=2592000${this.secureCookies ? '; Secure' : ''}`);
     }
+    // Page visits renew the 30-day lifetime, so a returning browser keeps its records listed.
+    if (fresh || renew) res.setHeader('Set-Cookie', `eeg_visitor=${value}; Path=/; HttpOnly; SameSite=Strict; Max-Age=2592000${this.secureCookies ? '; Secure' : ''}`);
     // The configured access policy resolves client addresses only after validating the proxy.
-    return { id: digest(value), ip: this.visitorAddress(req) };
+    const ip = this.visitorAddress(req);
+    return { id: digest(value), ip, network: networkId(this.secret, ip) };
   }
   touch(visitor, visible) {
     const now = this.now();
@@ -144,10 +165,15 @@ export class CommunityQueue {
     }
     this.lastLogPrune = this.now(); return directory;
   }
+  network(visitor) {
+    return visitor?.network ?? (visitor?.ip ? networkId(this.secret, visitor.ip) : undefined);
+  }
   rate(visitor) {
     const now = this.now();
     for (const [key, v] of this.rates) if (now - v.start > 60000) this.rates.delete(key);
-    for (const [key, max] of [[`v:${visitor.id}`, 20], [`ip:${visitor.ip}`, 100]]) {
+    // Per network rather than per address: one IPv6 subscriber controls a whole /64.
+    const network = this.network(visitor);
+    for (const [key, max] of [[`v:${visitor.id}`, 20], ...(network ? [[`net:${network}`, 100]] : [])]) {
       const entry = this.rates.get(key) || { start: now, count: 0 };
       entry.count++; this.rates.set(key, entry);
       if (entry.count > max) throw error('提交过于频繁，请一分钟后重试', 429);
@@ -174,12 +200,21 @@ export class CommunityQueue {
         const annotation = await this.annotationFor(prepared, visitor, previous, false, () => accept(prepared));
         accept(prepared);
         if (this.disposed || this.stopping || this.failure) throw error('计算队列不可用，请稍后重试', 503);
+        const count = this.tasks.length;
         const task = this.receipt(kind, prepared, visitor, ready.job.status);
         this.attachAnnotation(task, visitor, annotation);
-        task.cached = true; task.finished_at = ready.job.finished_at || new Date(this.now()).toISOString();
-        task.catalog = receiptCatalog(kind, prepared, ready.job.result);
-        this.persist();
-        return { hit: true, job: { ...ready.job, ...taskView(task), ...this.annotationView(task, visitor, annotation?.id) } };
+        // A receipt this browser earned by computing keeps that status (and its retention pool);
+        // this reply is still a replay of the saved result.
+        const created = this.tasks.length !== count;
+        if (created) {
+          task.cached = true;
+          task.finished_at = ready.job.finished_at || new Date(this.now()).toISOString();
+          task.catalog = receiptCatalog(kind, prepared, ready.job.result);
+        }
+        if (['completed', 'no_layout'].includes(ready.job.status)) await this.claim(kind, prepared.key, visitor.id);
+        // Repeating a lookup of a result this browser already holds changes nothing durable.
+        if (created || annotation) this.persist();
+        return { hit: true, job: { ...ready.job, ...taskView(task), cached: true, ...this.annotationView(task, visitor, annotation?.id) } };
       }
       const existing = this.tasks.find(t => t.kind === kind && t.key === prepared.key && ['queued', 'running'].includes(t.status));
       if (existing) {
@@ -189,6 +224,8 @@ export class CommunityQueue {
         if (this.disposed || this.stopping || this.failure) throw error('计算队列不可用，请稍后重试', 503);
         if (!existing.owners.includes(visitor.id)) {
           this.checkVisitorLimit(visitor); existing.owners.push(visitor.id);
+          const network = this.network(visitor);
+          if (network && !(existing.networks ??= []).includes(network)) existing.networks.push(network);
         }
         this.attachAnnotation(existing, visitor, annotation); this.persist();
         return { hit: true, job: await this.view(existing, true, visitor, annotation?.id) };
@@ -222,6 +259,7 @@ export class CommunityQueue {
     if (!admitted) await this.beforeNewWork();
     accept();
     if (this.disposed || this.stopping || this.failure) throw error('计算队列不可用，请稍后重试', 503);
+    this.annotationWindow.take(this.network(visitor));
     return this.annotations.create(prepared, visitor.id);
   }
   attachAnnotation(task, visitor, annotation) {
@@ -238,15 +276,25 @@ export class CommunityQueue {
     return { annotation_id: id, electrode_annotation: this.annotations.read(id, visitor.id, task.key) };
   }
   checkVisitorLimit(visitor) {
-    if (this.tasks.filter(t => pending(t) && t.owners.includes(visitor.id)).length >= this.maxPerVisitor) throw error('当前浏览器最多保留3个未完成任务', 429);
+    if (this.tasks.filter(t => pending(t) && t.owners.includes(visitor.id)).length >= this.maxPerVisitor) throw error(`当前浏览器最多保留${this.maxPerVisitor}个未完成任务`, 429);
+    // A fresh cookie is free, so the same cap also applies to the client network.
+    const network = this.network(visitor);
+    if (network && this.tasks.filter(t => pending(t) && t.networks?.includes(network)).length >= this.maxPerNetwork)
+      throw error(`同一网络最多保留${this.maxPerNetwork}个未完成任务，请等前面的任务完成`, 429);
+  }
+  async claim(kind, key, owner) {
+    // Library ownership is presentation metadata; failing to record it must not stop the queue.
+    try { await this.visibility?.claim(kind, key, owner); }
+    catch (e) { console.error('[eeg] library ownership not recorded:', e); }
   }
   receipt(kind, prepared, visitor, status) {
     if (['completed', 'no_layout'].includes(status)) {
       const same = this.tasks.find(t => t.kind === kind && t.key === prepared.key && t.owners.includes(visitor.id) && t.status === status);
       if (same) return same;
     }
+    const network = this.network(visitor);
     const task = { id: randomUUID(), sequence: ++this.sequence, kind, key: prepared.key, request: prepared.request,
-      owners: [visitor.id], status, created_at: new Date(this.now()).toISOString(), progress: 0, cached: false,
+      owners: [visitor.id], ...(network ? { networks: [network] } : {}), status, created_at: new Date(this.now()).toISOString(), progress: 0, cached: false,
       catalog: receiptCatalog(kind, prepared) };
     this.tasks.push(task); return task;
   }
@@ -287,6 +335,7 @@ export class CommunityQueue {
     });
   }
   async tick() {
+    if (this.failure && !this.recoverPersistence()) return;
     if (this.disposed || this.stopping || this.failure) return;
     if (!this.lastLogPrune || this.now() - this.lastLogPrune > 3600000) this.pruneLogs();
     this.blockedPids = this.blockedPids.filter(alive);
@@ -300,6 +349,8 @@ export class CommunityQueue {
       task.finished_at = new Date(this.now()).toISOString(); task.progress = worker?.progress || 0;
       if (worker?.result) task.catalog = { ...task.catalog, ...receiptCatalog(task.kind, { request: task.request }, worker.result) };
       task.cached = Boolean(worker?.cached); delete task.workerPid; delete task.starting; this.activeId = null; this.persist();
+      // Browsers still subscribed when the record is written own it; a browser that left does not.
+      if (['completed', 'no_layout'].includes(task.status)) for (const owner of task.owners) await this.claim(task.kind, task.key, owner);
     }
     // Finish reconciliation above while paused; queued work stays in FIFO order.
     if (this.maintenance || this.executionSlot?.paused || this.executionSlot?.busy || Object.values(this.adapters).some(a => a.busy())) return;
@@ -319,7 +370,9 @@ export class CommunityQueue {
       this.resourceBlocked = null;
       // Persist starting intent before launching a subprocess.
       next.status = 'running'; next.starting = true; this.activeId = next.id; this.persist();
-      const started = await adapter.start(next.request);
+      let started;
+      this.launching = next.id;
+      try { started = await adapter.start(next.request); } finally { this.launching = null; }
       if (this.disposed) return;
       if (started.busy) {
         // Another submission can acquire the slot, or maintenance can pause it,
@@ -335,7 +388,7 @@ export class CommunityQueue {
     } catch (e) {
       if (this.disposed || this.stopping) return;
       if (e.resourceSafe) { this.resourceBlocked = { code: 'resource_unavailable' }; return; }
-      next.status = 'failed'; next.message = e.message; next.finished_at = new Date(this.now()).toISOString();
+      next.status = 'failed'; next.message = publicMessage(e); next.finished_at = new Date(this.now()).toISOString();
       this.activeId = null; this.persist();
     }
   }
@@ -349,7 +402,7 @@ export class CommunityQueue {
       jobs: await Promise.all(jobs.map(t => this.view(t, false, visitor, t.annotation_refs?.[visitor.id]?.at(-1)))) };
   }
   records(visitor) {
-    // The durable receipts are small and already bounded to 500 terminal tasks.
+    // The durable receipts are small and bounded by RECEIPT_LIMITS.
     // Do not load waveform caches or expose another browser's request history.
     const newest = new Map();
     for (const task of this.tasks) {
@@ -357,7 +410,7 @@ export class CommunityQueue {
       const previous = newest.get(task.key);
       if (!previous || task.sequence > previous.sequence) newest.set(task.key, task);
     }
-    return { schema: 'browser-experiment-records/1', scope: 'current_browser', receipt_limit: 500,
+    return { schema: 'browser-experiment-records/1', scope: 'current_browser', receipt_limit: this.receiptLimits.computed,
       records: [...newest.values()].sort((a, b) => b.sequence - a.sequence).map(taskView) };
   }
   async active(kind, visitor) {
@@ -371,9 +424,33 @@ export class CommunityQueue {
   dispose() {
     if (this.disposed) return;
     this.stopScheduling(); this.disposed = true;
+    // A shutdown that lands while a launch is still in flight: the service host disposes the
+    // compute services first, which refuse to spawn afterwards and stop their active worker,
+    // so this task never ran to completion. Keep its place in the queue rather than leave a
+    // marker that blocks all dispatch after the restart. A launch that failed with an unknown
+    // outcome is not in flight and keeps its guard for the operator.
+    const launching = this.tasks.find(task => task.id === this.launching && task.starting && !task.workerPid);
+    if (launching) { launching.status = 'queued'; delete launching.starting; delete launching.backendId; }
     // Leave queued receipts intact. A running job is reported as interrupted on restart.
     this.persist(); this.releaseLock();
   }
+}
+/** Computed receipts are bounded by compute throughput. Cache-hit receipts cost nothing to
+ * create, so they have their own smaller pool with a per-network share: a script cannot push
+ * other visitors' results out, and a visitor who loses a cache-hit receipt gets it back by
+ * opening the result again. */
+export const RECEIPT_LIMITS = Object.freeze({ computed: 1000, cached: 300, cachedPerNetwork: 40 });
+export function retainReceipts(tasks, limits = RECEIPT_LIMITS) {
+  const terminal = tasks.filter(t => !pending(t) && !t.workerPid && !t.starting);
+  const keep = new Set(terminal.filter(t => !t.cached).slice(-limits.computed));
+  const perNetwork = new Map(); let cached = 0;
+  for (const t of terminal.filter(t => t.cached).reverse()) {
+    if (cached >= limits.cached) break;
+    const network = t.networks?.[0] ?? '', count = perNetwork.get(network) ?? 0;
+    if (count >= limits.cachedPerNetwork) continue;
+    perNetwork.set(network, count + 1); keep.add(t); cached++;
+  }
+  return tasks.filter(t => pending(t) || t.workerPid || t.starting || keep.has(t));
 }
 function taskView(t) {
   return { id: t.id, key: t.key, kind: t.kind, request: t.request, status: t.status, stage: t.status,
@@ -410,13 +487,15 @@ export function receiptCatalog(kind, prepared, result) {
 }
 
 export function communityMiddleware({ scheduler, legacy, queue, guard, send, tokenMatches }) {
+  // Saved signal results are about 8 MB each; serializing them is main-thread work.
+  const heavy = new Gate({ limit: 2, waiting: 8 });
   return async (req, res, next) => {
     const path = req.url?.split('?')[0] || '/';
     const endpoint = path.match(/^\/api\/(local-compute|source-reception|design-evaluation|electrode-editor)\/(jobs|lookup|health)(?:\/([a-f0-9-]{36})(\/cancel)?)?$/);
     const community = path.startsWith('/api/community/');
     if (!endpoint && !community) {
       // Set the cookie on document navigation before concurrent client API requests begin.
-      if (guard(req) && req.method === 'GET' && (req.headers['sec-fetch-dest'] === 'document' || String(req.headers.accept).includes('text/html'))) scheduler.session(req, res);
+      if (guard(req) && req.method === 'GET' && (req.headers['sec-fetch-dest'] === 'document' || String(req.headers.accept).includes('text/html'))) scheduler.session(req, res, { renew: true });
       return legacy(req, res, next);
     }
     if (!guard(req)) return send(res, 403, { error: 'Request rejected by access policy.' });
@@ -429,7 +508,8 @@ export function communityMiddleware({ scheduler, legacy, queue, guard, send, tok
         if (savedMatch && req.method === 'GET') {
           const task = scheduler.own(savedMatch[1], visitor, 'source-reception');
           if (task.status !== 'completed') return send(res, 404, { error: '计算记录无法读取，请重新提交' });
-          return send(res, 200, { result: await scheduler.adapters['source-reception'].savedResult(task.key, task.request) });
+          scheduler.rate(visitor);
+          return await heavy.run(async () => send(res, 200, { result: await scheduler.adapters['source-reception'].savedResult(task.key, task.request) }));
         }
         if (path === '/api/community/heartbeat' && req.method === 'POST') {
           if (!tokenMatches(req.headers['x-eeg-compute-token'], queue.token)) return send(res, 403, { error: '刷新页面后重试' });
@@ -440,14 +520,16 @@ export function communityMiddleware({ scheduler, legacy, queue, guard, send, tok
       }
       const [, kind, action, id, cancel] = endpoint;
       if (action === 'health' && req.method === 'GET') return send(res, 200, { ...queue.health(), ...scheduler.maintenanceStatus(), active_job: await scheduler.active(kind, visitor) });
-      if (req.method === 'POST' && !tokenMatches(req.headers['x-eeg-compute-token'], queue.token)) return send(res, 403, { error: '本地会话已更新，请刷新页面后重新计算' });
+      if (req.method === 'POST' && !tokenMatches(req.headers['x-eeg-compute-token'], queue.token)) return send(res, 403, { error: '会话已更新，请刷新页面后重新计算' });
       if (id && action === 'jobs') {
         if (req.method === 'GET' && !cancel) {
           const query = new URL(req.url, 'http://localhost').searchParams;
           if ([...query.keys()].some(key => key !== 'annotation_id') || query.getAll('annotation_id').length > 1) throw error('Unsupported task query.');
           const annotationId = query.get('annotation_id') ?? undefined;
           if (annotationId !== undefined && !/^[a-f0-9]{64}$/.test(annotationId)) throw error('Invalid electrode name annotation.');
-          return send(res, 200, { job: await scheduler.view(scheduler.own(id, visitor, kind), true, visitor, annotationId) });
+          const task = scheduler.own(id, visitor, kind);
+          const respond = async () => send(res, 200, { job: await scheduler.view(task, true, visitor, annotationId) });
+          return kind === 'source-reception' && ['completed', 'no_layout'].includes(task.status) ? await heavy.run(respond) : await respond();
         }
         if (req.method === 'POST' && cancel) return send(res, 202, { job: await scheduler.cancel(id, visitor, kind) });
       }
@@ -461,8 +543,9 @@ export function communityMiddleware({ scheduler, legacy, queue, guard, send, tok
       }
       return send(res, 404, { error: 'Unknown queue endpoint' });
     } catch (e) {
-      if (e.resourceSafe && Number.isInteger(e.retryAfter) && e.retryAfter > 0 && e.retryAfter <= 3600 && !res.headersSent && !res.closed && !res.destroyed) res.setHeader('Retry-After', String(e.retryAfter));
-      return send(res, e.status || 400, { error: e.message, ...(e.resourceSafe ? { code: 'resource_unavailable' } : {}) });
+      if ((e.resourceSafe || e.status === 503) && Number.isInteger(e.retryAfter) && e.retryAfter > 0 && e.retryAfter <= 3600 && !res.headersSent && !res.closed && !res.destroyed) res.setHeader('Retry-After', String(e.retryAfter));
+      const failure = publicFailure(e);
+      return send(res, failure.status, { error: failure.message, ...(e.resourceSafe ? { code: 'resource_unavailable' } : {}) });
     }
   };
 }

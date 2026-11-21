@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { constants } from 'node:fs';
-import { lstat, mkdir, open, readdir, realpath } from 'node:fs/promises';
+import { lstat, mkdir, open, readdir, realpath, rm } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 import { atomicJson } from '../storage/records.mjs';
 import { validateElectrodeAnnotation } from '../annotations/electrode-names.mjs';
@@ -8,7 +8,7 @@ import { validateElectrodeAnnotation } from '../annotations/electrode-names.mjs'
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
 const SHA = /^[a-f0-9]{64}$/;
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
-export const PROJECT_LIMITS = Object.freeze({ projects: 1000, entries: 100, snapshotBytes: 16 * 1024 * 1024, projectBytes: 128 * 1024 * 1024, metadataBytes: 512 * 1024 });
+export const PROJECT_LIMITS = Object.freeze({ projects: 1000, perNetwork: 30, unusedDays: 30, entries: 100, snapshotBytes: 16 * 1024 * 1024, projectBytes: 128 * 1024 * 1024, metadataBytes: 512 * 1024 });
 export const projectError = (message, status = 400) => Object.assign(new Error(message), { status, projectSafe: true });
 export const validProjectId = value => typeof value === 'string' && UUID.test(value);
 const clone = value => JSON.parse(JSON.stringify(value));
@@ -87,6 +87,7 @@ function validateRecord(record, id) {
     }
     if (bytes > PROJECT_LIMITS.projectBytes) throw new Error();
     if (record.workflow !== undefined) workflow(record.workflow, record.entries);
+    if (record.creator_network !== undefined && !SHA.test(record.creator_network)) throw new Error();
   } catch { throw projectError('Project metadata failed integrity checks.', 409); }
   return record;
 }
@@ -155,16 +156,35 @@ export class ProjectStore {
     await lstat(path).then(value => { if (!value.isFile() || value.isSymbolicLink() || value.nlink !== 1) throw projectError('Project metadata path is invalid.', 409); }).catch(error => { if (error.code !== 'ENOENT') throw error; });
     await atomicJson(path, record);
   }
-  async create(input) {
+  /** Existing projects; a project never edited and holding no entries is removed after a month. */
+  async existing() {
+    const cutoff = Date.parse(this.now()) - PROJECT_LIMITS.unusedDays * 86400000, kept = [];
+    for (const entry of await readdir(this.directory, { withFileTypes: true })) {
+      if (!validProjectId(entry.name)) continue;
+      let record = null;
+      try { record = await this.load(entry.name); } catch { /* Unreadable or interrupted projects still count. */ }
+      if (record && record.revision === 1 && !record.entries.length && Date.parse(record.updated_at) < cutoff) {
+        await rm(join(this.directory, entry.name), { recursive: true, force: true });
+        continue;
+      }
+      kept.push(record);
+    }
+    return kept;
+  }
+  async create(input, { network } = {}) {
     fields(input, ['title', 'owner_name', 'notes']);
     const values = { title: text(input.title, 'project title', 200, true), owner_name: text(input.owner_name, 'researcher name', 120, true), notes: text(input.notes ?? '', 'project notes', 8000) };
     return this.serialize(async () => {
       await this.ready();
-      const entries = await readdir(this.directory, { withFileTypes: true });
-      if (entries.filter(entry => validProjectId(entry.name)).length >= PROJECT_LIMITS.projects) throw projectError('Project storage limit reached.', 507);
+      const existing = await this.existing();
+      if (existing.length >= PROJECT_LIMITS.projects) throw projectError('Project storage limit reached.', 507);
+      // Projects need no cookie, so the creation share is kept per client network.
+      if (network && existing.filter(record => record?.creator_network === network).length >= PROJECT_LIMITS.perNetwork)
+        throw projectError('This network has reached its project limit.', 429);
       const id = randomUUID(), access_key = randomBytes(32).toString('hex'), at = this.now();
       await mkdir(join(this.directory, id), { mode: 0o700 }); await mkdir(join(this.directory, id, 'snapshots'), { mode: 0o700 });
-      const record = { schema: 'research-project/1', id, ...values, revision: 1, created_at: at, updated_at: at, owner_key_hash: digest(access_key), viewer_key_hash: null, entries: [] };
+      const record = { schema: 'research-project/1', id, ...values, revision: 1, created_at: at, updated_at: at, owner_key_hash: digest(access_key), viewer_key_hash: null, entries: [],
+        ...(network ? { creator_network: network } : {}) };
       await this.save(record);
       return { project: publicProject(record), role: 'owner', access_key };
     });

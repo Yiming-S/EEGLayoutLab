@@ -8,6 +8,7 @@ import { recordedForwardOrigin } from '../features/reception/result-provenance.t
 import { safeReturnHref } from '../lib/ui-language.ts';
 import { workspaceLinks } from '../lib/workspace-navigation.ts';
 import { documentationHref } from '../lib/documentation.ts';
+import { ProjectService } from '../server/projects/service.mjs';
 
 const credential = { project_id: '00000000-0000-4000-8000-000000000001', access_key: 'a'.repeat(64), role: 'owner', title: 'Study A' };
 const entry = (id, record_id, kind = 'layout', protocol = 'cache') => ({ id, record_id, kind, title: id, notes: '', summary: { protocol, electrode_count: kind === 'editor' ? 63 : 64 } });
@@ -88,5 +89,17 @@ void test('field provenance distinguishes an archived shared field, ordinary FEM
   assert.match(recordedForwardOrigin({ forward_mode: 'native_fem_cache', shared_forward_producer: { workflow: 'design_evaluation' }, fem_recomputed: false }), /布局评价准备/);
   assert.match(recordedForwardOrigin({ forward_mode: 'native_fem_cache', fem_recomputed: false }), /已保存/);
   assert.match(recordedForwardOrigin({ forward_mode: 'native_fem', fem_recomputed: true }), /计算生成/);
+  assert.match(recordedForwardOrigin({ forward_mode: 'scalp_node_table', fem_recomputed: false }), /头皮节点预计算/);
   assert.match(recordedForwardOrigin({}), /原始记录/);
+});
+
+void test('project layout summaries mark whether signal simulation accepts the layout', async () => {
+  const xyzMm = Array.from({ length: 64 }, () => [0, 0, 80]), spatial = { kind: 'spatial', rho: 0.5, length_mm: 20 };
+  const record = (id, extra) => ({ id, status: 'completed', dataset_id: 'cache', layout: { xyzMm }, region_count: 4, request: { region_count: 4 }, ...extra });
+  const records = { ['f'.repeat(64)]: record('f'.repeat(64)), ['9'.repeat(64)]: record('9'.repeat(64), { request: { region_count: 4, noise_model: spatial } }), ['8'.repeat(64)]: record('8'.repeat(64), { layout: { xyzMm: xyzMm.slice(1) } }) };
+  const service = new ProjectService({ queue: { root: '/unused', python: 'unused', library: { get: async id => records[id] } }, store: {}, delivery: {}, bundle: async (_root, value) => ({ record: value }) });
+  const simulation = async record_id => (await service.resolveSnapshot({ kind: 'layout', record_id }, { id: 'browser' })).summary.simulation;
+  assert.equal(await simulation('f'.repeat(64)), true);
+  assert.equal(await simulation('9'.repeat(64)), false);
+  assert.equal(await simulation('8'.repeat(64)), false);
 });

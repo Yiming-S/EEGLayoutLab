@@ -82,7 +82,7 @@ assert.equal(
   multi.result.provenance.provider_id,
 );
 assert.equal(multi.result.provenance.fem_recomputed, false);
-assert.equal(multi.result.provenance.forward_mode, 'native_fem_cache');
+assert.ok(['native_fem_cache', 'scalp_node_table'].includes(multi.result.provenance.forward_mode));
 const summary = (j) => ({
   job_id: j.id,
   key: j.key,

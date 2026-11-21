@@ -36,6 +36,53 @@ The radius request permits `mask_codes`. Preset mode requires exactly
 array, which the HTTP normalizer omits from canonical output. The Python worker
 adds an empty array. Other fields are rejected.
 
+Radius and design-evaluation requests also accept an optional `noise_model`.
+Absent means the production model, independent equal-variance electrode noise;
+`{"kind": "iid"}` is accepted and omitted from canonical output, so default
+requests keep their original canonical JSON and cache keys. Allowed presets:
+
+- `{"kind": "spatial", "rho": 0.5, "length_mm": 10 | 20 | 40}`: spatially
+  correlated electrode noise with Gaussian correlation over electrode distance
+  and unchanged per-electrode variance. Radius search and design evaluation.
+- `{"kind": "brain_background", "fraction": 0.5}`: half of the reference noise
+  power is cortical background activity. Design evaluation only; it changes
+  localization, not field reconstruction or amplitude, so radius search rejects it.
+  Only the total noise power at the reference matches the 20 dB sensor noise:
+  the background is 0.005 times the signal source prior and concentrated in a
+  few directions, so most whitened directions carry less noise and absolute
+  localization errors are smaller than under independent noise. Compare
+  reference-normalized ratios across noise models, not absolute errors.
+
+Fields must match a preset exactly (`rho` and `fraction` are numbers, `length_mm`
+an integer). A robustness study may set one top-level `noise_model`, applied to
+every case. Signal simulation and the electrode editor keep independent noise
+and do not accept layouts searched or evaluated under another model.
+
+Design evaluation with `action: "evaluate"` also accepts an optional
+`conductivity_scenario`, the name of a scenario in
+`configs/conductivity_scenarios.json` (`skull_x0.5` or `skull_x2`). Absent means
+the matched model. With a scenario, the data come from that scenario's
+scalp-node table while reconstruction and localization keep the nominal model;
+the result's provenance records the matched scores under `model_mismatch`.
+Perturbation requests reject it. A robustness study may set it for the
+`noise_seeds` protocol. Such evaluations are not offered to signal simulation.
+
+Design evaluation with `action: "evaluate"` also accepts an optional `head_id`,
+a lowercase package identifier (`[a-z0-9]` words joined by `_` or `-`, at most
+40 characters) naming a head package under `results/v2/heads/`. Absent or empty
+means the production Ernie head and is omitted from canonical output. With a
+head, the coordinates and the standard64 reference are mapped from Ernie through
+MNI onto that head and scored with its own sources and scalp-node table at
+default conductivities. It cannot be combined with `conductivity_scenario`, and
+perturbation requests reject it. `GET /api/design-evaluation/heads` lists the
+packages whose table is published. The robustness `heads` protocol takes cases
+`{head_id, seed, radius_mm}` with one radius, one seed shared by every case and
+each head at most once. Each `heads` case stores its own `identity_sha256`,
+since different heads read different packages and tables, and the study
+`identity_sha256` is the SHA-256 of the ordered case identities. `noise_seeds`
+and `grid_displacements` studies keep one shared study identity. Such
+evaluations are not offered to signal simulation or to the decision page.
+
 Source regions are `frontal`, `central`, `parietal`, `occipital`, `temporal_left`,
 `temporal_right`, in that canonical order. Waveform is `burst` or `rhythm`;
 artifact scale is 0, 0.5, 1, 2, or 4; seed is an integer from 0 through 9999.
@@ -84,6 +131,34 @@ states include `queued`, `running`, `cancelling`, `completed`, `failed`,
 `cancelled`, and `timeout`; radius tasks can finish as `no_layout`. Browser
 connection state is tracked separately from these backend states. The extraction
 does not merge the result formats or rewrite historical records.
+
+## Shared library visibility
+
+`GET /api/local-compute/library`, `GET /api/electrode-editor/records`,
+`GET /api/electrode-editor/parents` and `GET /api/source-reception/layouts`
+list one browser's view. Each visitor-produced record (`cache`,
+`design_evaluation`, electrode edits) carries `visibility`:
+
+| Field | Values |
+| --- | --- |
+| `scope` | `shared` (default: everything not removed is listed) or `owner` (optional) |
+| `review` | `true` when publications wait for the operator |
+| `owned` | Whether this browser owns the record |
+| `state` | `private`, `pending`, `public` or `removed` |
+| `published_by_me` | Whether this browser's publication is active |
+| `reason` | Removal reason, shown to owners only |
+
+The library list also returns `library_scope: { scope, review }`. Official
+records carry no `visibility` field. `GET /api/local-compute/library/<id>`
+returns the same `visibility` on visitor records; it and `/bundle` return 404
+to a non-owner when the operator removed the record.
+
+`POST /api/local-compute/library/<id>/visibility` with body exactly
+`{"public": true}` or `{"public": false}` publishes or withdraws this browser's
+publication. It needs `X-EEG-Compute-Token` and counts toward the submission
+rate limit. Responses: 200 `{ visibility }`; 400 invalid body; 403 not an
+owner or missing token; 404 no completed visitor record with this identifier;
+409 publishing a removed record; 413 body over 256 bytes; 429 rate limit.
 
 ## Compatibility verification
 

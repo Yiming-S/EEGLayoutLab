@@ -1,4 +1,5 @@
 'use client';
+import { CONDUCTIVITY_SCENARIOS, NOISE_MODEL_PRESETS } from '../../contracts/scientific-options.mjs';
 import { useLanguage } from '@/components/language-provider';
 
 /* oxlint-disable next/no-html-link-for-pages -- preserve established vinext navigation */
@@ -23,6 +24,7 @@ import {
   type ElectrodeDesign,
   type DecisionThresholds,
   type DesignJob,
+  type NoiseModel,
 } from '@/lib/design-decision';
 
 export function useDecisionController(
@@ -58,7 +60,10 @@ export function useDecisionController(
       mode === 'coordinates' ? 'import' : 'a',
     );
   const [radius, setRadius] = useState(6),
-    [seed, setSeed] = useState(42);
+    [seed, setSeed] = useState(42),
+    [noiseModelId, setNoiseModelId] = useState('iid'),
+    [scenarioId, setScenarioId] = useState('');
+  const noiseModel = NOISE_MODEL_PRESETS.find((preset) => preset.id === noiseModelId)?.value as NoiseModel | undefined;
   const [action, setAction] = useState<'evaluate' | 'perturb'>('evaluate');
   const [showEvaluated, setShowEvaluated] = useState(true);
   useEffect(() => {
@@ -82,6 +87,8 @@ export function useDecisionController(
               setSeed(draft.seed);
             if ([3, 6, 10].includes(draft.radius_mm)) setRadius(draft.radius_mm);
             if (['evaluate', 'perturb'].includes(draft.action)) setAction(draft.action);
+            if (NOISE_MODEL_PRESETS.some((preset) => preset.id === draft.noise_model_id)) setNoiseModelId(draft.noise_model_id);
+            if (CONDUCTIVITY_SCENARIOS.some((scenario) => scenario.id === draft.conductivity_scenario)) setScenarioId(draft.conductivity_scenario);
             setDraftNotice('已恢复坐标草稿；尚未重新评价。');
           }
         } catch {
@@ -91,7 +98,7 @@ export function useDecisionController(
     });
     fetch('/api/local-compute/library', { signal: controller.signal })
       .then(async (r) => {
-        if (!r.ok) throw new Error('启动本地App后可读取方案目录。');
+        if (!r.ok) throw new Error('方案目录暂时无法读取，请稍后重试。');
         const data = (await r.json()) as LocalLibrary;
         if (data.schema !== 'local-data-library/1')
           throw new Error('目录格式错误');
@@ -159,9 +166,9 @@ export function useDecisionController(
         setRecords(rows.map(row => row.record));
         const saved = rows.find(row => row.saved);
         if (saved?.saved) {
-          const { design, action, radius_mm, seed, result } = saved.saved;
-          setImported(design); setTestTarget('import'); setAction(action); setRadius(radius_mm); setSeed(seed);
-          setJobIdentity(JSON.stringify({ action, design, radius_mm, seed }));
+          const { design, action, radius_mm, seed, noise_model_id, conductivity_scenario, result } = saved.saved;
+          setImported(design); setTestTarget('import'); setAction(action); setRadius(radius_mm); setSeed(seed); setNoiseModelId(noise_model_id); setScenarioId(conductivity_scenario);
+          setJobIdentity(JSON.stringify({ action, design, radius_mm, seed, noise: noise_model_id, scenario: conductivity_scenario }));
           setJob({ id: 'saved-' + saved.record.id, key: saved.record.id, status: 'completed', message: '已载入保存的坐标评价。', progress: 1, result, cached: true,
             ...(saved.record.electrode_annotation ? { annotation_id: saved.record.electrode_annotation.id, electrode_annotation: saved.record.electrode_annotation } : {}) });
         }
@@ -191,6 +198,8 @@ export function useDecisionController(
     design,
     radius_mm: radius,
     seed,
+    noise: noiseModelId,
+    scenario: action === 'evaluate' ? scenarioId : '',
   });
   const result =
     jobIdentity === requestIdentity && job?.status === 'completed'
@@ -218,19 +227,46 @@ export function useDecisionController(
     try {
       sessionStorage.setItem(
         'eeg-coordinate-tab-draft',
-        JSON.stringify({ design: imported, seed, radius_mm: radius, action }),
+        JSON.stringify({ design: imported, seed, radius_mm: radius, action, noise_model_id: noiseModelId, conductivity_scenario: scenarioId }),
       );
     } catch {
       void Promise.resolve().then(() =>
         setDraftNotice('当前标签页无法暂存坐标；离开前请保留原始文件。'),
       );
     }
-  }, [mode, imported, seed, radius, action]);
+  }, [mode, imported, seed, radius, action, noiseModelId, scenarioId]);
   useEffect(() => {
     if (ready) window.history.replaceState(null, '', here);
   }, [ready, here]);
   const jobSnapshot = useRef(job);
   useEffect(() => { jobSnapshot.current = job; }, [job]);
+  // An evaluation runs for up to ten minutes; a visitor who leaves and comes back gets it back.
+  useEffect(() => {
+    if (mode !== 'coordinates') return;
+    const controller = new AbortController();
+    fetch('/api/design-evaluation/health', { signal: controller.signal, cache: 'no-store' })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((health: { active_job?: DesignJob | null } | null) => {
+        const active = health?.active_job, request = active?.request;
+        if (controller.signal.aborted || !active || !request || !isTaskRunning(active) || jobSnapshot.current) return;
+        if (request.action !== 'evaluate' && request.action !== 'perturb') return;
+        let restored: ElectrodeDesign;
+        try { restored = validateDesign(request.design); } catch { return; }
+        const noise = NOISE_MODEL_PRESETS.find((preset) => JSON.stringify(preset.value ?? null) === JSON.stringify(request.noise_model ?? null))?.id ?? 'iid';
+        const scenario = request.action === 'evaluate' ? (request.conductivity_scenario ?? '') : '';
+        setImported(restored); setTestTarget('import');
+        if (typeof request.radius_mm === 'number') setRadius(request.radius_mm);
+        if (typeof request.seed === 'number') setSeed(request.seed);
+        setAction(request.action); setNoiseModelId(noise); setScenarioId(scenario);
+        setJobIdentity(JSON.stringify({ action: request.action, design: restored, radius_mm: request.radius_mm, seed: request.seed, noise, scenario }));
+        setJob(active); setPollRevision((value) => value + 1);
+        setDraftNotice('已恢复离开前提交的坐标评价，正在继续查询进度。');
+      })
+      .catch(() => { /* Without the service, the page works as before. */ });
+    return () => controller.abort();
+  }, [mode]);
+  /** After repeated failed polls, the visitor can ask again instead of reloading the page. */
+  const reconnect = () => { setConnection('connected'); setComputeError(''); setPollRevision((value) => value + 1); };
   const jobId = job?.id,
     jobStatus = job?.status;
   useEffect(() => {
@@ -255,6 +291,8 @@ export function useDecisionController(
       design,
       radius_mm: radius,
       seed,
+      noise: noiseModelId,
+      scenario: action === 'evaluate' ? scenarioId : '',
     });
     setAction(action);
     setBusy(true);
@@ -263,7 +301,7 @@ export function useDecisionController(
       const controller = new AbortController();
       requestController.current = controller;
       const data = await submitTask<{ job: DesignJob }>('design-evaluation',
-        designSubmission(design, action, radius, seed), { signal: controller.signal, errorMessage: '计算未启动' });
+        designSubmission(design, action, radius, seed, noiseModel, scenarioId || undefined), { signal: controller.signal, errorMessage: '计算未启动' });
       if (!alive.current) return;
       setConnection('connected');
       setPollRevision(value => value + 1);
@@ -325,6 +363,10 @@ export function useDecisionController(
     setRadius,
     seed,
     setSeed,
+    noiseModelId,
+    scenarioId,
+    setScenarioId,
+    setNoiseModelId,
     action,
     showEvaluated,
     setShowEvaluated,
@@ -339,6 +381,7 @@ export function useDecisionController(
     result,
     resultQualification,
     computing,
+    reconnect,
     runEvaluation,
     cancel,
     preview,

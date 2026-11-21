@@ -203,7 +203,7 @@ void test('signal catalog uses bounded metadata and excludes waveform arrays, ot
   f.q.receipt('source-reception', { ...prepared, key: 'private-key' }, b, 'completed');
   const own = f.q.records(a);
   assert.equal(own.records.length, 1); assert.equal(own.records[0].id, later.id);
-  assert.equal(own.scope, 'current_browser'); assert.equal(own.receipt_limit, 500);
+  assert.equal(own.scope, 'current_browser'); assert.equal(own.receipt_limit, 1000);
   assert.ok(!JSON.stringify(own).includes('owners')); assert.ok(!JSON.stringify(own).includes('private-key'));
   f.q.dispose(); const g = fixture(t, { directory: f.directory });
   assert.deepEqual(g.q.records(a), own);

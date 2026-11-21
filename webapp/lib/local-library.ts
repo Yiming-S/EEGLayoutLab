@@ -1,6 +1,12 @@
 import type { ComputedLayout, ComputeRequest, ComputeResult } from './local-compute';
 import type { CoordinateSourceMetadata } from '../contracts/coordinate-source';
 
+/** One browser's view of a visitor-produced record (absent on official records and without a scheduler). */
+export type RecordVisibility = {
+  scope: 'shared' | 'owner'; review: boolean; owned: boolean;
+  state: 'private' | 'pending' | 'public' | 'removed'; published_by_me: boolean; reason?: string;
+};
+export type LibraryScope = { scope: 'shared' | 'owner'; review: boolean };
 export type SavedSummary = {
   id: string;
   dataset_id: 'cache' | 'strict_area' | 'offline_radius' | 'historical_area' | 'design_evaluation';
@@ -16,7 +22,11 @@ export type SavedSummary = {
   finished_at?: string;
   metrics: ComputeResult['metrics'];
   geometry: ComputeResult['geometry'];
+  visibility?: RecordVisibility;
+  /** Saved coordinate evaluations outside the default protocol (absent for the default). */
+  evaluation_condition?: EvaluationCondition;
 };
+export type EvaluationCondition = { noise_model?: ComputeRequest['noise_model']; conductivity_scenario?: string; head_id?: string };
 export type ElectrodeAnnotation = { schema: 'eeg-electrode-annotation/1'; id: string; record_id: string; request_sha256: string; electrode_names: string[]; source_metadata?: CoordinateSourceMetadata };
 export type SavedRecord = SavedSummary & { layout: ComputedLayout | null; provenance: Record<string, unknown>; electrode_annotation?: ElectrodeAnnotation };
 export type LocalLibrary = {
@@ -25,6 +35,7 @@ export type LocalLibrary = {
   records: SavedSummary[];
   warnings: string[];
   electrode_annotations?: ElectrodeAnnotation[];
+  library_scope?: LibraryScope;
 };
 
 export function recordAnnotationId(href: string, recordId: string | null | undefined) {
@@ -37,9 +48,10 @@ export function recordAnnotationId(href: string, recordId: string | null | undef
 }
 
 export function canSimulateRecord(record: SavedRecord | null | undefined) {
+  // The simulation server rejects layouts searched or evaluated outside the default protocol.
   return !!record && record.status === 'completed' &&
     ['cache', 'strict_area', 'design_evaluation'].includes(record.dataset_id) &&
-    record.layout?.xyzMm.length === 64;
+    record.layout?.xyzMm.length === 64 && !record.request?.noise_model && !record.evaluation_condition;
 }
 
 export function designLink(record: SavedSummary, ar = 90) {

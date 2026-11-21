@@ -190,7 +190,7 @@ void test('navigation groups existing destinations into four workspaces with vis
   const header = await readFile('components/site-header.tsx', 'utf8');
   assert.deepEqual(WORKSPACES.map(p => p.label), ['结果库', '布局设计', '信号仿真', '文档']);
   assert.deepEqual(WORKSPACE_TABS.design.map(p => p[0]), ['design', 'electrodes', 'coordinates']);
-  assert.deepEqual(WORKSPACE_TABS.results.map(p => p[0]), ['compare', 'library', 'decision', 'projects']);
+  assert.deepEqual(WORKSPACE_TABS.results.map(p => p[0]), ['compare', 'library', 'decision', 'projects', 'robustness']);
   assert.ok(header.includes('WORKSPACES.map'));
   assert.ok(header.includes('WORKSPACE_TABS[group].map'));
   for (const [file, current] of [['features/overview/overview-workspace.tsx', 'compare'], ['features/design/design-workspace.tsx', 'design'], ['features/reception/reception-workspace.tsx', 'reception']]) {

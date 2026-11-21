@@ -16,7 +16,7 @@ This guide covers the current **Apple Silicon macOS** setup. For the planned hos
 - [GitHub CLI](https://cli.github.com/) (`gh`) and a GitHub account with access to this private repository.
 - An internet connection for installing dependencies.
 
-Use the native Apple Silicon versions of these tools, without Rosetta.
+Use the native Apple Silicon versions of these tools, without Rosetta. The runtime itself stays native. Only building head packages with `charm` also needs Rosetta 2 installed, for SimNIBS's bundled x86_64 tools (see [server deployment](server-deployment.md#building-head-packages)).
 
 ## First-time setup
 

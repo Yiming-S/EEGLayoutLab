@@ -42,6 +42,32 @@ class DesignEvaluationTests(unittest.TestCase):
         for key, value in [('action', 'search'), ('seed', True), ('seed', -1), ('radius_mm', 4), ('radius_mm', True)]:
             with self.subTest(key=key), self.assertRaises(ValueError): de.validate_request({**request(), key: value})
 
+    def test_optional_fields_accept_only_their_canonical_form(self):
+        evaluate = {**request(), 'action': 'evaluate'}
+        self.assertEqual(de.validate_request({**evaluate, 'head_id': 'ixi002'})['head_id'], 'ixi002')
+        for key, value in [('noise_model', None), ('head_id', 'ixi002\n'), ('conductivity_scenario', 'skull_x2\n')]:
+            with self.subTest(key=key), self.assertRaises(ValueError): de.validate_request({**evaluate, key: value})
+
+    def test_head_request_never_computes_an_ernie_field(self):
+        class Reached(Exception): pass
+        r = request(); r['action'] = 'evaluate'; r['head_id'] = 'ixi002'
+        xyz = np.asarray(r['design']['xyz_mm'])
+        data = {'candidate_xyz_mm': xyz + 500, 'candidate_leadfield_v_per_am': np.zeros((64, 4352)),
+                'reference_xyz_mm': xyz + 250, 'reference_leadfield_v_per_am': np.zeros((64, 4352)),
+                'dictionary_source_count': np.array(4096), 'source_area_weights': np.ones(4096), 'source_xyz_mm': np.zeros((4096, 3)),
+                'generation_xyz_mm': np.zeros((256, 3)), 'generation_area_weights': np.ones(256)}
+        def head_space(root, head_id, points, data, progress):
+            assert_array_equal(points, xyz + .5)
+            raise Reached
+        forbidden = AssertionError('Ernie field computed for a head request')
+        with patch.object(de, 'load_bank', return_value=(data, {'sha256': 'b' * 64}, {})), \
+             patch.object(de, 'ernie_projection', return_value=(xyz + .5, .5, {})) as gate, \
+             patch.object(de, 'table_field', side_effect=forbidden), patch.object(de, 'native_field', side_effect=forbidden), \
+             patch('compact_eeg.workflows.scalp_node_table.available', side_effect=forbidden), \
+             patch.object(de, 'head_space', side_effect=head_space):
+            with self.assertRaises(Reached): de.evaluate(r)
+        gate.assert_called_once()
+
     def test_coordinate_frames_and_spacing(self):
         for key, val in [('coordinate_system', 'mni'), ('unit', 'm'), ('xyz_mm', [[0, 0, 0]] * 64), ('region_indices', [0] * 31 + [1] * 33)]:
             r = request(); r['design'][key] = val

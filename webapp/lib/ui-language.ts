@@ -1,4 +1,5 @@
 import type { SavedSummary } from './local-library';
+import { conductivityScenarioLabel, noiseModelLabel } from '../contracts/scientific-options.mjs';
 
 // Display vocabulary only: preserve calculation keys, record IDs and raw data.
 export const metricPercent = (value: number | null | undefined, missing = '尚未计算') =>
@@ -14,7 +15,7 @@ export const PAGES = [
   { id: 'guide', path: '/guide', label: '使用指南' },
   { id: 'method', path: '/method', label: '建模与原理' },
 ] as const;
-export type PageId = (typeof PAGES)[number]['id'] | 'library' | 'results' | 'coordinates' | 'projects';
+export type PageId = (typeof PAGES)[number]['id'] | 'library' | 'results' | 'coordinates' | 'projects' | 'robustness';
 export const MASK_NAMES: Record<string, string> = {
   PL: '左耳后邻近区', PR: '右耳后邻近区', AL: '左耳周扩展区', AR: '右耳周扩展区',
   FL: '左前额', FM: '中部前额', FR: '右前额', OL: '左眶周上外侧', OR: '右眶周上外侧',
@@ -25,7 +26,8 @@ export function protocolName(id: string) {
   if (id === 'historical_area') return '历史面积实验（原坐标范围）';
   return id === 'strict_area' ? '总面积上限约束实验' : id === 'cache' ? '每区半径约束计算' : '历史半径实验（区域可相交）';
 }
-export function recordTitle(record: SavedSummary) {
+/** Title without the noise-model suffix, so each part matches its own translation. */
+export function recordBaseTitle(record: SavedSummary) {
   if (record.dataset_id === 'design_evaluation') return `${record.region_count}个区域 · ${record.label} · 已评价坐标`;
   if (record.dataset_id === 'offline_radius') return record.label;
   const masks = record.request?.mask_codes;
@@ -35,6 +37,23 @@ export function recordTitle(record: SavedSummary) {
     ? `总面积 ≤ ${record.area_cap_cm2} cm²`
     : `每区半径 ≤ ${record.radius_cap_mm ?? record.request?.radius_mm} mm`;
   return `${record.region_count}个区域 · ${location} · ${size}`;
+}
+export function recordNoiseLabel(record: SavedSummary) {
+  return ['design_evaluation', 'offline_radius'].includes(record.dataset_id) || !record.request?.noise_model ? '' : noiseModelLabel(record.request.noise_model);
+}
+/** The non-default evaluation conditions of a saved coordinate evaluation, one label each. */
+export function recordConditionLabels(record: SavedSummary): string[] {
+  const condition = record.dataset_id === 'design_evaluation' ? record.evaluation_condition : undefined;
+  if (!condition) return [];
+  return [
+    ...(condition.noise_model ? [noiseModelLabel(condition.noise_model)] : []),
+    ...(condition.conductivity_scenario ? [conductivityScenarioLabel(condition.conductivity_scenario)] : []),
+    ...(condition.head_id ? [`头模：${condition.head_id}`] : []),
+  ];
+}
+export function recordTitle(record: SavedSummary) {
+  const noise = recordNoiseLabel(record);
+  return [recordBaseTitle(record), ...(noise ? [noise] : []), ...recordConditionLabels(record)].join(' · ');
 }
 export function safeReturnHref(value: string | null | undefined, fallback: string) {
   if (!value?.startsWith('/') || value.startsWith('//')) return fallback;

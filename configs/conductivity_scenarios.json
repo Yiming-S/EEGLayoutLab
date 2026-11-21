@@ -1,0 +1,15 @@
+{
+  "schema": "eeglayoutlab-conductivity-scenarios/1",
+  "base": "configs/ernie_fem_point_pilot.json isotropic_conductivity_by_tetrahedron_tag (SimNIBS 4.6 defaults)",
+  "role": "data-generating head for model-mismatch evaluation; inversion keeps the base conductivities",
+  "scenarios": {
+    "skull_x0.5": {
+      "description": "compact and spongy bone conductivity halved",
+      "scale_by_tetrahedron_tag": {"7": 0.5, "8": 0.5}
+    },
+    "skull_x2": {
+      "description": "compact and spongy bone conductivity doubled",
+      "scale_by_tetrahedron_tag": {"7": 2.0, "8": 2.0}
+    }
+  }
+}

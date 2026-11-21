@@ -208,12 +208,12 @@
     "en": "3D display and sources"
   },
   "method.ee7491f205ac": {
-    "source": "本机按需计算：调整参数后发生什么",
-    "en": "On-demand local computation: what happens after parameters change"
+    "source": "按需计算：调整参数后发生什么",
+    "en": "On-demand computation: what happens after parameters change"
   },
   "method.dcb6a2baea82": {
-    "source": "本地设计页通过同源接口调用这台电脑上的Python程序。固定64点、最小电极直线间距4 mm，标准64导名义SNR＝20 dB， 原始前向库包含5,387个候选位置；当前外部曝光筛选保留其中4,847个。修改半径或区域后，在筛选后的范围内重新搜索，复用对应原坐标的FEM前向场。",
-    "en": "The local design page invokes Python on this computer through a same-origin interface. It fixes 64 points, a minimum straight-line electrode spacing of 4 mm, and a nominal standard-64 SNR of 20 dB. The original forward bank contains 5,387 candidate positions; current external-exposure screening retains 4,847. Changing radius or regions starts a new search within the screened domain, reusing FEM forward fields at the corresponding original coordinates."
+    "source": "设计页通过同源接口调用计算服务上的Python程序。固定64点、最小电极直线间距4 mm，标准64导名义SNR＝20 dB， 原始前向库包含5,387个候选位置；当前外部曝光筛选保留其中4,847个。修改半径或区域后，在筛选后的范围内重新搜索，复用对应原坐标的FEM前向场。",
+    "en": "The design page invokes Python on the computation service through a same-origin interface. It fixes 64 points, a minimum straight-line electrode spacing of 4 mm, and a nominal standard-64 SNR of 20 dB. The original forward bank contains 5,387 candidate positions; current external-exposure screening retains 4,847. Changing radius or regions starts a new search within the screened domain, reusing FEM forward fields at the corresponding original coordinates."
   },
   "method.3043b8e61721": {
     "source": "新版搜索在候选中心组合规模不超过256组时检查全部组合；更大规模保留最多16组的有界筛选。 每组先检查候选点数量，再进行2次布局初始化，最终进行1轮64点坐标交换，每点最多12个提案。 搜索覆盖上述候选中心与区内提案，连续空间的全局最优性和不可行性仍待验证。 优化目标预先固定为信号重建与幅度保留率（最差10%）中的较低值；冻结点位后再计算源定位。 字典为4,096个源，定位使用原有256个离字典源、每源16次噪声；512个新源的复评属于另一批次。",
@@ -224,12 +224,12 @@
     "en": "Regions use ROI-constrained paths on the surface-edge graph and must form exactly R non-touching connected components on the original head-surface adjacency graph. The slider sets a common radius limit; actual radii shrink when regions would connect. Actual radius and area are both reported. Near-postauricular and low-hair candidate domains use coordinate masks; anatomical review is a separate stage."
   },
   "method.3eb2037c32c2": {
-    "source": "一次只运行一个任务、使用2线程，180秒超时停止。相同参数、科学代码及前向数据身份的结果可从本机缓存读取； 修改AR只更新三项阈值判断。G达到AR表示本记录三项相对指标均达到用户阈值。 本地服务未启动时显示未连接；公开托管页面不会连接或使用访问者电脑。",
-    "en": "One task runs at a time using 2 threads and stops after a 180-second timeout. Results with matching parameters, scientific-code identity, and forward-data identity can be loaded from the local cache. Changing Minimum Required Retention updates only the three threshold decisions. G meets the requirement when all three relative metrics in the record meet the user's threshold. If the local service is not running, the interface shows it as disconnected. The public hosted page does not connect to or use a visitor's computer."
+    "source": "一次只运行一个任务、使用2线程，180秒超时停止。相同参数、科学代码及前向数据身份的结果可从缓存读取； 修改AR只更新三项阈值判断。G达到AR表示本记录三项相对指标均达到用户阈值。 计算服务未启动时显示未连接；网页从不使用访问者电脑的计算资源。",
+    "en": "One task runs at a time using 2 threads and stops after a 180-second timeout. Results with matching parameters, scientific-code identity, and forward-data identity can be loaded from the cache. Changing Minimum Required Retention updates only the three threshold decisions. G meets the requirement when all three relative metrics in the record meet the user's threshold. If the computation service is not running, the interface shows it as disconnected. The website never uses the computing resources of a visitor's computer."
   },
   "method.598bff711777": {
-    "source": "数据读取优先于计算。关闭自动计算后仍查找缓存，命中时直接恢复坐标和分数；无匹配记录才按需启动Python。 完成或有限搜索未构造出布局的结果保存在本机项目文件中，重启App后继续使用，不因修改AR失效。 取消、失败和超时仅保存任务日志，不作为性能缓存。输入文件变动时重新校验模型与数据版本。 搜索算法更新后，旧记录仍可查看，也可只恢复其原始参数；设计页读取当前版本的匹配结果。",
-    "en": "Existing data are loaded before computation. Cache lookup continues when automatic computation is disabled; a hit restores coordinates and scores directly. Python runs on demand only when no matching record exists. Completed results and bounded-search outcomes with no constructed layout are stored in local project files, survive app restarts, and remain valid when Minimum Required Retention changes. Cancelled, failed, and timed-out tasks retain logs only, not performance-cache entries. Input changes trigger model and data-version checks. After search-algorithm updates, old records remain viewable and their original parameters can be restored; the design page loads results matching the current version."
+    "source": "数据读取优先于计算。关闭自动计算后仍查找缓存，命中时直接恢复坐标和分数；无匹配记录才按需启动Python。 完成或有限搜索未构造出布局的结果保存在计算服务的结果文件中，服务重启后继续使用，不因修改AR失效。 取消、失败和超时仅保存任务日志，不作为性能缓存。输入文件变动时重新校验模型与数据版本。 搜索算法更新后，旧记录仍可查看，也可只恢复其原始参数；设计页读取当前版本的匹配结果。",
+    "en": "Existing data are loaded before computation. Cache lookup continues when automatic computation is disabled; a hit restores coordinates and scores directly. Python runs on demand only when no matching record exists. Completed results and bounded-search outcomes with no constructed layout are stored in the computation service's result files, survive service restarts, and remain valid when Minimum Required Retention changes. Cancelled, failed, and timed-out tasks retain logs only, not performance-cache entries. Input changes trigger model and data-version checks. After search-algorithm updates, old records remain viewable and their original parameters can be restored; the design page loads results matching the current version."
   },
   "method.e5c8af7a587e": {
     "source": "“计算记录”页只读展示已有严格面积和半径方案；342个早期半径布局通过历史筛选查看。 总面积上限数据采用原4096点字典与256个生成源；早期半径布局允许区域相交。 历史记录保留其原始协议；当前半径计算按自身版本查找匹配数据。不同协议分别绘制曲线。",
@@ -1240,8 +1240,8 @@
     "en": "8. Reading order"
   },
   "page.f82be25683b5": {
-    "source": "当前比较需要连接本机数据服务。请启动本地App后重新读取。",
-    "en": "This comparison requires the local data service. Start the local app, then reload."
+    "source": "当前比较需要数据服务，请稍后重新读取。",
+    "en": "This comparison needs the data service. Try loading again later."
   },
   "page.c0270b51eec2": {
     "source": "结果目录格式不符",
@@ -1681,8 +1681,8 @@
     "en": "."
   },
   "library.e11fbb2776c2": {
-    "source": "本机数据服务未连接。请启动本地App后重新读取。",
-    "en": "The local data service is disconnected. Start the local app, then reload."
+    "source": "数据服务暂不可用，请稍后重新读取。",
+    "en": "The data service is unavailable. Try loading again later."
   },
   "library.86ab6788089f": {
     "source": "方案目录格式错误",
@@ -1877,8 +1877,8 @@
     "en": "Saved at:"
   },
   "decision.adf964de53b8": {
-    "source": "启动本地App后可读取方案目录。",
-    "en": "Start the local app to load the design index."
+    "source": "方案目录暂时无法读取，请稍后重试。",
+    "en": "The layout catalog is unavailable. Try again later."
   },
   "decision.cb6f35162aa1": {
     "source": "目录格式错误",
@@ -1897,8 +1897,8 @@
     "en": "The task connection was interrupted. Load the cache for the same configuration or try again."
   },
   "decision.d7c99115909b": {
-    "source": "本地计算服务未连接",
-    "en": "The local computation service is disconnected"
+    "source": "计算服务未连接",
+    "en": "The computation service is disconnected"
   },
   "decision.c3adb35c5668": {
     "source": "设计评价接口未加载，请重启本地App后再试。",
@@ -2946,16 +2946,16 @@
     "en": "Invalid layout ID. Select a layout again from the calculation records."
   },
   "reception.78724a849dad": {
-    "source": "源实验服务未连接，请确认本地App正在运行。",
-    "en": "The source simulation service is disconnected. Check that the local app is running."
+    "source": "信号仿真服务暂不可用，请稍后重试。",
+    "en": "The signal simulation service is unavailable. Try again later."
   },
   "reception.4e03197f1202": {
     "source": "缓存读取失败",
     "en": "Failed to read the cache"
   },
   "reception.66c791954098": {
-    "source": "已读取本地缓存，不重新计算。",
-    "en": "Loaded from the local cache; no recalculation."
+    "source": "已读取已有结果，不重新计算。",
+    "en": "Loaded the existing result; nothing was recomputed."
   },
   "reception.042a78b79f53": {
     "source": "该源场景尚未计算。点击下方按钮运行；改变AR不触发计算。",
@@ -2974,8 +2974,8 @@
     "en": "Connection interrupted. Refresh the service and load the result again."
   },
   "reception.97834efee0e3": {
-    "source": "本机正忙，请稍后手动重试",
-    "en": "The local computer is busy. Retry manually when it is available."
+    "source": "服务器正忙，请稍后手动重试",
+    "en": "The server is busy. Retry manually later."
   },
   "reception.1440c7e23865": {
     "source": "提交失败",
@@ -4032,8 +4032,8 @@
     "en": "The local task ended or the service restarted. You can submit it again."
   },
   "local_compute_panel.09847fb5a961": {
-    "source": "无法读取本地记录",
-    "en": "Unable to load local records"
+    "source": "无法读取已有记录",
+    "en": "Unable to load existing records"
   },
   "local_compute_panel.d66e066d3073": {
     "source": "任务连接中断，请检查本地服务后重新连接",
@@ -4068,16 +4068,16 @@
     "en": "Generate and evaluate (reuse saved results first)"
   },
   "local_compute_panel.5cf46abb03bb": {
-    "source": "先查相同配置的本地记录；没有结果时才优化64个点并保存。复用预计算的电位传递矩阵，直接计算各项指标。",
-    "en": "Check local records for the same configuration first. If none exists, optimize and save 64 positions, reusing the precomputed lead field to evaluate metrics."
+    "source": "先查相同配置的已有记录；没有结果时才优化64个点并保存。复用预计算的电位传递矩阵，直接计算各项指标。",
+    "en": "Check existing records for the same configuration first. If none exists, optimize and save 64 positions, reusing the precomputed lead field to compute each metric directly."
   },
   "local_compute_panel.eeb43085e5e5": {
-    "source": "正在连接本地计算服务…",
-    "en": "Connecting to the local compute service…"
+    "source": "正在连接计算服务…",
+    "en": "Connecting to the computation service…"
   },
   "local_compute_panel.86f4875f8c0d": {
-    "source": "本地计算服务未连接。此功能需在这台电脑运行本地App；公开网页不会调用电脑资源。",
-    "en": "The local compute service is disconnected. Run the local app on this computer to calculate; the public website cannot use its computing resources."
+    "source": "计算服务暂不可用，请稍后重试；已有结果仍可查看。",
+    "en": "The computation service is unavailable. Try again later; existing results remain viewable."
   },
   "local_compute_panel.68891ab35cab": {
     "source": "重新连接",
@@ -4140,12 +4140,12 @@
     "en": "Computation completed and the result was saved automatically."
   },
   "local_compute_panel.224f4f1034be": {
-    "source": "已读取本地缓存 · 未重新计算",
-    "en": "Local cache loaded · no recomputation"
+    "source": "已读取已有结果 · 未重新计算",
+    "en": "Existing result loaded · not recomputed"
   },
   "local_compute_panel.dae86494f4ce": {
-    "source": "新计算完成 · 已保存到本地",
-    "en": "Computation complete · saved locally"
+    "source": "新计算完成 · 已保存到结果库",
+    "en": "Computation complete · saved to the result library"
   },
   "single_head_results.cd7254e43d5e": {
     "source": "信号重建保留率",
@@ -4220,12 +4220,12 @@
     "en": "The same version and parameters reuse this record. Increase the radius or placement domain to start a new search. Global geometric feasibility has not been established."
   },
   "local_compute_panel.46514854f9a0": {
-    "source": "正在查找匹配的本地数据…",
-    "en": "Looking for matching local data…"
+    "source": "正在查找匹配的已有结果…",
+    "en": "Looking for a matching existing result…"
   },
   "local_compute_panel.b305cbc55d4a": {
-    "source": "本地记录读取失败；未自动启动计算。",
-    "en": "Local record lookup failed; no computation was started automatically."
+    "source": "已有记录读取失败；未自动启动计算。",
+    "en": "Existing records could not be read; no computation was started automatically."
   },
   "local_compute_panel.db4f607916ac": {
     "source": "没有匹配记录，等待参数稳定后计算…",
@@ -4240,8 +4240,8 @@
     "en": "Single Ernie head · nominal standard-64 SNR = 20 dB · finite-grid search. Anatomical domains use coordinate approximations; independent-head validation is a separate phase."
   },
   "local_compute_panel.46af0fd946c9": {
-    "source": "本地计算的方法与限制",
-    "en": "Local computation: method and scope"
+    "source": "按需计算的方法与限制",
+    "en": "On-demand computation: method and scope"
   },
   "local_compute_panel.8dd856189ed0": {
     "source": "打开计算记录",
@@ -4704,8 +4704,8 @@
     "en": "External-surface screening file identity mismatch"
   },
   "source_reception_server.ac4ebfd8e100": {
-    "source": "本地服务正在重启",
-    "en": "The local service is restarting"
+    "source": "计算服务正在重启",
+    "en": "The computation service is restarting"
   },
   "design_evaluation_server.e02cda5a80b1": {
     "source": "正在处理另一项设计评价请求",
@@ -4832,20 +4832,16 @@
     "en": "The combined constraint calculation is inconsistent"
   },
   "local_compute_server.f254175a8745": {
-    "source": "已读取相同模型与配置的本地计算记录",
-    "en": "Loaded the local calculation record for the same model and configuration"
-  },
-  "local_compute_server.5c43407c6421": {
-    "source": "本地计算服务正在重启",
-    "en": "The local calculation service is restarting"
+    "source": "已读取相同模型与配置的已有计算记录",
+    "en": "Loaded the existing calculation record for the same model and configuration"
   },
   "local_compute_server.19038b109587": {
     "source": "本机实验正在计算，请完成后再提交布局搜索",
     "en": "A local experiment is running. Submit the layout search after it finishes."
   },
   "local_compute_server.c72e1295befb": {
-    "source": "等待本地计算进程启动",
-    "en": "Waiting for the local calculation process to start"
+    "source": "等待计算进程启动",
+    "en": "Waiting for the calculation process to start"
   },
   "server.ee977fbcc415": {
     "source": "无法启动Python：{{0}}",
@@ -4908,8 +4904,8 @@
     "en": "The record does not exist or failed integrity validation"
   },
   "local_compute_server.5dcc629a25af": {
-    "source": "本地会话已更新，请刷新页面后重新计算",
-    "en": "The local session has changed. Refresh the page before calculating again."
+    "source": "会话已更新，请刷新页面后重新计算",
+    "en": "The session has changed. Refresh the page before calculating again."
   },
   "source_reception_server.0681ac3c0e56": {
     "source": "配置过大",
@@ -4920,8 +4916,8 @@
     "en": "The job does not exist. Reload the same configuration from saved records."
   },
   "local_compute_server.620996281ef7": {
-    "source": "未知本地计算接口",
-    "en": "Unknown local calculation endpoint"
+    "source": "未知计算接口",
+    "en": "Unknown calculation endpoint"
   },
   "server.761d4f4d50b9": {
     "source": "本地计算服务错误：{{0}}",
@@ -4948,8 +4944,8 @@
     "en": "Bilateral postauricular regions + bilateral forehead + periorbital regions"
   },
   "local_data_library.d5e6f7e5faeb": {
-    "source": "本机计算缓存",
-    "en": "Local calculation cache"
+    "source": "按需计算缓存",
+    "en": "On-demand computation cache"
   },
   "local_data_library.a8199a21cf0e": {
     "source": "严格半径上限快速搜索；完整配置和科学代码身份一致时自动复用。",
@@ -5060,8 +5056,8 @@
     "en": "{{0}}: {{1}}"
   },
   "local_data_library.3cd792daddae": {
-    "source": "本地数据未提供",
-    "en": "Local data is not available"
+    "source": "数据未提供",
+    "en": "Data not available"
   },
   "local_data_library.1d8aca64833e": {
     "source": "缓存完整性校验未通过",
@@ -5072,8 +5068,8 @@
     "en": "Forward-input files do not match the original models of some caches. These historical records remain viewable but cannot be treated as cache hits for the current configuration."
   },
   "server.0c43867762e3": {
-    "source": "一条本机缓存未载入：{{0}}",
-    "en": "A local cache entry was not loaded: {{0}}"
+    "source": "一条计算缓存未载入：{{0}}",
+    "en": "A computation cache entry was not loaded: {{0}}"
   },
   "server.1bb0b976ba28": {
     "source": "{{0}}区 · {{1}} · 半径≤{{2}} mm",
@@ -5204,8 +5200,8 @@
     "en": "Result record validation failed"
   },
   "source_reception_server.a996bb20ba41": {
-    "source": "已读取同一源、布局和干扰条件的本地结果",
-    "en": "Loaded the local result for the same source, layout, and artifact conditions"
+    "source": "已读取同一源、布局和干扰条件的已有结果",
+    "en": "Loaded the existing result for the same source, layout, and artifact conditions"
   },
   "source_reception_server.ee3b6c28a116": {
     "source": "本机正在运行另一项计算，请完成后再提交。已有结果仍可读取。",
@@ -5365,7 +5361,7 @@
   },
   "server.e3a6ed6adf55": {
     "source": "分解头模矩阵；本机单任务、单线程",
-    "en": "Factorizing the head-model matrix; one local job, one thread"
+    "en": "Factorizing the head-model matrix; one job, one thread"
   },
   "server.7a562f17cd1e": {
     "source": "新FEM参照场与前向库不一致，需统一计算版本。",
@@ -5421,7 +5417,7 @@
   },
   "server.20f9dfaadba1": {
     "source": "本地计算完成",
-    "en": "Local calculation completed"
+    "en": "Calculation completed"
   },
   "server.4b68e6eeda06": {
     "source": "本次预算未构造出完整布局",
@@ -5570,5 +5566,9 @@
   "common.requirement_description": {
     "source": "相对标准全头64导，所选指标至少需要保留多少。",
     "en": "Minimum retention required for the selected metric relative to the standard whole-head 64-electrode layout."
+  },
+  "local_compute_server.d1c9ed424aa2": {
+    "source": "计算记录无法读取",
+    "en": "Calculation records could not be read"
   }
 }

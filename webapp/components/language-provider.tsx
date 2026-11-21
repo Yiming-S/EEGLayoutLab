@@ -25,7 +25,7 @@ export function LanguageProvider({ initialLocale, children }: { initialLocale: L
     const description = document.querySelector('meta[name="description"]');
     description?.setAttribute('content', locale === 'en'
       ? 'Explore fixed 64-electrode EEG layouts, compare region size and placement, and evaluate signal retention using local simulations.'
-      : '固定64电极，比较区域大小与空间布局，通过本机仿真评价相对全头64导的性能保留。');
+      : '固定64电极，比较区域大小与空间布局，通过仿真评价相对全头64导的性能保留。');
   }, [locale]);
   useEffect(() => {
     const restore = window.setTimeout(() => {

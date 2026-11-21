@@ -63,7 +63,7 @@ const resultFor = (request) => ({
   schema: 'design-evaluation/1',
   status: 'completed',
   request,
-  forward_mode: 'cached_fem',
+  forward_mode: request.head_id ? 'head_scalp_node_table' : 'cached_fem',
   nominal: {
     field_relative: 0.9,
     field_absolute: 0.81,
@@ -106,9 +106,11 @@ async function fixture(
     holdPrepare = null,
     preparations = 0,
     starts = 0;
-  const identity = () => ({
+  // Like scientificContext, a head request adds its own package to the identity.
+  const identity = (request) => ({
     protocol: 'unchanged-design-evaluation/1',
     version,
+    ...(request?.head_id ? { head_id: request.head_id } : {}),
   });
   const cachePath = (key) =>
     join(root, 'results/v2/design_evaluation_jobs', key, 'cache.json');
@@ -119,7 +121,7 @@ async function fixture(
       const request = normalizeDesignRequest(
           raw?.schema === 'design-submission/1' ? raw.request : raw,
         ),
-        ctx = { identity: identity() };
+        ctx = { identity: identity(request) };
       return { request, key: hash({ request, identity: ctx.identity }), ctx };
     },
     async lookup(prepared) {
@@ -172,7 +174,7 @@ async function fixture(
     pollMs: 3600000,
   });
   const seedCache = async (request) => {
-    const ctx = { identity: identity() },
+    const ctx = { identity: identity(request) },
       key = hash({ request, identity: ctx.identity }),
       result = resultFor(request),
       cache = {
@@ -281,6 +283,40 @@ void test('study protocols preserve original normalized requests and keep labels
     assert.throws(() => normalizeStudyInput(invalid));
 });
 
+void test('cross-head studies evaluate one head per case at one radius without conductivity scenarios', () => {
+  const heads = (cases, extra = {}) => input([], { protocol: 'heads', cases, ...extra });
+  const study = normalizeStudyInput(
+    heads([
+      { head_id: 'ernie_xh', seed: 42, radius_mm: 6 },
+      { head_id: 'ixi002', seed: 42, radius_mm: 6 },
+    ]),
+  );
+  assert.deepEqual(
+    study.requests.map((r) => [r.action, r.head_id, r.seed, r.radius_mm]),
+    [
+      ['evaluate', 'ernie_xh', 42, 6],
+      ['evaluate', 'ixi002', 42, 6],
+    ],
+  );
+  assert.deepEqual(
+    study.requests[1],
+    normalizeDesignRequest({ action: 'evaluate', design, radius_mm: 6, seed: 42, head_id: 'ixi002' }),
+  );
+  assert.equal(aggregateStudy('heads', []).interpretation, 'cross_head_empirical_cases');
+  assert.equal(aggregateStudy('noise_seeds', []).interpretation, 'Ernie_within_model_empirical_cases');
+  for (const invalid of [
+    heads([{ head_id: 'ixi002', seed: 42, radius_mm: 6 }, { head_id: 'ixi002', seed: 43, radius_mm: 6 }]),
+    heads([{ head_id: 'ixi002', seed: 42, radius_mm: 6 }, { head_id: 'ixi012', seed: 42, radius_mm: 3 }]),
+    heads([{ head_id: 'ernie_xh', seed: 42, radius_mm: 6 }, { head_id: 'ixi002', seed: 7, radius_mm: 6 }]),
+    heads([{ seed: 42, radius_mm: 6 }]),
+    heads([{ head_id: '', seed: 42, radius_mm: 6 }]),
+    heads([{ head_id: 'IXI/002', seed: 42, radius_mm: 6 }]),
+    heads([{ head_id: 'ixi002', seed: 42, radius_mm: 6 }], { conductivity_scenario: 'skull_x2' }),
+    input([42], { cases: [{ head_id: 'ixi002', seed: 42, radius_mm: 6 }] }),
+  ])
+    assert.throws(() => normalizeStudyInput(invalid));
+});
+
 void test('empirical summaries use case weights and retain rejected trials and failure counts', () => {
   const simple = empiricalSummary([0, 10, 20, 30]);
   assert.equal(simple.n, 4);
@@ -366,6 +402,110 @@ void test('create and reads launch no jobs, completed cases archive exact origin
     );
   }
   assert.equal(f.counts().starts, 0);
+});
+
+void test('a cross-head study binds one identity per head, then creates and runs every head', async (t) => {
+  const f = await fixture(t),
+    study = input([], {
+      protocol: 'heads',
+      cases: [
+        { head_id: 'ernie_xh', seed: 42, radius_mm: 6 },
+        { head_id: 'ixi002', seed: 42, radius_mm: 6 },
+      ],
+    });
+  for (const request of normalizeStudyInput(study).requests) await f.seedCache(request);
+  const created = await f.service.create(study, owner),
+    id = created.study.id;
+  assert.equal(created.study.status, 'draft');
+  const record = await f.store.load(id, owner.id),
+    identities = record.cases.map((entry) => entry.identity_sha256);
+  assert.deepEqual(
+    identities,
+    ['ernie_xh', 'ixi002'].map((head_id) =>
+      hash({ protocol: 'unchanged-design-evaluation/1', version: 1, head_id }),
+    ),
+  );
+  assert.equal(record.identity_sha256, hash(identities));
+  assert.ok(created.study.cases.every((entry) => !('identity_sha256' in entry)));
+  await f.service.start(id, owner);
+  await f.service.flush();
+  const done = (await f.service.get(id, owner)).study;
+  assert.equal(done.status, 'completed');
+  assert.deepEqual(
+    done.cases.map((entry) => [entry.request.head_id, entry.status]),
+    [
+      ['ernie_xh', 'completed'],
+      ['ixi002', 'completed'],
+    ],
+  );
+  assert.equal(done.aggregation.interpretation, 'cross_head_empirical_cases');
+  const exported = await f.store.present(id, owner.id, true);
+  assert.ok(exported.study.cases.every((entry) => !('identity_sha256' in entry)));
+  assert.equal(f.counts().starts, 0);
+  for (const change of [
+    (value) => {
+      value.cases[1].request.seed = 43;
+    },
+    (value) => {
+      value.cases[1].identity_sha256 = identities[0];
+    },
+    (value) => {
+      delete value.cases[1].identity_sha256;
+    },
+  ])
+    await assert.rejects(f.store.update(id, owner.id, change), { status: 409 });
+});
+
+void test('non-head studies still refuse case identities that differ while preparing', async (t) => {
+  const f = await fixture(t),
+    prepare = f.adapter.prepare.bind(f.adapter);
+  f.adapter.prepare = async (raw) => {
+    const prepared = await prepare(raw);
+    f.setVersion(2);
+    return prepared;
+  };
+  await assert.rejects(f.service.create(input(), owner), { status: 409 });
+  assert.deepEqual((await f.service.list(owner)).studies, []);
+});
+
+void test('non-head study records keep the single shared identity older servers verify', async (t) => {
+  const f = await fixture(t),
+    id = (await f.service.create(input(), owner)).study.id,
+    record = await f.store.load(id, owner.id);
+  assert.equal(
+    record.identity_sha256,
+    hash({ protocol: 'unchanged-design-evaluation/1', version: 1 }),
+  );
+  assert.ok(record.cases.every((entry) => !('identity_sha256' in entry)));
+  await assert.rejects(
+    f.store.update(id, owner.id, (value) => {
+      for (const entry of value.cases) entry.identity_sha256 = value.identity_sha256;
+    }),
+    { status: 409 },
+  );
+});
+
+void test('legacy records written without per-case identities still load and run', async (t) => {
+  const f = await fixture(t),
+    id = (await f.service.create(input(), owner)).study.id,
+    current = await f.store.load(id, owner.id),
+    // Exactly the case fields an older server writes.
+    legacy = {
+      ...current,
+      cases: current.cases.map(({ index, request, key }) => ({
+        index,
+        request,
+        key,
+        status: 'pending',
+        receipt_id: null,
+        error: null,
+      })),
+    };
+  await writeFile(join(f.store.directory, id, 'study.json'), JSON.stringify(legacy));
+  assert.deepEqual(await f.store.load(id, owner.id), legacy);
+  await f.service.start(id, owner);
+  await f.service.flush();
+  assert.equal((await f.service.get(id, owner)).study.status, 'completed');
 });
 
 void test('private study directory and all record operations enforce original browser ownership', async (t) => {
@@ -532,6 +672,24 @@ void test('archive checks exact cache binding and rejects corrupted or symlinked
   await rm(path);
   await symlink(f.cachePath(entry.key), path);
   await assert.rejects(f.service.get(id, owner));
+});
+
+void test('studies are capped per client network and stale unstarted drafts free their slots', async (t) => {
+  const network = 'b'.repeat(64);
+  const f = await fixture(t, { studyLimits: { ...STUDY_LIMITS, perOwner: 1, perNetwork: 1 } });
+  const first = (await f.service.create(input([42]), { ...owner, network })).study;
+  // A fresh cookie on the same network does not get a new share.
+  await assert.rejects(f.service.create(input([43]), { id: 'c'.repeat(64), ip: 'local-c', network }), { status: 429 });
+  await assert.rejects(f.service.create(input([43]), owner), { status: 429 });
+  const path = join(f.store.directory, first.id, 'study.json'),
+    record = JSON.parse(await readFile(path, 'utf8'));
+  assert.equal(record.network, network);
+  assert.equal(JSON.stringify(await f.service.get(first.id, owner)).includes(network), false);
+  record.updated_at = '2020-01-01T00:00:00.000Z';
+  await writeFile(path, JSON.stringify(record));
+  const second = (await f.service.create(input([43]), { ...owner, network })).study;
+  assert.notEqual(second.id, first.id);
+  await assert.rejects(f.service.get(first.id, owner), { status: 404 });
 });
 
 void test('study count, metadata, total-byte and unsafe-root limits fail before scientific submission', async (t) => {

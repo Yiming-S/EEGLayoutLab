@@ -25,6 +25,7 @@ export const WORKSPACE_TABS = {
     ['library', '布局记录'],
     ['decision', '方案对比'],
     ['projects', '研究项目'],
+    ['robustness', '稳健性研究'],
   ],
   design: [
     ['design', '区域设计'],
@@ -120,7 +121,8 @@ export function layoutCapabilities(
     edit:
       !!current &&
       ['strict_area', 'cache'].includes(record.dataset_id) &&
-      !!record.layout?.regionPatchVertexIndices?.length,
+      !!record.layout?.regionPatchVertexIndices?.length &&
+      !record.request?.noise_model,
     compare: !!current && canCompareRecord(record),
     reception: !!current && canSimulateRecord(record),
   };
@@ -133,6 +135,7 @@ export function workingPage(href: string): PageId {
         '/': 'compare',
         '/library': 'library',
         '/projects': 'projects',
+        '/robustness': 'robustness',
         '/design': 'design',
         '/electrodes': 'electrodes',
         '/coordinates': 'coordinates',
@@ -189,6 +192,7 @@ export function workspaceLinks(
     compare: '/?' + results,
     library: '/library?' + results,
     projects: '/projects',
+    robustness: '/robustness',
     results: '/results?ar=' + ar,
     design: capabilities.design
       ? radiusDesignLink(record!, ar)!

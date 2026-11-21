@@ -76,6 +76,8 @@ export type SourceResult = {
 };
 export type SourceJob = {
   id: string;
+  /** Server FIFO position while queued; 1 means next to start. */
+  queue_position?: number;
   key: string;
   request: SourceRequest;
   status:

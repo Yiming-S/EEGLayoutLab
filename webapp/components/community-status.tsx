@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useLanguage } from './language-provider';
 import { RuntimeMessage } from './runtime-message';
-import { completedTaskLink, type ExperimentReceipt } from '@/lib/records-catalog';
+import { activeTaskLink, completedTaskLink, type ExperimentReceipt } from '@/lib/records-catalog';
 import { downloadExperimentReceipt } from './catalog-experiment-details';
 
 type Task = ExperimentReceipt & { queue_position: number; message: string; progress?: number; cached?: boolean };
@@ -76,7 +76,10 @@ export function CommunityStatus() {
         <div className="mt-1 text-xs text-muted-foreground">{date(task.created_at, true)} · {task.id.slice(0, 8)}</div>
         {task.status === 'queued' && <p className="mt-1 text-xs">{tx(`前方等待任务：${Math.max(0, task.queue_position - 1)}项；按提交顺序执行。`)}</p>}
         {task.status === 'running' && <div className="mt-2 space-y-1"><p className="text-xs"><RuntimeMessage message={task.message} /></p>{Number.isFinite(task.progress) && <><progress aria-label={tx('计算进度')} max={1} value={task.progress} className="h-2 w-full accent-primary" /><p className="text-xs tabular-nums">{Math.round(Math.max(0, Math.min(1, task.progress!)) * 100)}%</p></>}</div>}
-        {['queued', 'running', 'cancelling'].includes(task.status) ? <button onClick={() => void act(task, true)} disabled={task.status === 'cancelling'} className="mt-2 rounded border px-3 py-1">{tx('取消等待或计算')}</button>
+        {['queued', 'running', 'cancelling'].includes(task.status) ? <div className="mt-2 flex flex-wrap gap-2">
+            {activeTaskLink(task) && <a className="rounded border bg-primary px-3 py-1 text-primary-foreground" href={activeTaskLink(task)!}>{tx('回到任务页面')}</a>}
+            <button onClick={() => void act(task, true)} disabled={task.status === 'cancelling'} className="rounded border px-3 py-1">{tx('取消等待或计算')}</button>
+          </div>
           : ['completed', 'no_layout'].includes(task.status) ? <div className="mt-2 flex flex-wrap gap-2">
             {completedTaskLink(task) && <a className="rounded border bg-primary px-3 py-1 text-primary-foreground" href={completedTaskLink(task)!}>{tx(task.kind === 'source-reception' ? '打开信号实验' : task.kind === 'electrode-editor' ? '打开电极编辑' : '打开结果')}</a>}
             <button onClick={() => void act(task, false)} className="rounded border px-3 py-1">{tx('下载计算结果')}</button>

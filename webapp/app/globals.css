@@ -143,6 +143,8 @@ body {
   .lab-panel { @apply rounded-xl border border-border bg-card p-5; }
   .lab-label { @apply block text-sm font-medium; }
   .lab-select { @apply mt-2 h-11 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15; }
+  /* Text fields and text areas; same frame as .lab-select but free height. */
+  .lab-input { @apply mt-2 block min-h-11 w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm font-normal outline-none focus:border-primary focus:ring-2 focus:ring-primary/15; }
   .lab-eyebrow { @apply text-xs font-semibold tracking-wide text-primary; }
   .brain-stage {
     background:

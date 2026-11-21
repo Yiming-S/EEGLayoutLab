@@ -1,7 +1,8 @@
 'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiJson } from '@/client/task-client';
-import { requestKey, type ComputeRequest, type ComputeResult, type ComputeJob } from '@/lib/local-compute';
+import { requestKey, type ComputeRequest, type ComputeResult, type ComputeJob, type SearchNoiseModel } from '@/lib/local-compute';
+import { NOISE_MODEL_PRESETS, noiseModelId as presetIdFor } from '../../contracts/scientific-options.mjs';
 import { comparisonLink, parseAR, REGION_COUNTS } from '@/lib/lab-workflow';
 import type { SavedRecord } from '@/lib/local-library';
 import { MASK_NAMES } from '@/lib/ui-language';
@@ -9,6 +10,9 @@ import { placementChoices, choiceFromSlots, type PlacementChoice as Choice, type
 
 const MASKS = MASK_NAMES;
 const choicesFor = (protocol: Protocol | null, count: number) => placementChoices(protocol, count, MASKS);
+/** Noise presets usable by layout search (brain background is localization-only). */
+export const SEARCH_NOISE_PRESETS = NOISE_MODEL_PRESETS.filter((preset) => preset.search);
+const searchNoise = (id: string) => SEARCH_NOISE_PRESETS.find((preset) => preset.id === id)?.value as SearchNoiseModel | undefined;
 
 export function useDesignController() {
   const [protocol, setProtocol] = useState<Protocol | null>(null), [ready, setReady] = useState(false), [error, setError] = useState('');
@@ -20,8 +24,9 @@ export function useDesignController() {
   const [routeParams, setRouteParams] = useState('');
   const [extraChoice, setExtraChoice] = useState<Choice | null>(null);
   const [customSlots, setCustomSlots] = useState<string[]>(['PL', 'PR']);
+  const [noiseModelId, setNoiseModelId] = useState('iid');
   const settingsRef = useRef<HTMLDetailsElement>(null);
-  useEffect(() => { if (settingsRef.current) settingsRef.current.open = window.matchMedia('(min-width: 68.75rem)').matches; }, [ready]);
+  useEffect(() => { if (settingsRef.current) settingsRef.current.open = window.matchMedia('(min-width: 64rem)').matches; }, [ready]);
   useEffect(() => {
     const controller = new AbortController();
     const load = async () => {
@@ -43,6 +48,7 @@ export function useDesignController() {
           const r = record.request; const key = r.mode === 'preset' ? r.mask_codes!.join(',') : r.mode;
           setRegions(r.region_count); setRadius(r.radius_mm); setChoiceId(key);
           setCustomSlots(r.mask_codes ? [...r.mask_codes] : []);
+          setNoiseModelId(presetIdFor(r.noise_model));
           if (!choicesFor(p, r.region_count).some((c) => c.id === key)) setExtraChoice({ id: key, label: r.mask_codes!.map((m) => MASKS[m] ?? m).join(' + '), mode: r.mode, maskCodes: r.mask_codes });
         } else { setEditing(false); setRegions(record.region_count); }
       }
@@ -55,6 +61,9 @@ export function useDesignController() {
         setRegions(r); setRadius(a); setChoiceId(mode === 'choose' ? '' : mode === 'preset' ? masks.join(',') : mode!);
         setCustomSlots(mode === 'preset' || mode === 'choose' ? masks : []);
         if (mode === 'preset') setExtraChoice({ id: masks.join(','), label: masks.map((m) => MASKS[m]).join(' + '), mode, maskCodes: masks });
+        const noise = q.get('noise') ?? 'iid';
+        if (!SEARCH_NOISE_PRESETS.some((preset) => preset.id === noise)) throw new Error('草稿噪声模型无效');
+        setNoiseModelId(noise);
         setEditing(true); setDraft(true);
       }
       setReady(true);
@@ -68,7 +77,11 @@ export function useDesignController() {
     return items;
   }, [protocol, regions, extraChoice]);
   const choice = choices.find((c) => c.id === choiceId);
-  const request = useMemo<ComputeRequest | null>(() => choice ? { region_count: regions, radius_mm: radius, mode: choice.mode, ...(choice.mode === 'preset' ? { mask_codes: choice.maskCodes } : {}) } : null, [choice, regions, radius]);
+  const request = useMemo<ComputeRequest | null>(() => {
+    if (!choice) return null;
+    const noise_model = searchNoise(noiseModelId);
+    return { region_count: regions, radius_mm: radius, mode: choice.mode, ...(choice.mode === 'preset' ? { mask_codes: choice.maskCodes } : {}), ...(noise_model ? { noise_model } : {}) };
+  }, [choice, regions, radius, noiseModelId]);
   const result = editing && request && computed && requestKey(computed.request) === requestKey(request) ? computed : null;
   const currentStatus = request && status && requestKey(status.request) === requestKey(request) ? status : null;
   const layout = editing ? result?.layout : source?.layout;
@@ -77,16 +90,17 @@ export function useDesignController() {
   const metrics = editing ? result?.metrics : source?.metrics;
   const here = useMemo(() => {
     const q = new URLSearchParams(routeParams);
-    for (const key of ['saved', 'from', 'draft', 'r', 'radius', 'mode', 'masks', 'layoutRecord', 'layoutState', 'layoutChannels', 'layoutRegions']) q.delete(key);
+    for (const key of ['saved', 'from', 'draft', 'r', 'radius', 'mode', 'masks', 'noise', 'layoutRecord', 'layoutState', 'layoutChannels', 'layoutRegions']) q.delete(key);
     q.set('ar', String(ar));
     if (originId) q.set(originKind, originId);
     if (draft) {
       q.set('draft', '1'); q.set('r', String(regions)); q.set('radius', String(radius)); q.set('mode', choice?.mode ?? 'choose');
       if (choice?.maskCodes) q.set('masks', choice.maskCodes.join(','));
       else if (!choice && customSlots.some(Boolean)) q.set('masks', customSlots.join(','));
+      if (noiseModelId !== 'iid') q.set('noise', noiseModelId);
     }
     return '/design?' + q.toString();
-  }, [ar, originId, originKind, draft, regions, radius, choice, customSlots, routeParams]);
+  }, [ar, originId, originKind, draft, regions, radius, choice, customSlots, noiseModelId, routeParams]);
   useEffect(() => { if (ready) window.history.replaceState(null, '', here); }, [ready, here]);
   const changeRegions = (n: number) => {
     if (n === regions) return;
@@ -103,9 +117,13 @@ export function useDesignController() {
     setCustomSlots(slots); setExtraChoice(selected); setChoiceId(selected?.id ?? ''); setDraft(true);
     setNotice(selected ? '' : `已选${slots.filter(Boolean).length}/${regions}个区域的部位。请补全每个区域后开始计算。`);
   };
+  const selectNoiseModel = (id: string) => {
+    if (!SEARCH_NOISE_PRESETS.some((preset) => preset.id === id)) return;
+    setNoiseModelId(id); setDraft(true);
+  };
   const startRadius = () => {
     if (!source) return;
-    setRegions(source.region_count); setChoiceId(source.mode.includes('whole') ? 'whole_surface' : 'low_hair'); setRadius(35);
+    setRegions(source.region_count); setChoiceId(source.mode.includes('whole') ? 'whole_surface' : 'low_hair'); setRadius(35); setNoiseModelId('iid');
     setCustomSlots([]);
     setEditing(true); setDraft(true);
     setNotice('已新建每区半径约束方案：仅保留区域数和允许位置域，半径初始值为35 mm。区域中心、64点位置和指标由新配置重新计算。');
@@ -115,6 +133,8 @@ export function useDesignController() {
     currentStatus && ['queued', 'running', 'cancelling'].includes(currentStatus.status) ? '当前方案正在计算，完成后显示布局与指标。' :
     !choice ? '请先选择与区域数量兼容的位置组合。' : undefined;
   const comparison = comparisonLink(source, ar);
-  const receptionId = layout ? editing ? currentStatus?.status === 'completed' ? currentStatus.key : null : source?.id : null;
-  return { error, ready, ar, comparison, here, receptionId, count, source, notice, settingsRef, editing, radius, regions, choices, choice, customSlots, selectChoice, selectSlot, changeRegions, startRadius, setRadius, setDraft, setAR, request, originId, setComputed, setStatus, metrics, layout, geometry, pendingText, currentStatus };
+  // Signal simulation and the electrode editor keep independent noise.
+  const correlatedNoise = Boolean(editing ? request?.noise_model : source?.request?.noise_model);
+  const receptionId = layout && !correlatedNoise ? editing ? currentStatus?.status === 'completed' ? currentStatus.key : null : source?.id : null;
+  return { error, ready, ar, comparison, here, receptionId, correlatedNoise, count, source, notice, settingsRef, editing, radius, regions, choices, choice, customSlots, selectChoice, selectSlot, changeRegions, startRadius, setRadius, noiseModelId, selectNoiseModel, setDraft, setAR, request, originId, setComputed, setStatus, metrics, layout, geometry, pendingText, currentStatus };
 }

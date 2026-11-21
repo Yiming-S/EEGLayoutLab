@@ -123,18 +123,21 @@ export class RobustnessStudyService {
     await this.ready();
     if (this.closed) throw studyError("Study service is stopping.", 503);
     const normalized = normalizeStudyInput(input),
+      heads = normalized.protocol === "heads",
       cases = [];
     let identity;
     for (const [index, request] of normalized.requests.entries()) {
       const prepared = await this.adapter.prepare(request),
         current = hash(prepared.ctx.identity);
-      if (identity && current !== identity)
+      // Each head adds its own package files to the identity; other protocols share one model.
+      if (!heads && identity && current !== identity)
         throw studyError("Scientific identity changed while preparing the study.", 409);
       identity = current;
       cases.push({
         index,
         request: prepared.request,
         key: prepared.key,
+        ...(heads ? { identity_sha256: current } : {}),
         status: "pending",
         receipt_id: null,
         error: null,
@@ -142,11 +145,16 @@ export class RobustnessStudyService {
     }
     if (this.closed) throw studyError("Study service is stopping.", 503);
     const { requests: _requests, ...metadata } = normalized;
-    const record = await this.store.create(visitor.id, {
-      ...metadata,
-      identity_sha256: identity,
-      cases,
-    });
+    // Non-head records keep the single shared identity that older servers verify.
+    const record = await this.store.create(
+      visitor.id,
+      {
+        ...metadata,
+        identity_sha256: heads ? hash(cases.map((entry) => entry.identity_sha256)) : identity,
+        cases,
+      },
+      visitor.network,
+    );
     return this.get(record.id, visitor);
   }
   async start(id, visitor, resume = false) {
@@ -341,7 +349,11 @@ export class RobustnessStudyService {
         }
         const prepared = await this.adapter.prepare(entry.request);
         if (this.closed) return;
-        if (prepared.key !== entry.key || hash(prepared.ctx.identity) !== record.identity_sha256) {
+        // Only head cases carry their own identity; others share the record identity.
+        if (
+          prepared.key !== entry.key ||
+          hash(prepared.ctx.identity) !== (entry.identity_sha256 ?? record.identity_sha256)
+        ) {
           await this.store.update(id, visitor.id, (value) => {
             for (const row of value.cases)
               if (row.status === "pending") {

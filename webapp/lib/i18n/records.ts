@@ -1,15 +1,16 @@
 import { translateText, type Locale } from './core.ts';
-import { recordTitle } from '../ui-language.ts';
+import { recordBaseTitle, recordConditionLabels, recordNoiseLabel, recordTitle } from '../ui-language.ts';
 import type { SavedSummary } from '../local-library';
 import type { EditorRecord } from '../electrode-editor';
 
 /** User-assigned names are data, not translation keys. Old source records stay untouched. */
 export function localizedRecordTitle(record: SavedSummary, locale: Locale): string {
   if (!record.mode) return record.label;
-  if (record.dataset_id === 'design_evaluation') return locale === 'en'
+  if (record.dataset_id === 'design_evaluation') return [locale === 'en'
     ? `${record.region_count} ${record.region_count === 1 ? 'region' : 'regions'} · ${record.label} · evaluated coordinates`
-    : `${record.region_count}个区域 · ${record.label} · 已评价坐标`;
-  return translateText(recordTitle(record), locale);
+    : `${record.region_count}个区域 · ${record.label} · 已评价坐标`, ...recordConditionLabels(record).map(label => translateText(label, locale))].join(' · ');
+  const noise = recordNoiseLabel(record);
+  return translateText(recordBaseTitle(record), locale) + (noise ? ' · ' + translateText(noise, locale) : '');
 }
 
 /** Use parent metadata for system titles; unknown names remain original data. */

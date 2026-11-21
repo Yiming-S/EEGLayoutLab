@@ -61,6 +61,8 @@ export function SiteHeader({
         ? '/library'
         : current === 'projects'
           ? '/projects'
+        : current === 'robustness'
+          ? '/robustness'
         : current === 'coordinates'
           ? '/coordinates'
           : (PAGES.find((p) => p.id === current)?.path ?? '/')),
@@ -171,6 +173,8 @@ export function SiteHeader({
           ? '坐标导入'
           : current === 'projects'
             ? '研究项目'
+          : current === 'robustness'
+            ? '稳健性研究'
           : current === 'library'
             ? '布局记录'
             : (PAGES.find((p) => p.id === current)?.label ?? '历史实验'),

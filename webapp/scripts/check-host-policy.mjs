@@ -21,8 +21,11 @@ void test('hosted access requires configured proxy, HTTPS host and single client
   for (const headers of [{host:'attacker.example.org'}, {origin:'https://attacker.example.org'}, {'x-forwarded-proto':'http'}, {'x-forwarded-proto':'https,http'}, {'x-forwarded-for':'203.0.113.8, 127.0.0.1'}, {'x-forwarded-for':undefined}, {'x-forwarded-for':'not-an-ip'}, {'sec-fetch-site':'cross-site'}]) assert.equal(policy.guard(request(headers)), false, JSON.stringify(headers));
   assert.equal(policy.guard(request({}, '192.0.2.6')), false);
   assert.equal(createAccessPolicy().guard(request()), false);
-  const local=request({host:'127.0.0.1:3000',origin:'http://127.0.0.1:3000'});
+  const local=request({host:'127.0.0.1:3000',origin:'http://127.0.0.1:3000','x-forwarded-proto':undefined,'x-forwarded-for':undefined});
   assert.equal(policy.guard(local), true);
+  // A proxied request with a rewritten loopback Host must not pass as an operator request.
+  assert.equal(policy.guard(request({host:'127.0.0.1:3000',origin:'http://127.0.0.1:3000'})), false);
+  assert.equal(policy.guard({...local,headers:{...local.headers,forwarded:'for=203.0.113.8'}}), false);
   assert.equal(policy.visitorAddress(local), '127.0.0.1');
   assert.equal(createAccessPolicy().visitorAddress(local), '127.0.0.1');
 });

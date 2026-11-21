@@ -24,13 +24,22 @@ caller-owned arrays and workspace. The optional CLI reproduces this benchmark.
 """
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass
 import time
 
 import numpy as np
-from scipy.linalg import cho_factor, cho_solve
+from scipy.linalg import cho_factor, cho_solve, solve_triangular
 
 from .metrics import helmert_contrast, participation_effective_rank
+from .noise_models import gaussian_cross, spatial_correlation
+
+
+def _whitened_rank(information, noise):
+    """Participation rank of L^-1 information L^-T for contrast noise N = L L^T."""
+    factor = np.linalg.cholesky(.5 * (noise + noise.T))
+    whitened = solve_triangular(factor, solve_triangular(factor, information, lower=True).T, lower=True)
+    return participation_effective_rank(.5 * (whitened + whitened.T))
 
 
 def _readonly(value, dtype=None):
@@ -99,12 +108,18 @@ class LayoutSearchMetrics:
     Default optimization score is ``make_state(..., snr_db=20).field_relative``.
     It is a field-only objective, not a joint sensitivity/localization optimum.
     Use the separately returned sensitivity when defining another objective.
+
+    ``noise_kernel=(candidate_xyz_mm, reference_xyz_mm, rho, length_mm)``
+    replaces the independent noise by unit-diagonal Gaussian-correlated noise
+    (``noise_models.spatial_correlation``) at the same physical variance.
+    Because the diagonal is unchanged, exchange scoring only adds the
+    retained/candidate cross terms. None keeps the original iid arithmetic.
     """
     def __init__(
         self, candidate_leadfield, reference_leadfield, source_area_weights, *,
         source_moment_am=1e-8, numerical_zero_relative_tolerance=1e-8,
         source_tail_fraction=.1, maximum_excluded_source_area_fraction=.001,
-        covariance_block_size=256,
+        covariance_block_size=256, noise_kernel=None,
     ):
         started = time.perf_counter()
         bank = np.asarray(candidate_leadfield, dtype=np.float64)
@@ -166,7 +181,7 @@ class LayoutSearchMetrics:
         if not np.all(np.isfinite(self._covariance)) or not np.all(np.isfinite(self._cross)):
             raise ValueError("normalized covariance exceeds float64 range")
         self._covariance.setflags(write=False)
-        self._reference_rank = participation_effective_rank(self._cbb)
+        self._set_noise_kernel(noise_kernel)
         self._baseline_cache = {}
         self._reference_bipolar = np.ptp(reference_centered, axis=0) / scale / normalization
         threshold_original = 2 * tolerance * float(np.max(np.abs(reference_centered)))
@@ -178,6 +193,30 @@ class LayoutSearchMetrics:
         self._threshold_original = threshold_original
         self.cache_bytes = int(sum(a.nbytes for a in (self._bank, self._covariance, self._cross, self._cbb, self._weights, self._reference_bipolar, self._valid)))
         self.construction_seconds = time.perf_counter() - started
+
+    def _set_noise_kernel(self, noise_kernel):
+        # Set here, not in __init__: with_noise_kernel copies the engine and must recompute the reference rank.
+        self._kernel = None
+        self._reference_noise = np.eye(63)
+        if noise_kernel is None:
+            self._reference_rank = participation_effective_rank(self._cbb)
+        else:
+            candidate_xyz, reference_xyz, rho, length = noise_kernel
+            candidate_xyz = np.asarray(candidate_xyz, dtype=np.float64)
+            if candidate_xyz.shape != (self.point_count, 3) or not np.all(np.isfinite(candidate_xyz)):
+                raise ValueError("noise kernel needs one finite xyz row per candidate")
+            self._kernel = (_readonly(candidate_xyz), float(rho), float(length))
+            reference_noise = self._contrast @ spatial_correlation(reference_xyz, float(rho), float(length)) @ self._contrast.T
+            self._reference_noise = .5 * (reference_noise + reference_noise.T)
+            self._reference_rank = _whitened_rank(self._cbb, self._reference_noise)
+        self._baseline_cache = {}
+
+    def with_noise_kernel(self, noise_kernel):
+        """Engine sharing this bank's signal caches under another noise model; states are not interchangeable."""
+        engine = copy.copy(self)
+        engine._owner = object()
+        engine._set_noise_kernel(noise_kernel)
+        return engine
 
     def _indices(self, value):
         return _index_vector(value, self.point_count, count=64)
@@ -195,7 +234,7 @@ class LayoutSearchMetrics:
     def _baseline(self, snr_db):
         snr, noise = self._noise(snr_db)
         if snr not in self._baseline_cache:
-            factor = cho_factor(self._cbb + noise * np.eye(63), lower=True, check_finite=False)
+            factor = cho_factor(self._cbb + noise * self._reference_noise, lower=True, check_finite=False)
             estimate = cho_solve(factor, self._cbb, check_finite=False)
             value = float(np.sum(self._cbb * estimate.T) / self._target_energy)
             if not 0 < value <= 1 + 1e-10:
@@ -208,7 +247,7 @@ class LayoutSearchMetrics:
         selected = self._indices(indices)
         snr, noise = self._noise(snr_db)
         covariance = self._covariance[np.ix_(selected, selected)]
-        covariance = .5 * (covariance + covariance.T) + noise * np.eye(64)
+        covariance = .5 * (covariance + covariance.T) + noise * self._noise_matrix(selected)
         inverse = cho_solve(cho_factor(covariance, lower=True, check_finite=False), np.eye(64), check_finite=False)
         inverse = .5 * (inverse + inverse.T)
         cross = self._cross[:, selected]
@@ -222,6 +261,12 @@ class LayoutSearchMetrics:
         if not np.isfinite(absolute) or not -1e-9 <= absolute <= 1 + 1e-9:
             raise FloatingPointError("candidate explained energy outside numerical bounds")
         return LayoutScoreState(_readonly(selected), snr, absolute, absolute / self._baseline(snr), self._owner, _readonly(inverse))
+
+    def _noise_matrix(self, selected):
+        if self._kernel is None:
+            return np.eye(len(selected))
+        xyz, rho, length = self._kernel
+        return spatial_correlation(xyz[selected], rho, length)
 
     def _check_state(self, state):
         if not isinstance(state, LayoutScoreState) or state._owner is not self._owner:
@@ -310,6 +355,7 @@ class LayoutSearchMetrics:
         one_precision = float(inverse_one.sum())
         projected_one = cross @ inverse_one
         _, noise = self._noise(state.snr_db)
+        floor = noise * .5 * (1. if self._kernel is None else 1. - self._kernel[1])
         absolute = np.empty(len(candidates))
         sensitivity = np.empty(len(candidates)) if include_sensitivity else None
         if include_sensitivity:
@@ -319,13 +365,16 @@ class LayoutSearchMetrics:
         for start in range(0, len(candidates), int(chunk_size)):
             part = candidates[start:start + int(chunk_size)]
             cov = self._covariance[np.ix_(retained, part)]
+            if self._kernel is not None:
+                xyz, rho, length = self._kernel
+                cov = cov + noise * gaussian_cross(xyz[retained], xyz[part], rho, length)
             solved = reduced @ cov
             diagonal = self._covariance[part, part] + noise
             schur = diagonal - np.sum(cov * solved, axis=0)
             innovations = self._cross[:, part] - reduced_cross @ cov
             residual_one = 1 - inverse_one @ cov
-            # Any well-resolved SPD Schur variance is at least the added noise.
-            bad = (~np.isfinite(schur)) | (schur < noise * .5)
+            # A well-resolved SPD Schur variance is at least the noise nugget.
+            bad = (~np.isfinite(schur)) | (schur < floor)
             safe_schur = np.where(bad, 1., schur)
             t = trace + np.sum(innovations**2, axis=0) / safe_schur
             projected = projected_one[:, None] + innovations * (residual_one / safe_schur)
@@ -354,7 +403,9 @@ class LayoutSearchMetrics:
         centered -= centered.mean(axis=0, keepdims=True)
         hx = self._contrast @ centered
         cxx = (hx * self._weights) @ hx.T
-        rank = participation_effective_rank(cxx)
+        # iid noise is a multiple of I, so the scale-invariant rank needs no whitening.
+        rank = participation_effective_rank(cxx) if self._kernel is None else \
+            _whitened_rank(cxx, self._contrast @ self._noise_matrix(selected) @ self._contrast.T)
         conditions = []
         for snr in snrs:
             state = self.make_state(selected, snr_db=snr)
@@ -368,7 +419,9 @@ class LayoutSearchMetrics:
                 "field_retention_unclipped": state.field_relative,
                 "reference_noise_whitened_area_weighted_effective_rank": self._reference_rank,
                 "candidate_noise_whitened_area_weighted_effective_rank": rank,
-                "baseline_identity_field_retention": 1.})
+                "baseline_identity_field_retention": 1.,
+                **({} if self._kernel is None else {"noise_correlation": {"kind": "spatial_gaussian",
+                    "rho": self._kernel[1], "length_mm": self._kernel[2]}})})
         return {"schema_version": "compact-eeg-layout-search-metrics/1",
             "scientific_role": "exploratory_fixed64_field_and_sensitivity_scoring",
             "formal_v2_performance_eligible": False, "ar_computed": False,

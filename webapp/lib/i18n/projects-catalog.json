@@ -586,5 +586,13 @@
   "project_delivery_manifest_error": {
     "source": "项目交付清单校验失败",
     "en": "The delivery manifest checksum does not match."
+  },
+  "project_057": {
+    "source": "从项目移除此实验记录？项目保存的副本会被删除，原始结果不受影响。",
+    "en": "Remove this experiment from the project? The copy saved in the project is deleted; the original result is not affected."
+  },
+  "project_058": {
+    "source": "撤销后，所有已发出的只读链接立即失效。继续？",
+    "en": "Revoking makes every read-only link already shared stop working immediately. Continue?"
   }
 }

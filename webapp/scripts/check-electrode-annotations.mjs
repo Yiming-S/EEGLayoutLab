@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { CONDUCTIVITY_SCENARIOS, NOISE_MODEL_PRESETS } from '../contracts/scientific-options.mjs';
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
@@ -229,7 +230,7 @@ void test('opening and refreshing a saved evaluation restores original inputs, e
   const globals = { window: { location, history: { replaceState(_state, _unused, href) { location.search = new URL(href, 'http://localhost').search; } } },
     sessionStorage: { getItem: key => stored.get(key) ?? null, setItem: (key, value) => stored.set(key, value) },
     fetch: async url => { calls.push(url); return { ok: true, json: async () => url === '/api/local-compute/library' ? { schema: 'local-data-library/1', records: [record] } : url.includes('/bundle') ? bundle : { record } }; } };
-  const imports = { ...decision, canCompareRecord, safeReturnHref, useLanguage: () => ({ tx: text => text, locale: 'en' }), followTask,
+  const imports = { ...decision, CONDUCTIVITY_SCENARIOS, NOISE_MODEL_PRESETS, canCompareRecord, safeReturnHref, useLanguage: () => ({ tx: text => text, locale: 'en' }), followTask,
     isTaskRunning: job => ['queued', 'running'].includes(job?.status), cancelTask: () => { throw new Error('Unexpected cancellation'); },
     submitTask: async (_kind, body) => { writes.push(body); return { job: { id: randomUUID(), status: 'completed', key: f.key, result } }; } };
   const create = () => createHookHarness({ filename: new URL('../features/decision/use-decision-controller.ts', import.meta.url), exportName: 'useDecisionController', imports, globals, args: ['coordinates'] });

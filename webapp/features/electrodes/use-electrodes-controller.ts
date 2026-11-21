@@ -136,7 +136,7 @@ export function useElectrodesController() {
         if (alive.current) setPending(false);
         return await follow(data.job, abort.signal);
       } catch (e) {
-        if (alive.current && e instanceof ApiError) setConnection('blocked');
+        if (alive.current && e instanceof ApiError && e.connectionLost) setConnection('blocked');
         throw e;
       } finally {
         if (alive.current) setPending(false);
@@ -395,7 +395,7 @@ export function useElectrodesController() {
     } catch (e) {
       if (alive.current) {
         setError(String(e));
-        if (e instanceof ApiError) setConnection('blocked');
+        if (e instanceof ApiError && e.connectionLost) setConnection('blocked');
       }
     } finally {
       if (alive.current) setPending(false);

@@ -123,7 +123,7 @@ export function ExperimentResult({
           <div>
             <h2 className="text-lg font-semibold">{label}</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              {tx(archived ? '项目保存的结果' : cached ? '本地缓存' : '本次计算')} ·{' '}
+              {tx(archived ? '项目保存的结果' : cached ? '已有结果' : '本次计算')} ·{' '}
               {tx(result.source.patch_count)}
               {tx('个已选皮层源 · 原布局坐标未改变')}
               {result.request.mode === 'cross_region' && (

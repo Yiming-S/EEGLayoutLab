@@ -117,7 +117,7 @@ void test('a late lookup reply cannot replace a newly selected cached scene', as
   await harness.flush();
   assert.equal(harness.current.result.request.record_id, c.record_id);
   assert.equal(harness.current.lookup.key, sourceKey(c));
-  assert.equal(harness.current.lookup.message, '已读取本地缓存，不重新计算。');
+  assert.equal(harness.current.lookup.message, '已读取已有结果，不重新计算。');
   assert.equal(calls.some(url => url.endsWith('/jobs/b')), false);
 });
 

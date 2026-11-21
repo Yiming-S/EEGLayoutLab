@@ -4,7 +4,7 @@ import {
   ApiError,
   type ApiOptions,
 } from './task-client.ts';
-import type { ElectrodeDesign } from '../lib/design-decision';
+import type { ElectrodeDesign, NoiseModel } from '../lib/design-decision';
 import type {
   StudyProtocol,
   StudyResponse,
@@ -14,9 +14,11 @@ import type {
 export type CreateStudyInput = {
   protocol: StudyProtocol;
   design: ElectrodeDesign;
-  cases: { seed: number; radius_mm: number }[];
+  cases: { seed: number; radius_mm: number; head_id?: string }[];
   title: string;
   notes: string;
+  noise_model?: NoiseModel;
+  conductivity_scenario?: string;
 };
 const path = (id: string) => {
   if (
@@ -25,6 +27,9 @@ const path = (id: string) => {
     throw new Error('研究编号无效');
   return '/api/robustness-studies/' + id;
 };
+export type HeadPackageEntry = { head_id: string; dataset: string; subject: string };
+export const listHeadPackages = (signal?: AbortSignal) =>
+  apiJson<{ heads: HeadPackageEntry[] }>('/api/design-evaluation/heads', { signal });
 export const listRobustnessStudies = (signal?: AbortSignal) =>
   apiJson<{ studies: StudyDirectoryEntry[] }>('/api/robustness-studies', {
     signal,

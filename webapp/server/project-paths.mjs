@@ -16,6 +16,8 @@ export const DESIGN_WORKFLOW = [
   prefix + 'head_model.py',
   prefix + 'reception_forward_provider.py',
   prefix + 'shared_native_forward.py',
+  prefix + 'scalp_node_table.py',
+  prefix + 'head_package.py',
 ];
 export const RECEPTION_WORKFLOW = [
   prefix + '__init__.py',

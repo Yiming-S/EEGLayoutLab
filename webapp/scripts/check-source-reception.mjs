@@ -362,3 +362,18 @@ void test('v2 original download requires its frozen identity layout even when th
   await assert.rejects(f.source.savedResult(oldKey, req), /坐标或区域标签无效/);
   f.source.dispose(); f.queue.dispose();
 });
+
+void test('v1 and v2 signal simulation both refuse a layout searched under correlated noise', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'eeg-source-noise-'));
+  const parent = { id: req.record_id, dataset_id: 'cache', status: 'completed', layout, request: { region_count: 2 } };
+  const source = new SourceReceptionService({ root, python: 'python3', library: { get: async () => parent } });
+  const v2 = normalizeReceptionRequest({ record_id: req.record_id, mode: 'single_source', source_index: 2,
+    waveform: 'burst', artifact_scale: 1, seed: 2026 });
+  // An independent-noise parent passes the guard and only then needs the model files.
+  for (const request of [normalizeReceptionRequest(req), v2])
+    await assert.rejects(source.context(request), (error) => !/独立噪声/.test(error.message));
+  parent.request.noise_model = { kind: 'spatial', rho: 0.5, length_mm: 20 };
+  for (const request of [normalizeReceptionRequest(req), v2])
+    await assert.rejects(source.context(request), /独立噪声/);
+  source.dispose();
+});

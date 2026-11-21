@@ -1,13 +1,13 @@
 /** Durable study metadata and exact scientific cache copies, separate from all scientific records. */
 import { createHash, randomUUID } from "node:crypto";
-import { lstat, mkdir, open, readdir, realpath, rename, unlink } from "node:fs/promises";
+import { lstat, mkdir, open, readdir, realpath, rename, rm, unlink } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { ProjectStore, validProjectId } from "../projects/store.mjs";
 import { atomicJson } from "../storage/records.mjs";
 import { normalizeDesignRequest, validateDesignResult } from "../design-evaluation-server.mjs";
 import { electrodeNames } from "../annotations/electrode-names.mjs";
 import { validateCoordinateSource } from "../../contracts/coordinate-source.mjs";
-import { STUDY_LIMITS, aggregateStudy, studyError, summarizeStudyCase } from "./protocol.mjs";
+import { STUDY_LIMITS, STUDY_PROTOCOLS, aggregateStudy, studyAction, studyError, summarizeStudyCase } from "./protocol.mjs";
 
 const SHA = /^[a-f0-9]{64}$/;
 export const digestStudyBytes = (bytes) => createHash("sha256").update(bytes).digest("hex");
@@ -55,7 +55,7 @@ function validate(record) {
       record.schema !== "eeg-robustness-study/1" ||
       !validProjectId(record.id) ||
       !SHA.test(record.owner) ||
-      !["noise_seeds", "grid_displacements"].includes(record.protocol) ||
+      !STUDY_PROTOCOLS.includes(record.protocol) ||
       !statuses.includes(record.status) ||
       !Number.isSafeInteger(record.revision) ||
       record.revision < 1 ||
@@ -93,7 +93,10 @@ function validate(record) {
         !(entry.receipt_id === null || validProjectId(entry.receipt_id)) ||
         JSON.stringify(normalizeDesignRequest(entry.request)) !== JSON.stringify(entry.request) ||
         JSON.stringify(entry.request.design) !== JSON.stringify(record.design) ||
-        entry.request.action !== (record.protocol === "noise_seeds" ? "evaluate" : "perturb")
+        JSON.stringify(entry.request.noise_model) !== JSON.stringify(record.noise_model) ||
+        entry.request.conductivity_scenario !== record.conductivity_scenario ||
+        entry.request.action !== studyAction(record.protocol) ||
+        (record.protocol === "heads") !== (typeof entry.request.head_id === "string")
       )
         throw new Error();
       if (
@@ -109,13 +112,29 @@ function validate(record) {
         throw new Error();
       if (entry.status === "submitting" && !validProjectId(entry.operation_id)) throw new Error();
       if (entry.annotation_id !== undefined && !SHA.test(entry.annotation_id)) throw new Error();
+      if (entry.identity_sha256 !== undefined && !SHA.test(entry.identity_sha256)) throw new Error();
+      if (record.network !== undefined && !SHA.test(record.network)) throw new Error();
       const request = JSON.stringify(entry.request);
       if (requests.has(request)) throw new Error();
       requests.add(request);
     }
     if (
-      record.protocol === "noise_seeds" &&
+      studyAction(record.protocol) === "evaluate" &&
       new Set(record.cases.map((entry) => entry.request.radius_mm)).size !== 1
+    )
+      throw new Error();
+    if (
+      record.protocol === "heads" &&
+      (new Set(record.cases.map((entry) => entry.request.head_id)).size !== record.cases.length ||
+        new Set(record.cases.map((entry) => entry.request.seed)).size !== 1)
+    )
+      throw new Error();
+    // Heads bind every case identity; other protocols keep the one shared identity, as older servers expect.
+    const identities = record.cases.map((entry) => entry.identity_sha256);
+    if (
+      record.protocol === "heads"
+        ? identities.includes(undefined) || jsonHash(identities) !== record.identity_sha256
+        : identities.some((value) => value !== undefined)
     )
       throw new Error();
   } catch {
@@ -278,14 +297,31 @@ export class StudyStore {
     }
     await atomicJson(path, record);
   }
-  create(owner, prepared) {
+  /** Drafts that were never started hold no results; free their slots after a week. */
+  async pruneDrafts(all) {
+    const cutoff = Date.parse(this.now()) - STUDY_LIMITS.draftDays * 86400000,
+      kept = [];
+    for (const record of all) {
+      if (record.status === "draft" && Date.parse(record.updated_at) < cutoff &&
+          record.cases.every((entry) => entry.receipt_id === null)) {
+        await rm(join(this.directory, record.id), { recursive: true, force: true });
+        continue;
+      }
+      kept.push(record);
+    }
+    return kept;
+  }
+  create(owner, prepared, network) {
     return this.io.serialize(async () => {
       await this.beforeWrite();
       await this.root(true);
-      const all = await this.all();
+      const all = await this.pruneDrafts(await this.all());
       if (
+        // Interrupted, unpublished creates still count against capacity.
         (await this.ids()).length >= this.limits.studies ||
-        all.filter((record) => record.owner === owner).length >= this.limits.perOwner
+        all.filter((record) => record.owner === owner).length >= this.limits.perOwner ||
+        // A new cookie is free; the same share also applies to the client network.
+        (network && all.filter((record) => record.network === network).length >= this.limits.perNetwork)
       )
         throw studyError("Study count limit reached.", 429);
       const id = randomUUID(),
@@ -294,6 +330,7 @@ export class StudyStore {
           schema: "eeg-robustness-study/1",
           id,
           owner,
+          ...(network ? { network } : {}),
           ...clone(prepared),
           status: "draft",
           revision: 1,
@@ -394,8 +431,10 @@ export class StudyStore {
       study = clone(record),
       caches = [];
     delete study.owner;
+    delete study.network;
     delete study.identity_sha256;
     for (const entry of study.cases) {
+      delete entry.identity_sha256;
       entry.summary = null;
       let cache = null,
         cache_json = null;

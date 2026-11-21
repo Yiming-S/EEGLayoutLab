@@ -33,7 +33,7 @@ export function validateElectrodeAnnotation(value, recordId) {
   electrodeNames(value.electrode_names); if (value.source_metadata !== undefined) validateCoordinateSource(value.source_metadata); return value;
 }
 export class ElectrodeAnnotations {
-  constructor(root, { limits = ANNOTATION_LIMITS } = {}) { this.root = realpathSync(root); this.limits = limits; }
+  constructor(root, { limits = ANNOTATION_LIMITS } = {}) { this.root = realpathSync(root); this.limits = limits; this.verified = new Map(); }
   directory(create = false) {
     let current = this.root;
     for (const part of ['results', 'v2', 'design_evaluation_jobs', 'electrode_annotations']) {
@@ -116,8 +116,16 @@ export class ElectrodeAnnotations {
       if (!/^[a-f0-9]{64}\.json$/.test(name)) throw error('Electrode name storage needs inspection.', 409);
       const path = join(directory, name), stat = lstatSync(path);
       if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1 || stat.size > this.limits.fileBytes) throw error('Electrode name storage needs inspection.', 409);
-      const value = this.file(path), checked = this.read(name.slice(0, -5), value.owner, value.record_id);
-      if (value.owner === owner) result.push(checked);
+      // Annotation files are content-addressed and never rewritten: verify each file state once,
+      // instead of reading and hashing every file on every library request.
+      const stamp = `${stat.ino}:${stat.size}:${stat.mtimeMs}`;
+      let known = this.verified.get(name);
+      if (known?.stamp !== stamp) {
+        const value = this.file(path);
+        known = { stamp, owner: value.owner, checked: this.read(name.slice(0, -5), value.owner, value.record_id) };
+        this.verified.set(name, known);
+      }
+      if (known.owner === owner) result.push(structuredClone(known.checked));
     } } catch (cause) { if (cause.annotationSafe) throw cause; throw error('Electrode name storage is unavailable.', 409); }
     return result;
   }

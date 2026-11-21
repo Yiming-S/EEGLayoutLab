@@ -5,7 +5,7 @@ import { mkdtemp, mkdir, readFile, writeFile, rm, symlink, realpath } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { experimentBundle } from '../server/experiment-bundle.mjs';
-import { designReceptionRecord } from '../server/reception-v2-support.mjs';
+import { assertIndependentNoiseParent, designReceptionRecord } from '../server/reception-v2-support.mjs';
 import { normalizeDesignRequest } from '../server/design-evaluation-server.mjs';
 import { computeMiddleware } from '../server/local-compute-server.mjs';
 import { translateText } from '../lib/i18n/core.ts';
@@ -13,7 +13,7 @@ import catalog from '../lib/i18n/export-refresh-catalog.json' with { type: 'json
 
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 
-async function fixture(t) {
+async function fixture(t, extra = {}) {
   // Serialization data only; no physical head model or numerical worker runs.
   const root = await realpath(await mkdtemp(join(tmpdir(), 'eeg-coordinate-bundle-')));
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -21,11 +21,11 @@ async function fixture(t) {
   const request = normalizeDesignRequest({ action: 'evaluate', radius_mm: 6, seed: 42, design: {
     schema: 'eeg-electrode-design/1', coordinate_system: 'ernie_native_mm', unit: 'mm', name: 'Coordinate serialization fixture',
     xyz_mm: xyz, region_indices: xyz.map((_, i) => Number(i >= 32)),
-  } });
+  }, ...extra });
   const identity = { schema: 'design-evaluation-cache/1', digests: { fixture: digest('serialization fixture') }, threads: 1 };
   const id = digest(JSON.stringify({ request, identity }));
   const result = {
-    schema: 'design-evaluation/1', status: 'completed', request, forward_mode: 'direct_fem',
+    schema: 'design-evaluation/1', status: 'completed', request, forward_mode: request.head_id ? 'head_scalp_node_table' : 'direct_fem',
     nominal: { field_relative: .9 / .99, field_absolute: .9, reference_field_absolute: .99,
       sensitivity_tail: .4, localization_relative: .5, median_mm: 10, p90_mm: 20,
       reference_median_mm: 9, reference_p90_mm: 18 },
@@ -40,7 +40,7 @@ async function fixture(t) {
   await writeFile(join(root, 'results/v2/reference.json'), report);
   await writeFile(join(root, 'results/v2/current_strict_area_budget_study.json'), JSON.stringify({ report: 'results/v2/reference.json', sha256: digest(report) }));
   await writeFile(file, JSON.stringify(cache));
-  const record = await designReceptionRecord(root, id);
+  const record = await designReceptionRecord(root, id, undefined, { conditions: true });
   // Refresh only the outer file identity to exercise inner integrity checks.
   const persist = async value => {
     const bytes = JSON.stringify(value);
@@ -158,4 +158,21 @@ void test('coordinate history labels have complete English and Chinese translati
     assert.equal(translateText(entry.source, 'zh-CN'), entry.source);
     assert.doesNotMatch(entry.en, /[\u3400-\u9fff]/);
   }
+});
+
+void test('evaluations under other conditions are library records with their conditions, never signal-simulation parents', async t => {
+  for (const [extra, condition] of [
+    [{ noise_model: { kind: 'spatial', rho: 0.5, length_mm: 20 } }, { noise_model: { kind: 'spatial', rho: 0.5, length_mm: 20 } }],
+    [{ conductivity_scenario: 'skull_x2' }, { conductivity_scenario: 'skull_x2' }],
+    [{ head_id: 'ixi002' }, { head_id: 'ixi002' }],
+  ]) {
+    const { root, id, record } = await fixture(t, extra);
+    assert.deepEqual(record.evaluation_condition, condition);
+    assert.equal(await designReceptionRecord(root, id), null);
+    assert.throws(() => assertIndependentNoiseParent(record), /独立噪声/);
+  }
+  const { root, id, record } = await fixture(t);
+  assert.equal(record.evaluation_condition, undefined);
+  assert.deepEqual(await designReceptionRecord(root, id), record);
+  assert.doesNotThrow(() => assertIndependentNoiseParent(record));
 });

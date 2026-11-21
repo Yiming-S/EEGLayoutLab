@@ -1,4 +1,4 @@
-import { validateDesign, type ElectrodeDesign } from "../../lib/design-decision.ts";
+import { validateDesign, type ElectrodeDesign, type NoiseModel } from "../../lib/design-decision.ts";
 import type { CreateStudyInput } from "../../client/robustness";
 import type { StudyProtocol, StudyStatus } from "../../contracts/robustness-study";
 
@@ -6,7 +6,17 @@ export const STUDY_DRAFT_KEY = "eeg-robustness-coordinate-draft/1";
 export const STUDY_DRAFT_LIMIT = 65536;
 export const STUDY_CASE_LIMIT = 12;
 export const STUDY_RADII = [3, 6, 10] as const;
-export type CaseDraft = { seed: string; radius: string };
+export type CaseDraft = { seed: string; radius: string; head?: string };
+/** Give each row without a known head the first head no other row uses; one shared seed pairs the noise draws. */
+export function fillHeads(rows: CaseDraft[], heads: { head_id: string }[]): CaseDraft[] {
+  const known = new Set(heads.map((head) => head.head_id)),
+    used = new Set(rows.map((row) => row.head).filter((head) => head && known.has(head)));
+  return rows.map((row) => {
+    const keep = row.head && known.has(row.head) ? row.head : heads.find((head) => !used.has(head.head_id))?.head_id;
+    if (keep) used.add(keep);
+    return { ...row, seed: rows[0].seed, radius: rows[0].radius, head: keep ?? "" };
+  });
+}
 export function saveStudyHandoff(storage: Pick<Storage, "setItem">, input: ElectrodeDesign) {
   const text = JSON.stringify({
     schema: "eeg-robustness-coordinate-draft/1",
@@ -32,12 +42,14 @@ export function createStudyInput(
   rows: CaseDraft[],
   title: string,
   notes: string,
+  noise_model?: NoiseModel,
+  conductivity_scenario?: string,
 ): CreateStudyInput {
   if (!design) throw new Error("请先导入64电极坐标");
   if (!title.trim() || title.length > 200 || notes.length > 2000)
     throw new Error("请填写研究名称；名称上限200字，备注上限2000字");
   if (
-    !["noise_seeds", "grid_displacements"].includes(protocol) ||
+    !["noise_seeds", "grid_displacements", "heads"].includes(protocol) ||
     rows.length < 1 ||
     rows.length > STUDY_CASE_LIMIT
   )
@@ -53,13 +65,21 @@ export function createStudyInput(
       !STUDY_RADII.some((radius) => radius === radius_mm)
     )
       throw new Error("每个案例须填写0至9999的整数种子和3、6或10 mm半径");
-    return { seed, radius_mm };
+    if (protocol !== "heads") return { seed, radius_mm };
+    if (!row.head) throw new Error("每个跨头模案例须选择一个头模");
+    return { seed, radius_mm, head_id: row.head };
   });
-  if (new Set(cases.map((row) => `${row.seed}:${row.radius_mm}`)).size !== cases.length)
+  if (protocol === "heads") {
+    if (new Set(cases.map((row) => row.head_id)).size !== cases.length)
+      throw new Error("跨头模研究中每个头模只能出现一次");
+    if (new Set(cases.map((row) => row.seed)).size !== 1)
+      throw new Error("跨头模研究的所有案例须使用同一随机种子");
+  } else if (new Set(cases.map((row) => `${row.seed}:${row.radius_mm}`)).size !== cases.length)
     throw new Error("案例的种子与半径组合不能重复");
-  if (protocol === "noise_seeds" && new Set(cases.map((row) => row.radius_mm)).size !== 1)
-    throw new Error("随机种子研究的所有案例须保持同一半径参数");
-  const input = { protocol, design: validateDesign(design), cases, title: title.trim(), notes };
+  if (protocol !== "grid_displacements" && new Set(cases.map((row) => row.radius_mm)).size !== 1)
+    throw new Error("随机种子研究和跨头模研究的所有案例须保持同一半径参数");
+  const input = { protocol, design: validateDesign(design), cases, title: title.trim(), notes, ...(noise_model ? { noise_model } : {}),
+    ...(conductivity_scenario && protocol === "noise_seeds" ? { conductivity_scenario } : {}) };
   if (new TextEncoder().encode(JSON.stringify(input)).byteLength > 65536)
     throw new Error("研究请求超过64 KiB");
   return input;

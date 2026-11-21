@@ -58,5 +58,81 @@
   "reduce_artifact_amplitude": {
     "source": "降低干扰幅度",
     "en": "Reduce artifact amplitude"
+  },
+  "ui_placement_section": {
+    "source": "布置方式与区域部位",
+    "en": "Placement method and region locations"
+  },
+  "ui_placement_step1": {
+    "source": "1 · 选择区域数与布置方式",
+    "en": "1 · Choose regions and placement method"
+  },
+  "ui_placement_method": {
+    "source": "布置方式",
+    "en": "Placement method"
+  },
+  "ui_placement_regions": {
+    "source": "指定部位组合",
+    "en": "Named location for each region"
+  },
+  "ui_placement_whole_note": {
+    "source": "不限制毛发位置，由算法选择区域。",
+    "en": "No hair-location restriction; the algorithm selects the regions."
+  },
+  "ui_placement_low_hair_note": {
+    "source": "只在耳后、前额与眶周的近似少毛发范围内选择。",
+    "en": "Only within the approximate low-hair areas behind the ears, on the forehead and around the eyes."
+  },
+  "ui_placement_regions_note": {
+    "source": "为每个区域指定部位：选常用组合，或逐区自由组合。",
+    "en": "Name a location for every region: pick a common combination or choose each region freely."
+  },
+  "ui_design_step2": {
+    "source": "2 · 设置每区半径",
+    "en": "2 · Set the radius per region"
+  },
+  "ui_design_step3": {
+    "source": "3 · 生成布局并评估",
+    "en": "3 · Generate and evaluate"
+  },
+  "ui_design_generated": {
+    "source": "已生成并评估的布局",
+    "en": "Generated and evaluated layout"
+  },
+  "ui_design_empty": {
+    "source": "计算完成后，这里显示三项保留率与达标判断。",
+    "en": "After the calculation, the three retention scores and the pass/fail judgment appear here."
+  },
+  "ui_design_empty_title": {
+    "source": "尚无评价结果",
+    "en": "No evaluation yet"
+  },
+  "ui_start_title": {
+    "source": "三步上手",
+    "en": "Get started in three steps"
+  },
+  "ui_start_compare": {
+    "source": "比较1–6个区域在相同面积下保留多少信号。",
+    "en": "Compare how much signal 1–6 regions keep under the same area."
+  },
+  "ui_start_design": {
+    "source": "设计新布局",
+    "en": "Design a new layout"
+  },
+  "ui_start_design_note": {
+    "source": "选择部位和每区半径，计算并保存新的64电极布局。",
+    "en": "Choose locations and a radius per region, then calculate and save a new 64-electrode layout."
+  },
+  "ui_start_reception_note": {
+    "source": "用同一模拟脑源，对照标准64导与新布局的接收信号。",
+    "en": "Use the same simulated brain source to compare what standard 64 channels and the new layout receive."
+  },
+  "ui_details_close": {
+    "source": "关闭方案详情",
+    "en": "Close layout details"
+  },
+  "ui_details_area_note": {
+    "source": "总面积上限约束实验 · 只读，不触发计算",
+    "en": "Total-area-cap experiment · Read-only, no calculation"
   }
 }

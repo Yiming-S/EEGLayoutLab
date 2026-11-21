@@ -10,7 +10,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { InputIntegrity } from './local-input-integrity.mjs';
-import { receptionV2Context, receptionLayouts, sourceCatalog } from './reception-v2-support.mjs';
+import { assertIndependentNoiseParent, receptionV2Context, receptionLayouts, sourceCatalog } from './reception-v2-support.mjs';
 import { normalizeReceptionRequest, validateReceptionResult } from './contracts/source-reception.mjs';
 export { SOURCE_REGIONS, normalizeSourceRequest, validateSourceResult } from './contracts/source-reception.mjs';
 
@@ -35,6 +35,7 @@ export class SourceReceptionService {
     this.active = null;
     this.submitting = false;
     this.disposed = false;
+    this.verified = new Map();
     this.inputs = new InputIntegrity(this.root);
     this.customContext = getContext;
     this.nativeContext = nativeContext ?? (request => scientificContext(this, request));
@@ -51,6 +52,7 @@ export class SourceReceptionService {
       throw new Error(
         '源实验需要已有完整64点布局；不会将几何预览或历史相交方案当作计算布局',
       );
+    assertIndependentNoiseParent(record);
     const pointerPath = 'results/v2/current_multiregion_bank.json';
     const pointer = JSON.parse(
       await readFile(join(this.root, pointerPath), 'utf8'),
@@ -103,11 +105,7 @@ export class SourceReceptionService {
       ctx = context ?? (await this.context(request));
     try {
       const path = this.store.path(request.mode ? 'sourceV2' : 'source', ctx.key, 'cache.json');
-      if ((await stat(path)).size > 32 * 1024 * 1024)
-        throw new Error('结果记录过大');
-      const cache = await this.store.read(path);
-      if (cache.key !== ctx.key || cache.result_sha256 !== hash(cache.result))
-        throw new Error('结果记录校验失败');
+      const cache = await this.verifiedCache(path, ctx.key);
       validateReceptionResult(cache.result, request, ctx.record);
       const job = {
         id: randomUUID(),
@@ -115,7 +113,7 @@ export class SourceReceptionService {
         request,
         status: 'completed',
         progress: 1,
-        message: '已读取同一源、布局和干扰条件的本地结果',
+        message: '已读取同一源、布局和干扰条件的已有结果',
         result: cache.result,
         cached: true,
         finished_at: cache.finished_at,
@@ -134,11 +132,9 @@ export class SourceReceptionService {
     const request = normalizeReceptionRequest(raw);
     const path = this.store.path(request.mode ? 'sourceV2' : 'source', key, 'cache.json');
     let cache;
-    try {
-      if ((await stat(path)).size > 32 * 1024 * 1024) throw new Error('结果记录过大');
-      cache = await this.store.read(path);
-    } catch (error) { if (error.code === 'ENOENT') throw new Error('计算记录无法读取，请重新提交'); throw error; }
-    if (cache.key !== key || cache.result_sha256 !== hash(cache.result) ||
+    try { cache = await this.verifiedCache(path, key); }
+    catch (error) { if (error.code === 'ENOENT') throw new Error('计算记录无法读取，请重新提交'); throw error; }
+    if (cache.key !== key ||
       !equal(normalizeReceptionRequest(cache.result?.request), request) ||
       (request.mode && (!cache.identity?.layout || hash({ request, identity: cache.identity }) !== key))) throw new Error('结果记录校验失败');
     const layout = cache.result.layout;
@@ -150,6 +146,22 @@ export class SourceReceptionService {
     validateReceptionResult(cache.result, request, { layout: cache.identity?.layout ?? layout });
     return cache.result;
   }
+  /**
+   * Reads and hash-checks a cache file. A result is about 8 MB, so the last two verified
+   * files are kept, keyed by their file state; repeated views reuse them instead of
+   * parsing and hashing on the main thread again.
+   */
+  async verifiedCache(path, key) {
+    const info = await stat(path);
+    if (info.size > 32 * 1024 * 1024) throw new Error('结果记录过大');
+    const stamp = `${info.ino}:${info.size}:${info.mtimeMs}`, memo = this.verified.get(path);
+    if (memo?.stamp === stamp) { this.verified.delete(path); this.verified.set(path, memo); return memo.cache; }
+    const cache = await this.store.read(path);
+    if (cache.key !== key || cache.result_sha256 !== hash(cache.result)) throw new Error('结果记录校验失败');
+    this.verified.set(path, { stamp, cache });
+    while (this.verified.size > 2) this.verified.delete(this.verified.keys().next().value);
+    return cache;
+  }
   remember(job) {
     this.jobs.set(job.id, job);
     while (this.jobs.size > 10) {
@@ -159,7 +171,7 @@ export class SourceReceptionService {
     }
   }
   async submit(raw) {
-    if (this.disposed) throw new Error('本地服务正在重启');
+    if (this.disposed) throw new Error('计算服务正在重启');
     const request = normalizeReceptionRequest(raw);
     if (this.submitting) return { busy: true };
     this.submitting = true;
@@ -168,7 +180,7 @@ export class SourceReceptionService {
       const ctx = await this.context(request),
         cached = await this.lookup(request, ctx);
       if (cached.hit) return { job: cached.job };
-      if (this.disposed) throw new Error('本地服务正在重启');
+      if (this.disposed) throw new Error('计算服务正在重启');
       if (this.active?.key === ctx.key) return { job: this.view(this.active) };
       release = this.executionSlot.acquire(this);
       if (!release) return { busy: true, maintenance: this.executionSlot.paused };
@@ -180,7 +192,7 @@ export class SourceReceptionService {
         request,
         record: ctx.record,
       });
-      if (this.disposed) throw new Error('本地服务正在重启');
+      if (this.disposed) throw new Error('计算服务正在重启');
       if (this.executionSlot.paused) return { busy: true, maintenance: true };
       const job = {
         releaseExecution: release,

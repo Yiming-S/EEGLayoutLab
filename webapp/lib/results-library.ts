@@ -85,7 +85,8 @@ export function savedLayoutActions(
     edit:
       complete &&
       ['strict_area', 'cache'].includes(record.dataset_id) &&
-      record.layout?.regionPatchVertexIndices?.length
+      record.layout?.regionPatchVertexIndices?.length &&
+      !record.request?.noise_model
         ? withReturn(`/electrodes?parent=${record.id}&ar=${ar}`)
         : null,
     compare:
