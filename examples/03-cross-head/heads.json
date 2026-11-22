@@ -1,0 +1,17 @@
+{
+  "protocol": "heads",
+  "title": "Compact layout from example 2 across eleven heads",
+  "cases": [
+    { "head_id": "ernie_xh", "seed": 42, "radius_mm": 6 },
+    { "head_id": "ixi002", "seed": 42, "radius_mm": 6 },
+    { "head_id": "ixi012", "seed": 42, "radius_mm": 6 },
+    { "head_id": "ixi013", "seed": 42, "radius_mm": 6 },
+    { "head_id": "ixi015", "seed": 42, "radius_mm": 6 },
+    { "head_id": "ixi017", "seed": 42, "radius_mm": 6 },
+    { "head_id": "ixi019", "seed": 42, "radius_mm": 6 },
+    { "head_id": "ixi020", "seed": 42, "radius_mm": 6 },
+    { "head_id": "ixi035", "seed": 42, "radius_mm": 6 },
+    { "head_id": "ixi230", "seed": 42, "radius_mm": 6 },
+    { "head_id": "ixi231", "seed": 42, "radius_mm": 6 }
+  ]
+}

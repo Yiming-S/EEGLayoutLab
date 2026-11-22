@@ -166,7 +166,7 @@ try {
     return { scientific_key: jsonJob.key, cached: true, annotation_id: jsonJob.annotation_id, reviewed_rows: 64, exact_review_download: true };
   });
   await check('BIDS UI downloads retain original coordinates and paired declarations, including region metadata', async () => {
-    const section = await details('BIDS坐标文件接口'); bidsFiles = [];
+    const section = await details('坐标文件（BIDS、MNE、EEGLAB）'); bidsFiles = [];
     for (const name of ['electrodes.tsv', 'coordsystem.json', 'electrodes.json'])
       bidsFiles.push({ name, text: await saveDownload(section, `${t('下载')} ${name}`, '03-' + name) });
     bidsDesign = parseBIDSElectrodes(bidsFiles);

@@ -1,0 +1,44 @@
+{
+  "schema": "eeglayoutlab-examples-expected/1",
+  "tolerance": 0.000001,
+  "scores": {
+    "01-standard64": {
+      "field_relative": 1.0000000000000004,
+      "sensitivity_tail": 0.9999999999999994,
+      "localization_relative": 1,
+      "median_mm": 10.751382922908117,
+      "p90_mm": 20.803793375340128
+    },
+    "02-compact-search": {
+      "search": {
+        "field_relative": 0.6606405398066936,
+        "sensitivity_tail": 0.17407850004660586,
+        "localization_relative": 0.27308783249023066,
+        "conditional_global": 0.17407850004660586,
+        "union_area_cm2": 53.907835870983895
+      },
+      "evaluation": {
+        "field_relative": 0.6606405398066753,
+        "sensitivity_tail": 0.17407850004660586,
+        "localization_relative": 0.28291287214767263,
+        "median_mm": 20.811363938857287,
+        "p90_mm": 47.78255399862194
+      }
+    },
+    "03-cross-head": {
+      "completed_cases": 11,
+      "field_relative": {
+        "n": 11,
+        "median": 0.6647528417702305,
+        "p10": 0.6383967963957375,
+        "p90": 0.6689141690252831
+      },
+      "localization_relative": {
+        "n": 11,
+        "median": 0.30746349982141974,
+        "p10": 0.2064655475822717,
+        "p90": 0.34618352755485776
+      }
+    }
+  }
+}

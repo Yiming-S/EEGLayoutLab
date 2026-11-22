@@ -58,6 +58,15 @@ Names are matched without regard to case. The old 10-20 names T3, T4, T5 and T6 
 
 **MNI.** **Convert to MNI coordinate files** writes the same layout as `space-MNI152NLin6Asym_electrodes.tsv`, `space-MNI152NLin6Asym_coordsystem.json` and `space-MNI152NLin6Asym_electrodes.json`. These carry the MNI template landmarks from SimNIBS `ElectrodeCaps_MNI/Fiducials.csv` and the same provenance statement. Electrodes more than 2 mm from the usable scalp are refused, which covers the jaw, ear and neck regions.
 
+**MNE-Python and EEGLAB.** Two montage files carry the Ernie native coordinates in millimetres (x right, y anterior, z superior) and the same template landmarks:
+
+- `electrodes.elc` (ASA format) for MNE-Python. It declares `UnitPosition mm` and names the landmarks `Nz`, `LPA` and `RPA`, which MNE reads as fiducials. Read it with `mne.channels.read_custom_montage("electrodes.elc", head_size=None)`; the default `head_size` rescales the positions to a 95 mm sphere. `raw.set_montage(montage)` then places the layout in MNE's fiducial head frame.
+- `electrodes.sfp` (BESA/EGI format) for EEGLAB. It lists the landmarks as `FidNz`, `FidT9` and `FidT10`, which `readlocs` marks as fiducials, and EEGLAB turns the coordinates to its nose-along-+X convention on import: `pop_chanedit(EEG, 'load', {'electrodes.sfp', 'filetype', 'sfp'})`. The `.sfp` format has no unit field, so MNE would read these millimetres as metres; use the `.elc` file for MNE.
+
+Both formats separate columns by white space and reserve landmark labels. Export refuses electrode names that contain a space or equal a landmark label that MNE or EEGLAB recognizes (for example `Nz`, `LPA`, `FidT9`, `CMS`). `webapp/scripts/check-coordinate-interop.mjs` reads the `.elc` file with MNE when it is installed. It checks the millimetre positions and that MNE's head-frame coordinates equal the Neuromag frame built from the same landmarks to within 1e-6 mm. EEGLAB itself is not run; the `.sfp` layout follows `readlocs`' documented format (label, x, y, z without a header).
+
+**Layout figure.** **Layout figure (SVG, PNG)** draws the layout in 2D for papers and reports. The electrodes are placed in the head frame of the same landmarks with an azimuthal equidistant projection from the vertical axis. The circle is the NAS–LPA–RPA plane, and electrodes below it lie outside. Each region has its own colour and marker shape. Names are hidden by default when they would overlap. The PNG is rendered from the same SVG at three times the resolution.
+
 ## Mapping data and checks
 
 The mapping consists of two files:

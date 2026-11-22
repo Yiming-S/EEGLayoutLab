@@ -15,6 +15,7 @@
 !/src/
 !/tests/
 !/webapp/
+!/examples/
 
 # Rebuilt dependency environments and outputs
 .runtime/

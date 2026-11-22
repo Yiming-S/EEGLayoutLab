@@ -30,6 +30,7 @@ import { CoordinateReviewPanel } from './coordinate-review-panel';
 import { bidsNeedsMniSurface, parseBIDSElectrodes, parseElectrodeLabels } from '@/lib/bids-electrodes';
 import { loadErnieMniSurface } from '@/lib/ernie-mni';
 import { CoordinateFileExports } from './coordinate-file-exports';
+import { LayoutFigureExport } from './layout-figure-export';
 import { evaluationPresentation } from './evaluation-presentation';
 import { CoordinateStudyLink } from '@/features/robustness/coordinate-study-link';
 
@@ -662,6 +663,7 @@ export default function DecisionPage({
               {design && <CoordinateReviewPanel design={design} result={result} />}
               {design && mode === 'coordinates' && <CoordinateStudyLink design={design} />}
               {mode === 'coordinates' && design && <CoordinateFileExports design={design} />}
+              {mode === 'coordinates' && design && <LayoutFigureExport design={design} />}
             </div>
           </div>
           {tx(
