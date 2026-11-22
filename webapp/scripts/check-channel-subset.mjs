@@ -68,6 +68,21 @@ void test('greedy selection takes the best pair, then the best next channel at e
 const summary = (label, c, names = NAMES, band = [1, 40]) => ({ schema: 'eeg-covariance-summary/1', label, channels: names, covariance: c,
   processing: { band_hz: band }, source: { file: `${label}.edf`, sha256: label.padEnd(64, '0') } });
 
+void test('training and held-out inputs cannot share a recording, including legacy summaries', () => {
+  const original = summary('a', covariance(5));
+  const copy = { ...original, label: 'copy', source: { ...original.source, file: 'renamed.edf' } };
+  const recorded = { ...original, source: { ...original.source, recording_sha256: 'e'.repeat(64) } };
+  const recordedCopy = { ...copy, source: { ...copy.source, sha256: 'b'.repeat(64), recording_sha256: 'E'.repeat(64) } };
+  for (const [train, test] of [[original, copy], [recorded, copy], [copy, recorded], [recorded, recordedCopy]]) {
+    assert.throws(() => channelSubsets({ training: [train], test: [test], counts: [2], draws: 10 }), /训练和检验摘要包含同一份录制/);
+  }
+  // Two multi-file recordings can have byte-identical entry files with different signal files.
+  const differentSamples = { ...copy, source: { ...copy.source, recording_sha256: 'f'.repeat(64) } };
+  const report = channelSubsets({ training: [recorded], test: [differentSamples], counts: [2], draws: 10 });
+  assert.equal(report.training[0].recording_sha256, recorded.source.recording_sha256);
+  assert.equal(report.test[0].recording_sha256, differentSamples.source.recording_sha256);
+});
+
 void test('the report compares data, model, 10-20 and random subsets on training and held-out summaries', () => {
   const training = [summary('a', covariance(5)), summary('b', covariance(6))];
   const test = [summary('c', covariance(7)), summary('d', covariance(8).slice(1).map((row) => row.slice(1)), NAMES.slice(1))];
@@ -131,6 +146,10 @@ void test('the channels command writes the report from summary files and directo
     assert.deepEqual([report.counts, report.test.map((s) => s.label), report.random.draws], [[3, 5], ['b'], 20]);
     assert.match(run.stdout, /^count\tdata\trandom median/);
     assert.match(spawnSync(process.execPath, [cli, 'channels', join(directory, 'a.json'), '--counts', '40', '--out', out], { encoding: 'utf8' }).stderr, /通道数/);
+    const repeated = spawnSync(process.execPath, [cli, 'channels', join(directory, 'a.json'), '--test', join(directory, 'a.json'), '--out', out], { encoding: 'utf8' });
+    assert.notEqual(repeated.status, 0);
+    assert.match(repeated.stderr, /训练和检验摘要包含同一份录制/);
+    assert.deepEqual(JSON.parse(readFileSync(out, 'utf8')), report, 'invalid input does not replace an existing report');
     // Recordings with one name in different folders are refused before any is read.
     const clash = spawnSync(process.execPath, [cli, 'eeg-summary', join(directory, 'a', 'Rec.edf'), join(directory, 'b', 'rec.EDF'), '--out-dir', directory], { encoding: 'utf8' });
     assert.notEqual(clash.status, 0);

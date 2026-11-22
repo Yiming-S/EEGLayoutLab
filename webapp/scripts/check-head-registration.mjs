@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { ERNIE_MNI_MAPPING, ernieToMni, projectOntoScalp, verifiedSurface } from '../lib/ernie-mni.ts';
 import { exportBIDSElectrodes, parseBIDSElectrodes, parseElectrodeLabels } from '../lib/bids-electrodes.ts';
 import { exportEeglabSfp, exportMneElc, readMneElc } from '../lib/montage-files.ts';
-import { parseMontageFile } from '../lib/head-frame-import.ts';
+import { parseBrowserMontageFile, parseMontageFile } from '../lib/head-frame-import.ts';
 import { ERNIE_LANDMARKS, assignBalancedRegions, landmarkSimilarity, registerHeadPoints, regionSizes, similarityFit } from '../lib/head-registration.ts';
 import { HEAD_REGISTRATION_LIMIT_MM, validateCoordinateSource } from '../contracts/coordinate-source.mjs';
 import { designSubmission as parseSubmission } from '../server/annotations/electrode-names.mjs';
@@ -82,6 +82,37 @@ void test('EEGLayoutLab .elc and .sfp exports read back unchanged; other montage
   // The server's submission adapter keeps the /3 source.
   const submission = parseSubmission(JSON.parse(JSON.stringify(designSubmission(fromMetres, 'evaluate', 6, 42))));
   assert.equal(submission.source_metadata.schema, 'electrode-coordinate-source/3');
+});
+
+void test('browser imports use the elc declared unit regardless of the sfp unit selector', () => {
+  const digitized = subject();
+  const baseline = parseMontageFile({ name: 'cap.elc', text: elcText(digitized) }, surface, { regionCount: 4 });
+  for (const [unit, factor] of [['mm', 1], ['cm', 0.1], ['m', 0.001]]) {
+    const file = { name: 'cap.ELC', text: elcText(digitized, unit, factor) };
+    for (const sfpUnit of ['mm', 'cm', 'm']) {
+      const back = parseBrowserMontageFile(file, surface, { regionCount: 4, sfpUnit });
+      back.xyz_mm.forEach((point, i) => assert.ok(distance(point, baseline.xyz_mm[i]) < 1e-6));
+      assert.equal(back.source_metadata.conversion.input_unit, unit);
+      assert.deepEqual(back.electrode_names, baseline.electrode_names);
+    }
+  }
+  // The CLI can still reject an explicitly contradictory unit assertion.
+  assert.throws(() => parseMontageFile({ name: 'cap.elc', text: elcText(digitized, 'm', 0.001) }, surface,
+    { regionCount: 4, unit: 'mm' }), /单位不一致/);
+});
+
+void test('browser sfp imports keep using the selected unit', () => {
+  const digitized = subject();
+  const baseline = parseMontageFile({ name: 'cap.elc', text: elcText(digitized) }, surface, { regionCount: 2 });
+  const rows = [['FidNz', digitized.landmarks.NAS], ['FidT9', digitized.landmarks.LPA], ['FidT10', digitized.landmarks.RPA],
+    ...names.map((name, i) => [name, digitized.points[i]])];
+  for (const [sfpUnit, factor] of [['mm', 1], ['cm', 0.1], ['m', 0.001]]) {
+    const text = rows.map(([name, point]) => [name, ...point.map(value => value * factor)].join('\t')).join('\n') + '\n';
+    const back = parseBrowserMontageFile({ name: 'cap.SFP', text }, surface, { regionCount: 2, sfpUnit });
+    back.xyz_mm.forEach((point, i) => assert.ok(distance(point, baseline.xyz_mm[i]) < 1e-6));
+    assert.deepEqual(back.electrode_names, baseline.electrode_names);
+    assert.equal(back.source_metadata.conversion.input_unit, sfpUnit);
+  }
 });
 
 void test('montage readers refuse ambiguous files', () => {

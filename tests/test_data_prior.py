@@ -76,7 +76,9 @@ def fake_fields(monkeypatch):
 def test_shared_regional_structure_survives_cross_validation(fake_fields):
     rng = np.random.default_rng(5)
     true = np.array([3., 1., .4, 2., .7, .7, .3])
-    prior = dp.fit(summaries_from(fake_fields, [true * rng.uniform(.9, 1.1, 7) for _ in range(5)], rng), ROOT)
+    summaries = summaries_from(fake_fields, [true * rng.uniform(.9, 1.1, 7) for _ in range(5)], rng)
+    summaries[0]['source']['recording_sha256'] = 'a' * 64
+    prior = dp.fit(summaries, ROOT)
     held = prior['fit']['held_out']
     assert prior['fit']['cross_validated'] and held['selected_shrinkage'] == 1. and held['prior_better_count'] == 5
     expected = true / (true @ fake_fields.area / fake_fields.area.sum())
@@ -84,6 +86,9 @@ def test_shared_regional_structure_survives_cross_validation(fake_fields):
     assert prior['request']['length_mm'] == 20 and prior['id'] == dp.prior_id(prior['request'])
     assert np.isclose(np.trace(np.array(prior['channel_model']['data_prior'])), 1, atol=1e-5)
     assert len(prior['fit']['per_summary']) == 5
+    assert prior['inputs'][0]['recording_sha256'] == 'a' * 64
+    assert prior['inputs'][0]['sha256'] == '0' * 64
+    assert 'recording_sha256' not in prior['inputs'][1]
 
 
 def test_unshared_regional_structure_is_shrunk_toward_the_area_prior(fake_fields):

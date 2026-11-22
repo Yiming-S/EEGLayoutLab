@@ -571,6 +571,10 @@
     "source": "训练与检验摘要须使用同一频带",
     "en": "Training and held-out summaries must use the same band"
   },
+  "roadmap.7372d5c1d371": {
+    "source": "训练和检验摘要包含同一份录制：{{0}}",
+    "en": "The same recording appears in training and test summaries: {{0}}."
+  },
   "roadmap.48c5da55cb73": {
     "source": "数据先验与摘要的频带不同",
     "en": "The data prior and the summaries use different bands"

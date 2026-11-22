@@ -1,4 +1,5 @@
 """EEG readers and covariance summaries on synthetic EDF, BDF, BrainVision and EEGLAB files."""
+import hashlib
 import sys
 from pathlib import Path
 
@@ -139,6 +140,11 @@ def test_summary_matches_the_direct_computation_and_is_chunk_invariant(tmp_path,
     expected = er.open_recording(tmp_path / 's.edf').read(range(len(LABELS)), 0, 80 * RATE)
     summary = er.summarize(tmp_path / 's.edf', ROOT, label='s')
     assert summary['channels'] == LABELS and summary['epochs']['rejected'] == 0 and summary['epochs']['used'] == 39
+    written = (tmp_path / 's.edf').read_bytes()
+    digest = hashlib.sha256(written).hexdigest()
+    source = summary['source']
+    assert source['sha256'] == source['recording_sha256'] == digest
+    assert source['files'] == [{'role': 'entry', 'file': 's.edf', 'bytes': len(written), 'sha256': digest}]
     covariance = np.asarray(summary['covariance'])
     direct = reference_summary(expected)
     assert np.abs(covariance - direct).max() < 1e-8 * np.abs(direct).max()
@@ -147,8 +153,47 @@ def test_summary_matches_the_direct_computation_and_is_chunk_invariant(tmp_path,
     again = np.asarray(er.summarize(tmp_path / 's.edf', ROOT)['covariance'])
     assert np.abs(again - covariance).max() < 1e-9 * np.abs(covariance).max()
     er.check_summary(summary, ROOT)
+    legacy = {**summary, 'source': {k: v for k, v in source.items() if k not in ('recording_sha256', 'files')}}
+    assert er.check_summary(legacy, ROOT) == legacy
     assert summary['xyz_mm'][LABELS.index('Cz')] == next(p[1:] for p in __import__('json').loads(
         (ROOT / er.MAPPING_PATH).read_text())['labels']['positions_mm'] if p[0] == 'Cz')
+
+
+@pytest.mark.parametrize(('extension', 'sidecar', 'dtype'), [('.vhdr', '.eeg', '<i2'), ('.set', '.fdt', '<f4')])
+def test_summary_identifies_external_sample_files(tmp_path, extension, sidecar, dtype):
+    path = tmp_path / ('recording' + extension)
+    data = signals(seconds=40)
+    if extension == '.vhdr':
+        write_brainvision(path, LABELS, data)
+    else:
+        write_eeglab(path, LABELS, data, fdt=True)
+    sample_path = path.with_suffix(sidecar)
+    original = er.summarize(path, ROOT)
+    source = original['source']
+    written = [path.read_bytes(), sample_path.read_bytes()]
+    assert source['files'] == [
+        {'role': role, 'file': p.name, 'bytes': len(raw), 'sha256': hashlib.sha256(raw).hexdigest()}
+        for role, p, raw in zip(('entry', 'samples'), (path, sample_path), written)
+    ]
+    assert source['sha256'] == source['files'][0]['sha256'] != source['recording_sha256']
+    assert source['bytes'] == len(written[0])
+
+    # The same consumed bytes under another directory have the same identity. The BrainVision
+    # marker is intentionally absent because covariance processing reads only the header and samples.
+    moved = tmp_path / 'moved'
+    moved.mkdir()
+    for p, raw in zip((path, sample_path), written):
+        (moved / p.name).write_bytes(raw)
+    assert er.summarize(moved / path.name, ROOT)['source'] == source
+
+    samples = np.frombuffer(written[1], dtype=dtype).copy()
+    samples *= 2
+    sample_path.write_bytes(samples.tobytes())
+    changed = er.summarize(path, ROOT)
+    assert changed['source']['sha256'] == source['sha256']
+    assert changed['source']['files'][1]['sha256'] != source['files'][1]['sha256']
+    assert changed['source']['recording_sha256'] != source['recording_sha256']
+    assert np.allclose(changed['covariance'], np.asarray(original['covariance']) * 4)
 
 
 def test_flat_channels_and_artifact_epochs_are_excluded(tmp_path):

@@ -342,7 +342,9 @@ def fit(summaries, root, progress=lambda *a: None):
         'channel_rule': f'channels present in at least {CHANNEL_PRESENCE:.0%} of the summaries; summaries missing one are left out',
         'projection_distance_mm_max': _round(float(np.max(distances[inside]))),
         'inputs': [{'label': s['label'], 'file': s['source']['file'], 'sha256': s['source']['sha256'], 'channels': len(s['channels']),
-                    'epochs_used': s['epochs']['used']} for s in summaries],
+                    'epochs_used': s['epochs']['used'],
+                    **({'recording_sha256': s['source']['recording_sha256']} if 'recording_sha256' in s['source'] else {})}
+                   for s in summaries],
         'band_hz': list(bands.pop()),
         'channel_model': {'description': 'trace-normalised average-reference model covariances at `channels`',
                           'data_prior': [[_round(v) for v in row] for row in fitted / np.trace(fitted)],

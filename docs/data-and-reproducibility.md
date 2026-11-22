@@ -81,6 +81,8 @@ Conductivity-scenario tables (`results/v2/scalp_node_table_scenarios/`) and head
 
 ## Recorded EEG
 
-Recordings stay where they are. `eeg-summary` reads a file in place and writes only its channel covariance, the processing record and the file's SHA-256. Prior fits and channel subsets read summaries, and the coordinates page computes subsets in the browser without uploading anything. A prior file lists each input by label, file name and SHA-256, so a fit can be checked against the original recordings by whoever holds them.
+Recordings stay where they are. `eeg-summary` writes the channel covariance and processing record, and lists each input file it read with its byte count and SHA-256. For BrainVision this covers the header and binary samples. For an EEGLAB `.set` with external samples it covers the `.set` and `.fdt` files. The current BrainVision reader does not use the marker file.
+
+The entry file keeps its original `source.sha256` and `source.bytes` fields. `source.recording_sha256` identifies the whole recording, independent of its directory. It equals the file digest for a single-file recording. Prior fits carry the recording digest when a summary supplies it. Existing summaries that only contain the entry file's digest remain readable. Prior fits and channel subsets read summaries, and the coordinates page computes subsets in the browser without uploading anything.
 
 The validation in [Model and metrics](model-and-metrics.md#data-derived-source-prior) used public datasets that are not distributed with this repository or the data bundle. Their summaries, priors and subsets were computed with the command line on the machine holding the recordings.

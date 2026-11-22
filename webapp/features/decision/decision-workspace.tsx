@@ -32,7 +32,7 @@ import { DataPriorPicker } from '@/features/data/data-prior-picker';
 import { ChannelSubsetPanel } from '@/features/data/channel-subset-panel';
 import { bidsNeedsMniSurface, parseBIDSElectrodes, parseElectrodeLabels } from '@/lib/bids-electrodes';
 import { loadErnieMniSurface } from '@/lib/ernie-mni';
-import { parseMontageFile, type RegionCount } from '@/lib/head-frame-import';
+import { parseBrowserMontageFile, type RegionCount } from '@/lib/head-frame-import';
 import type { MontageUnit } from '@/lib/montage-files';
 import { CoordinateFileExports } from './coordinate-file-exports';
 import { LayoutFigureExport } from './layout-figure-export';
@@ -487,7 +487,7 @@ export default function DecisionPage({
                       if (!file) return;
                       try {
                         if (file.size > 65536) throw new Error('电极坐标文件不超过64 KB。');
-                        setImported(parseMontageFile({ name: file.name, text: await file.text() }, await loadErnieMniSurface(), { ...importOptions, unit: montageUnit }));
+                        setImported(parseBrowserMontageFile({ name: file.name, text: await file.text() }, await loadErnieMniSurface(), { ...importOptions, sfpUnit: montageUnit }));
                         setImportError(''); setTestTarget('import');
                       } catch (caught) { setImported(null); setImportError(caught instanceof Error ? caught.message : '导入失败'); }
                     }} />

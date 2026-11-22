@@ -30,6 +30,7 @@ import numpy as np
 from scipy.signal import butter, iirnotch, sosfilt, sosfilt_zi, tf2sos
 
 SUMMARY_SCHEMA = 'eeg-covariance-summary/1'
+RECORDING_INPUT_SCHEMA = 'eeg-recording-inputs/1'
 MAPPING_PATH = 'webapp/public/data/ernie-mni-mapping.json'
 # '?V' is a micro sign lost by the exporter's encoding (Neuracle BDF files, for example).
 UNIT_SCALE_TO_UV = {'v': 1e6, 'mv': 1e3, 'uv': 1., '?v': 1., 'nv': 1e-3}
@@ -60,6 +61,7 @@ class Recording:
     # EDF/BDF only: channels may have different rates, so their length follows from the records.
     records: int | None = None
     record_seconds: float | None = None
+    sample_path: Path | None = None
 
     def read(self, channels, start, stop):
         return self._read(list(channels), int(start), int(stop))
@@ -215,7 +217,7 @@ def _vhdr(path):
         return np.asarray(block, dtype=np.float64) * scales[channels, None]
     rate = 1e6 / interval
     return Recording('brainvision', path, labels, [rate if np.isfinite(s) else 0. for s in scales], int(samples), [(0, int(samples))], read,
-                     {i: 'unknown_unit' for i, s in enumerate(scales) if not np.isfinite(s)})
+                     {i: 'unknown_unit' for i, s in enumerate(scales) if not np.isfinite(s)}, sample_path=data_path)
 
 
 def _set(path):
@@ -233,14 +235,15 @@ def _set(path):
         raise ValueError('EEGLAB文件缺少通道名称（chanlocs.labels）')
     data = get('data')
     total = points * trials
-    if isinstance(data, str):
+    sample_major = isinstance(data, str)
+    sample_path = None
+    if sample_major:
         if Path(data).name != data:
             raise ValueError('EEGLAB数据文件须与.set位于同一目录')
-        data = np.memmap(path.with_name(data), dtype='<f4', mode='r', shape=(total, count))
-        sample_major = True
+        sample_path = path.with_name(data)
+        data = np.memmap(sample_path, dtype='<f4', mode='r', shape=(total, count))
     else:
         data = np.asarray(data, dtype=np.float64).reshape(count, total, order='F')
-        sample_major = False
     segments = [(i * points, (i + 1) * points) for i in range(trials)]
     if trials == 1:
         events = np.atleast_1d(get('event', []))
@@ -254,7 +257,7 @@ def _set(path):
     def read(channels, start, stop):
         block = data[start:stop, channels].T if sample_major else data[channels, start:stop]
         return np.asarray(block, dtype=np.float64)
-    return Recording('eeglab', path, labels, [rate] * count, total, segments, read)
+    return Recording('eeglab', path, labels, [rate] * count, total, segments, read, sample_path=sample_path)
 
 
 def open_recording(path):
@@ -311,6 +314,25 @@ def sha256(path):
         for block in iter(lambda: f.read(1 << 20), b''):
             digest.update(block)
     return digest.hexdigest()
+
+
+def _source_provenance(recording):
+    """Describe the files that supply the header and samples used by this reader."""
+    inputs = [('entry', recording.path)]
+    if recording.sample_path is not None:
+        inputs.append(('samples', recording.sample_path))
+    files = [{'role': role, 'file': path.name, 'bytes': path.stat().st_size, 'sha256': sha256(path)}
+             for role, path in inputs]
+    entry = files[0]
+    recording_sha256 = entry['sha256']
+    if len(files) > 1:
+        # Only ordered roles and contents determine identity, so moving the files preserves it.
+        manifest = {'schema': RECORDING_INPUT_SCHEMA,
+                    'files': [{key: item[key] for key in ('role', 'bytes', 'sha256')} for item in files]}
+        encoded = json.dumps(manifest, sort_keys=True, separators=(',', ':')).encode('utf-8')
+        recording_sha256 = hashlib.sha256(encoded).hexdigest()
+    return {'file': entry['file'], 'bytes': entry['bytes'], 'sha256': entry['sha256'],
+            'recording_sha256': recording_sha256, 'files': files}
 
 
 def summarize(path, root, *, band=DEFAULT_BAND_HZ, epoch_seconds=DEFAULT_EPOCH_SECONDS, label=None, progress=lambda *a: None):
@@ -394,7 +416,7 @@ def summarize(path, root, *, band=DEFAULT_BAND_HZ, epoch_seconds=DEFAULT_EPOCH_S
     labels = [mapped[k][1] for k in kept]
     return {
         'schema': SUMMARY_SCHEMA, 'label': label or path.stem,
-        'source': {'format': recording.format, 'file': path.name, 'bytes': path.stat().st_size, 'sha256': sha256(path),
+        'source': {'format': recording.format, **_source_provenance(recording),
                    'sampling_rate_hz': float(rate), 'duration_s': n_samples / rate, 'segment_count': len(segments)},
         'mapping_id': mapping_id, 'channels': labels, 'input_labels': [recording.labels[mapped[k][0]] for k in kept],
         'xyz_mm': [positions[name.lower()][1] for name in labels],

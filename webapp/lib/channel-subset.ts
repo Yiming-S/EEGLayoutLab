@@ -22,7 +22,7 @@ export const TEN_TWENTY = ['Fp1', 'Fp2', 'F7', 'F3', 'Fz', 'F4', 'F8', 'T7', 'C3
 
 export type Summary = {
   schema: string; label?: string | null; channels: string[]; covariance: number[][];
-  processing: { band_hz: number[] }; source: { file: string; sha256: string };
+  processing: { band_hz: number[] }; source: { file: string; sha256: string; recording_sha256?: string };
 };
 export type PriorFile = {
   schema: string; id: string; channels: string[]; band_hz: number[];
@@ -178,7 +178,8 @@ function checkSummary(value: unknown, role: string): Summary {
   const n = Array.isArray(s?.channels) ? s.channels.length : 0;
   if (!s || s.schema !== SUMMARY_SCHEMA || !n || !s.channels.every((c) => typeof c === 'string') || new Set(s.channels).size !== n ||
       !Array.isArray(s.covariance) || s.covariance.length !== n || !s.covariance.every((row) => Array.isArray(row) && row.length === n && row.every(finite)) ||
-      !Array.isArray(s.processing?.band_hz) || s.processing.band_hz.length !== 2 || typeof s.source?.sha256 !== 'string')
+      !Array.isArray(s.processing?.band_hz) || s.processing.band_hz.length !== 2 || typeof s.source?.sha256 !== 'string' ||
+      (s.source.recording_sha256 !== undefined && (typeof s.source.recording_sha256 !== 'string' || !/^[a-f0-9]{64}$/i.test(s.source.recording_sha256))))
     throw new Error(`${role}不是eeg-covariance-summary/1协方差摘要`);
   return s;
 }
@@ -192,7 +193,28 @@ function checkPrior(value: unknown): PriorFile {
 }
 
 const sameBand = (a: number[], b: number[]) => a[0] === b[0] && a[1] === b[1];
-const describe = (s: Summary) => ({ label: s.label ?? null, file: s.source.file, sha256: s.source.sha256 });
+const describe = (s: Summary) => ({ label: s.label ?? null, file: s.source.file, sha256: s.source.sha256,
+  ...(s.source.recording_sha256 === undefined ? {} : { recording_sha256: s.source.recording_sha256 }) });
+
+function checkRecordingSplit(training: Summary[], test: Summary[]) {
+  const recordingHashes = new Set<string>();
+  const entryHashes = new Set<string>();
+  const legacyEntryHashes = new Set<string>();
+  for (const { source } of training) {
+    const entryHash = source.sha256.toLowerCase();
+    entryHashes.add(entryHash);
+    if (source.recording_sha256) recordingHashes.add(source.recording_sha256.toLowerCase());
+    else legacyEntryHashes.add(entryHash);
+  }
+  for (const { source } of test) {
+    const entryHash = source.sha256.toLowerCase();
+    // Use the entry-file hash when only one side or neither side has the full recording hash.
+    const repeated = source.recording_sha256
+      ? recordingHashes.has(source.recording_sha256.toLowerCase()) || legacyEntryHashes.has(entryHash)
+      : entryHashes.has(entryHash);
+    if (repeated) throw new Error(`训练和检验摘要包含同一份录制：${source.file}`);
+  }
+}
 
 export type SubsetOptions = { training: unknown[]; test?: unknown[]; prior?: unknown; counts?: number[]; draws?: number; seed?: number };
 
@@ -201,6 +223,7 @@ export function channelSubsets(options: SubsetOptions) {
   if (!options.training.length) throw new Error('至少需要一个训练摘要');
   const training = options.training.map((s, i) => checkSummary(s, `训练摘要${i + 1}`));
   const testInput = (options.test ?? []).map((s, i) => checkSummary(s, `检验摘要${i + 1}`));
+  checkRecordingSplit(training, testInput);
   const prior = options.prior === undefined || options.prior === null ? null : checkPrior(options.prior);
   const band = training[0].processing.band_hz;
   if (![...training, ...testInput].every((s) => sameBand(s.processing.band_hz, band))) throw new Error('训练与检验摘要须使用同一频带');

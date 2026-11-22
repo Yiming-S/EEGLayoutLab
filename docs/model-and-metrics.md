@@ -147,7 +147,7 @@ The data are processed as follows:
 - after average reference, an epoch is rejected when its log total power has a robust z above 3 or below −4;
 - the summary is the mean covariance of the kept epochs, re-referenced to the average (µV²).
 
-The summary records the input file's name, size and SHA-256 and every exclusion. It does not contain the samples. On four public datasets the readers match MNE-Python to a maximum relative difference of 2 × 10⁻¹⁶ (EDF and BDF). The test suite compares all four formats with MNE on written files.
+The summary records exclusions and the name, size and SHA-256 of every recording file read, including external sample files. It includes a recording digest and contains no samples. On four public datasets the readers match MNE-Python to a maximum relative difference of 2 × 10⁻¹⁶ (EDF and BDF). The test suite compares all four formats with MNE on written files.
 
 **Model.** At the recorded channels' cap positions, a trace-normalized summary covariance is modelled as
 
@@ -207,7 +207,7 @@ Selection is greedy: first the best pair, then the channel that explains the mos
 - the area prior's model covariance (`--prior`);
 - for comparison, the 10-20 channels present and seeded random subsets of each size (200 draws, mulberry32).
 
-The universe and the left-out summaries follow the same 90% presence rule as the prior fit. Requested sizes must be smaller than the universe. Default sizes that do not fit are dropped. The data-greedy order is also evaluated at the size of the 10-20 subset, so the two can be compared at equal channel counts. The tests check the error against an explicit projection, its independence from the reference channel, and each greedy step against exhaustive search.
+The training and test inputs cannot share a recording. The check uses the full recording hash when both summaries have it and the entry file hash when either summary is older. Use a subject-level split when testing on new participants, since different recordings of the same participant can have different hashes. The universe and the left-out summaries follow the same 90% presence rule as the prior fit. Requested sizes must be smaller than the universe. Default sizes that do not fit are dropped. The data-greedy order is also evaluated at the size of the 10-20 subset, so the two can be compared at equal channel counts. The tests check the error against an explicit projection, its independence from the reference channel, and each greedy step against exhaustive search.
 
 **Validation.** Each dataset (1–40 Hz) was split by subject into two halves of its sorted summaries. Selection, the reconstructor and the prior were fitted on the first half; the table gives the mean error on the second:
 

@@ -127,12 +127,20 @@ request:
   `processing` (band, notches, epoch length and stride, filter, reference and
   rejection rules), `epochs` (`total`, `analysed`, `used`, `rejected`), `unit`
   `"uV^2"` and `covariance`, the average-referenced channel covariance.
+  New summaries add `source.files` with `role`, `file`, `bytes`, and `sha256`
+  for the entry file and any external sample file, in that order. The legacy
+  `source.file`, `source.bytes`, and `source.sha256` still describe the entry.
+  `source.recording_sha256` equals the entry digest for a single-file input.
+  For multiple files it hashes the UTF-8 JSON object with `schema` set to
+  `eeg-recording-inputs/1` and `files` listing the `role`, `bytes`, and `sha256`
+  of each file, using sorted object keys and no whitespace.
 - `eeg-data-prior/1` (`prior`): `id`, `request` (the `data_prior` value),
   `regions`, `atlas`, `fit` (in-sample residuals of the prior and the area prior,
   fitted gains before shrinkage, `shrinkage`, `cross_validated`, `held_out` with
   the leave-one-out residuals per shrinkage value, and `per_summary` fits),
   `channels`, `channels_outside_table`, `summaries_excluded`, `inputs` (label, file,
-  SHA-256, channel and epoch counts), `band_hz`, `channel_model` (trace-normalized
+  entry SHA-256, recording SHA-256 when the summary supplies it, channel and
+  epoch counts), `band_hz`, `channel_model` (trace-normalized
   model covariances of the prior and of the area prior at `channels`) and
   `provenance`.
 - `eeg-channel-subset/1` (`channels`, or the coordinates page): `universe`,

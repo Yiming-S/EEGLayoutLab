@@ -50,6 +50,13 @@ export function importedRegions(xyz: Point[], fromFile: number[] | null, regionC
     region_description: BALANCED_REGION_DESCRIPTION(regionCount) };
 }
 
+/** The browser's unit selector applies to `.sfp` only; `.elc` declares its own unit. */
+export function parseBrowserMontageFile(file: CoordinateFile, surface: ErnieMniSurface | undefined,
+  options: { sfpUnit: MontageUnit; regionCount?: RegionCount }): ElectrodeDesign {
+  return parseMontageFile(file, surface, { regionCount: options.regionCount,
+    ...(file.name.toLowerCase().endsWith('.sfp') ? { unit: options.sfpUnit } : {}) });
+}
+
 /** MNE `.elc` or EEGLAB `.sfp`. `.sfp` has no unit field, so its unit must be chosen; regions are assigned on import. */
 export function parseMontageFile(file: CoordinateFile, surface: ErnieMniSurface | undefined,
   options: { unit?: MontageUnit; regionCount?: RegionCount } = {}): ElectrodeDesign {
