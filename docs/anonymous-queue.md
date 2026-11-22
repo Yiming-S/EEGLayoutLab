@@ -158,4 +158,4 @@ from `webapp/`. The queue tests use temporary directories and simulated workers,
 
 Run the numerical regression and real-data HTTP checks described in
 [Contributing](../CONTRIBUTING.md) when changing worker execution or cache
-handling. Recorded web checks are documented in [Web verification](verification.md).
+handling.

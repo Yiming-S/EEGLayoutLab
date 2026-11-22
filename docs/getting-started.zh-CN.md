@@ -4,7 +4,7 @@ EEG Layout Lab 是免费的科研开源软件，用于设计、查看和比较 E
 
 项目目前集中维护网页版。界面在浏览器中使用，计算由 Node 服务和 Python／SimNIBS 工作进程完成。
 
-[English instructions](../README.md) · [本机安装](source-installation.zh-CN.md) · [网页端开发与维护方案](web-maintenance-plan.zh-CN.md)
+[English instructions](../README.md) · [本机安装](source-installation.zh-CN.md)
 
 ## 运行方式
 
@@ -45,7 +45,7 @@ npm run dev
 
 ## 开发与部署
 
-开发环境和启动命令见[源码安装说明](source-installation.zh-CN.md)。模块职责、升级顺序和验收要求见[网页端开发与维护方案](web-maintenance-plan.zh-CN.md)。服务器上线所需的环境、访问配置和数据持久化工作见[部署准备说明（英文）](server-deployment.md)。
+开发环境和启动命令见[源码安装说明](source-installation.zh-CN.md)。模块职责见[架构说明（英文）](architecture.md)，测试与验收要求见 [CONTRIBUTING（英文）](../CONTRIBUTING.md)。服务器上线所需的环境、访问配置和数据持久化工作见[部署准备说明（英文）](server-deployment.md)。
 
 ## 版权与第三方材料
 

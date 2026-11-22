@@ -140,4 +140,4 @@ node webapp/scripts/probe-service.mjs \
 
 The probe performs one read-only raw HTTP request. It never submits or cancels work, changes maintenance, or consumes a browser/project credential. Remove `--allow-paused` for normal ready-to-compute checks. Exit codes are documented in [operations](web-operations.md).
 
-[`eeglayoutlab.service.example`](../configs/deploy/eeglayoutlab.service.example) is an optional Linux systemd template with placeholder paths and a service account. The template requires target-platform qualification before use. Choose a qualified platform/runtime first, replace every placeholder, and keep the private environment file readable only by the service account. See the [Chinese deployment checklist](productization-handoff.zh-CN.md) for the complete procedure.
+[`eeglayoutlab.service.example`](../configs/deploy/eeglayoutlab.service.example) is an optional Linux systemd template with placeholder paths and a service account. The template requires target-platform qualification before use. Choose a qualified platform/runtime first, replace every placeholder, and keep the private environment file readable only by the service account.

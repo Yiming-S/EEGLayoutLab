@@ -78,7 +78,7 @@ VIEWER_QA_URL=http://127.0.0.1:3101/ npm run test:viewer
 
 The HTTP check exercises record loading, layout design, editor evaluation, coordinate evaluation, source reception and exact cache replay. `--native` adds uncached native-coordinate and single/multi-source cases and can take several minutes. Browser tests exercise rendering and interaction separately. Save evidence under the project; `EEG_QA_OUTPUT` selects the viewer capture directory.
 
-`scripts/check-viewer-assets.mjs` covers shared model downloads, version changes, cancellation, retry, eviction and independent scene arrays. `scripts/check-model-loading-browser.mjs` measures actual signal-page model requests and transfers across first load, viewer remount and reload using an existing cached experiment. See the [performance report](docs/web-performance.zh-CN.md) for the reproducible command and measurement conditions.
+`scripts/check-viewer-assets.mjs` covers shared model downloads, version changes, cancellation, retry, eviction and independent scene arrays. `scripts/check-model-loading-browser.mjs` measures actual signal-page model requests and transfers across first load, viewer remount and reload using an existing cached experiment. Run it with `EEG_TEST_URL`, `EEG_BROWSER_EXECUTABLE`, `EEG_SIGNAL_FIXTURE` and `EEG_QA_OUTPUT` set: `node scripts/check-model-loading-browser.mjs --expect-shared`.
 
 For the current deferred viewer, add `--expect-deferred` together with `--expect-shared`. Use an exact cached result from the target QA server as `EEG_SIGNAL_FIXTURE`; a missing cache fails the check without submitting a job. After `npm run build` and a fresh server start, verify the actual compressed HTTP bytes from the host checkout's `webapp/` directory:
 
@@ -89,7 +89,7 @@ EEG_COMPRESSION_REPORT="$PWD/../artifacts/qa-candidate/http-compression.json" \
 node scripts/check-compression-live.mjs
 ```
 
-This check compares decoded models with the host's original model files and cached JSON with the supplied result. It checks encoding negotiation, HEAD, conditional requests, byte ranges and API access headers without submitting work. `scripts/check-workflows-browser.mjs` separately exercises actual layout, signal, playback, download and cancellation controls; it writes jobs and requires the isolated queue to be resumed. Unit coverage for runtime invalidation, shared forward archives, deferred loading, hidden-page playback and compression is included in `npm run test:unit` and the Python suite. The [optimization record](docs/performance-optimization-progress.zh-CN.md) lists the numerical comparison scope.
+This check compares decoded models with the host's original model files and cached JSON with the supplied result. It checks encoding negotiation, HEAD, conditional requests, byte ranges and API access headers without submitting work. `scripts/check-workflows-browser.mjs` separately exercises actual layout, signal, playback, download and cancellation controls; it writes jobs and requires the isolated queue to be resumed. Unit coverage for runtime invalidation, shared forward archives, deferred loading, hidden-page playback and compression is included in `npm run test:unit` and the Python suite.
 
 ## Review and release
 
@@ -97,7 +97,7 @@ Research projects and their delivery format are documented in [project formats](
 
 The local stylesheet under `webapp/styles/vendor/shadcn/` retains the original CSS and MIT license; the unused component-generator CLI is excluded from runtime dependencies. The lockfile narrowly overrides `satori@0.33.5` to use the patched `fflate@0.7.5`. Review that override when updating its parent and repeat application build, image/font checks and browser regressions. Do not use a forced audit fix across unrelated dependency branches.
 
-Describe the resulting behavior, relevant checks and unrun tiers. For scientific changes, identify the inputs/runtime and compare matched conditions. Use [web operations](docs/web-operations.md) for release identity, durable maintenance, backup and restore. Target-server deployment and public-URL acceptance are separate from local verification; progress is recorded in [the refactor log](docs/web-refactor-progress.zh-CN.md).
+Describe the resulting behavior, relevant checks and unrun tiers. For scientific changes, identify the inputs/runtime and compare matched conditions. Use [web operations](docs/web-operations.md) for release identity, durable maintenance, backup and restore. Target-server deployment and public-URL acceptance are separate from local verification; see [server deployment](docs/server-deployment.md).
 
 ## Licensing
 

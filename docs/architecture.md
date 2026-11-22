@@ -85,7 +85,7 @@ This configuration supports a new host checkout using an existing scientific sna
 
 API JSON responses carry `X-EEG-API-Version: 1`; errors retain `error` and add a stable coarse `code`. Existing routes and scientific cache-key formats remain unchanged. Legacy Python entry points and Node compatibility exports remain part of the supported execution/import paths.
 
-API JSON uses asynchronous Brotli/gzip streams when accepted, with identity fallback, `Vary: Accept-Encoding` and the existing access/cache headers. Small responses normally remain uncompressed. `npm run build` also creates beneficial `.br`/`.gz` variants of binary models in `dist/client/models/`; the host serves the negotiated variant. Original model files and decoded JSON bytes are unchanged. See the [staged performance verification](performance-optimization-progress.zh-CN.md).
+API JSON uses asynchronous Brotli/gzip streams when accepted, with identity fallback, `Vary: Accept-Encoding` and the existing access/cache headers. Small responses normally remain uncompressed. `npm run build` also creates beneficial `.br`/`.gz` variants of binary models in `dist/client/models/`; the host serves the negotiated variant. Original model files and decoded JSON bytes are unchanged.
 
 Cache identities include actual code, inputs and, where applicable, runtime bytes and filesystem paths. A changed path or environment can require a new calculation. Historical results retain their original identity; no approximate-coordinate cache fallback or hash rewriting is introduced.
 
