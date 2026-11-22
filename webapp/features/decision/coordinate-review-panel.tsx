@@ -3,6 +3,7 @@ import { useLanguage } from '@/components/language-provider';
 import { Button } from '@/components/ui/button';
 import type { ElectrodeDesign, DesignResult } from '@/lib/design-decision';
 import { coordinateReview } from './coordinate-review';
+import { coordinateSourceFiles } from '@/contracts/coordinate-source.mjs';
 
 export function CoordinateReviewPanel({ design, result }: { design: ElectrodeDesign; result: DesignResult | null }) {
   const { tx } = useLanguage(), review = coordinateReview(design, result);
@@ -13,7 +14,7 @@ export function CoordinateReviewPanel({ design, result }: { design: ElectrodeDes
   };
   return <details className="mt-4 rounded-lg border p-4"><summary className="cursor-pointer font-medium">{tx('逐电极坐标检查')}</summary>
     <p className="mt-3 text-sm">{tx('坐标声明：Ernie原生空间，单位mm。此接口不执行坐标配准。')}</p>
-    <p className="mt-2 break-words text-xs text-muted-foreground">{tx('坐标来源')} · {source ? `${source.electrodes_file} + ${source.coordsystem_file}` : design.name}</p>
+    <p className="mt-2 break-words text-xs text-muted-foreground">{tx('坐标来源')} · {source ? coordinateSourceFiles(source) : design.name}</p>
     {source && <p className="mt-2 whitespace-pre-wrap text-xs text-muted-foreground">{source.coordinate_system_description}</p>}
     <p className="mt-2 text-xs text-muted-foreground">{tx(review.evaluated ? '合格表示已验证结果的逐点投影移动不超过现有2 mm限制；数值评分另行显示。' : '尚未评价；原输入坐标不能作为已投影合格的结果。')}</p>
     <div className="mt-3 max-h-96 overflow-auto"><table className="w-full min-w-[850px] text-left text-xs"><thead><tr>

@@ -48,7 +48,7 @@ The repository is private: sign in to a GitHub account with repository access to
 
 1. **Browse:** open an existing layout in **Results Library** and inspect its regions, electrode positions, and scores.
 2. **Design:** set the region count, allowed placement range, and maximum region radius in **Layout Design**.
-3. **Edit or import:** change electrode positions or active electrodes, or import named coordinates registered to the Ernie head model. The [coordinate-file interface](docs/coordinate-file-interface.md) also supports explicitly declared electrodes.tsv and coordsystem.json pairs with region metadata.
+3. **Edit or import:** change electrode positions or active electrodes, or import named coordinates registered to the Ernie head model. The [coordinate-file interface](docs/coordinate-file-interface.md) also supports explicitly declared electrodes.tsv and coordsystem.json pairs with region metadata, in the Ernie native frame or an MNI template space, and lists of 64 10-05 electrode names. Exports can be written in either frame and state that the positions are template positions with template landmarks.
 4. **Compare:** assess selected layouts under the same requirements and export coordinates, results, or reproducibility bundles.
 5. **Simulate:** select a layout, source locations, waveforms, and interference settings in **Signal Simulation**.
 6. **Repeat:** create a robustness study from imported coordinates, list explicit seed/radius cases, save a draft and start the batch. Opening or refreshing a study reads its saved state; service restart requires an explicit study resume.
