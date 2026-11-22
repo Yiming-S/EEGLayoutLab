@@ -6,6 +6,11 @@ import { ERNIE_MNI_MAPPING, MAPPING_ID, ernieToMni, mniToErnie, surfaceFromBuffe
 import { scientificDesign } from '../lib/design-decision.ts';
 import { normalizeDesignRequest } from '../server/design-evaluation-server.mjs';
 import { validateCoordinateSource } from '../contracts/coordinate-source.mjs';
+import { exportEeglabSfp, exportMneElc } from '../lib/montage-files.ts';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const buffer = path => { const bytes = readFileSync(new URL('../public' + path, import.meta.url)); return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength); };
 const scalp = buffer(ERNIE_MNI_MAPPING.scalp_buffer.file), mniBuffer = buffer(ERNIE_MNI_MAPPING.mni_buffer.file);
@@ -135,4 +140,50 @@ void test('coordinate source /2 accepts only consistent conversions', () => {
     { ...mni, conversion: { ...mni.conversion, input_coordinate_system: 'Other' } },
     { ...mni, conversion: undefined },
   ]) assert.throws(() => validateCoordinateSource(bad));
+});
+
+const mnePython = process.env.EEG_MNE_PYTHON || 'python3';
+const hasMne = spawnSync(mnePython, ['-I', '-c', 'import mne'], { stdio: 'ignore' }).status === 0;
+
+void test('MNE and EEGLAB montage files carry the native coordinates, names and template landmarks', () => {
+  const design = standard(), landmarks = ERNIE_MNI_MAPPING.landmarks.native_mm;
+  const elc = exportMneElc(design).text.split('\n'), sfp = exportEeglabSfp(design).text.trim().split('\n').map(line => line.split('\t'));
+  assert.ok(elc.includes('UnitPosition\tmm') && elc.includes('NumberPositions=\t67'));
+  const positions = elc.slice(elc.indexOf('Positions') + 1, elc.indexOf('Labels')).map(line => line.split('\t').map(Number));
+  const labels = elc.slice(elc.indexOf('Labels') + 1).filter(Boolean);
+  assert.deepEqual(labels, [...design.electrode_names, 'Nz', 'LPA', 'RPA']);
+  assert.deepEqual(positions, [...design.xyz_mm, landmarks.Nz, landmarks.LPA, landmarks.RPA]);
+  // readlocs takes .sfp rows as label, x right, y nose, z up; there is no header line.
+  assert.deepEqual(sfp.map(cells => cells[0]), ['FidNz', 'FidT9', 'FidT10', ...design.electrode_names]);
+  assert.deepEqual(sfp.map(cells => cells.slice(1).map(Number)), [landmarks.Nz, landmarks.LPA, landmarks.RPA, ...design.xyz_mm]);
+  const at = name => sfp.find(cells => cells[0] === name).slice(1).map(Number);
+  assert.ok(at('Fpz')[1] > 80 && at('Oz')[1] < -80 && at('C4')[0] > 50 && at('C3')[0] < -50);
+  for (const [index, name] of [[3, 'F 1'], [7, 'nz'], [9, 'CMS']]) {
+    const renamed = { ...design, electrode_names: design.electrode_names.map((value, at) => at === index ? name : value) };
+    assert.throws(() => exportMneElc(renamed)); assert.throws(() => exportEeglabSfp(renamed));
+  }
+});
+
+void test('MNE reads the .elc file in millimetres and places it in its fiducial head frame', { skip: hasMne ? false : `${mnePython} has no mne` }, () => {
+  const design = standard(), directory = mkdtempSync(join(tmpdir(), 'eeg-montage-'));
+  try {
+    writeFileSync(join(directory, 'electrodes.elc'), exportMneElc(design).text);
+    const script = [
+      'import json, sys, mne',
+      'm = mne.channels.read_custom_montage(sys.argv[1], head_size=None)',
+      'p = m.get_positions()',
+      'info = mne.create_info(list(p["ch_pos"]), 1000.0, "eeg"); info.set_montage(m)',
+      'print(json.dumps({"frame": p["coord_frame"], "names": list(p["ch_pos"]), "xyz": [list(map(float, v)) for v in p["ch_pos"].values()],',
+      '  "fiducials": [p[k] is not None for k in ("nasion", "lpa", "rpa")], "head": [list(map(float, c["loc"][:3])) for c in info["chs"]]}))',
+    ].join('\n');
+    const run = spawnSync(mnePython, ['-I', '-c', script, join(directory, 'electrodes.elc')], { encoding: 'utf8' });
+    assert.equal(run.status, 0, run.stderr);
+    const read = JSON.parse(run.stdout.trim().split('\n').at(-1));
+    assert.deepEqual(read.names, design.electrode_names);
+    assert.deepEqual(read.fiducials, [true, true, true]);
+    assert.ok(Math.max(...read.xyz.map((point, index) => distance(point.map(value => value * 1000), design.xyz_mm[index]))) < 1e-9);
+    const toHead = headFrame({ NAS: ERNIE_MNI_MAPPING.landmarks.native_mm.Nz, LPA: ERNIE_MNI_MAPPING.landmarks.native_mm.LPA, RPA: ERNIE_MNI_MAPPING.landmarks.native_mm.RPA });
+    assert.ok(Math.max(...read.head.map((point, index) => distance(point.map(value => value * 1000), toHead(design.xyz_mm[index])))) < 1e-6,
+      'MNE head coordinates equal the Neuromag frame built from the same landmarks');
+  } finally { rmSync(directory, { recursive: true, force: true }); }
 });

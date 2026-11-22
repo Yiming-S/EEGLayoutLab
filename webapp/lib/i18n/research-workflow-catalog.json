@@ -1668,5 +1668,61 @@
   "workflow_406": {
     "source": "坐标必须是有限的三维数值。",
     "en": "Coordinates must be finite three-dimensional values."
+  },
+  "workflow_407": {
+    "source": "坐标文件（BIDS、MNE、EEGLAB）",
+    "en": "Coordinate files (BIDS, MNE, EEGLAB)"
+  },
+  "workflow_408": {
+    "source": "MNE-Python和EEGLAB文件使用同一Ernie坐标（毫米）和模板基准点。MNE读取时须设head_size=None，否则坐标会被缩放到标准球头；EEGLAB读取.sfp时会自动转为鼻尖朝+X的约定。",
+    "en": "The MNE-Python and EEGLAB files use the same Ernie coordinates (millimetres) and template landmarks. Read them in MNE with head_size=None, otherwise the coordinates are scaled to a standard spherical head; EEGLAB converts .sfp to its nose-along-+X convention on import."
+  },
+  "workflow_409": {
+    "source": "MNE/EEGLAB坐标文件导出失败。",
+    "en": "The MNE/EEGLAB coordinate files could not be exported."
+  },
+  "workflow_410": {
+    "source": "电极名称“{{0}}”含空格，MNE和EEGLAB坐标文件按空白分列；请改名后导出。",
+    "en": "Electrode name “{{0}}” contains a space. MNE and EEGLAB coordinate files separate columns by white space; rename it before exporting."
+  },
+  "workflow_411": {
+    "source": "电极名称“{{0}}”与基准点标签冲突，MNE或EEGLAB会把它当作基准点；请改名后导出。",
+    "en": "Electrode name “{{0}}” collides with a landmark label; MNE or EEGLAB would read it as a landmark. Rename it before exporting."
+  },
+  "workflow_412": {
+    "source": "64个电极 · {{0}}个区域 · Ernie模板头",
+    "en": "64 electrodes · {{0}} regions · Ernie template head"
+  },
+  "workflow_414": {
+    "source": "以Ernie模板基准点NAS、LPA、RPA建立头坐标系（x朝RPA，y朝NAS），按与竖直轴的夹角做等距方位投影。",
+    "en": "Head frame from the Ernie template landmarks NAS, LPA and RPA (x toward RPA, y toward NAS); azimuthal equidistant projection by angle from the vertical axis."
+  },
+  "workflow_415": {
+    "source": "圆为NAS–LPA–RPA平面，低于该平面的电极画在圆外。位置为模板头上的设计位置，不是实测位置。",
+    "en": "The circle is the NAS–LPA–RPA plane; electrodes below it lie outside. Positions are design positions on the template head, not measured positions."
+  },
+  "workflow_416": {
+    "source": "布局图（SVG、PNG）",
+    "en": "Layout figure (SVG, PNG)"
+  },
+  "workflow_417": {
+    "source": "二维布局图用于论文和报告：每个区域有各自的颜色和标记形状。PNG按3倍分辨率由同一SVG生成。",
+    "en": "A 2D layout figure for papers and reports: each region has its own colour and marker shape. The PNG is rendered from the same SVG at three times the resolution."
+  },
+  "workflow_418": {
+    "source": "显示电极名称",
+    "en": "Show electrode names"
+  },
+  "workflow_419": {
+    "source": "电极排列紧密，名称会互相重叠，默认不显示。",
+    "en": "The electrodes are closely spaced and their names would overlap, so names are hidden by default."
+  },
+  "workflow_420": {
+    "source": "{{0}}的二维布局图",
+    "en": "2D layout figure of {{0}}"
+  },
+  "workflow_421": {
+    "source": "布局图渲染失败。",
+    "en": "The layout figure could not be rendered."
   }
 }

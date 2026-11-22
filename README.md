@@ -48,10 +48,12 @@ The repository is private: sign in to a GitHub account with repository access to
 
 1. **Browse:** open an existing layout in **Results Library** and inspect its regions, electrode positions, and scores.
 2. **Design:** set the region count, allowed placement range, and maximum region radius in **Layout Design**.
-3. **Edit or import:** change electrode positions or active electrodes, or import named coordinates registered to the Ernie head model. The [coordinate-file interface](docs/coordinate-file-interface.md) also supports explicitly declared electrodes.tsv and coordsystem.json pairs with region metadata, in the Ernie native frame or an MNI template space, and lists of 64 10-05 electrode names. Exports can be written in either frame and state that the positions are template positions with template landmarks.
+3. **Edit or import:** change electrode positions or active electrodes, or import named coordinates registered to the Ernie head model. The [coordinate-file interface](docs/coordinate-file-interface.md) also supports explicitly declared electrodes.tsv and coordsystem.json pairs with region metadata, in the Ernie native frame or an MNI template space, and lists of 64 10-05 electrode names. Exports can be written in either frame, or as MNE-Python (`.elc`) and EEGLAB (`.sfp`) montage files, and state that the positions are template positions with template landmarks. A 2D layout figure can be downloaded as SVG or PNG.
 4. **Compare:** assess selected layouts under the same requirements and export coordinates, results, or reproducibility bundles.
 5. **Simulate:** select a layout, source locations, waveforms, and interference settings in **Signal Simulation**.
 6. **Repeat:** create a robustness study from imported coordinates, list explicit seed/radius cases, save a draft and start the batch. Opening or refreshing a study reads its saved state; service restart requires an explicit study resume.
+
+The [command line](docs/command-line.md) runs the same evaluations, searches and robustness studies without the browser, with the same request checks and scientific identity. [`examples/`](examples/README.md) holds three reproducible examples with expected scores.
 
 Use **Research Projects** to keep selected layouts, edited copies, signal experiments, notes and comparison requirements together. Download the project's access file to restore it in another browser; use a separate read-only link for collaborators. Generating a new read-only link replaces the previous one. Saved project snapshots remain available independently of the computation queue. Project access protects the project's annotations and saved copies; the existing original layout library remains shared.
 
@@ -86,6 +88,7 @@ See [server configuration](docs/server-deployment.md) and [web operations](docs/
 | [`scripts/`](scripts/) | Setup, data management, and worker entry points |
 | [`tests/`](tests/) | Scientific and workflow regression tests |
 | [`docs/`](docs/) | Architecture, methods, data, validation, and deployment documentation |
+| [`examples/`](examples/) | Reproducible command-line examples with expected scores |
 | [`data/`](data/) | Data inventory and source attribution |
 
 Git tracks application source, required display assets, configuration, documentation, and tests. Releases provide versioned source and data materials, checksums, and component notices. Installed environments, generated computation records, demo recordings, and local verification captures stay outside Git; historical calculation caches are not uploaded.
