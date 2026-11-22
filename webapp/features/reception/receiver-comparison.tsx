@@ -145,10 +145,10 @@ export function ReceiverComparison({
               </ResponsiveContainer>
             </div>
             <p className="text-sm">
-              <span className="text-[#128a80]">{tx('脑贡献')}</span> ·{tx(' ')}
+              <span className="text-primary">{tx('脑贡献')}</span> ·{tx(' ')}
               <span className="text-[#c04768]">{tx('模拟心眼伪迹')}</span> ·
               {tx(' ')}
-              <span className="text-[#718096]">
+              <span className="text-ink-soft">
                 {tx('混合接收（含电极噪声）')}
               </span>
             </p>

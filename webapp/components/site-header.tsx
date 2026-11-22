@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Activity, Settings2 } from 'lucide-react';
 import { LanguageSwitch } from '@/components/language-switch';
 import { useDismissibleDetails } from '@/components/use-dismissible-details';
+import { cn } from '@/lib/utils';
 import { useLanguage } from '@/components/language-provider';
 import { localizedRecordTitle } from '@/lib/i18n/records';
 import { PAGES, safeReturnHref, type PageId } from '@/lib/ui-language';
@@ -22,6 +23,24 @@ import {
   navigationAR,
   type WorkspaceSelection,
 } from '@/lib/workspace-navigation';
+
+/** Fades the right edge of a horizontally scrolling tab row while more tabs are hidden there, and keeps the current tab in view. */
+function useTabOverflow<T extends HTMLElement>() {
+  const ref = useRef<T>(null);
+  const [more, setMore] = useState(false);
+  useEffect(() => {
+    const row = ref.current;
+    if (!row) return;
+    const update = () => setMore(row.scrollLeft + row.clientWidth < row.scrollWidth - 2);
+    row.querySelector<HTMLElement>('[aria-current="page"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    update();
+    row.addEventListener('scroll', update, { passive: true });
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update);
+    observer?.observe(row);
+    return () => { row.removeEventListener('scroll', update); observer?.disconnect(); };
+  }, []);
+  return { ref, more };
+}
 
 export function SiteHeader({
   current,
@@ -39,6 +58,7 @@ export function SiteHeader({
   const { tx, locale } = useLanguage();
   const settings = useDismissibleDetails();
   const headerRef = useRef<HTMLElement>(null);
+  const { ref: tabsRef, more: moreTabs } = useTabOverflow<HTMLElement>();
   useEffect(() => {
     if (!headerRef.current || typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(([entry]) => {
@@ -185,29 +205,29 @@ export function SiteHeader({
   return (
     <header
       ref={headerRef}
-      className="sticky top-0 z-40 border-b border-[#d6e1df] bg-[#f7faf8]/95 backdrop-blur-xl"
+      className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur-xl"
     >
-      <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 sm:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-1.5 sm:px-6 sm:py-2 lg:px-8">
         <a
           href={links.compare}
           aria-label={tx('EEG Layout Lab · 返回已有结果')}
           className="flex shrink-0 items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
-          <span className="grid size-8 place-items-center rounded-xl bg-[#102f3a] text-[#78dfcc] sm:size-9">
+          <span className="grid size-8 place-items-center rounded-xl bg-brand text-brand-foreground sm:size-9">
             <Activity className="size-5" />
           </span>
           <span>
-            <span className="block text-base font-semibold text-[#102a34]">
+            <span className="block text-base font-semibold text-foreground">
               EEG Layout Lab
             </span>
-            <span className="block text-xs text-[#607379]">
+            <span className="hidden text-xs text-ink-soft sm:block">
               {tx('脑电电极布局仿真')}
             </span>
           </span>
         </a>
         <nav
           aria-label={tx('主导航')}
-          className="order-3 flex w-full gap-1 overflow-x-auto rounded-lg bg-white/85 p-1 min-[1000px]:order-none min-[1000px]:ml-auto min-[1000px]:w-auto"
+          className="order-3 flex w-full gap-1 overflow-x-auto rounded-lg bg-card/85 p-0.5 sm:p-1 min-[1000px]:order-none min-[1000px]:ml-auto min-[1000px]:w-auto"
         >
           {WORKSPACES.map((p) => (
             <a
@@ -218,10 +238,10 @@ export function SiteHeader({
               aria-disabled={blockedLink(destinations[p.id]) || undefined}
               aria-current={group === p.id ? 'page' : undefined}
               className={
-                'flex min-h-9 flex-1 items-center justify-center whitespace-nowrap rounded-lg px-3 text-sm font-medium min-[1000px]:flex-none ' +
+                'flex min-h-8 flex-1 items-center justify-center whitespace-nowrap rounded-lg px-3 text-sm font-medium sm:min-h-9 min-[1000px]:flex-none ' +
                 (group === p.id
-                  ? 'bg-[#102f3a] text-white'
-                  : 'text-[#53686e] hover:bg-[#eef4f1]')
+                  ? 'bg-brand text-white'
+                  : 'text-ink-soft hover:bg-secondary')
               }
             >
               {tx(p.label)}
@@ -231,20 +251,21 @@ export function SiteHeader({
         <div className="ml-auto flex items-center gap-1 min-[1000px]:ml-0">
           <CommunityStatus />
           <details ref={settings} className="relative">
-            <summary aria-label={tx('界面设置')} className="flex size-9 cursor-pointer list-none items-center justify-center rounded-lg border bg-white text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
+            <summary aria-label={tx('界面设置')} className="flex size-9 cursor-pointer list-none items-center justify-center rounded-lg border bg-card text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
               <Settings2 className="size-4" />
             </summary>
-            <div className="absolute right-0 z-50 mt-2 rounded-xl border bg-white p-3 shadow-lg">
+            <div className="absolute right-0 z-50 mt-2 rounded-xl border bg-popover p-3 shadow-lg">
               <LanguageSwitch />
             </div>
           </details>
         </div>
       </div>
-      <div className="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 pb-2 sm:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-x-3 px-4 pb-1.5 sm:flex-wrap sm:gap-y-1 sm:px-6 sm:pb-2 lg:px-8">
         {WORKSPACE_TABS[group].length > 0 && (
           <nav
+            ref={tabsRef}
             aria-label={tx('工作区工具')}
-            className="flex max-w-full shrink-0 gap-1 overflow-x-auto"
+            className={cn('flex min-w-0 gap-1 overflow-x-auto [scrollbar-width:none] max-sm:flex-1 sm:max-w-full sm:shrink-0', moreTabs && '[mask-image:linear-gradient(to_right,#000_calc(100%-2.5rem),transparent)]')}
           >
             {WORKSPACE_TABS[group].map(([id, label]) => (
               <a
@@ -256,7 +277,7 @@ export function SiteHeader({
                   'shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium ' +
                   (current === id
                     ? 'bg-primary/10 text-primary'
-                    : 'text-muted-foreground hover:bg-white')
+                    : 'text-muted-foreground hover:bg-card')
                 }
               >
                 {tx(label)}
@@ -266,7 +287,7 @@ export function SiteHeader({
         )}
         <div
           aria-label={tx('当前布局')}
-          className="flex min-w-0 flex-1 items-center justify-end gap-x-3 gap-y-1 text-sm"
+          className="flex min-w-0 shrink-0 items-center justify-end gap-x-3 gap-y-1 text-sm sm:flex-1"
         >
           <div className="hidden min-w-0 truncate sm:block" title={record && selection.phase === 'saved' ? `${localizedRecordTitle(record, locale)} · ${tx(stateLabel)}` : tx(stateLabel)}>
             <span className="font-semibold">{tx('当前布局')} · </span>

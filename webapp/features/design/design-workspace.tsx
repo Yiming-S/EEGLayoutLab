@@ -15,6 +15,7 @@ import { editorLink } from '@/lib/electrode-editor';
 import { DesignPlacementOptions } from '@/components/placement-options';
 import { SEARCH_NOISE_PRESETS, useDesignController } from './use-design-controller';
 import { designViewState } from './design-state';
+import { ThresholdSlider } from '@/components/threshold-slider';
 
 const Head = lazy(() => import('@/components/cluster-head-viewer').then((m) => ({ default: m.ClusterHeadViewer })));
 export default function DesignWorkspace() {
@@ -35,9 +36,9 @@ export default function DesignWorkspace() {
         <div><h1 className="text-2xl font-semibold">{tx(state.title)}</h1>{state.detail && <p className="mt-2 max-w-3xl text-base text-muted-foreground" aria-live="polite">{tx(state.detail)}</p>}</div>
         {state.action && <Button variant={state.action === 'new-radius' ? 'default' : 'outline'} onClick={() => { if (state.action === 'new-radius') startRadius(); revealSettings(); }}>{tx(state.actionLabel)}</Button>}
       </header>
-      {tx(error ? <div role="alert" className="lab-panel text-red-800"><RuntimeMessage message={error} />。<a href={'/library?ar=' + ar} className="ml-2 underline">{tx("返回计算记录")}</a></div> : !ready ? <p className="lab-panel">{tx("正在恢复所选方案与AR…")}</p> : <>
+      {tx(error ? <div role="alert" className="lab-panel text-danger"><RuntimeMessage message={error} />。<a href={'/library?ar=' + ar} className="ml-2 underline">{tx("返回计算记录")}</a></div> : !ready ? <p className="lab-panel">{tx("正在恢复所选方案与AR…")}</p> : <>
         {tx(source && <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3 text-sm"><span>{tx("来源：")}{localizedRecordTitle(source, locale)}</span><a className="text-primary underline" href={recordLink(source, ar)}>{tx("打开原记录")}</a></div>)}
-        {tx(notice && <output className="mb-4 block rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6">{tx(notice)}</output>)}
+        {tx(notice && <output className="mb-4 block rounded-lg border border-warning/30 bg-warning-surface p-4 text-sm leading-6">{tx(notice)}</output>)}
         <div className="grid items-start gap-4 lg:grid-cols-[340px_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)_300px]">
           <details className="lab-panel group" ref={settingsRef} open>
             <summary className="cursor-pointer text-base font-semibold">{tx('布局参数')} · {count} {tx('个区域')}{editing && <> · {radius} mm</>}{editing && <span className="mt-1 block text-sm font-normal text-primary group-open:hidden">{tx('展开调整参数并开始计算')}</span>}</summary>
@@ -53,7 +54,7 @@ export default function DesignWorkspace() {
               <label className="lab-label">{tx("每区表面半径上限 · ")}{tx(radius)} mm<input className="mt-3 w-full accent-primary" type="range" aria-label={tx("每区半径上限")} min={15} max={80} step={5} value={radius} onChange={(e) => { setRadius(Number(e.target.value)); setDraft(true); }} /><span className="mt-1 block text-xs font-normal leading-5 text-muted-foreground">{tx("半径按头表面网格路径计算；实际半径同时受区域分离约束。")}</span></label>
               <label className="lab-label">{tx('噪声模型')}<select className="lab-select mt-2" value={noiseModelId} onChange={(e) => selectNoiseModel(e.target.value)}>{SEARCH_NOISE_PRESETS.map((preset) => <option key={preset.id} value={preset.id}>{tx(preset.label)}</option>)}</select><span className="mt-1 block text-xs font-normal leading-5 text-muted-foreground">{tx('空间相关噪声使相邻电极共享部分噪声，搜索与评价同时使用；结果与独立噪声分开保存。')}</span></label>
             </>)}
-            <label className="lab-label border-t pt-4">{tx("接受阈值 AR · ")}{tx(ar)}%<input className="mt-3 w-full accent-primary" type="range" aria-label={tx("设计接受阈值AR")} min={10} max={100} step={1} value={ar} onChange={(e) => setAR(Number(e.target.value))} /><span className="mt-1 block text-xs font-normal text-muted-foreground">{tx("只更新结果判断，不改变点位或运行计算。")}</span></label>
+            <ThresholdSlider className="border-t pt-4" value={ar} onChange={setAR} ariaLabel="设计接受阈值AR" hint="只更新结果判断，不改变点位或运行计算。" />
             <details className="border-t pt-4 text-sm"><summary className="cursor-pointer font-medium">{tx("计算设置与限制")}</summary><p className="mt-3 text-xs leading-6 text-muted-foreground">{tx("固定64电极 · 最小电极直线间距4 mm · 单Ernie头模 · 标准64导名义SNR＝20 dB。各布局使用相同物理噪声尺度。算法在有限候选网格内搜索，位置范围按模型坐标近似定义。")}</p><a href={methodLink(here, ar, '#local-compute')} className="mt-2 inline-block text-primary underline">{tx("完整方法")}</a></details>
             {/* The run button stays in view while the settings above scroll. */}
             <div ref={computationRef} className={editing && request ? 'sticky bottom-0 z-10 -mx-2 rounded-b-xl bg-card px-2 pb-2 pt-2 shadow-[0_-12px_14px_-14px_rgba(16,47,58,0.45)]' : undefined}>{tx(editing && request && <LocalComputePanel key={originId + ':editor'} request={request} arPercent={ar} onResult={setComputed} onStatus={setStatus} compact />)}</div>

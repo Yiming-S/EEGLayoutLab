@@ -39,7 +39,7 @@ export function ProjectWorkflowEditor({ project, owner, busy, save, showCandidat
         <label className="lab-label">{tx('项目候选布局')}<select aria-label={tx('项目候选布局')} className="lab-select" value={candidate} onChange={event => setCandidate(event.target.value)}><option value="">{tx('尚未选择')}</option>{layouts.map(entry => <option value={entry.id} key={entry.id}>{entry.title}</option>)}</select></label>
       </div>
       <Button type="submit" variant="outline" disabled={busy}>{tx('保存研究任务选择')}</Button>
-      {error && <p role="alert" className="text-sm text-red-800">{tx(error)}</p>}
+      {error && <p role="alert" className="text-sm text-danger">{tx(error)}</p>}
       <p className="text-xs text-muted-foreground">{tx('保存选择不会启动计算。需要调整比较要求时，打开方案对比页并将设置保存回项目。')}</p>
     </form> : <p className="text-sm text-muted-foreground">{tx('只读访问保留项目的方案选择，不能修改设置。')}</p>}
     {criteria && <p className="rounded-lg bg-muted p-3 text-sm">{tx(criteria)}</p>}

@@ -23,7 +23,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 
 const Formula = ({ children }: { children: ReactNode }) => (
-  <div className="my-4 overflow-x-auto rounded-xl border border-[#d9e4e0] bg-[#f4f8f6] px-4 py-3 font-mono text-sm leading-7 text-[#173640]">
+  <div className="my-4 overflow-x-auto rounded-xl border border-border bg-background px-4 py-3 font-mono text-sm leading-7 text-foreground">
     {children}
   </div>
 );
@@ -31,23 +31,23 @@ const Formula = ({ children }: { children: ReactNode }) => (
 export default function MethodPage() {
   const { tx } = useLanguage();
   return (
-    <main className="min-h-screen bg-[#f4f7f4] text-[#102a34]">
+    <main className="min-h-screen bg-background text-foreground">
       <SiteHeader current="method" />
 
-      <section className="border-b border-[#d7e2df] bg-[linear-gradient(120deg,#edf7f3_0%,#faf7ee_60%,#f4f7f4_100%)]">
+      <section className="border-b border-border bg-[linear-gradient(120deg,#edf7f3_0%,#faf7ee_60%,#f4f7f4_100%)]">
         <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
           <MethodBackLink />
           <div className="flex flex-wrap gap-2">
-            <Badge className="bg-[#102f3a] text-white">{tx("协议 V2")}</Badge>
+            <Badge className="bg-brand text-white">{tx("协议 V2")}</Badge>
             <Badge
               variant="outline"
-              className="border-[#dfbd70] bg-[#fff8e8] text-[#765815]"
+              className="border-warning/40 bg-warning-surface text-warning"
             >
               {tx("当前：单头模仿真 · 独立头模验证另列阶段")}</Badge>
           </div>
           <h1 className="mt-4 text-balance text-3xl font-semibold tracking-[-0.035em] sm:text-4xl">
             {tx("建模与原理")}</h1>
-          <p className="mt-4 max-w-4xl text-base leading-7 text-[#536c72]">
+          <p className="mt-4 max-w-4xl text-base leading-7 text-ink-soft">
             {tx("从脑源与组织传播开始，理解信号接收、重建和评价。首次操作步骤请查看“使用指南”。")}</p>
           
           <nav aria-label={tx("建模与原理目录")} className="mt-6 grid gap-3 text-base sm:grid-cols-2 lg:grid-cols-3">
@@ -166,7 +166,7 @@ export default function MethodPage() {
           </div>
           <a
             href="/results"
-            className="mt-5 inline-flex text-sm font-semibold text-[#117d72]"
+            className="mt-5 inline-flex text-sm font-semibold text-primary"
           >
             {tx("查看本历史批次的布局、评分与记录 →")}</a>
         </section>
@@ -220,12 +220,12 @@ export default function MethodPage() {
           </div>
           <a
             href="/pilot-results"
-            className="mt-5 inline-flex items-center gap-2 font-semibold text-[#117d72]"
+            className="mt-5 inline-flex items-center gap-2 font-semibold text-primary"
           >
             {tx("查看交互曲线、点位与原始数据 →")}</a>
         </section>
 
-        <div id="planned-validation" className="scroll-mt-28 space-y-10 rounded-2xl border border-amber-200 bg-amber-50/30 p-5">
+        <div id="planned-validation" className="scroll-mt-28 space-y-10 rounded-2xl border border-warning/30 bg-warning-surface/30 p-5">
         <div className="space-y-2"><h2 className="text-xl font-semibold">{tx("后续验证计划 · 尚未全部实施")}</h2><p className="text-base leading-7">{tx("以下为理想化几何与群体评价的计划。当前实现见上方“布局计算”和指标说明。")}</p></div>
         <section>
           <div className="section-kicker">
@@ -267,10 +267,10 @@ export default function MethodPage() {
                 '直接比较严格双耳后、耳后加前额及双侧完整耳周等可解释原型。',
               ],
             ].map(([title, text]) => (
-              <Card key={title} className="border-[#d9e3e0] bg-white">
+              <Card key={title} className="border-border bg-white">
                 <CardContent>
-                  <h3 className="font-semibold text-[#173640]">{tx(title)}</h3>
-                  <p className="mt-2 text-sm leading-6 text-[#61757b]">
+                  <h3 className="font-semibold text-foreground">{tx(title)}</h3>
+                  <p className="mt-2 text-sm leading-6 text-ink-soft">
                     {tx(text)}
                   </p>
                 </CardContent>
@@ -336,9 +336,9 @@ export default function MethodPage() {
             ].map((item, index) => (
               <li
                 key={item}
-                className="flex gap-3 rounded-xl border border-[#dbe4e1] bg-white px-4 py-3 text-sm leading-6 text-[#526970]"
+                className="flex gap-3 rounded-xl border border-border bg-white px-4 py-3 text-sm leading-6 text-ink-soft"
               >
-                <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[#e4f3ef] font-mono text-xs font-semibold text-[#117d72]">
+                <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary/10 font-mono text-xs font-semibold text-primary">
                   {tx(index + 1)}
                 </span>
                 <span>{tx(item)}</span>
@@ -358,14 +358,14 @@ export default function MethodPage() {
             {tx("设计页的已计算布局与结果页均使用保存的FEM电极MRI坐标，仅按100 mm对应一个显示单位换算，不重新径向投影。触点外观沿表面法向抬高1.2 mm以避免遮挡，属于显示效果，不改变计算坐标。图中标明点位来源为示意或计算记录。")}</p>
           <p>
             {tx("数据来源：")}<a
-              className="text-[#117d72] underline"
+              className="text-primary underline"
               href="https://github.com/simnibs/example-dataset/releases/tag/v4.1"
             >
               SimNIBS example dataset v4.1
             </a>
             ，© SimNIBS developers 2024，
             <a
-              className="text-[#117d72] underline"
+              className="text-primary underline"
               href="https://creativecommons.org/licenses/by-nc/4.0/"
             >
               CC BY-NC 4.0
@@ -373,11 +373,11 @@ export default function MethodPage() {
             {tx("。原头模下脸与颈部存在截断，灰质表面保留源网格的不连续边界；当前资产只用于可视化。")}</p>
         </section>
 
-        <section className="rounded-[24px] border border-[#e2bd68] bg-[#fff8e8] p-6 sm:p-7">
-          <div className="flex items-center gap-2 font-semibold text-[#6f5314]">
+        <section className="rounded-[24px] border border-warning/40 bg-warning-surface p-6 sm:p-7">
+          <div className="flex items-center gap-2 font-semibold text-warning">
             <CircleAlert className="size-5" />
             {tx("结果适用范围")}</div>
-          <ul className="mt-4 grid gap-2 text-sm leading-6 text-[#7b6532] sm:grid-cols-2">
+          <ul className="mt-4 grid gap-2 text-sm leading-6 text-warning sm:grid-cols-2">
             <li>{tx("• 双耳后邻近区32+32按具体记录判定AR；固定示例G约12.50%，在AR＝10%时通过模型内判据。")}</li>
             <li>{tx("• BioSemi64为归一化比较基准；绝对重建和定位误差另行报告。")}</li>
             <li>{tx("• 当前源先验评价空间采集表现；MI/P300任务分类及人体表现尚待验证。")}</li>
@@ -393,24 +393,24 @@ export default function MethodPage() {
             <FileCheck2 className="size-4" />{tx("6 · 方法参考")}</div>
           <h2 className="method-title">
             {tx("相关研究及其适用范围")}</h2>
-          <div className="mt-5 space-y-3 text-sm leading-7 text-[#596f75]">
+          <div className="mt-5 space-y-3 text-sm leading-7 text-ink-soft">
             <p>
               <a
-                className="font-medium text-[#117d72] underline underline-offset-4"
+                className="font-medium text-primary underline underline-offset-4"
                 href="https://doi.org/10.1007/s10548-020-00793-2"
               >
                 {tx("Meiser等，2020")}</a>
               {tx("研究耳周阵列对源位置和方向的敏感性。本项目进一步考察固定64点布局、区域尺寸和信号重建。")}</p>
             <p>
               <a
-                className="font-medium text-[#117d72] underline underline-offset-4"
+                className="font-medium text-primary underline underline-offset-4"
                 href="https://doi.org/10.1016/j.jneumeth.2015.08.015"
               >
                 {tx("Song等，2015")}</a>
               {tx("研究电极密度和头表面覆盖范围对定位的影响，为布局比较提供依据。")}</p>
             <p>
               <a
-                className="font-medium text-[#117d72] underline underline-offset-4"
+                className="font-medium text-primary underline underline-offset-4"
                 href="https://doi.org/10.1088/1741-2552/ad1783"
               >
                 {tx("Meiser、Knoll与Bleichner，2024")}</a>

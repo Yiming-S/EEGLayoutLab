@@ -438,9 +438,8 @@ export function useElectrodesController() {
       setError(String(e));
     }
   };
+  // The workspace asks before discarding unsaved edits (see `dirty`).
   const switchLayout = (id: string, record?: EditorRecord) => {
-    if (dirty && !window.confirm(tx('当前有未保存的编辑，确认切换布局？')))
-      return;
     void load(id, record);
   };
   const exportResult = () => {
@@ -495,6 +494,7 @@ export function useElectrodesController() {
     saveDraft,
     readDraft,
     switchLayout,
+    dirty,
     exportResult,
   };
 }

@@ -24,6 +24,7 @@ import {
   fillHeads,
   type CaseDraft,
 } from "./robustness-draft";
+import { FilePicker } from '@/components/ui/file-picker';
 
 const protocols = {
   noise_seeds: "定位噪声随机种子重复",
@@ -152,9 +153,9 @@ export default function RobustnessWorkspace() {
       <SiteHeader current="robustness" />
       <div className="lab-container space-y-5 py-6">
         <header>
-          <h1 className="text-2xl font-semibold">{tx("可复现的重复评估")}</h1>
+          <h1 className="text-2xl font-semibold">{tx("稳健性研究")}</h1>
           <p className="mt-2 max-w-4xl text-muted-foreground">
-            {tx("按明确的种子与偏移参数重复原评价协议，逐项保存请求、结果及失败原因。")}
+            {tx("可复现的重复评估：按明确的种子与偏移参数重复原评价协议，逐项保存请求、结果及失败原因。")}
           </p>
         </header>
         <section className="lab-panel space-y-3" aria-label={tx("本浏览器的稳健性研究")}>
@@ -201,12 +202,12 @@ export default function RobustnessWorkspace() {
           </label>
           {controller.notice && <p className="text-sm">{tx(controller.notice)}</p>}
           {controller.error && (
-            <p role="alert" className="text-sm text-red-800">
+            <p role="alert" className="text-sm text-danger">
               <RuntimeMessage message={controller.error} />
             </p>
           )}
           {controller.uncertain && (
-            <p className="text-sm text-amber-900">
+            <p className="text-sm text-warning">
               {tx("操作结果待核对，写入按钮已暂停。重新读取当前研究，或刷新目录并打开已保存研究。")}
             </p>
           )}
@@ -218,10 +219,8 @@ export default function RobustnessWorkspace() {
             <h2 className="text-lg font-semibold">{tx("创建研究草稿")}</h2>
             <label className="lab-label">
               {tx("导入64电极CSV或JSON")}
-              <input
-                type="file"
+              <FilePicker
                 accept=".csv,.json,application/json,text/csv"
-                className="mt-2 block w-full text-sm"
                 onChange={(event) => {
                   const file = event.target.files?.[0];
                   event.target.value = "";
@@ -347,7 +346,7 @@ export default function RobustnessWorkspace() {
               <p className="text-sm text-destructive">{tx("尚无已预计算的头模包")}</p>
             )}
             {protocol === "heads" && headsError && (
-              <div role="alert" className="flex flex-wrap items-center gap-3 text-sm text-red-800">
+              <div role="alert" className="flex flex-wrap items-center gap-3 text-sm text-danger">
                 <RuntimeMessage message={headsError} />
                 <Button type="button" size="sm" variant="outline" onClick={() => setHeadsError("")}>
                   {tx("重新读取头模列表")}
@@ -520,7 +519,7 @@ export default function RobustnessWorkspace() {
               {tx("每项研究最多12个案例。保存草稿后，点击开始才提交计算。")}
             </p>
             {(formError || input.error) && (
-              <p role="alert" className="text-sm text-red-800">
+              <p role="alert" className="text-sm text-danger">
                 <RuntimeMessage message={formError || input.error} />
               </p>
             )}
@@ -544,7 +543,7 @@ export default function RobustnessWorkspace() {
                 </output>
               </div>
               {study.notes && <p className="whitespace-pre-wrap text-sm">{study.notes}</p>}
-              {study.cancel_requested && <p className="text-sm text-amber-900">{tx("取消意图已保存；恢复操作只保存已有结果并完成取消。")}</p>}
+              {study.cancel_requested && <p className="text-sm text-warning">{tx("取消意图已保存；恢复操作只保存已有结果并完成取消。")}</p>}
               <details className="rounded-lg border p-3"><summary className="cursor-pointer font-medium">{tx("查看研究输入坐标与名称")}</summary>
                 <p className="mt-2 text-sm">{study.design.name} · Ernie · mm</p>
                 {study.annotation.source_metadata && <p className="mt-1 text-sm text-muted-foreground">{coordinateSourceFiles(study.annotation.source_metadata)}</p>}
@@ -601,7 +600,7 @@ export default function RobustnessWorkspace() {
                 </Button>
               </div>
               {controller.connection !== "connected" && (
-                <p className="text-sm text-amber-900">
+                <p className="text-sm text-warning">
                   {tx(
                     controller.connection === "reconnecting"
                       ? "正在重新连接研究状态…"
@@ -610,12 +609,12 @@ export default function RobustnessWorkspace() {
                 </p>
               )}
               {study.last_error && (
-                <output className="block text-sm text-amber-900">
+                <output className="block text-sm text-warning">
                   <RuntimeMessage message={study.last_error.message} />
                 </output>
               )}
               {exporting.error && (
-                <p role="alert" className="text-sm text-red-800">
+                <p role="alert" className="text-sm text-danger">
                   <RuntimeMessage message={exporting.error} />
                 </p>
               )}
@@ -695,7 +694,7 @@ export default function RobustnessWorkspace() {
                   </summary>
                   <p className="mt-2 break-all font-mono text-xs">{entry.key}</p>
                   {entry.error && (
-                    <p className="mt-2 text-sm text-amber-900">
+                    <p className="mt-2 text-sm text-warning">
                       <RuntimeMessage message={entry.error.message} />
                     </p>
                   )}

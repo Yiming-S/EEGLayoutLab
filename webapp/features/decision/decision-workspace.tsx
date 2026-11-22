@@ -33,6 +33,10 @@ import { CoordinateFileExports } from './coordinate-file-exports';
 import { LayoutFigureExport } from './layout-figure-export';
 import { evaluationPresentation } from './evaluation-presentation';
 import { CoordinateStudyLink } from '@/features/robustness/coordinate-study-link';
+import { FilePicker } from '@/components/ui/file-picker';
+import { useLanguage } from '@/components/language-provider';
+import { OutcomeBadge } from '@/components/retention-bar';
+import { cn } from '@/lib/utils';
 
 const Head = lazy(() =>
   import('@/components/cluster-head-viewer').then((m) => ({
@@ -47,6 +51,28 @@ function download(name: string, body: string, mime: string) {
   a.download = name;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+type Difference = { get: (r: SavedRecord) => number | null | undefined; unit: 'pp' | 'mm' | 'cm²'; better?: 'higher' | 'lower' };
+/** Rows of the record table that have a meaningful B − A difference. */
+const DIFFERENCES: Record<string, Difference> = {
+  实际区域面积: { get: (r) => r.geometry?.union_area_cm2, unit: 'cm²' },
+  实际最小直线点距: { get: (r) => r.geometry?.minimum_chord_distance_mm, unit: 'mm' },
+  信号重建保留率: { get: (r) => r.metrics?.field_relative, unit: 'pp', better: 'higher' },
+  '幅度保留率（最差10%）': { get: (r) => r.metrics?.sensitivity_tail, unit: 'pp', better: 'higher' },
+  相对定位评分: { get: (r) => r.metrics?.localization_relative, unit: 'pp', better: 'higher' },
+  '定位误差 · 中位数': { get: (r) => r.metrics?.median_mm, unit: 'mm', better: 'lower' },
+  '定位误差 · P90': { get: (r) => r.metrics?.p90_mm, unit: 'mm', better: 'lower' },
+};
+function DifferenceCell({ spec, a, b }: { spec?: Difference; a?: SavedRecord; b?: SavedRecord }) {
+  const { tx } = useLanguage();
+  const x = a && spec?.get(a), y = b && spec?.get(b);
+  if (!spec || x == null || y == null || !Number.isFinite(x) || !Number.isFinite(y)) return <td className="text-muted-foreground">—</td>;
+  const d = y - x, scaled = spec.unit === 'pp' ? d * 100 : d, digits = spec.unit === 'mm' ? 1 : 2;
+  const zero = Math.abs(scaled) < 0.5 * 10 ** -digits;
+  const text = (zero ? '±' : d > 0 ? '+' : '−') + Math.abs(scaled).toFixed(digits) + (spec.unit === 'pp' ? tx(' 个百分点') : ' ' + spec.unit);
+  const tone = zero || !spec.better ? '' : (spec.better === 'higher') === d > 0 ? 'text-success' : 'text-warning';
+  return <td className={cn('font-mono whitespace-nowrap', tone)}>{text}{tone && <span className="sr-only">{tx(tone === 'text-success' ? '（B更好）' : '（B更差）')}</span>}</td>;
 }
 
 export default function DecisionPage({
@@ -98,6 +124,8 @@ export default function DecisionPage({
     cancel,
     preview,
   } = useDecisionController(mode);
+  const recordA = shown.find((r) => ids.indexOf(r.id) === 0), recordB = shown.find((r) => ids.indexOf(r.id) === 1);
+  const pair = !!recordA && !!recordB;
   const presentation = result ? evaluationPresentation(job, result) : null;
   // Every coordinate evaluation is a library record (labelled with its conditions);
   // signal simulation takes only the default protocol.
@@ -160,7 +188,7 @@ export default function DecisionPage({
         </header>
         {tx(
           error && (
-            <p role="alert" className="lab-panel text-red-800">
+            <p role="alert" className="lab-panel text-danger">
               <RuntimeMessage message={error} />
             </p>
           ),
@@ -184,7 +212,7 @@ export default function DecisionPage({
                   <p className="mt-2 text-sm font-medium">{tx(decisionCriteriaSummary(thresholds))}</p>
                   {tx(
                     notes.map((n) => (
-                      <p className="mt-2 text-sm text-amber-900" key={n}>
+                      <p className="mt-2 text-sm text-warning" key={n}>
                         {tx(n)}
                       </p>
                     )),
@@ -203,6 +231,7 @@ export default function DecisionPage({
                             </th>
                           )),
                         )}
+                        {pair && <th className="whitespace-nowrap">{tx('差值（B − A）')}</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -279,6 +308,7 @@ export default function DecisionPage({
                                 </td>
                               )),
                             )}
+                            {pair && <DifferenceCell spec={DIFFERENCES[label]} a={recordA} b={recordB} />}
                           </tr>
                         )),
                       )}
@@ -288,25 +318,21 @@ export default function DecisionPage({
                           shown.map((r) => {
                             const q = qualification(r, thresholds);
                             return (
-                              <td
-                                key={r.id}
-                                className={
-                                  q.state === 'pass'
-                                    ? 'text-emerald-800'
-                                    : 'text-amber-900'
-                                }
-                              >
-                                {tx(
-                                  q.state === 'pass'
-                                    ? '达到全部启用要求'
-                                    : q.state === 'missing'
-                                      ? '数据不完整'
-                                      : '未达到：' + q.failed.join('、'),
-                                )}
+                              <td key={r.id} className="py-3">
+                                <OutcomeBadge outcome={q.state === 'pass' ? 'pass' : q.state === 'missing' ? 'undefined' : 'fail'} className="whitespace-normal text-sm">
+                                  {tx(
+                                    q.state === 'pass'
+                                      ? '达到全部启用要求'
+                                      : q.state === 'missing'
+                                        ? '数据不完整'
+                                        : '未达到：' + q.failed.join('、'),
+                                  )}
+                                </OutcomeBadge>
                               </td>
                             );
                           }),
                         )}
+                        {pair && <td className="text-muted-foreground">—</td>}
                       </tr>
                     </tbody>
                   </table>
@@ -399,9 +425,7 @@ export default function DecisionPage({
                   )}
                   <label className="lab-label">
                     {tx('导入CSV或JSON')}
-                    <input
-                      className="mt-2 block w-full text-sm"
-                      type="file"
+                    <FilePicker
                       accept=".csv,.json"
                       onChange={async (e) => {
                         const file = e.target.files?.[0];
@@ -423,7 +447,7 @@ export default function DecisionPage({
                     />
                   </label>
                   <label className="lab-label">{tx('导入BIDS坐标文件')}
-                    <input className="mt-2 block w-full text-sm" type="file" multiple accept=".tsv,.json" onChange={async event => {
+                    <FilePicker multiple accept=".tsv,.json" onChange={async event => {
                       const files = Array.from(event.target.files ?? []);
                       if (!files.length) return;
                       try {
@@ -436,7 +460,7 @@ export default function DecisionPage({
                   </label>
                   <p className="text-xs text-muted-foreground">{tx('同时选择electrodes.tsv和coordsystem.json；region列为本软件的零基区域扩展，可附electrodes.json说明。坐标须为Ernie原生空间或MNI模板空间，单位mm；MNI坐标经SimNIBS非线性变换映射到Ernie头皮。')}</p>
                   <label className="lab-label">{tx('按10-05电极名称导入')}
-                    <input className="mt-2 block w-full text-sm" type="file" accept=".tsv,.csv,.txt" onChange={async event => {
+                    <FilePicker accept=".tsv,.csv,.txt" onChange={async event => {
                       const file = event.target.files?.[0];
                       if (!file) return;
                       try {
@@ -448,7 +472,7 @@ export default function DecisionPage({
                   <p className="text-xs text-muted-foreground">{tx('表头为name和region两列，共64行。位置取SimNIBS 10-05电极帽在Ernie头皮上的模板坐标，与标准64导参考同一来源；T3、T4、T5、T6按T7、T8、P7、P8读取。')}</p>
                   {tx(
                     importError && (
-                      <p role="alert" className="text-sm text-red-800">
+                      <p role="alert" className="text-sm text-danger">
                         {tx(importError)}
                       </p>
                     ),
@@ -593,7 +617,7 @@ export default function DecisionPage({
               </p>
               {tx(
                 computeError && (
-                  <p role="alert" className="text-red-800 text-sm">
+                  <p role="alert" className="text-danger text-sm">
                     <RuntimeMessage message={computeError} />
                   </p>
                 ),

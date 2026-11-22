@@ -26,9 +26,9 @@ export default function GuidePage() {
     restore(); window.addEventListener('popstate', restore);
     return () => window.removeEventListener('popstate', restore);
   }, []);
-  return <main className="min-h-screen bg-[#f4f7f4] text-[#102a34]">
+  return <main className="min-h-screen bg-background text-foreground">
     <SiteHeader current="guide" />
-    <section className="border-b border-[#d7e2df] bg-[linear-gradient(120deg,#edf7f3_0%,#faf7ee_60%,#f4f7f4_100%)]">
+    <section className="border-b border-border bg-[linear-gradient(120deg,#edf7f3_0%,#faf7ee_60%,#f4f7f4_100%)]">
       <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
         <MethodBackLink />
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{tx('使用指南')}</h1>

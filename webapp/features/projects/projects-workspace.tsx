@@ -17,6 +17,8 @@ import { activateProject, readActiveProject } from './active-project';
 import { ProjectWorkflowEditor } from './project-workflow-editor';
 import { ProjectDeliveryPanel } from './project-delivery-panel';
 import { filterProjectExperiments, projectExperimentAssociations, sourceLayoutAssociation, sourceScenarioSummary, type ProjectExperimentFilter } from './project-experiment-associations';
+import { FilePicker } from '@/components/ui/file-picker';
+import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 const ProjectSnapshotViewer = lazy(() => import('./project-snapshot-viewer').then(module => ({ default: module.ProjectSnapshotViewer })));
 
 function download(text: string, filename: string) {
@@ -31,6 +33,7 @@ function EntryCard({ entry, entries, owner, busy, inspect, update, remove }: {
   inspect: () => void; update: (title: string, notes: string) => void; remove: () => void;
 }) {
   const { tx, date } = useLanguage();
+  const { confirm, dialog } = useConfirmDialog();
   const [title, setTitle] = useState(entry.title), [notes, setNotes] = useState(entry.notes);
   // Unsaved edits survive saves of other entries; a new saved text for this entry replaces them.
   const [saved, setSaved] = useState({ title: entry.title, notes: entry.notes });
@@ -51,7 +54,7 @@ function EntryCard({ entry, entries, owner, busy, inspect, update, remove }: {
     {owner ? <details className="mt-4"><summary className="cursor-pointer text-sm font-medium">{tx('编辑实验说明')}</summary><form className="mt-3 space-y-3" onSubmit={event => { event.preventDefault(); update(title, notes); }}>
       <label className="lab-label">{tx('实验名称')}<input className="lab-select" value={title} maxLength={200} required onChange={event => setTitle(event.target.value)} /></label>
       <label className="lab-label">{tx('实验备注')}<textarea className="lab-select min-h-20" value={notes} maxLength={8000} onChange={event => setNotes(event.target.value)} /></label>
-      <div className="flex flex-wrap gap-2"><Button type="submit" variant="outline" disabled={busy}>{tx('保存实验说明')}</Button><Button type="button" variant="outline" disabled={busy} onClick={() => { if (window.confirm(tx('从项目移除此实验记录？项目保存的副本会被删除，原始结果不受影响。'))) remove(); }}>{tx('从项目移除')}</Button></div>
+      <div className="flex flex-wrap gap-2"><Button type="submit" variant="outline" disabled={busy}>{tx('保存实验说明')}</Button><Button type="button" variant="outline" disabled={busy} onClick={() => void confirm({ title: '从项目移除', message: '从项目移除此实验记录？项目保存的副本会被删除，原始结果不受影响。', confirmLabel: '从项目移除', destructive: true }).then(ok => { if (ok) remove(); })}>{tx('从项目移除')}</Button>{dialog}</div>
     </form></details> : entry.notes && <p className="mt-3 whitespace-pre-wrap text-sm">{entry.notes}</p>}
     <p className="mt-3 break-all text-xs text-muted-foreground">SHA-256: {entry.snapshot_sha256}</p>
   </article>;
@@ -78,6 +81,7 @@ function SourceExperimentDetails({ entry, entries }: { entry: ProjectEntry; entr
 
 export default function ProjectsWorkspace() {
   const { tx, date, locale } = useLanguage();
+  const { confirm, dialog } = useConfirmDialog();
   const [vault, setVault] = useState<ProjectAccess[]>([]), [access, setAccess] = useState<ProjectAccess | null>(null);
   const [project, setProject] = useState<ResearchProject | null>(null), [role, setRole] = useState<'owner' | 'viewer'>('viewer');
   const [title, setTitle] = useState(''), [notes, setNotes] = useState('');
@@ -184,7 +188,7 @@ export default function ProjectsWorkspace() {
     <SiteHeader current="projects" />
     <div className="lab-container space-y-5 py-6">
       <header><h1 className="text-2xl font-semibold">{tx('研究项目')}</h1><p className="mt-2 max-w-3xl text-muted-foreground">{tx('保存布局、编辑副本和信号实验，并记录选择理由。项目记录独立于计算队列保留。')}</p><a className="mt-3 inline-block text-primary underline" href="/deliveries">{tx('打开本地交付包')}</a></header>
-      {error && <p role="alert" className="lab-panel text-red-800">{tx(error)}</p>}
+      {error && <p role="alert" className="lab-panel text-danger">{tx(error)}</p>}
       {notice && <output className="lab-panel block">{tx(notice)}</output>}
       <details key={project ? 'selected-project' : 'no-project'} open={!project} className="rounded-xl border bg-white p-4"><summary className="cursor-pointer font-medium">{tx('新建、恢复或切换项目')}</summary>
       <div className="mt-4 grid gap-5 lg:grid-cols-2">
@@ -205,7 +209,7 @@ export default function ProjectsWorkspace() {
             <label className="lab-label">{tx('项目访问凭据')}<input className="lab-select" type="password" value={restoreKey} onChange={event => setRestoreKey(event.target.value.trim())} required autoComplete="off" /></label>
             <Button type="submit" variant="outline" disabled={busy}>{tx('打开项目')}</Button>
           </form>
-          <label className="lab-label">{tx('或导入项目凭据文件')}<input type="file" accept="application/json,.json" disabled={busy} className="mt-2 block w-full text-sm" onChange={event => {
+          <label className="lab-label">{tx('或导入项目凭据文件')}<FilePicker accept="application/json,.json" disabled={busy} onChange={event => {
             const file = event.target.files?.[0]; if (file) void perform(async () => {
               if (file.size > 8192) throw new Error('项目凭据文件过大');
               const credential = parseProjectAccessFile(await file.text());
@@ -237,7 +241,7 @@ export default function ProjectsWorkspace() {
               const result = await projectRequest<ProjectResponse & { access_key: string }>(access, '/share', { method: 'POST', body: JSON.stringify({ revision: project.revision }) });
               apply(result, access); setShare(projectShareHref(window.location.origin, { project_id: project.id, access_key: result.access_key }));
             })}>{tx('生成新的只读链接')}</Button>
-            <Button variant="outline" disabled={busy} onClick={() => { if (!window.confirm(tx('撤销后，所有已发出的只读链接立即失效。继续？'))) return; setShare(''); void mutate('/revoke-share', 'POST', {}); }}>{tx('撤销只读分享')}</Button>
+            <Button variant="outline" disabled={busy} onClick={() => void confirm({ title: '撤销只读分享', message: '撤销后，所有已发出的只读链接立即失效。继续？', confirmLabel: '撤销只读分享', destructive: true }).then(ok => { if (!ok) return; setShare(''); void mutate('/revoke-share', 'POST', {}); })}>{tx('撤销只读分享')}</Button>{dialog}
           </div>{share && <label className="lab-label">{tx('只读分享链接')}<input className="lab-select" readOnly value={share} onFocus={event => event.target.select()} /></label>}</div>}
           </div></details>
         </section>
@@ -250,7 +254,7 @@ export default function ProjectsWorkspace() {
             <h3 className="font-semibold">{tx('保存已完成结果到项目')}</h3>
             <label className="lab-label">{tx('选择已完成记录')}<select aria-label={tx('选择已完成记录')} className="lab-select" required value={choice} onChange={event => setChoice(event.target.value)}><option value="">{tx('选择记录')}</option>{choices.map(row => <option value={projectChoiceId(row)} key={projectChoiceId(row)}>{tx(kindLabel[row.kind])} · {row.title}</option>)}</select></label>
             {choicesLoading && <p className="text-sm text-muted-foreground">{tx('正在读取已完成记录…')}</p>}
-            {choicesWarnings.map(warning => <p role="alert" className="text-sm text-amber-800" key={warning.kind}>{tx(kindLabel[warning.kind])} · <RuntimeMessage message={warning.message} /></p>)}
+            {choicesWarnings.map(warning => <p role="alert" className="text-sm text-warning" key={warning.kind}>{tx(kindLabel[warning.kind])} · <RuntimeMessage message={warning.message} /></p>)}
             {!choicesLoading && !choices.length && !choicesWarnings.length && <p className="text-sm text-muted-foreground">{tx('当前还没有可保存的已完成记录。')}</p>}
             <Button type="button" variant="outline" disabled={choicesLoading} onClick={() => setChoicesRetry(value => value + 1)}>{tx('重新读取记录目录')}</Button>
             <label className="lab-label">{tx('实验名称')}<input className="lab-select" value={entryTitle} maxLength={200} onChange={event => setEntryTitle(event.target.value)} /></label>

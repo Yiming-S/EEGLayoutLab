@@ -41,11 +41,11 @@ export function CoordinateFileExports({ design }: { design: ElectrodeDesign }) {
     {current?.files
       ? <div className="mt-2 flex flex-wrap gap-2">{buttons(current.files)}</div>
       : <Button className="mt-2" variant="outline" size="sm" disabled={current?.busy} onClick={() => void convert()}>{tx(current?.busy ? '正在换算MNI坐标…' : '换算为MNI坐标文件')}</Button>}
-    {current?.error && <p role="alert" className="mt-2 text-sm text-red-800">{tx(current.error)}</p>}
+    {current?.error && <p role="alert" className="mt-2 text-sm text-danger">{tx(current.error)}</p>}
     <p className="mt-4 text-xs text-muted-foreground">{tx('MNE-Python和EEGLAB文件使用同一Ernie坐标（毫米）和模板基准点。MNE读取时须设head_size=None，否则坐标会被缩放到标准球头；EEGLAB读取.sfp时会自动转为鼻尖朝+X的约定。')}</p>
     {montage.files
       ? <div className="mt-2 flex flex-wrap gap-2">{buttons(montage.files)}</div>
-      : <p role="alert" className="mt-2 text-sm text-red-800">{tx(montage.error)}</p>}
+      : <p role="alert" className="mt-2 text-sm text-danger">{tx(montage.error)}</p>}
     <pre className="mt-2 overflow-x-auto rounded bg-muted p-2 text-xs"><code>{"montage = mne.channels.read_custom_montage('electrodes.elc', head_size=None)\nraw.set_montage(montage)\n\nEEG = pop_chanedit(EEG, 'load', {'electrodes.sfp', 'filetype', 'sfp'});"}</code></pre>
   </details>;
 }

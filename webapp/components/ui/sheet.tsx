@@ -17,7 +17,7 @@ export function Sheet({ open, onOpenChange, title, description, closeLabel, chil
 }) {
   return <Dialog.Root open={open} onOpenChange={(next) => onOpenChange(next)}>
     <Dialog.Portal>
-      <Dialog.Backdrop className="fixed inset-0 z-50 bg-[#102f3a]/35 transition-opacity duration-200 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
+      <Dialog.Backdrop className="fixed inset-0 z-50 bg-brand/35 transition-opacity duration-200 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
       <Dialog.Popup className="fixed inset-y-0 right-0 z-50 flex w-full max-w-[960px] flex-col bg-background shadow-2xl outline-none transition-transform duration-200 data-[ending-style]:translate-x-full data-[starting-style]:translate-x-full">
         <div className="flex items-start justify-between gap-3 border-b bg-card px-5 py-3">
           <div className="min-w-0">

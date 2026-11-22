@@ -18,6 +18,7 @@ import { localizedRecordTitle, localizedEditorParentTitle } from '@/lib/i18n/rec
 
 import { initialSlots, editHistory, editorLink } from '@/lib/electrode-editor';
 import { useElectrodesController, running } from './use-electrodes-controller';
+import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 
 const Head = lazy(() =>
   import('@/components/cluster-head-viewer').then((m) => ({
@@ -67,11 +68,18 @@ export default function ElectrodesPage() {
     reconnect,
     saveDraft,
     readDraft,
-    switchLayout,
+    switchLayout: loadLayout,
+    dirty,
     exportResult,
   } = useElectrodesController();
+  const { confirm, dialog } = useConfirmDialog();
+  const switchLayout = async (id: string, record?: Parameters<typeof loadLayout>[1]) => {
+    if (dirty && !(await confirm({ title: '切换布局', message: '当前有未保存的编辑，确认切换布局？', confirmLabel: '放弃编辑并切换', destructive: true }))) return;
+    loadLayout(id, record);
+  };
   return (
     <main className="lab-page">
+      {dialog}
       <SiteHeader
         current="electrodes"
         selection={{
@@ -129,7 +137,7 @@ export default function ElectrodesPage() {
           </div>
           <Button
             disabled={!parentId || busy}
-            onClick={() => switchLayout(parentId)}
+            onClick={() => void switchLayout(parentId)}
           >
             {tx('载入编辑器')}
           </Button>
@@ -142,7 +150,7 @@ export default function ElectrodesPage() {
         {error && (
           <div
             role="alert"
-            className="lab-panel mb-4 border-red-300 text-red-800"
+            className="lab-panel mb-4 border-danger/40 text-danger"
           >
             <strong>{tx('本次操作未完成')}</strong>
             <details className="mt-2 text-sm">
@@ -153,7 +161,7 @@ export default function ElectrodesPage() {
         )}
         {notice && (
           <output
-            className="mb-4 block rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm"
+            className="mb-4 block rounded-lg border border-warning/40 bg-warning-surface p-3 text-sm"
             aria-live="polite"
           >
             {tx(notice)}
@@ -614,7 +622,7 @@ export default function ElectrodesPage() {
                   <Button
                     variant="outline"
                     disabled={busy}
-                    onClick={() => switchLayout(r.parent_id, r)}
+                    onClick={() => void switchLayout(r.parent_id, r)}
                   >
                     {tx('载入此编辑记录')}
                   </Button>

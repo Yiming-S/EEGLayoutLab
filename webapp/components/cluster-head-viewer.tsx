@@ -181,9 +181,9 @@ export function ClusterHeadViewer(props: Props) {
       data-compact={props.compact ? 'true' : 'false'}
       className={`head-stage flex flex-col overflow-hidden ${expanded ? 'fixed inset-0 z-[80] h-[100dvh] rounded-none sm:inset-4 sm:h-auto sm:rounded-2xl' : brain ? 'relative rounded-2xl sm:h-[790px]' : props.compact ? 'relative rounded-2xl sm:h-[520px]' : 'relative rounded-2xl sm:h-[690px]'}`}
     >
-      <div className="relative z-10 flex flex-wrap items-center justify-between gap-2 border-b border-[#e0e7eb] bg-white/90 px-3 py-3 sm:px-5">
+      <div className="relative z-10 flex flex-wrap items-center justify-between gap-2 border-b border-border bg-white/90 px-3 py-3 sm:px-5">
         <fieldset
-          className="flex rounded-xl bg-[#f0f4f6] p-1"
+          className="flex rounded-xl bg-background p-1"
           aria-label={tx("解剖显示方式")}
         >
           <button
@@ -231,7 +231,7 @@ export function ClusterHeadViewer(props: Props) {
       </div>
       <fieldset
         aria-label={tx("电极显示")}
-        className="relative z-10 flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-[#e0e7eb] bg-white/95 px-4 py-3 text-sm text-[#405963] sm:px-5"
+        className="relative z-10 flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-border bg-white/95 px-4 py-3 text-sm text-foreground sm:px-5"
       >
         <label
           htmlFor={controlId + '-reference'}
@@ -260,7 +260,7 @@ export function ClusterHeadViewer(props: Props) {
           <span>{tx("后视小窗")}</span>
         </label>
       </fieldset>
-      {brain && <div className="relative z-10 border-b border-[#e0e7eb] bg-white/95 px-4 py-2 text-xs">
+      {brain && <div className="relative z-10 border-b border-border bg-white/95 px-4 py-2 text-xs">
         <label className="flex cursor-pointer items-center gap-2" htmlFor={controlId + '-source-partitions'}>
           <Switch id={controlId + '-source-partitions'} checked={showSourcePartitions} onCheckedChange={setShowSourcePartitions} />
           {tx('DK图谱研究分区')}
@@ -273,7 +273,7 @@ export function ClusterHeadViewer(props: Props) {
             </button>)}
             <span className="flex items-center gap-1 px-2 py-1"><span className="size-2.5 rounded-sm bg-[#92999f]" />{tx('其他皮层或分区边界')}</span>
           </div>
-          <p className="mt-1 leading-4 text-[#617680]">{tx('颜色按Ernie皮层的DK图谱标签分组，选源与着色使用同一规则。灰色为其他皮层或分区边界。S编号标记实际生成源；点击图例调整视角。')}</p>
+          <p className="mt-1 leading-4 text-ink-soft">{tx('颜色按Ernie皮层的DK图谱标签分组，选源与着色使用同一规则。灰色为其他皮层或分区边界。S编号标记实际生成源；点击图例调整视角。')}</p>
         </>}
       </div>}
       {/* On phones the stage grows with its panels and the canvas keeps a bounded height,
@@ -281,7 +281,7 @@ export function ClusterHeadViewer(props: Props) {
       <div className={`relative min-h-0 ${expanded ? 'flex-1' : 'h-[min(62svh,480px)] flex-none sm:h-auto sm:flex-1'}`}>
         <div ref={hostRef} className="absolute inset-0" />
         {tx(status !== 'ready' && (
-          <output className="absolute inset-0 grid place-items-center bg-[#f8fafb] px-8 text-center text-sm leading-6 text-[#5a6e79]">
+          <output className="absolute inset-0 grid place-items-center bg-background px-8 text-center text-sm leading-6 text-ink-soft">
             {tx(status === 'loading' ? (
               '加载头皮、耳廓与脑表面…'
             ) : (
@@ -294,21 +294,21 @@ export function ClusterHeadViewer(props: Props) {
         ))}
         {tx(status === 'ready' && (
           <>
-            <div className="pointer-events-none absolute left-3 top-3 max-w-[175px] rounded-lg border border-white/80 bg-white/90 px-2.5 py-2 text-xs text-[#405963]" aria-label={tx("电极形状图例")}>
+            <div className="pointer-events-none absolute left-3 top-3 max-w-[175px] rounded-lg border border-white/80 bg-white/90 px-2.5 py-2 text-xs text-foreground" aria-label={tx("电极形状图例")}>
               <span className="flex items-center gap-2">
                 <span aria-hidden="true" className="size-3 shrink-0 border-2 border-[#71838e] bg-white" />
-                <span>{tx("方形：标准64导")}{!showReference && <span className="ml-1 text-[#74838a]">{tx("已隐藏")}</span>}</span>
+                <span>{tx("方形：标准64导")}{!showReference && <span className="ml-1 text-ink-soft">{tx("已隐藏")}</span>}</span>
               </span>
               <span className="mt-2 flex items-center gap-2">
-                <span aria-hidden="true" className="size-3 shrink-0 rounded-full border-2 border-[#128a80] bg-white" />
-                <span>{tx("圆形：当前布局")}{!showRegions && <span className="ml-1 text-[#74838a]">{tx("已隐藏")}</span>}</span>
+                <span aria-hidden="true" className="size-3 shrink-0 rounded-full border-2 border-primary bg-white" />
+                <span>{tx("圆形：当前布局")}{!showRegions && <span className="ml-1 text-ink-soft">{tx("已隐藏")}</span>}</span>
               </span>
-              <span className={`mt-2 block border-t border-[#dce5e9] pt-1.5 font-medium ${editing ? 'text-[#945b19]' : 'text-[#466778]'}`}>
+              <span className={`mt-2 block border-t border-border pt-1.5 font-medium ${editing ? 'text-warning' : 'text-foreground'}`}>
                 {tx(editing ? '编辑模式 · 拖动电极' : '观察模式 · 拖动旋转')}
               </span>
             </div>
-            {showRearView && <div data-rear-overview className="pointer-events-none absolute right-3 top-3 aspect-[8/9] w-[clamp(96px,28%,160px)] rounded-lg border border-[#b7c9d2] shadow-sm" aria-label={tx("同一布局的固定后视总览")}>
-              <span className="absolute inset-x-0 top-0 rounded-t-lg border-b border-[#d5e0e6] bg-white/90 px-2 py-1 text-center text-[10px] font-medium text-[#48616f]">{tx("后视总览")}</span>
+            {showRearView && <div data-rear-overview className="pointer-events-none absolute right-3 top-3 aspect-[8/9] w-[clamp(96px,28%,160px)] rounded-lg border border-border shadow-sm" aria-label={tx("同一布局的固定后视总览")}>
+              <span className="absolute inset-x-0 top-0 rounded-t-lg border-b border-border bg-white/90 px-2 py-1 text-center text-[10px] font-medium text-foreground">{tx("后视总览")}</span>
             </div>}
             <div className="absolute bottom-4 right-3 flex flex-col gap-2">
               <Button
@@ -333,7 +333,7 @@ export function ClusterHeadViewer(props: Props) {
           </>
         ))}
       </div>
-      <div className="relative z-10 border-t border-[#e0e7eb] bg-white/95 px-3 py-3 sm:px-5">
+      <div className="relative z-10 border-t border-border bg-white/95 px-3 py-3 sm:px-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <fieldset
             className="flex flex-wrap gap-0.5"
@@ -352,10 +352,10 @@ export function ClusterHeadViewer(props: Props) {
             )))}
           </fieldset>
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-[#5e727e]">
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-ink-soft">
           <span>{tx("共 ")}{tx(props.regionCount)} {tx(" 个区域：")}</span>
           {tx(props.allocation.map((count, index) => (
-            <button type="button" className="head-choice flex items-center gap-1.5 border border-[#dce5e9] px-3 py-2" key={index}
+            <button type="button" className="head-choice flex items-center gap-1.5 border border-border px-3 py-2" key={index}
               disabled={status !== 'ready'} aria-pressed={focusedRegion === index}
               aria-label={tx(`查看区域${index+1}，${count}个电极`)}
               onClick={() => { runtime.current?.focusRegion(index); setFocusedRegion(index); setView(null); }}>
@@ -367,19 +367,19 @@ export function ClusterHeadViewer(props: Props) {
             </button>
           )))}
         </div>
-        <p className="mt-2 text-xs leading-5 text-[#768891]">
+        <p className="mt-2 text-xs leading-5 text-ink-soft">
           {tx(editing ? '编辑模式下拖动电极，吸附到原区域候选点；空白处旋转。灰色点已停用。' : "拖动旋转视角（不移动电极）· 双指 / 滚轮缩放 · 右键平移。")}
         </p>
-        {props.compact ? <details className="mt-1 text-xs leading-5 text-[#768891]">
-          <summary className="cursor-pointer text-[#4c6571]">{tx("坐标与显示说明")}</summary>
+        {props.compact ? <details className="mt-1 text-xs leading-5 text-ink-soft">
+          <summary className="cursor-pointer text-foreground">{tx("坐标与显示说明")}</summary>
           <p>{tx(recordedLayout
             ? `点位采用记录坐标；${recordedLayout.regionPatchVertexIndices ? '彩色面片与面积计算使用同一组表面顶点。点击区域按钮可转到对应区域。' : '此历史记录未保存区域边界。'} 触点大小及离表面偏移用于显示。`
             : '当前为几何示意。计算后将显示满足约束的记录坐标与对应指标。')}</p>
-        </details> : <p className="mt-1 text-xs leading-5 text-[#768891]">{tx(recordedLayout
+        </details> : <p className="mt-1 text-xs leading-5 text-ink-soft">{tx(recordedLayout
             ? `点位采用记录坐标；${recordedLayout.regionPatchVertexIndices ? '彩色面片与面积计算使用同一组表面顶点。点击区域按钮可转到对应区域。' : '此历史记录未保存区域边界。'} 触点大小及离表面偏移用于显示。`
             : '当前为几何示意。计算后将显示满足约束的记录坐标与对应指标。')}
         </p>}
-        <p className="mt-1 text-xs text-[#768891]">{tx("头部表面：SimNIBS Ernie · CC BY-NC 4.0 · ")}<a href="/method#anatomical-display" className="underline">{tx("来源与显示说明")}</a></p>
+        <p className="mt-1 text-xs text-ink-soft">{tx("头部表面：SimNIBS Ernie · CC BY-NC 4.0 · ")}<a href="/method#anatomical-display" className="underline">{tx("来源与显示说明")}</a></p>
       </div>
       <p className="sr-only">
         {tx("显示同一个 SimNIBS Ernie 头模型中的头皮、脸部、双耳和脑表面。")}{tx(recordedLayout

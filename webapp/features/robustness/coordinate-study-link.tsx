@@ -25,7 +25,7 @@ export function CoordinateStudyLink({ design }: { design: ElectrodeDesign }) {
         {tx("用此坐标创建稳健性研究")}
       </Button>
       {error && (
-        <p role="alert" className="text-sm text-red-800">
+        <p role="alert" className="text-sm text-danger">
           {tx(error)}
         </p>
       )}
