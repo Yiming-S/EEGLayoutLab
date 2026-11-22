@@ -19,6 +19,19 @@ void test('explicit runtime roots preserve interpreter precedence and reject amb
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+void test('the Linux table runtime is selected only when the SimNIBS runtime is absent', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'eeg-runtime-'));
+  try {
+    const table = join(root, '.runtime/compute-linux-64/bin/python'), native = join(root, '.runtime/simnibs-4.6.0/bin/python');
+    await mkdir(join(table, '..'), { recursive: true }); await writeFile(table, 'fixture');
+    assert.equal(runtimeConfig({ repositoryRoot: root, env: {} }).python, table);
+    assert.equal(runtimeConfig({ repositoryRoot: root, env: { EEG_COMPUTE_PYTHON: '/env/python' } }).python, '/env/python');
+    assert.equal(runtimeConfig({ repositoryRoot: root, env: { EEG_COMPUTE_PYTHON: '/env/python' } }).nativePython, table);
+    await mkdir(join(native, '..'), { recursive: true }); await writeFile(native, 'fixture');
+    assert.equal(runtimeConfig({ repositoryRoot: root, env: {} }).nativePython, native);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 void test('record storage isolates checkouts and preserves the previous JSON when replacement fails', async () => {
   const root = await mkdtemp(join(tmpdir(), 'eeg-records-'));
   const other = await mkdtemp(join(tmpdir(), 'eeg-records-other-'));

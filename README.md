@@ -20,7 +20,7 @@ The interface supports English and Simplified Chinese. Its Node service runs Pyt
 
 ## Run locally
 
-Follow the [source installation guide](docs/source-installation.md) to install the matching model data and prepare the scientific runtime. The Python project uses **Python 3.11**; the web application requires **Node.js 22.13.0 or newer**. The supplied managed scientific runtime targets **Apple Silicon macOS**.
+Follow the [source installation guide](docs/source-installation.md) to install the matching model data and prepare the scientific runtime. The Python project uses **Python 3.11**; the web application requires **Node.js 22.13.0 or newer**. The supplied managed scientific runtime targets **Apple Silicon macOS**. **Linux x86_64** has a smaller runtime without SimNIBS that computes from published scalp-node tables. On Windows, follow the Linux steps in WSL2 (not yet tested).
 
 After preparing the data and runtime, build and start the application:
 

@@ -1,6 +1,7 @@
 # Keep repository-root additions limited to EEGLayoutLab's source and docs.
 /*
 !/.gitignore
+!/.gitattributes
 !/.github/
 !/README.md
 !/CONTRIBUTING.md

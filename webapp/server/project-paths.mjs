@@ -2,10 +2,15 @@
 import { resolve, join } from 'node:path';
 
 export const NATIVE_RUNTIME_RELATIVE = '.runtime/simnibs-4.6.0';
+// Linux runtime without SimNIBS (configs/runtime/manifest-linux-64.json): new coordinates come
+// from published scalp-node tables; it cannot solve FEM.
+export const TABLE_RUNTIME_RELATIVE = '.runtime/compute-linux-64';
 export const repositoryRootForWebapp = (webappRoot) =>
   resolve(webappRoot, '..');
 export const nativePythonPath = (root) =>
   join(root, NATIVE_RUNTIME_RELATIVE, 'bin/python');
+export const tablePythonPath = (root) =>
+  join(root, TABLE_RUNTIME_RELATIVE, 'bin/python');
 
 // Actual implementations must be fingerprinted, not just legacy CLI shims.
 const prefix = 'src/compact_eeg/workflows/';

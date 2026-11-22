@@ -4,7 +4,7 @@ These instructions run the maintained web application locally and prepare a chec
 
 [简体中文源码安装说明](source-installation.zh-CN.md)
 
-This guide covers the current **Apple Silicon macOS** setup. For the planned hosted version, use [Server deployment preparation](server-deployment.md); the managed runtime installer and environment checker in this repository target macOS arm64.
+This guide covers the **Apple Silicon macOS** setup first. [Linux x86_64](#linux-x86_64) has its own runtime without SimNIBS that computes from published scalp-node tables. [Windows](#windows) is not supported natively yet; use WSL2 (not yet tested). For the planned hosted version, see [Server deployment preparation](server-deployment.md).
 
 ## Requirements
 
@@ -88,3 +88,63 @@ npm run dev
 Then open [http://127.0.0.1:3000](http://127.0.0.1:3000). You do not need to reinstall the data or dependencies each time.
 
 For the application's workflow, see [How to use](../README.md#how-to-use).
+
+## Linux x86_64
+
+Linux uses a smaller computation environment without SimNIBS: Python 3.11.14 with the same numpy 2.3.0, scipy 1.17.1 and threadpoolctl 3.6.0 as the Mac, plus cortech 0.1, numba 0.64.0, llvmlite 0.46.0 and nibabel 5.3.3 for projecting coordinates onto the scalp. The lock is [`manifest-linux-64.json`](../configs/runtime/manifest-linux-64.json), with [`conda-linux-64.explicit.txt`](../configs/runtime/conda-linux-64.explicit.txt) (77 conda-forge packages by URL and SHA-256) and [`pip-linux-64.txt`](../configs/runtime/pip-linux-64.txt) (5 wheels, each with its SHA-256). Nothing is compiled from source.
+
+This environment cannot solve FEM. It computes new coordinates only from a published scalp-node table, and other heads only from their head packages and tables. These are not part of the data bundle; copy them from the Mac that built them (see [server deployment](server-deployment.md#memory-and-the-scalp-node-table)):
+
+- `results/v2/current_scalp_node_table.json` and `results/v2/scalp_node_table/<table_id>/` (2.6 GB): needed for any new coordinates.
+- `results/v2/heads/<id>/` (about 1 GB each): needed for cross-head studies.
+- `results/v2/scalp_node_table_scenarios/<name>/`: needed for conductivity scenarios.
+
+| Works with the table | Needs the Mac runtime with SimNIBS |
+| --- | --- |
+| Layout evaluation and perturbation, noise models, conductivity scenarios and other heads (when their tables are installed), radius search, the electrode editor, reception for layouts evaluated from the table, the command line and the examples | Evaluating new coordinates without a table (direct FEM), reception for layouts evaluated by direct FEM, building tables, head packages or the MNI mapping, `charm` |
+
+None of the left-hand paths imports SimNIBS. On Linux, the examples exercised evaluation, radius search and other heads, and the Python tests exercised reception. Conductivity scenarios and the electrode editor were not run separately there.
+
+### Requirements
+
+- Linux on x86_64 with glibc 2.28 or newer (for example Ubuntu 24.04).
+- Node.js 22.18 or newer. The command line loads TypeScript files directly. Verified with Node.js 24.22.3.
+- Python 3.10 or newer to run the setup tools (Ubuntu's `python3` is enough).
+- [Miniforge](https://github.com/conda-forge/miniforge) (`conda`) or [micromamba](https://mamba.readthedocs.io/en/latest/installation/micromamba-installation.html). Git and a compiler are not needed for this environment.
+
+### Install
+
+Install the data bundle as in [step 2](#2-install-the-model-data); on Linux, check the archive with `sha256sum -c` instead of `shasum -a 256 -c`. Copy the table, and any head packages, into `results/v2/`. Then preview and install the environment from the repository root:
+
+```sh
+python3 scripts/bootstrap_runtime.py
+python3 scripts/bootstrap_runtime.py --execute
+```
+
+Add `--conda /path/to/micromamba` if the manager is not on `PATH`. The environment goes into `.runtime/compute-linux-64/`, and the installer ends with `scripts/check_environment.py --native`. On this platform that check imports cortech and numba and projects two points onto a small test surface; it does not need SimNIBS. The web service and the command line select this environment automatically when `.runtime/simnibs-4.6.0/` is absent. Check the installed table with:
+
+```sh
+.runtime/compute-linux-64/bin/python scripts/build_scalp_node_table.py --verify
+```
+
+### What was verified (2026-11-21)
+
+The checks ran in Docker `linux/amd64` (Ubuntu 24.04), emulated with Rosetta on an Apple M3 Ultra (colima 0.10.3, micromamba 2.10.0, Node.js 24.22.3), with the QA workspace's data, table and eleven head packages mounted read-only. They have not been run on a physical x86_64 machine.
+
+- `bootstrap_runtime.py --execute` installed the environment from the lock and `check_environment.py --native` passed.
+- The Python fast suite (`-m 'not data_bundle and not native_runtime'`): 564 passed, 4 skipped. A further 60 tests in `test_service_backup.py` and `test_verification_workspace.py` could not start because the container has no `git`; they pass on the Mac. With the data mounted and the real-data reception and search tests switched on (`SOURCE_RECEPTION_REAL_BANK=1 SOURCE_RECEPTION_V2_REAL_BANK=1 LOCAL_RADIUS_REAL_BANK=1`, `-m 'not native_runtime'`), 569 passed. The three tests that need SimNIBS were skipped.
+- `build_scalp_node_table.py --verify` passed for the nominal table and for `--head ernie_xh`.
+- `node examples/run-examples.mjs --root <checkout>`: all three examples match [`expected.json`](../examples/expected.json) within 1e-6. Over all 22,581 numbers in the result files, the largest difference from the Mac run is 4.1e-14.
+- The workers imported numpy, scipy, threadpoolctl and, for evaluation, cortech, numba and nibabel; none imported SimNIBS. Peak memory was 442 MiB for an evaluation worker and 737 MiB for the radius search. Under emulation the examples took 1 min 46 s (35 s natively on the Mac).
+
+Cache keys made on Linux include the interpreter version, numpy and scipy versions, the platform, and the environment's conda records and projection-package metadata. A result computed on the Mac is therefore never reused on Linux.
+
+## Windows
+
+Windows is not supported natively yet. Use WSL2 with Ubuntu 24.04 and follow the [Linux](#linux-x86_64) steps inside it; this route has not been tested. A native Windows installation needs:
+
+- **A win-64 lock.** cortech 0.1, numba 0.64.0 and llvmlite 0.46.0 publish cp311 Windows wheels. The conda-forge packages still have to be resolved and checked. `bootstrap_runtime.py` and `check_environment.py` assume `<prefix>/bin/python` and `lib/python3.11/site-packages`, but a Windows Conda prefix uses `python.exe` and `Lib/site-packages`.
+- **Runtime lookup.** `webapp/server/project-paths.mjs` and `webapp/server/runtime/scientific-context.mjs` use the same POSIX paths. Until they change, `EEG_COMPUTE_PYTHON=C:\path\to\python.exe` selects an interpreter for search and evaluation. Cache keys then record only the interpreter fingerprint.
+- **File locking.** `src/compact_eeg/workflows/reception_forward_provider.py` imports `fcntl`, which Windows lacks, so reception (signal experiments) fails at import. Table evaluation and radius search do not import it. Moving the import into the native-solve lock fixes this. That file is part of the scientific identity, though, so the change would give every design-evaluation cache key a new value on every platform. It has not been made.
+- **Line endings.** `.gitattributes` turns off line-ending conversion. Otherwise Git for Windows would check out `data/manifest.json` with CRLF, and `data_bundle.py install` would refuse the archive because its manifest must be byte-identical.
+- **Worker stop.** The worker transport (`webapp/server/jobs/python-worker.mjs`) has no process group on Windows. Stopping a job ends only the Python process, which is enough for table-path workers because they start no child processes.

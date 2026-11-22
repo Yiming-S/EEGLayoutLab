@@ -1,0 +1,7 @@
+# Wheels installed after conda-linux-64.explicit.txt with --no-deps --only-binary=:all:.
+# Every line carries its SHA-256, so pip runs in hash-checking mode.
+cortech @ https://github.com/simnibs/cortech/releases/download/v0.1/cortech-0.1-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl --hash=sha256:7f4260989f14c22b8f735172ab91f6c939991491a91796e6acefc6726bddb0f8
+importlib_resources==7.1.0 --hash=sha256:1bd7b48b4088eddb2cd16382150bb515af0bd2c70128194392725f82ad2c96a1
+llvmlite==0.46.0 --hash=sha256:a3df43900119803bbc52720e758c76f316a9a0f34612a886862dfe0a5591a17e
+nibabel==5.3.3 --hash=sha256:e8b17423ee8464da3b69e6a15799eb19f2350a7d38377026d527b6b84938adac
+numba==0.64.0 --hash=sha256:d17071b4ffc9d39b75d8e6c101a36f0c81b646123859898c9799cb31807c8f78

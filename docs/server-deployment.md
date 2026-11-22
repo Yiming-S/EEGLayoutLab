@@ -2,13 +2,13 @@
 
 The local web host includes project archives, research workflow metadata, scientific delivery bundles, explicit proxy policy, operational monitoring, durable maintenance and recovery tools. These require acceptance on the target platform. **The application has not been deployed publicly.** The target server's operating system, runtime, access policy and public URL are still to be confirmed.
 
-The full application supports browsing, new layout calculations, editing/import, comparisons, reception simulations and downloads. This guide covers server installation, domains, HTTPS, process supervision and backups. Local browser development uses the existing macOS scientific runtime.
+The full application supports browsing, new layout calculations, editing/import, comparisons, reception simulations and downloads. This guide covers server installation, domains, HTTPS, process supervision and backups. Local browser development uses the macOS scientific runtime. A Linux x86_64 server uses the [Linux runtime](source-installation.md#linux-x86_64), which has no SimNIBS and computes from published scalp-node tables.
 
 ## Deployment shape
 
 ```text
 Browser -> HTTPS reverse proxy -> Node on 127.0.0.1
-        -> persistent FIFO / one execution slot -> Python / SimNIBS
+        -> persistent FIFO / one execution slot -> Python (Linux: table runtime; Mac: SimNIBS)
         -> verified inputs and persistent scientific records
 ```
 
@@ -51,11 +51,13 @@ The running checkout supplies web code and `webapp/dist/`. `EEG_REPOSITORY_ROOT`
 
 Scientific paths remain checkout-relative inside that root; no startup migration occurs. Preserve the verified inputs and generated `results/v2/*_jobs/` and `results/v2/reception_forward/` directories. The release manifest checks scientific source agreement between the host and selected root. Historical results retain their original identities; path/runtime changes can invalidate current cache reuse. Projects are stored under `<queue directory>/projects/`, including immutable scientific copies. Moving or cleaning task receipts does not remove these project records.
 
-`EEG_COMPUTE_PYTHON` selects the ordinary worker interpreter. Native services prefer `<scientific root>/.runtime/simnibs-4.6.0/bin/python` when it exists. Check and record both selections. The supplied managed runtime targets Apple Silicon macOS; it cannot be transferred to Linux as an executable environment.
+`EEG_COMPUTE_PYTHON` selects the ordinary worker interpreter. Native services prefer the managed runtime: `<scientific root>/.runtime/simnibs-4.6.0/bin/python` when it exists, otherwise `<scientific root>/.runtime/compute-linux-64/bin/python`. Check and record both selections. The macOS runtime cannot be transferred to Linux as an executable environment. On Linux, install `.runtime/compute-linux-64` with `python3 scripts/bootstrap_runtime.py --execute` from [`manifest-linux-64.json`](../configs/runtime/manifest-linux-64.json). Research deliveries then name that lock. `scripts/release_manifest.py --python` reads the SimNIBS reception identity and does not work with the Linux runtime yet; run it without `--python` there.
 
 ## Memory and the scalp-node table
 
 Without a table, every new-coordinate evaluation factorizes the full head model; on the reference Mac its measured peak was about 9.5 GiB, so such a host needs 16 GB of RAM. With a published scalp-node table the same evaluation memory-maps a 1.3 GiB row file (40,024 nodes × 4,352 sources, float64) and reads only the rows it needs; the table determines which path runs (see [architecture](architecture.md)). Measured on the reference Mac (2026-11-20, `check-app-live.mjs --native`): new-coordinate evaluation peaked at 0.39 GiB and 1.3 s, its reception at 0.45 GiB, and the whole service process tree at 0.85 GiB. Building the table there took 22 minutes with four workers (about 10 GiB each).
+
+Measured on Linux (2026-11-21, Docker `linux/amd64` emulated with Rosetta on the reference Mac, Linux runtime, [examples](../examples/README.md)): an evaluation worker peaked at 442 MiB and the radius search at 737 MiB. The scores matched the Mac within 1e-6 (largest difference 4.1e-14). These figures have not been measured on a physical x86_64 host. A Linux server without the table cannot evaluate new coordinates, because its runtime has no SimNIBS.
 
 Build the table on a host with the qualified native runtime. Preview first; each worker needs about 10 GiB:
 
@@ -67,8 +69,10 @@ Build the table on a host with the qualified native runtime. Preview first; each
 The builder verifies the superposed standard64 reference against a direct FEM solve (`1e-9`) and the bank (`1e-8`), then publishes atomically. To install it on a server, copy `results/v2/current_scalp_node_table.json` and `results/v2/scalp_node_table/<table_id>/` into the scientific root with the service stopped, then rehash the rows and check their identity:
 
 ```sh
-python3 scripts/build_scalp_node_table.py --verify
+.runtime/compute-linux-64/bin/python scripts/build_scalp_node_table.py --verify
 ```
+
+Add `--head <id>` to check a head package's table. Both checks passed on the Linux runtime.
 
 A table only matches the bank, head model, sources, admission mask and vertex rule it was built from. After any of those change, rebuild it or remove the pointer; evaluation refuses a mismatched table.
 
@@ -102,7 +106,7 @@ Head packages and their tables are built on the Mac. The server only reads packa
 
 | Area | Information and acceptance needed |
 | --- | --- |
-| Platform | OS/version, CPU architecture, installation permissions and native-runtime lock |
+| Platform | OS/version and installation permissions. A Linux x86_64 lock without SimNIBS exists and has been qualified in emulation (above); qualify it again on the real host |
 | Capacity | CPU, RAM, persistent disk and measured uncached-job resource use |
 | Access | Computation still uses anonymous signed sessions; decide whether the hosted entry needs an additional invited-user boundary |
 | Sharing | Project archives use owner/read-only credentials. The result library is public to all visitors; decide who handles removal requests and how quickly |

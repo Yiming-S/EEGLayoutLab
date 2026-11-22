@@ -4,7 +4,7 @@
 
 [English source installation](source-installation.md)
 
-本指南适用于当前的 **Apple Silicon macOS** 安装流程。计划中的服务器网页版见[服务器部署准备说明（英文）](server-deployment.md)；仓库内的运行环境安装工具和检查工具目前针对 macOS arm64。
+本指南先介绍 **Apple Silicon macOS** 的安装流程。**Linux x86_64** 有一套不含 SimNIBS 的计算环境，依靠已发布的头皮节点表计算，见文末[Linux x86_64](#linux-x86_64)。**Windows** 暂不支持原生安装，请使用 WSL2（尚未测试）。计划中的服务器网页版见[服务器部署准备说明（英文）](server-deployment.md)。
 
 ## 准备条件
 
@@ -88,3 +88,23 @@ npm run dev
 然后在浏览器打开 [http://127.0.0.1:3000](http://127.0.0.1:3000)。不需要每次重新安装数据和依赖。
 
 操作流程见 [安装与使用](getting-started.zh-CN.md#使用顺序)。
+
+## Linux x86_64
+
+Linux 使用较小的计算环境：Python 3.11.14，numpy、scipy 与 Mac 版本相同，另含 cortech、numba、llvmlite 和 nibabel，不含 SimNIBS。锁文件为 [`manifest-linux-64.json`](../configs/runtime/manifest-linux-64.json)、[`conda-linux-64.explicit.txt`](../configs/runtime/conda-linux-64.explicit.txt) 和 [`pip-linux-64.txt`](../configs/runtime/pip-linux-64.txt)，每个包都记录 SHA-256，不从源码编译。
+
+该环境不能求解 FEM。计算新坐标需要已发布的头皮节点表（`results/v2/current_scalp_node_table.json` 和 `results/v2/scalp_node_table/<table_id>/`，约 2.6 GB）；跨头模研究还需要 `results/v2/heads/<id>/`。这些文件不在数据包中，需从构建它们的 Mac 复制。
+
+需要 x86_64 Linux（glibc 2.28 或更新，例如 Ubuntu 24.04）、Node.js 22.18 或更新、Python 3.10 或更新，以及 Miniforge 或 micromamba；不需要 Git 和编译器。按第 2 步安装数据（Linux 上用 `sha256sum -c` 校验），复制头皮节点表，然后在仓库根目录运行：
+
+```sh
+python3 scripts/bootstrap_runtime.py
+python3 scripts/bootstrap_runtime.py --execute
+.runtime/compute-linux-64/bin/python scripts/build_scalp_node_table.py --verify
+```
+
+环境安装在 `.runtime/compute-linux-64/`。没有 `.runtime/simnibs-4.6.0/` 时，网页服务和命令行会自动选用它。2026-11-21 在 Docker `linux/amd64`（Apple M3 Ultra 上经 Rosetta 模拟）中验证：三个示例与 `expected.json` 的差异都在 1e-6 以内，与 Mac 结果的最大差为 4.1e-14。尚未在实体 x86_64 机器上验证。完整说明见[英文版](source-installation.md#linux-x86_64)。
+
+## Windows
+
+暂不支持原生安装，请在 WSL2（Ubuntu 24.04）中按 Linux 步骤安装（尚未测试）。原生安装还需要：win-64 锁文件；运行时路径支持 `python.exe` 和 `Lib/site-packages`；去掉 `reception_forward_provider.py` 中 Windows 没有的 `fcntl`（这会改变所有设计评价的缓存键，尚未修改）。仓库已加入 `.gitattributes`，避免 Git for Windows 转换换行符导致数据清单校验失败。详见[英文版](source-installation.md#windows)。

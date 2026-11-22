@@ -1,0 +1,680 @@
+{
+  "schema": "eeglayoutlab-runtime-lock/1",
+  "platform": "linux-64",
+  "python": "3.11.14",
+  "simnibs": null,
+  "profile": "scalp-node-table",
+  "provenance": "Captured from a runtime installed in Docker linux/amd64 (Ubuntu 24.04) on 2026-11-21 with micromamba 2.10.0 from the requested specifications below. URLs and hashes are conda-meta records and the published wheel hashes.",
+  "requested_conda_specs": [
+    "python=3.11.14",
+    "pip=26.0.1",
+    "setuptools=84.0.0",
+    "wheel=0.48.0",
+    "numpy=2.3.0",
+    "scipy=1.17.1",
+    "threadpoolctl=3.6.0",
+    "matplotlib-base=3.10.8",
+    "pytest=9.0.2",
+    "packaging=26.3",
+    "typing_extensions=4.16.0",
+    "libblas=3.11.0=*openblas",
+    "libopenblas=0.3.34"
+  ],
+  "conda_package_count": 77,
+  "conda_packages": [
+    {
+      "name": "_openmp_mutex",
+      "version": "4.5",
+      "build": "20_gnu",
+      "filename": "_openmp_mutex-4.5-20_gnu.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/_openmp_mutex-4.5-20_gnu.conda",
+      "sha256": "1dd3fffd892081df9726d7eb7e0dea6198962ba775bd88842135a4ddb4deb3c9"
+    },
+    {
+      "name": "brotli",
+      "version": "1.2.1",
+      "build": "h505cf86_1",
+      "filename": "brotli-1.2.1-h505cf86_1.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/brotli-1.2.1-h505cf86_1.conda",
+      "sha256": "798c1c548204219c36741e061a1bac3db9345b2b5be4530bf78bdd039a781f94"
+    },
+    {
+      "name": "brotli-bin",
+      "version": "1.2.1",
+      "build": "h9908984_1",
+      "filename": "brotli-bin-1.2.1-h9908984_1.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/brotli-bin-1.2.1-h9908984_1.conda",
+      "sha256": "82f68eb05f5e66ade5af8c38079cd16a24c22abeb2fa9329cdbb192bb42de9ab"
+    },
+    {
+      "name": "bzip2",
+      "version": "1.0.8",
+      "build": "hda65f42_10",
+      "filename": "bzip2-1.0.8-hda65f42_10.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/bzip2-1.0.8-hda65f42_10.conda",
+      "sha256": "1a0d382c515ebf55f8ee1f38c8b81bc95af5c2acc42ad53b66bc5df932032f96"
+    },
+    {
+      "name": "ca-certificates",
+      "version": "2026.11.20",
+      "build": "hbd8a1cb_0",
+      "filename": "ca-certificates-2026.11.20-hbd8a1cb_0.conda",
+      "url": "https://conda.anaconda.org/conda-forge/noarch/ca-certificates-2026.11.20-hbd8a1cb_0.conda",
+      "sha256": "8c104262bf331b14478e36c6cedd63b558d4b7ff96f218742a91878353edeed1"
+    },
+    {
+      "name": "colorama",
+      "version": "0.4.6",
+      "build": "pyhd8ed1ab_1",
+      "filename": "colorama-0.4.6-pyhd8ed1ab_1.conda",
+      "url": "https://conda.anaconda.org/conda-forge/noarch/colorama-0.4.6-pyhd8ed1ab_1.conda",
+      "sha256": "ab29d57dc70786c1269633ba3dff20288b81664d3ff8d21af995742e2bb03287"
+    },
+    {
+      "name": "contourpy",
+      "version": "1.3.3",
+      "build": "py311h724c32c_4",
+      "filename": "contourpy-1.3.3-py311h724c32c_4.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/contourpy-1.3.3-py311h724c32c_4.conda",
+      "sha256": "fd7aca059253cff3d8b0aec71f0c1bf2904823b13f1997bf222aea00a76f3cce"
+    },
+    {
+      "name": "cycler",
+      "version": "0.12.1",
+      "build": "pyhcf101f3_2",
+      "filename": "cycler-0.12.1-pyhcf101f3_2.conda",
+      "url": "https://conda.anaconda.org/conda-forge/noarch/cycler-0.12.1-pyhcf101f3_2.conda",
+      "sha256": "bb47aec5338695ff8efbddbc669064a3b10fe34ad881fb8ad5d64fbfa6910ed1"
+    },
+    {
+      "name": "exceptiongroup",
+      "version": "1.3.2",
+      "build": "pyh5ded981_0",
+      "filename": "exceptiongroup-1.3.2-pyh5ded981_0.conda",
+      "url": "https://conda.anaconda.org/conda-forge/noarch/exceptiongroup-1.3.2-pyh5ded981_0.conda",
+      "sha256": "91df6efaccbc119fc485d31bf6e32ca02b3f52e6def22b4fece6ddc1a98683a1"
+    },
+    {
+      "name": "fonttools",
+      "version": "4.68.0",
+      "build": "py311h364832d_1",
+      "filename": "fonttools-4.68.0-py311h364832d_1.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/fonttools-4.68.0-py311h364832d_1.conda",
+      "sha256": "2a2a88ad4bc6632ad9fd4b5328f313127bded296d757b8135853619458ed2397"
+    },
+    {
+      "name": "freetype",
+      "version": "2.14.3",
+      "build": "ha770c72_2",
+      "filename": "freetype-2.14.3-ha770c72_2.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/freetype-2.14.3-ha770c72_2.conda",
+      "sha256": "612a8e0c1a6ecae23da54d81ef395f6ebb5c8e4468ec2611593ebce75876a4e0"
+    },
+    {
+      "name": "iniconfig",
+      "version": "2.3.1",
+      "build": "pyhd8ed1ab_0",
+      "filename": "iniconfig-2.3.1-pyhd8ed1ab_0.conda",
+      "url": "https://conda.anaconda.org/conda-forge/noarch/iniconfig-2.3.1-pyhd8ed1ab_0.conda",
+      "sha256": "8f53876d0fb3525235e39635dd55633abe0a4307b1b3ab1415c80a9e0bbdf663"
+    },
+    {
+      "name": "kiwisolver",
+      "version": "1.5.1",
+      "build": "py311h4c6fd42_4",
+      "filename": "kiwisolver-1.5.1-py311h4c6fd42_4.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/kiwisolver-1.5.1-py311h4c6fd42_4.conda",
+      "sha256": "c82717f44a263c53a1813b64d46b30eb9061ee18f8953d6c4ac6893fa9374ece"
+    },
+    {
+      "name": "lcms2",
+      "version": "2.20",
+      "build": "h9073bf1_0",
+      "filename": "lcms2-2.20-h9073bf1_0.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/lcms2-2.20-h9073bf1_0.conda",
+      "sha256": "f19bd0697093c5ba8b459f02dd3d21c5d953dc49db185fdf7a159153f7e3b7fd"
+    },
+    {
+      "name": "ld_impl_linux-64",
+      "version": "2.46.1",
+      "build": "default_hbd61a6d_103",
+      "filename": "ld_impl_linux-64-2.46.1-default_hbd61a6d_103.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/ld_impl_linux-64-2.46.1-default_hbd61a6d_103.conda",
+      "sha256": "901649b1edbe841fd4ee7e2d491a05184ed540eb01cdae506872f344babc1d28"
+    },
+    {
+      "name": "lerc",
+      "version": "4.3.0",
+      "build": "he78707d_0",
+      "filename": "lerc-4.3.0-he78707d_0.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/lerc-4.3.0-he78707d_0.conda",
+      "sha256": "467aa52e9ba7a438f17944909e1904399eab863778ab501cf271e30cfa4bc6f3"
+    },
+    {
+      "name": "libblas",
+      "version": "3.11.0",
+      "build": "12_h4a7cf45_openblas",
+      "filename": "libblas-3.11.0-12_h4a7cf45_openblas.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/libblas-3.11.0-12_h4a7cf45_openblas.conda",
+      "sha256": "6a6263c3d4a484dbac4ae7a8191be5f868c0574bbc7faa42b258bb59dc6d5fa2"
+    },
+    {
+      "name": "libbrotlicommon",
+      "version": "1.2.1",
+      "build": "h39a168f_1",
+      "filename": "libbrotlicommon-1.2.1-h39a168f_1.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/libbrotlicommon-1.2.1-h39a168f_1.conda",
+      "sha256": "c8e66e6987a9c604e4677cb044331039296b4824b0bab566d3ad0b6932eb613e"
+    },
+    {
+      "name": "libbrotlidec",
+      "version": "1.2.1",
+      "build": "ha411449_1",
+      "filename": "libbrotlidec-1.2.1-ha411449_1.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/libbrotlidec-1.2.1-ha411449_1.conda",
+      "sha256": "1c405e036e77b5ebdb5aec61cc3b36741fee0c96fe4d12509df255302d3d5c68"
+    },
+    {
+      "name": "libbrotlienc",
+      "version": "1.2.1",
+      "build": "h018ffa1_1",
+      "filename": "libbrotlienc-1.2.1-h018ffa1_1.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/libbrotlienc-1.2.1-h018ffa1_1.conda",
+      "sha256": "f4546e1adc9edd339edf19c602ea6e1fdad7b6e9317e891c3db69fdbdbf2c7d0"
+    },
+    {
+      "name": "libcblas",
+      "version": "3.11.0",
+      "build": "12_h0358290_openblas",
+      "filename": "libcblas-3.11.0-12_h0358290_openblas.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/libcblas-3.11.0-12_h0358290_openblas.conda",
+      "sha256": "8ea7d98b71e1200e2e4141c1813d6950e6acc917d220bbf54058390d252460f8"
+    },
+    {
+      "name": "libdeflate",
+      "version": "1.26",
+      "build": "h351257e_0",
+      "filename": "libdeflate-1.26-h351257e_0.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/libdeflate-1.26-h351257e_0.conda",
+      "sha256": "f437f68abb1fa1dededd082a0c2800bec40495e01cf9ec46f4e693e34d60b644"
+    },
+    {
+      "name": "libexpat",
+      "version": "2.9.0",
+      "build": "hd2095e1_0",
+      "filename": "libexpat-2.9.0-hd2095e1_0.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/libexpat-2.9.0-hd2095e1_0.conda",
+      "sha256": "7b930a8b6bc6553cb754b4977a11f9c862c719a652fc2d128d89270992ce8beb"
+    },
+    {
+      "name": "libffi",
+      "version": "3.5.2",
+      "build": "h3435931_0",
+      "filename": "libffi-3.5.2-h3435931_0.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/libffi-3.5.2-h3435931_0.conda",
+      "sha256": "31f19b6a88ce40ebc0d5a992c131f57d919f73c0b92cd1617a5bec83f6e961e6"
+    },
+    {
+      "name": "libfreetype",
+      "version": "2.14.3",
+      "build": "ha770c72_2",
+      "filename": "libfreetype-2.14.3-ha770c72_2.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/libfreetype-2.14.3-ha770c72_2.conda",
+      "sha256": "fb12ecb46c30d18d928c0e8fc346ab13b5f6fc8a9cacae4f2f4bb188782586f5"
+    },
+    {
+      "name": "libfreetype6",
+      "version": "2.14.3",
+      "build": "h5e6c136_2",
+      "filename": "libfreetype6-2.14.3-h5e6c136_2.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/libfreetype6-2.14.3-h5e6c136_2.conda",
+      "sha256": "ec607dd5445dd17ff6bf8b7fe6832e5504c226dd91d3aaea7ba83569808b0ce4"
+    },
+    {
+      "name": "libgcc",
+      "version": "16.2.0",
+      "build": "ha9f2e26_7",
+      "filename": "libgcc-16.2.0-ha9f2e26_7.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/libgcc-16.2.0-ha9f2e26_7.conda",
+      "sha256": "e031634c3a928f9594eba868bc46ef5230d6571a364a0c63215b06c4563bfcea"
+    },
+    {
+      "name": "libgfortran",
+      "version": "16.2.0",
+      "build": "h69a702a_7",
+      "filename": "libgfortran-16.2.0-h69a702a_7.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/libgfortran-16.2.0-h69a702a_7.conda",
+      "sha256": "9682ae4dd11487e10b904b3cb3ab6379cad25233d45fdfdf90d54349df244494"
+    },
+    {
+      "name": "libgfortran5",
+      "version": "16.2.0",
+      "build": "h6b99dfc_7",
+      "filename": "libgfortran5-16.2.0-h6b99dfc_7.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/libgfortran5-16.2.0-h6b99dfc_7.conda",
+      "sha256": "04dbab12c925b92977bb835dd2f5eda413607afa79f95a554e5a04b07a380322"
+    },
+    {
+      "name": "libgomp",
+      "version": "16.2.0",
+      "build": "he0feb66_7",
+      "filename": "libgomp-16.2.0-he0feb66_7.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/libgomp-16.2.0-he0feb66_7.conda",
+      "sha256": "92a0bb350c7be6a4eedcb4e111c60aefd176018e6b1c009a6e025dbe9bbcd758"
+    },
+    {
+      "name": "libjpeg-turbo",
+      "version": "3.2.1",
+      "build": "h7cc23a3_0",
+      "filename": "libjpeg-turbo-3.2.1-h7cc23a3_0.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/libjpeg-turbo-3.2.1-h7cc23a3_0.conda",
+      "sha256": "2f7d092a3212884825c43814575225fde8a9190611bc0e38c55e0dae45e329ac"
+    },
+    {
+      "name": "liblapack",
+      "version": "3.11.0",
+      "build": "12_h47877c9_openblas",
+      "filename": "liblapack-3.11.0-12_h47877c9_openblas.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/liblapack-3.11.0-12_h47877c9_openblas.conda",
+      "sha256": "f048e68a22fbdd927b8a7e007c3da19c6f1d2c08a9e4f6065af68f463c369f19"
+    },
+    {
+      "name": "liblzma",
+      "version": "5.8.3",
+      "build": "hb03c661_1",
+      "filename": "liblzma-5.8.3-hb03c661_1.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/liblzma-5.8.3-hb03c661_1.conda",
+      "sha256": "9787df8c22a59c9a70d3e5a10db9ad663485e75e9ccc3f09bd092cb7b95e0dab"
+    },
+    {
+      "name": "libnsl",
+      "version": "2.0.1",
+      "build": "hb9d3cd8_1",
+      "filename": "libnsl-2.0.1-hb9d3cd8_1.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/libnsl-2.0.1-hb9d3cd8_1.conda",
+      "sha256": "927fe72b054277cde6cb82597d0fcf6baf127dcbce2e0a9d8925a68f1265eef5"
+    },
+    {
+      "name": "libopenblas",
+      "version": "0.3.34",
+      "build": "pthreads_hf13c14d_2",
+      "filename": "libopenblas-0.3.34-pthreads_hf13c14d_2.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/libopenblas-0.3.34-pthreads_hf13c14d_2.conda",
+      "sha256": "69a722751e14eab2eb3bfdcb9acb1187afbd962b0c49b48d829341e0f6787f60"
+    },
+    {
+      "name": "libpng",
+      "version": "1.6.59",
+      "build": "h922cc85_0",
+      "filename": "libpng-1.6.59-h922cc85_0.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/libpng-1.6.59-h922cc85_0.conda",
+      "sha256": "c7381be8ef713501f6cd2f5ad473e401f2edeaec3c46788296b8dbf0de165e15"
+    },
+    {
+      "name": "libsqlite",
+      "version": "3.54.1",
+      "build": "h0737f62_101",
+      "filename": "libsqlite-3.54.1-h0737f62_101.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/libsqlite-3.54.1-h0737f62_101.conda",
+      "sha256": "c294029f893d05286f1061bbab85b820f1eea73dd859af4bcc619197bcc34810"
+    },
+    {
+      "name": "libstdcxx",
+      "version": "16.2.0",
+      "build": "h934c35e_7",
+      "filename": "libstdcxx-16.2.0-h934c35e_7.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/libstdcxx-16.2.0-h934c35e_7.conda",
+      "sha256": "fa7018298629fc429971fffd6ecba3d27a7b02e4e890d6a93ea01ffebe8cb745"
+    },
+    {
+      "name": "libtiff",
+      "version": "4.7.2",
+      "build": "h6d37cbf_2",
+      "filename": "libtiff-4.7.2-h6d37cbf_2.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/libtiff-4.7.2-h6d37cbf_2.conda",
+      "sha256": "3406eed96ee929309ecd3937308d5a81302f4ca2eddd30e832071cbe9121a6c7"
+    },
+    {
+      "name": "libuuid",
+      "version": "2.42.4",
+      "build": "hcfc3c73_1",
+      "filename": "libuuid-2.42.4-hcfc3c73_1.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/libuuid-2.42.4-hcfc3c73_1.conda",
+      "sha256": "0e2e8f2daa9306e67f046e31092d637431d8cf0a26c407ab22401d108c2d4631"
+    },
+    {
+      "name": "libwebp-base",
+      "version": "1.6.0",
+      "build": "hd42ef1d_1",
+      "filename": "libwebp-base-1.6.0-hd42ef1d_1.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/libwebp-base-1.6.0-hd42ef1d_1.conda",
+      "sha256": "8415001414f488c85b72b9d8cc2071dfb3981a47bc3c8eb56ef91a57d12eae7f"
+    },
+    {
+      "name": "libxcb",
+      "version": "1.17.0",
+      "build": "hb83e432_3",
+      "filename": "libxcb-1.17.0-hb83e432_3.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/libxcb-1.17.0-hb83e432_3.conda",
+      "sha256": "38021f35547021762c04860d1c9f2d3186b83e090e5f1773216045de06cf10cc"
+    },
+    {
+      "name": "libxcrypt",
+      "version": "4.4.38",
+      "build": "h280c20c_0",
+      "filename": "libxcrypt-4.4.38-h280c20c_0.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/libxcrypt-4.4.38-h280c20c_0.conda",
+      "sha256": "f7e9292dd219a6435bbb1223da9586c3e70d66d169c5a92f08db3f2127df04e9"
+    },
+    {
+      "name": "libzlib",
+      "version": "1.3.2",
+      "build": "h25fd6f3_3",
+      "filename": "libzlib-1.3.2-h25fd6f3_3.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/libzlib-1.3.2-h25fd6f3_3.conda",
+      "sha256": "eb8a0db0aa570124f7d2a93d7c7f596e3390df5e047818d873baad32985fc736"
+    },
+    {
+      "name": "matplotlib-base",
+      "version": "3.10.8",
+      "build": "py311h0f3be63_0",
+      "filename": "matplotlib-base-3.10.8-py311h0f3be63_0.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/matplotlib-base-3.10.8-py311h0f3be63_0.conda",
+      "sha256": "300bbdb9c90cc1332cb72bc79baf25fa58fd78e0c16f4698ad719b206e42ee1b"
+    },
+    {
+      "name": "munkres",
+      "version": "1.1.4",
+      "build": "pyhd8ed1ab_1",
+      "filename": "munkres-1.1.4-pyhd8ed1ab_1.conda",
+      "url": "https://conda.anaconda.org/conda-forge/noarch/munkres-1.1.4-pyhd8ed1ab_1.conda",
+      "sha256": "d09c47c2cf456de5c09fa66d2c3c5035aa1fa228a1983a433c47b876aa16ce90"
+    },
+    {
+      "name": "ncurses",
+      "version": "6.6",
+      "build": "hdb14827_1",
+      "filename": "ncurses-6.6-hdb14827_1.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/ncurses-6.6-hdb14827_1.conda",
+      "sha256": "5d46557214ed184381dafe835b7c94a474a1c3b307a08a250b1ea4779b44ffb3"
+    },
+    {
+      "name": "numpy",
+      "version": "2.3.0",
+      "build": "py311h519dc76_0",
+      "filename": "numpy-2.3.0-py311h519dc76_0.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/numpy-2.3.0-py311h519dc76_0.conda",
+      "sha256": "a9a6f36c2982837e19448c231435a914376948eb493e2cd8e9f69b133ca0e796"
+    },
+    {
+      "name": "openjpeg",
+      "version": "2.5.4",
+      "build": "heb1ab33_2",
+      "filename": "openjpeg-2.5.4-heb1ab33_2.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/openjpeg-2.5.4-heb1ab33_2.conda",
+      "sha256": "131688a88bea8da92fe418c4558c5073435e2848911bc4c836c3a9dd5994b4aa"
+    },
+    {
+      "name": "openssl",
+      "version": "3.6.5",
+      "build": "h781a0a9_0",
+      "filename": "openssl-3.6.5-h781a0a9_0.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/openssl-3.6.5-h781a0a9_0.conda",
+      "sha256": "9c1533f1cf784f0e250919c0c9762d0b0e6bc727a79290ffb7cea1ceca1d038c"
+    },
+    {
+      "name": "packaging",
+      "version": "26.3",
+      "build": "pyhc364b38_0",
+      "filename": "packaging-26.3-pyhc364b38_0.conda",
+      "url": "https://conda.anaconda.org/conda-forge/noarch/packaging-26.3-pyhc364b38_0.conda",
+      "sha256": "c432626b16768b8dab228bfb706f7060c2d462a21c516d240f68f2f902b5a044"
+    },
+    {
+      "name": "pillow",
+      "version": "13.0.0",
+      "build": "py311hf303fd3_1",
+      "filename": "pillow-13.0.0-py311hf303fd3_1.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/pillow-13.0.0-py311hf303fd3_1.conda",
+      "sha256": "a1d6d12dcefe511d574eb9fce59c827b53ee530bfed83a4e64673006bbdf8722"
+    },
+    {
+      "name": "pip",
+      "version": "26.0.1",
+      "build": "pyh8b19718_0",
+      "filename": "pip-26.0.1-pyh8b19718_0.conda",
+      "url": "https://conda.anaconda.org/conda-forge/noarch/pip-26.0.1-pyh8b19718_0.conda",
+      "sha256": "8e1497814a9997654ed7990a79c054ea5a42545679407acbc6f7e809c73c9120"
+    },
+    {
+      "name": "pluggy",
+      "version": "1.7.0",
+      "build": "pyh5ded981_0",
+      "filename": "pluggy-1.7.0-pyh5ded981_0.conda",
+      "url": "https://conda.anaconda.org/conda-forge/noarch/pluggy-1.7.0-pyh5ded981_0.conda",
+      "sha256": "34c40106bc3172b3a47656e84837e13a5d4829d413d65f30fb214e7568a09cea"
+    },
+    {
+      "name": "pthread-stubs",
+      "version": "0.4",
+      "build": "h7cc23a3_1004",
+      "filename": "pthread-stubs-0.4-h7cc23a3_1004.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/pthread-stubs-0.4-h7cc23a3_1004.conda",
+      "sha256": "4a44fd00ea73b79ca2c89b0727b9ccf61c506ead71e67a9abfa4c590042b5a4a"
+    },
+    {
+      "name": "pygments",
+      "version": "2.21.0",
+      "build": "pyhcf101f3_0",
+      "filename": "pygments-2.21.0-pyhcf101f3_0.conda",
+      "url": "https://conda.anaconda.org/conda-forge/noarch/pygments-2.21.0-pyhcf101f3_0.conda",
+      "sha256": "f5f015ff1bc3e1b7fc08eee096b1865234189ae0b82bebdb86a5369116e42fa0"
+    },
+    {
+      "name": "pyparsing",
+      "version": "3.3.3",
+      "build": "pyh5ded981_0",
+      "filename": "pyparsing-3.3.3-pyh5ded981_0.conda",
+      "url": "https://conda.anaconda.org/conda-forge/noarch/pyparsing-3.3.3-pyh5ded981_0.conda",
+      "sha256": "dc10d64d4b9a1310083b2f563416ab45560ee2a04fd6baab40f223f2b1ab37bc"
+    },
+    {
+      "name": "pytest",
+      "version": "9.0.2",
+      "build": "pyhcf101f3_0",
+      "filename": "pytest-9.0.2-pyhcf101f3_0.conda",
+      "url": "https://conda.anaconda.org/conda-forge/noarch/pytest-9.0.2-pyhcf101f3_0.conda",
+      "sha256": "9e749fb465a8bedf0184d8b8996992a38de351f7c64e967031944978de03a520"
+    },
+    {
+      "name": "python",
+      "version": "3.11.14",
+      "build": "hd63d673_3_cpython",
+      "filename": "python-3.11.14-hd63d673_3_cpython.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/python-3.11.14-hd63d673_3_cpython.conda",
+      "sha256": "41b29c2d62f7028bb7bb05eef3ff55f81e3c1cb40e76ba95a890a058fbc2a896"
+    },
+    {
+      "name": "python-dateutil",
+      "version": "4.0.0",
+      "build": "pyh5ded981_0",
+      "filename": "python-dateutil-4.0.0-pyh5ded981_0.conda",
+      "url": "https://conda.anaconda.org/conda-forge/noarch/python-dateutil-4.0.0-pyh5ded981_0.conda",
+      "sha256": "8038f7048c97299f7fe7c8ce957da65b8ada9839afd0f66e345d3096082da975"
+    },
+    {
+      "name": "python-tzdata",
+      "version": "2026.6",
+      "build": "pyh5ded981_0",
+      "filename": "python-tzdata-2026.6-pyh5ded981_0.conda",
+      "url": "https://conda.anaconda.org/conda-forge/noarch/python-tzdata-2026.6-pyh5ded981_0.conda",
+      "sha256": "bb29725d0d84f5e98f221f2f0afbad4a44cd67b016ab48388592c940bbd75a5e"
+    },
+    {
+      "name": "python_abi",
+      "version": "3.11",
+      "build": "9_cp311",
+      "filename": "python_abi-3.11-9_cp311.conda",
+      "url": "https://conda.anaconda.org/conda-forge/noarch/python_abi-3.11-9_cp311.conda",
+      "sha256": "bcfbad269758f4617035314fe379ee655bc2d9db5282e7a00d61450b7cefa3cf"
+    },
+    {
+      "name": "qhull",
+      "version": "2020.2",
+      "build": "haf43d43_6",
+      "filename": "qhull-2020.2-haf43d43_6.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/qhull-2020.2-haf43d43_6.conda",
+      "sha256": "73f730b1d917a365ebd7725c991d528163447d0fe191eaaca74d4864d44cd021"
+    },
+    {
+      "name": "readline",
+      "version": "8.3",
+      "build": "hd6e31c0_1",
+      "filename": "readline-8.3-hd6e31c0_1.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/readline-8.3-hd6e31c0_1.conda",
+      "sha256": "01b3fe073a66e321970d09e04b388708f8cbdca5cdfbfcb7c9eeb470ad10383d"
+    },
+    {
+      "name": "scipy",
+      "version": "1.17.1",
+      "build": "py311hbe70eeb_1",
+      "filename": "scipy-1.17.1-py311hbe70eeb_1.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/scipy-1.17.1-py311hbe70eeb_1.conda",
+      "sha256": "3ae2ff1d1cc5930de2ca6ac03216118bdf13b2af6098e28e827f1ba25bfcbc4e"
+    },
+    {
+      "name": "setuptools",
+      "version": "84.0.0",
+      "build": "pyh332efcf_0",
+      "filename": "setuptools-84.0.0-pyh332efcf_0.conda",
+      "url": "https://conda.anaconda.org/conda-forge/noarch/setuptools-84.0.0-pyh332efcf_0.conda",
+      "sha256": "9e200ee5f9ff19a4d94e4b51c4856d53dec849f91032f345cf0c6bc3d51a7183"
+    },
+    {
+      "name": "threadpoolctl",
+      "version": "3.6.0",
+      "build": "pyhecae5ae_0",
+      "filename": "threadpoolctl-3.6.0-pyhecae5ae_0.conda",
+      "url": "https://conda.anaconda.org/conda-forge/noarch/threadpoolctl-3.6.0-pyhecae5ae_0.conda",
+      "sha256": "6016672e0e72c4cf23c0cf7b1986283bd86a9c17e8d319212d78d8e9ae42fdfd"
+    },
+    {
+      "name": "tk",
+      "version": "8.6.13",
+      "build": "noxft_h1df4ec4_4",
+      "filename": "tk-8.6.13-noxft_h1df4ec4_4.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/tk-8.6.13-noxft_h1df4ec4_4.conda",
+      "sha256": "a1a241d172c1ccab067ba245206dd048bc3c2d1b84504b53c9468e99adfc16a1"
+    },
+    {
+      "name": "tomli",
+      "version": "2.5.0",
+      "build": "pyh5ded981_0",
+      "filename": "tomli-2.5.0-pyh5ded981_0.conda",
+      "url": "https://conda.anaconda.org/conda-forge/noarch/tomli-2.5.0-pyh5ded981_0.conda",
+      "sha256": "93b6f517fb7adff00b62be02b798d384a1b34d0e368fdb576fb248bcb3bb9ec7"
+    },
+    {
+      "name": "typing_extensions",
+      "version": "4.16.0",
+      "build": "pyhcf101f3_0",
+      "filename": "typing_extensions-4.16.0-pyhcf101f3_0.conda",
+      "url": "https://conda.anaconda.org/conda-forge/noarch/typing_extensions-4.16.0-pyhcf101f3_0.conda",
+      "sha256": "2d888f90af0686044882c74193ec80a90ec1943145d94a7b1b048958acda1848"
+    },
+    {
+      "name": "tzdata",
+      "version": "2026e",
+      "build": "h5d301ff_0",
+      "filename": "tzdata-2026e-h5d301ff_0.conda",
+      "url": "https://conda.anaconda.org/conda-forge/noarch/tzdata-2026e-h5d301ff_0.conda",
+      "sha256": "2b7ca858879f183ce2dcc65b300f48a0133d5430550f35b23d80d405a0788dbf"
+    },
+    {
+      "name": "unicodedata2",
+      "version": "18.0.0",
+      "build": "py311h0d48ccd_1",
+      "filename": "unicodedata2-18.0.0-py311h0d48ccd_1.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/unicodedata2-18.0.0-py311h0d48ccd_1.conda",
+      "sha256": "4396771b4dba004e88d054f9ecd3a369cc10d21cab2eea2d35e0bcec92598b94"
+    },
+    {
+      "name": "wheel",
+      "version": "0.48.0",
+      "build": "pyhd8ed1ab_0",
+      "filename": "wheel-0.48.0-pyhd8ed1ab_0.conda",
+      "url": "https://conda.anaconda.org/conda-forge/noarch/wheel-0.48.0-pyhd8ed1ab_0.conda",
+      "sha256": "ba64b29b6d418024cb565081a1799262cb2780d2534ff4c14f76aa858c4286cd"
+    },
+    {
+      "name": "xorg-libxau",
+      "version": "1.0.12",
+      "build": "h7cc23a3_2",
+      "filename": "xorg-libxau-1.0.12-h7cc23a3_2.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/xorg-libxau-1.0.12-h7cc23a3_2.conda",
+      "sha256": "3ec065b94554dc48a4ca582a960a5484bc166b26e83ce0954653e08d17e8bd53"
+    },
+    {
+      "name": "xorg-libxdmcp",
+      "version": "1.1.5",
+      "build": "h7cc23a3_2",
+      "filename": "xorg-libxdmcp-1.1.5-h7cc23a3_2.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/xorg-libxdmcp-1.1.5-h7cc23a3_2.conda",
+      "sha256": "8a095df9bc1d2e50f2504ce8858a047ae29ea634aad6cc0b43298c63361da6d9"
+    },
+    {
+      "name": "zlib-ng",
+      "version": "2.3.3",
+      "build": "hce19668_1",
+      "filename": "zlib-ng-2.3.3-hce19668_1.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/zlib-ng-2.3.3-hce19668_1.conda",
+      "sha256": "8b786bb4380fa69a718b08a400040b865bc9207eda337e0a1955717c3c3a9403"
+    },
+    {
+      "name": "zstd",
+      "version": "1.5.7",
+      "build": "hb78ec9c_7",
+      "filename": "zstd-1.5.7-hb78ec9c_7.conda",
+      "url": "https://conda.anaconda.org/conda-forge/linux-64/zstd-1.5.7-hb78ec9c_7.conda",
+      "sha256": "47d682b9f6d6ec9eb1a6e6c3e75ea6273e899e78fb7fc59f81d39745009fbc60"
+    }
+  ],
+  "pip_distributions": [
+    {
+      "name": "cortech",
+      "version": "0.1",
+      "source_url": "https://github.com/simnibs/cortech/releases/download/v0.1/cortech-0.1-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl"
+    },
+    {
+      "name": "importlib_resources",
+      "version": "7.1.0"
+    },
+    {
+      "name": "llvmlite",
+      "version": "0.46.0"
+    },
+    {
+      "name": "nibabel",
+      "version": "5.3.3"
+    },
+    {
+      "name": "numba",
+      "version": "0.64.0"
+    }
+  ],
+  "artifacts": [
+    {
+      "name": "cortech",
+      "version": "0.1",
+      "filename": "cortech-0.1-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl",
+      "url": "https://github.com/simnibs/cortech/releases/download/v0.1/cortech-0.1-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl",
+      "sha256": "7f4260989f14c22b8f735172ab91f6c939991491a91796e6acefc6726bddb0f8",
+      "provenance": "GitHub release asset digest, checked by pip in hash-checking mode"
+    }
+  ],
+  "limitations": [
+    "SimNIBS is not installed. This runtime computes new coordinates only from a published scalp-node table (and head packages with their own tables); it cannot solve FEM, build tables or head packages, or run charm.",
+    "Conda packages are locked by exact URL and SHA-256; every pip wheel by version or URL and SHA-256. No package is built from source.",
+    "This does not promise bit-identical results across machines or CPUs; the examples are compared within 1e-6."
+  ]
+}

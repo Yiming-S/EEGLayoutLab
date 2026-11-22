@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFile, readdir } from 'node:fs/promises';
 import { dirname, join, relative } from 'node:path';
-import { DESIGN_WORKFLOW, NATIVE_RUNTIME_RELATIVE } from '../project-paths.mjs';
+import { DESIGN_WORKFLOW, NATIVE_RUNTIME_RELATIVE, TABLE_RUNTIME_RELATIVE } from '../project-paths.mjs';
 import { runtimeIdentity } from './python-fingerprint.mjs';
 
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -113,6 +113,17 @@ export async function scientificContext({ root, python, inputs }, request) {
       join(site, 'simnibs/simulation/fem.py'),
       join(site, 'simnibs/mesh_tools/mesh_io.py'),
     );
+  } else if (python === join(root, TABLE_RUNTIME_RELATIVE, 'bin/python')) {
+    // The Linux table runtime has no SimNIBS; its conda records and the projection packages identify it.
+    files.push(relative(root, python));
+    const metadata = join(TABLE_RUNTIME_RELATIVE, 'conda-meta');
+    for (const name of (await readdir(join(root, metadata))).filter((n) => n.endsWith('.json')).sort())
+      files.push(join(metadata, name));
+    const site = join(TABLE_RUNTIME_RELATIVE, 'lib/python3.11/site-packages');
+    for (const name of (await readdir(join(root, site)))
+      .filter((n) => /^(cortech|llvmlite|nibabel|numba|numpy|scipy)-.*\.dist-info$/.test(n))
+      .sort())
+      files.push(join(site, name, 'METADATA'));
   }
   const digests = Object.fromEntries(
     await Promise.all(

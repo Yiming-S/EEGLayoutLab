@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ProjectStore } from '../server/projects/store.mjs';
-import { ProjectDelivery, deliveryVersions } from '../server/delivery/project-delivery.mjs';
+import { ProjectDelivery, deliveryVersions, runtimeLockPath } from '../server/delivery/project-delivery.mjs';
 import { validateResearchDelivery } from '../server/delivery/research-bundle.mjs';
 
 void test('project delivery serves complete archives to an owner or viewer and rejects revoked access', async t => {
@@ -46,4 +46,13 @@ void test('delivery distinguishes current host bytes from the scientific data/ru
   assert.ok(value.source_files.every(row => !row.path.startsWith('/') && /^[a-f0-9]{64}$/.test(row.sha256)));
   await rm(join(root, 'data/manifest.json'));
   await assert.rejects(deliveryVersions(root), error => error.status === 503 && !error.message.includes(root));
+});
+
+void test('delivery names the lock of the managed runtime in use', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'eeg-delivery-lock-')); t.after(() => rm(root, { recursive: true, force: true }));
+  assert.equal(runtimeLockPath(root), 'configs/runtime/manifest.json');
+  await mkdir(join(root, '.runtime/compute-linux-64/bin'), { recursive: true }); await writeFile(join(root, '.runtime/compute-linux-64/bin/python'), 'fixture');
+  assert.equal(runtimeLockPath(root), 'configs/runtime/manifest-linux-64.json');
+  await mkdir(join(root, '.runtime/simnibs-4.6.0/bin'), { recursive: true }); await writeFile(join(root, '.runtime/simnibs-4.6.0/bin/python'), 'fixture');
+  assert.equal(runtimeLockPath(root), 'configs/runtime/manifest.json');
 });

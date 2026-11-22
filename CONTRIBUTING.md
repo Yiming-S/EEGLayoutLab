@@ -46,7 +46,7 @@ cd webapp
 npm run test:unit
 ```
 
-The managed runtime currently targets Apple Silicon macOS. A server on another platform needs its own installation lock and environment qualification.
+The managed runtime targets Apple Silicon macOS. Linux x86_64 has its own lock without SimNIBS (`.runtime/compute-linux-64/bin/python` in the commands above; see [source installation](docs/source-installation.md#linux-x86_64)). Any other platform needs its own installation lock and environment qualification.
 
 ## Isolated integration and browser checks
 
