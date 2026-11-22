@@ -5535,9 +5535,13 @@
     "source": "EEG Layout Lab 用于设计脑电电极布局、模拟脑电信号和比较布局性能。",
     "en": "EEG Layout Lab is a tool for designing EEG electrode layouts, simulating EEG signals, and comparing layout performance."
   },
-  "copyright.collaborators": {
-    "source": "项目合作者",
-    "en": "Project collaborators"
+  "copyright.author": {
+    "source": "作者",
+    "en": "Author"
+  },
+  "copyright.acknowledgments": {
+    "source": "致谢",
+    "en": "Acknowledgments"
   },
   "copyright.software_license": {
     "source": "本项目的原创代码与文档采用 GNU 通用公共许可证第3版（仅此版本，GPL-3.0-only）。可按该许可修改和再分发，软件不提供担保。",

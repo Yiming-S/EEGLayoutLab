@@ -1,6 +1,6 @@
 # Copyright and third-party notices
 
-© 2026 Yiming Shen & Yi Wang for original EEG Layout Lab code and documentation.
+© 2026 Yiming Shen for original EEG Layout Lab code and documentation.
 
 EEG Layout Lab is a community-oriented research software project supporting EEG research, education, and scientific collaboration.
 

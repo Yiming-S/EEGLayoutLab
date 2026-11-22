@@ -276,7 +276,7 @@ void test('full method and retention guide server-render in English without untr
   assert.doesNotMatch(visibleText(html), /\bAR\b/);
 });
 
-void test('copyright footer and concise notice render bilingual collaborators and third-party attribution', () => {
+void test('copyright footer and concise notice render the author, acknowledgments and third-party attribution', () => {
   const { SiteFooter } = loadUI('components/site-footer.tsx');
   const { CopyrightNotice } = loadUI('components/copyright-notice.tsx');
   const Method = loadUI('app/method/page.tsx').default;
@@ -284,7 +284,8 @@ void test('copyright footer and concise notice render bilingual collaborators an
     const footer = render(SiteFooter, {}, locale);
     const method = render(Method, {}, locale);
     const notice = render(CopyrightNotice, {}, locale);
-    assert.match(footer, /© 2026 Yiming Shen &amp; Yi Wang/);
+    assert.match(footer, /© 2026 Yiming Shen(?! &amp;)/);
+    assert.doesNotMatch(footer, /Yi Wang/);
     assert.match(footer, /#about-copyright/);
     assert.match(footer, /#third-party-licenses/);
     assert.match(footer, locale === 'en' ? /About &amp; Copyright/ : /关于与版权/);
@@ -293,10 +294,11 @@ void test('copyright footer and concise notice render bilingual collaborators an
     assert.equal((method.match(/id="about-copyright"/g) ?? []).length, 1);
     assert.equal((method.match(/id="third-party-licenses"/g) ?? []).length, 1);
     assert.ok(method.indexOf('id="about-copyright"') > method.indexOf('</details>'));
-    assert.match(notice, /© 2026 Yiming Shen &amp; Yi Wang/);
+    assert.match(notice, /© 2026 Yiming Shen(?! &amp;)/);
     assert.equal((notice.match(/Yiming Shen, PhD/g) ?? []).length, 1);
     assert.equal((notice.match(/Yi Wang, PhD/g) ?? []).length, 1);
-    assert.match(notice, locale === 'en' ? /Project collaborators/ : /项目合作者/);
+    assert.match(notice, locale === 'en' ? />Author<\/h3><p[^>]*>Yiming Shen, PhD<\/p>/ : />作者<\/h3><p[^>]*>Yiming Shen, PhD<\/p>/);
+    assert.match(notice, locale === 'en' ? />Acknowledgments<\/h3><p[^>]*>Yi Wang, PhD<\/p>/ : />致谢<\/h3><p[^>]*>Yi Wang, PhD<\/p>/);
     assert.match(notice, locale === 'en'
       ? /EEG Layout Lab is a tool for designing EEG electrode layouts, simulating EEG signals, and comparing layout performance\./
       : /EEG Layout Lab 用于设计脑电电极布局、模拟脑电信号和比较布局性能。/);
@@ -319,7 +321,7 @@ void test('copyright footer and concise notice render bilingual collaborators an
     assert.match(method, /\/models\/ernie\/manifest\.json/);
     assert.match(notice, /href="#anatomical-display"/);
   }
-  assert.equal(COPYRIGHT_NOTICE, '© 2026 Yiming Shen & Yi Wang');
+  assert.equal(COPYRIGHT_NOTICE, '© 2026 Yiming Shen');
   assert.deepEqual(fs.readFileSync(path.join(root, 'public/LICENSE.txt')), fs.readFileSync(path.join(root, '..', 'LICENSE')));
   const layout = fs.readFileSync(path.join(root, 'app/layout.tsx'), 'utf8');
   assert.match(layout, /<LanguageProvider[^>]*>[\s\S]*\{children\}[\s\S]*<SiteFooter\s*\/>[\s\S]*<\/LanguageProvider>/);
