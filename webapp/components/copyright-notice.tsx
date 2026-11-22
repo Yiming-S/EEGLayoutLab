@@ -10,11 +10,12 @@ export function CopyrightNotice() {
       <h2 id="copyright-heading" className="text-xl font-semibold">EEG Layout Lab — {tx('关于与版权')}</h2>
       <p className="text-base leading-7">{tx('EEG Layout Lab 用于设计脑电电极布局、模拟脑电信号和比较布局性能。')}</p>
       <div className="space-y-3">
-        <h3 className="text-lg font-semibold">{tx('项目合作者')}</h3>
-        <ul className="space-y-1 text-base leading-7">
-          <li>Yiming Shen, PhD</li>
-          <li>Yi Wang, PhD</li>
-        </ul>
+        <h3 className="text-lg font-semibold">{tx('作者')}</h3>
+        <p className="text-base leading-7">Yiming Shen, PhD</p>
+      </div>
+      <div className="space-y-3">
+        <h3 className="text-lg font-semibold">{tx('致谢')}</h3>
+        <p className="text-base leading-7">Yi Wang, PhD</p>
       </div>
       <p className="text-sm text-[#53686e]">{COPYRIGHT_NOTICE}</p>
       <p className="text-base leading-7">

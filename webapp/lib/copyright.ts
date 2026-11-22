@@ -1,8 +1,8 @@
 import { parseAR, methodLink } from './lab-workflow.ts';
 import { safeReturnHref } from './ui-language.ts';
 
-// First publication year and rights holders confirmed by the project owner.
-export const COPYRIGHT_NOTICE = '© 2026 Yiming Shen & Yi Wang';
+// First publication year and rights holder confirmed by the project owner.
+export const COPYRIGHT_NOTICE = '© 2026 Yiming Shen';
 export const COPYRIGHT_SECTIONS = ['about-copyright', 'third-party-licenses'] as const;
 export type CopyrightSection = (typeof COPYRIGHT_SECTIONS)[number];
 

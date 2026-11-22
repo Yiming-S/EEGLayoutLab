@@ -101,4 +101,4 @@ Describe the resulting behavior, relevant checks and unrun tiers. For scientific
 
 ## Licensing
 
-© 2026 Yiming Shen & Yi Wang. Original source code and accompanying documentation are licensed under [GPL-3.0-only](LICENSE). Third-party terms remain in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+© 2026 Yiming Shen. Original source code and accompanying documentation are licensed under [GPL-3.0-only](LICENSE). Third-party terms remain in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
