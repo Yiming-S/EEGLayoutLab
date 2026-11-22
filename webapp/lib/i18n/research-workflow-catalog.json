@@ -1572,5 +1572,101 @@
   "workflow_382": {
     "source": "此坐标评价使用非默认的噪声模型、电导率情景或头模；分数只与相同条件的评价直接比较，信号仿真只接受默认协议下的布局。",
     "en": "This coordinate evaluation uses a non-default noise model, conductivity scenario, or head model. Compare its scores directly only with evaluations under the same conditions; signal simulation accepts only layouts under the default protocol."
+  },
+  "workflow_383": {
+    "source": "按10-05电极名称导入",
+    "en": "Import by 10-05 electrode names"
+  },
+  "workflow_384": {
+    "source": "同时选择electrodes.tsv和coordsystem.json；region列为本软件的零基区域扩展，可附electrodes.json说明。坐标须为Ernie原生空间或MNI模板空间，单位mm；MNI坐标经SimNIBS非线性变换映射到Ernie头皮。",
+    "en": "Select electrodes.tsv and coordsystem.json together. The region column is this software's zero-based region extension; electrodes.json may describe it. Coordinates must be in the Ernie native frame or an MNI template space, in mm. MNI coordinates are mapped onto Ernie's scalp with the SimNIBS nonlinear transform."
+  },
+  "workflow_385": {
+    "source": "表头为name和region两列，共64行。位置取SimNIBS 10-05电极帽在Ernie头皮上的模板坐标，与标准64导参考同一来源；T3、T4、T5、T6按T7、T8、P7、P8读取。",
+    "en": "Two columns, name and region, and 64 rows. Positions are the template positions of the SimNIBS 10-05 cap on Ernie's scalp, the same source as the standard 64-channel reference. T3, T4, T5 and T6 are read as T7, T8, P7 and P8."
+  },
+  "workflow_386": {
+    "source": "坐标系文件写明这些是Ernie模板头上的设计位置，不是受试者实测位置，并附Ernie模板基准点（NAS、LPA、RPA）。",
+    "en": "The coordinate system file states that these are design positions on the Ernie template head, not positions measured on a participant, and includes Ernie's template landmarks (NAS, LPA, RPA)."
+  },
+  "workflow_387": {
+    "source": "MNI文件把同一布局换算到MNI152NLin6Asym（SimNIBS非线性变换，在Ernie头皮上取样）。下颌、耳部和颈部不在换算范围内。",
+    "en": "The MNI files convert the same layout to MNI152NLin6Asym with the SimNIBS nonlinear transform sampled on Ernie's scalp. The jaw, ears and neck are outside the converted range."
+  },
+  "workflow_388": {
+    "source": "换算为MNI坐标文件",
+    "en": "Convert to MNI coordinate files"
+  },
+  "workflow_389": {
+    "source": "正在换算MNI坐标…",
+    "en": "Converting to MNI coordinates…"
+  },
+  "workflow_390": {
+    "source": "MNI坐标换算失败。",
+    "en": "MNI coordinate conversion failed."
+  },
+  "workflow_391": {
+    "source": "coordsystem.json须是JSON对象。",
+    "en": "coordsystem.json must be a JSON object."
+  },
+  "workflow_392": {
+    "source": "仅接受显式声明Ernie原生坐标系或MNI模板空间（如MNI152NLin6Asym）的文件；head及其他坐标须先在外部配准。",
+    "en": "Only files that explicitly declare the Ernie native frame or an MNI template space (such as MNI152NLin6Asym) are accepted. Head and other coordinates must be registered externally first."
+  },
+  "workflow_393": {
+    "source": "MNI坐标需要先读取Ernie–MNI映射数据。",
+    "en": "MNI coordinates need the Ernie–MNI mapping data, which have not been read."
+  },
+  "workflow_394": {
+    "source": "电极{{0}}距Ernie头皮的MNI映射面{{1}} mm，超过{{2}} mm。请检查坐标系和单位。",
+    "en": "Electrode {{0}} is {{1}} mm from Ernie's scalp in MNI space, more than {{2}} mm. Check the coordinate system and units."
+  },
+  "workflow_395": {
+    "source": "电极{{0}}距可换算的Ernie头皮{{1}} mm，超过{{2}} mm（下颌、耳部和颈部不在MNI换算范围内）。",
+    "en": "Electrode {{0}} is {{1}} mm from the convertible part of Ernie's scalp, more than {{2}} mm. The jaw, ears and neck are outside the MNI conversion."
+  },
+  "workflow_396": {
+    "source": "请选择不超过64 KB的.tsv、.csv或.txt电极名称文件。",
+    "en": "Select a .tsv, .csv or .txt electrode name file of at most 64 KB."
+  },
+  "workflow_397": {
+    "source": "电极名称文件的表头须为name和region两列。",
+    "en": "The electrode name file must have exactly two header columns: name and region."
+  },
+  "workflow_398": {
+    "source": "电极名称文件需要64行，每行一个电极名称和一个整数区域。",
+    "en": "The electrode name file needs 64 rows, each with one electrode name and one integer region."
+  },
+  "workflow_399": {
+    "source": "10-05电极名称中没有：{{0}} 等{{1}}个。",
+    "en": "Not among the 10-05 electrode names: {{0}} and others, {{1}} in total."
+  },
+  "workflow_400": {
+    "source": "10-05电极名称中没有：{{0}}。",
+    "en": "Not among the 10-05 electrode names: {{0}}."
+  },
+  "workflow_401": {
+    "source": "电极名称（含T3/T4/T5/T6的现名）不能重复。",
+    "en": "Electrode names, including the current names of T3/T4/T5/T6, must not repeat."
+  },
+  "workflow_402": {
+    "source": "Ernie–MNI映射数据长度不符。",
+    "en": "The Ernie–MNI mapping data have the wrong length."
+  },
+  "workflow_403": {
+    "source": "Ernie–MNI映射数据校验失败。",
+    "en": "The Ernie–MNI mapping data failed the checksum."
+  },
+  "workflow_404": {
+    "source": "无法读取Ernie–MNI映射数据。",
+    "en": "The Ernie–MNI mapping data could not be read."
+  },
+  "workflow_405": {
+    "source": "Ernie–MNI映射数据格式不符。",
+    "en": "The Ernie–MNI mapping data have an invalid format."
+  },
+  "workflow_406": {
+    "source": "坐标必须是有限的三维数值。",
+    "en": "Coordinates must be finite three-dimensional values."
   }
 }

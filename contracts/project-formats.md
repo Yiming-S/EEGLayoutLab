@@ -54,7 +54,7 @@ Current limits are 16 MiB per scientific snapshot, 128 MiB of physical snapshot 
 
 ## Named coordinate copies
 
-A coordinate design can carry `electrode_names` (64 unique ordered labels) and `source_metadata` (the bounded coordinate-file declaration described in `docs/coordinate-file-interface.md`). The browser submits these as presentation metadata in a `design-submission/1` envelope around the original mathematical request. Bare legacy requests remain valid.
+A coordinate design can carry `electrode_names` (64 unique ordered labels) and `source_metadata` (the bounded coordinate-file declaration described in `docs/coordinate-file-interface.md`: `electrode-coordinate-source/1` for Ernie-native files, `/2` with a `conversion` record for MNI files and 10-05 name lists). The browser submits these as presentation metadata in a `design-submission/1` envelope around the original mathematical request. Bare legacy requests remain valid.
 
 Per-electrode labels and source declarations do not enter the scientific request or cache key. The legacy overall `design.name` field retains its original request/key semantics. Two label sets can therefore reference one scientific result while retaining separate immutable annotation IDs.
 

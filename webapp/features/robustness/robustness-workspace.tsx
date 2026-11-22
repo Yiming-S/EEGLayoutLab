@@ -12,6 +12,7 @@ import { CONDUCTIVITY_SCENARIOS, NOISE_MODEL_PRESETS, conductivityScenarioLabel,
 import type { NoiseModel } from "@/lib/design-decision";
 import { useStudyDesignDraft } from "./use-study-design-draft";
 import { useStudyExport } from "./use-study-export";
+import { coordinateSourceFiles } from "@/contracts/coordinate-source.mjs";
 import {
   createStudyInput,
   studyCanCancel,
@@ -546,7 +547,7 @@ export default function RobustnessWorkspace() {
               {study.cancel_requested && <p className="text-sm text-amber-900">{tx("取消意图已保存；恢复操作只保存已有结果并完成取消。")}</p>}
               <details className="rounded-lg border p-3"><summary className="cursor-pointer font-medium">{tx("查看研究输入坐标与名称")}</summary>
                 <p className="mt-2 text-sm">{study.design.name} · Ernie · mm</p>
-                {study.annotation.source_metadata && <p className="mt-1 text-sm text-muted-foreground">{study.annotation.source_metadata.electrodes_file} + {study.annotation.source_metadata.coordsystem_file}</p>}
+                {study.annotation.source_metadata && <p className="mt-1 text-sm text-muted-foreground">{coordinateSourceFiles(study.annotation.source_metadata)}</p>}
                 <div className="mt-3 max-h-64 overflow-auto"><table className="w-full min-w-[560px] text-left text-xs"><thead><tr><th>{tx("电极")}</th><th>{tx("区域")}</th><th>X (mm)</th><th>Y (mm)</th><th>Z (mm)</th></tr></thead><tbody>{study.design.xyz_mm.map((point, index) => <tr key={index}><td>{study.annotation.electrode_names?.[index] ?? `E${index + 1}`}</td><td>{study.design.region_indices[index]}</td>{point.map((value, axis) => <td key={axis}>{value}</td>)}</tr>)}</tbody></table></div>
               </details>
               <p className="break-all font-mono text-xs">

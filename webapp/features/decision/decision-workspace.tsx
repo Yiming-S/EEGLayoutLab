@@ -27,7 +27,9 @@ import { RecordPicker } from './record-picker';
 import { SaveToProject } from '@/features/projects/project-context';
 import { DecisionRequirements } from './decision-requirements';
 import { CoordinateReviewPanel } from './coordinate-review-panel';
-import { exportBIDSElectrodes, parseBIDSElectrodes } from '@/lib/bids-electrodes';
+import { bidsNeedsMniSurface, parseBIDSElectrodes, parseElectrodeLabels } from '@/lib/bids-electrodes';
+import { loadErnieMniSurface } from '@/lib/ernie-mni';
+import { CoordinateFileExports } from './coordinate-file-exports';
 import { evaluationPresentation } from './evaluation-presentation';
 import { CoordinateStudyLink } from '@/features/robustness/coordinate-study-link';
 
@@ -425,12 +427,24 @@ export default function DecisionPage({
                       if (!files.length) return;
                       try {
                         if (files.length > 3 || files.some(file => file.size > 65536)) throw new Error('请成对选择electrodes.tsv和coordsystem.json，每个文件不超过64 KB。');
-                        const design = parseBIDSElectrodes(await Promise.all(files.map(async file => ({ name: file.name, text: await file.text() }))));
+                        const coordinateFiles = await Promise.all(files.map(async file => ({ name: file.name, text: await file.text() })));
+                        const design = parseBIDSElectrodes(coordinateFiles, bidsNeedsMniSurface(coordinateFiles) ? await loadErnieMniSurface() : undefined);
                         setImported(design); setImportError(''); setTestTarget('import');
                       } catch (caught) { setImported(null); setImportError(caught instanceof Error ? caught.message : '导入失败'); }
                     }} />
                   </label>
-                  <p className="text-xs text-muted-foreground">{tx('同时选择electrodes.tsv和coordsystem.json；region列为本软件的零基区域扩展，可附electrodes.json说明。只接受显式Ernie原生空间和mm单位。')}</p>
+                  <p className="text-xs text-muted-foreground">{tx('同时选择electrodes.tsv和coordsystem.json；region列为本软件的零基区域扩展，可附electrodes.json说明。坐标须为Ernie原生空间或MNI模板空间，单位mm；MNI坐标经SimNIBS非线性变换映射到Ernie头皮。')}</p>
+                  <label className="lab-label">{tx('按10-05电极名称导入')}
+                    <input className="mt-2 block w-full text-sm" type="file" accept=".tsv,.csv,.txt" onChange={async event => {
+                      const file = event.target.files?.[0];
+                      if (!file) return;
+                      try {
+                        if (file.size > 65536) throw new Error('请选择不超过64 KB的.tsv、.csv或.txt电极名称文件。');
+                        setImported(parseElectrodeLabels({ name: file.name, text: await file.text() })); setImportError(''); setTestTarget('import');
+                      } catch (caught) { setImported(null); setImportError(caught instanceof Error ? caught.message : '导入失败'); }
+                    }} />
+                  </label>
+                  <p className="text-xs text-muted-foreground">{tx('表头为name和region两列，共64行。位置取SimNIBS 10-05电极帽在Ernie头皮上的模板坐标，与标准64导参考同一来源；T3、T4、T5、T6按T7、T8、P7、P8读取。')}</p>
                   {tx(
                     importError && (
                       <p role="alert" className="text-sm text-red-800">
@@ -647,10 +661,7 @@ export default function DecisionPage({
               </details>}
               {design && <CoordinateReviewPanel design={design} result={result} />}
               {design && mode === 'coordinates' && <CoordinateStudyLink design={design} />}
-              {mode === 'coordinates' && design && <details className="mt-3 rounded-lg border p-3"><summary className="cursor-pointer text-sm">{tx('BIDS坐标文件接口')}</summary>
-                <p className="mt-2 text-xs text-muted-foreground">{tx('以下文件保留原输入坐标，包含本软件区域扩展；这不是完整BIDS数据集导出。请同时保留三个文件。')}</p>
-                <div className="mt-3 flex flex-wrap gap-2">{exportBIDSElectrodes(design).map(file => <Button key={file.name} variant="outline" size="sm" onClick={() => download(file.name, file.text, file.name.endsWith('.tsv') ? 'text/tab-separated-values;charset=utf-8' : 'application/json')}>{tx('下载')} {file.name}</Button>)}</div>
-              </details>}
+              {mode === 'coordinates' && design && <CoordinateFileExports design={design} />}
             </div>
           </div>
           {tx(
