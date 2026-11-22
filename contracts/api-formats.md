@@ -83,6 +83,65 @@ since different heads read different packages and tables, and the study
 and `grid_displacements` studies keep one shared study identity. Such
 evaluations are not offered to signal simulation or to the decision page.
 
+Design evaluation with `action: "evaluate"` also accepts an optional
+`robustness`, whose only value is `"standard/1"`; absent, `null`, `false` or empty
+means no robustness block and is omitted from canonical output. It cannot be
+combined with `conductivity_scenario` or `head_id`, and perturbation requests
+reject it. The result then carries `robustness`: `dropout` (`single` with 64
+values and the reference summary; `random` for 2, 4 and 8 removed electrodes),
+`impedance` (log SD 0.5 and 1.0) and `replacement` (`status: "completed"` with
+levels 5 and 10 mm, or `status: "unavailable"` with a `reason`). Each summary
+holds `median`, `p10`, `minimum` and `count`. Only such requests add
+`src/compact_eeg/workflows/design_robustness.py` to the identity, so other
+requests keep their keys. Library records of such evaluations carry a
+`robustness` summary of the medians and remain default-protocol records. See
+[Model and metrics](../docs/model-and-metrics.md#cross-session-robustness).
+
+Radius and design-evaluation requests also accept an optional `data_prior`,
+the `request` value of an `eeg-data-prior/1` file:
+`{"region_gain": [7 numbers], "rho": number, "length_mm": integer | null}`.
+`region_gain` follows `frontal`, `central`, `parietal`, `occipital`,
+`temporal_left`, `temporal_right`, `other` (atlas `dk40-six-roi-v1`), each a
+positive number with at most 4 significant digits in [0.001, 1000]. `rho` lies in
+[0, 0.95] with at most 2 decimals; `length_mm` is `null` exactly when `rho` is 0,
+otherwise one of 5, 10, 15, 20, 30, 40. Any other form is rejected, not rounded.
+The prior multiplies each dictionary and generation source's area weight by its
+region's gain and replaces the noise model by `(1 − rho) I + rho exp(−d²/2L²)`,
+so `noise_model` and `head_id` are rejected with it. The radius search seed
+excludes it. Only such requests add `src/compact_eeg/workflows/data_prior.py`,
+`src/compact_eeg/workflows/eeg_recording.py` and
+`webapp/public/models/ernie/source-roi.json` to the identity. Records under a
+prior are compared only with records under the same prior and are not offered to
+signal simulation or the electrode editor. The result's provenance records
+`source_prior: "data_prior_region_gains_on_area_weights"` and `data_prior`
+(the value and its 16-character `id`). See
+[Model and metrics](../docs/model-and-metrics.md#data-derived-source-prior).
+
+The command line writes three file formats for recorded EEG; none is an HTTP
+request:
+
+- `eeg-covariance-summary/1` (`eeg-summary`): `label`, `source` (`format`, `file`,
+  `bytes`, `sha256`, `sampling_rate_hz`, `duration_s`, `segment_count`),
+  `mapping_id` of the cap positions, `channels` (10-05 names), `input_labels`,
+  `xyz_mm` (Ernie native), `skipped_channels` and `bad_channels` with reasons,
+  `processing` (band, notches, epoch length and stride, filter, reference and
+  rejection rules), `epochs` (`total`, `analysed`, `used`, `rejected`), `unit`
+  `"uV^2"` and `covariance`, the average-referenced channel covariance.
+- `eeg-data-prior/1` (`prior`): `id`, `request` (the `data_prior` value),
+  `regions`, `atlas`, `fit` (in-sample residuals of the prior and the area prior,
+  fitted gains before shrinkage, `shrinkage`, `cross_validated`, `held_out` with
+  the leave-one-out residuals per shrinkage value, and `per_summary` fits),
+  `channels`, `channels_outside_table`, `summaries_excluded`, `inputs` (label, file,
+  SHA-256, channel and epoch counts), `band_hz`, `channel_model` (trace-normalized
+  model covariances of the prior and of the area prior at `channels`) and
+  `provenance`.
+- `eeg-channel-subset/1` (`channels`, or the coordinates page): `universe`,
+  `counts`, `training`, `test`, `test_skipped`, `prior`, `methods` (`data`,
+  and with a prior `data_prior` and `area_prior`: the greedy `order` and, per
+  count, `channels`, `train_error` and `test_error` with `mean`, `median`, `p10`,
+  `p90`), `standard_10_20`, `random` (draws, seed and per-count error
+  distributions) and `definition`.
+
 Source regions are `frontal`, `central`, `parietal`, `occipital`, `temporal_left`,
 `temporal_right`, in that canonical order. Waveform is `burst` or `rhythm`;
 artifact scale is 0, 0.5, 1, 2, or 4; seed is an integer from 0 through 9999.

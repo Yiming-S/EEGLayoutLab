@@ -10,7 +10,9 @@ EEGLayoutLab is developed on a non-profit basis and provided free of charge. Its
 
 - **Explore layouts:** inspect electrode positions, placement regions and evaluation scores on an interactive 3D head model.
 - **Design and edit:** calculate regional layouts, modify electrode coordinates or active contacts, and evaluate imported coordinates registered to the Ernie head model. Preserve electrode names and inspect each input point, evaluated point and projection distance.
-- **Compare layouts:** select a reference and candidate, set shared or independent retention requirements, and compare the recorded metrics.
+- **Compare layouts:** select a reference and candidate, set shared or independent retention requirements, and compare the recorded metrics. Rank the saved layouts of one evaluation condition by Pareto dominance over chosen objectives.
+- **Check session robustness:** score a layout, beside standard64, after electrode dropout, unequal contact noise and cap re-placement ([model](docs/model-and-metrics.md#cross-session-robustness)).
+- **Use recorded EEG:** summarize EDF, BDF, BrainVision or EEGLAB recordings as channel covariances, fit a regional source prior and noise model to them with a leave-one-out check, and search or evaluate layouts under that prior. From the same summaries, choose channel subsets that best reconstruct the full recording, compared with 10-20 and random subsets ([model](docs/model-and-metrics.md#data-derived-source-prior), [command line](docs/command-line.md)).
 - **Simulate signals:** choose source locations, waveforms and interference conditions; inspect the resulting signals, switch channels and replay the saved experiment.
 - **Keep research projects:** save complete layout, editing and signal snapshots with notes and comparison settings; inspect signal experiments by their parent layout, restore access in another browser and create revocable read-only shares.
 - **Repeat evaluations:** run explicit localization-noise seed or candidate-grid displacement studies, preserve every case outcome, and inspect case-level empirical summaries. The [study protocol](docs/robustness-studies.md) records how these batches reuse the original calculations.
@@ -52,6 +54,7 @@ The repository is private: sign in to a GitHub account with repository access to
 4. **Compare:** assess selected layouts under the same requirements and export coordinates, results, or reproducibility bundles.
 5. **Simulate:** select a layout, source locations, waveforms, and interference settings in **Signal Simulation**.
 6. **Repeat:** create a robustness study from imported coordinates, list explicit seed/radius cases, save a draft and start the batch. Opening or refreshing a study reads its saved state; service restart requires an explicit study resume.
+7. **Use recorded EEG:** summarize recordings with `eeg-summary` and fit a prior with `prior` on the [command line](docs/command-line.md). Load the prior on **Coordinate Import** or **Layout Design** in place of a noise model. On **Coordinate Import**, load the summaries to choose channel subsets in the browser.
 
 The [command line](docs/command-line.md) runs the same evaluations, searches and robustness studies without the browser, with the same request checks and scientific identity. [`examples/`](examples/README.md) holds three reproducible examples with expected scores.
 

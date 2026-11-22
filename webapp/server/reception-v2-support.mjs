@@ -6,6 +6,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 export { normalizeReceptionRequest, validateReceptionResult } from './contracts/source-reception.mjs';
 import { normalizeDesignRequest, validateDesignResult } from './design-evaluation-server.mjs';
+import { robustnessSummary } from '../contracts/scientific-options.mjs';
 import { RecordStore } from './storage/records.mjs';
 import { createRuntimeIdentityCache } from './runtime/identity-cache.mjs';
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
@@ -44,6 +45,7 @@ export async function designReceptionRecord(root, id, store = new RecordStore(ro
     ...(request.noise_model ? { noise_model: request.noise_model } : {}),
     ...(request.conductivity_scenario ? { conductivity_scenario: request.conductivity_scenario } : {}),
     ...(request.head_id ? { head_id: request.head_id } : {}),
+    ...(request.data_prior ? { data_prior: request.data_prior } : {}),
   };
   const variant = Object.keys(condition).length > 0;
   if (variant && !conditions) return null;
@@ -68,6 +70,8 @@ export async function designReceptionRecord(root, id, store = new RecordStore(ro
     geometry: null,
     finished_at: cache.finished_at,
     ...(variant ? { evaluation_condition: condition } : {}),
+    // Robustness leaves the nominal protocol unchanged; it adds a summary, not a condition.
+    ...(r.robustness ? { robustness: robustnessSummary(r.robustness) } : {}),
     metrics: {
       ...r.nominal,
       conditional_global: [
@@ -101,7 +105,8 @@ export async function receptionLayouts(queue) {
     (r) =>
       ['cache', 'strict_area'].includes(r.dataset_id) &&
       r.status === 'completed' &&
-      !r.request?.noise_model,
+      !r.request?.noise_model &&
+      !r.request?.data_prior,
   );
   const store = queue.store ?? new RecordStore(queue.root);
   const entries = await store.keys('design');
@@ -121,7 +126,7 @@ export async function receptionLayouts(queue) {
 }
 /** Signal simulation keeps independent noise; layouts searched under another noise model stay out of it. */
 export function assertIndependentNoiseParent(record) {
-  if (record?.request?.noise_model || record?.evaluation_condition) throw new Error('信号仿真只接受独立噪声协议下的布局');
+  if (record?.request?.noise_model || record?.request?.data_prior || record?.evaluation_condition) throw new Error('信号仿真只接受独立噪声协议下的布局');
 }
 export async function receptionV2Context(service, request) {
   const q = service.queue;

@@ -1,5 +1,5 @@
 import { createAccessPolicy } from './http/access-policy.mjs';
-import { normalizeNoiseModel } from '../contracts/scientific-options.mjs';
+import { DATA_PRIOR_FILES, normalizeDataPrior, normalizeNoiseModel } from '../contracts/scientific-options.mjs';
 import { startPythonWorker } from './jobs/python-worker.mjs';
 import { executionSlotFor } from './jobs/execution-slot.mjs';
 import { runtimeConfig } from './runtime/config.mjs';
@@ -34,12 +34,13 @@ const hash = (value) => createHash('sha256').update(value).digest('hex');
 
 export function normalizeRequest(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('配置必须是JSON对象');
-  if (Object.keys(input).some((key) => !['region_count', 'radius_mm', 'mode', 'mask_codes', 'noise_model'].includes(key))) {
+  if (Object.keys(input).some((key) => !['region_count', 'radius_mm', 'mode', 'mask_codes', 'noise_model', 'data_prior'].includes(key))) {
     throw new Error('配置含未支持字段');
   }
   // Independent noise is the default and is omitted, keeping existing request keys and search seeds.
   const noiseModel = normalizeNoiseModel(input.noise_model, { allowBrainBackground: false });
-  const noise = noiseModel ? { noise_model: noiseModel } : {};
+  const prior = normalizeDataPrior(input.data_prior, { noiseModel });
+  const noise = { ...(noiseModel ? { noise_model: noiseModel } : {}), ...(prior ? { data_prior: prior } : {}) };
   const { region_count, radius_mm, mode } = input;
   if (![1, 2, 3, 4, 6].includes(region_count)) throw new Error('区域数只支持1、2、3、4、6');
   if (!Number.isInteger(radius_mm) || radius_mm < 15 || radius_mm > 80 || radius_mm % 5) {
@@ -147,7 +148,9 @@ export class LocalComputeQueue {
   identityFor(request, code = this.getIdentity()) {
     // Preserve the existing key format so records made before the library remain reusable.
     const runtime = this.getRuntime();
-    const identity = { version: 'local-radius-queue/1', code, threads: 2, ...(runtime ? { runtime } : {}) };
+    // A data prior adds its modules and atlas, which other requests do not read, so their keys are unchanged.
+    const prior = request.data_prior ? Object.fromEntries(DATA_PRIOR_FILES.map((path) => [path, hash(readFileSync(join(this.root, path)))])) : {};
+    const identity = { version: 'local-radius-queue/1', code: { ...code, ...prior }, threads: 2, ...(runtime ? { runtime } : {}) };
     return { identity, key: hash(JSON.stringify({ request, identity })) };
   }
 

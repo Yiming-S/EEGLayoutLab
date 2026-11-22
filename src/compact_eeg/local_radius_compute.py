@@ -51,12 +51,18 @@ SEED = 2026090901
 
 def validate_request(raw):
     """Strict allow-list; never silently substitute an unsupported submask."""
-    if not isinstance(raw, dict) or set(raw) - {"region_count", "radius_mm", "mode", "mask_codes", "noise_model"}:
-        raise ValueError("Request must contain only region_count, radius_mm, mode, mask_codes, noise_model")
+    if not isinstance(raw, dict) or set(raw) - {"region_count", "radius_mm", "mode", "mask_codes", "noise_model", "data_prior"}:
+        raise ValueError("Request must contain only region_count, radius_mm, mode, mask_codes, noise_model, data_prior")
     # Default iid noise is omitted so existing requests keep their canonical form and search seed.
     noise = noise_models.normalize(raw.get("noise_model"), allow_brain_background=False)
     if "noise_model" in raw and (raw["noise_model"] is None or noise != raw["noise_model"]):
         raise ValueError("noise_model must be a non-default spatial preset in canonical form")
+    prior = None
+    if "data_prior" in raw:
+        from .workflows.data_prior import canonical
+        prior = canonical(raw["data_prior"])
+        if prior != raw["data_prior"] or noise:
+            raise ValueError("data_prior must be canonical and replaces noise_model")
     count, radius, mode = raw.get("region_count"), raw.get("radius_mm"), raw.get("mode")
     if type(count) is not int or count not in (1, 2, 3, 4, 6):
         raise ValueError("region_count must be one of 1, 2, 3, 4, 6")
@@ -73,12 +79,12 @@ def validate_request(raw):
     elif codes:
         raise ValueError("mask_codes are only allowed in preset mode")
     return {"region_count": count, "radius_mm": int(radius), "mode": mode, "mask_codes": list(codes),
-            **({"noise_model": noise} if noise else {})}
+            **({"noise_model": noise} if noise else {}), **({"data_prior": prior} if prior else {})}
 
 
 def search_seed(request):
-    """Search seed of a validated request; noise_model is left out so iid and correlated searches share a stream."""
-    canonical = json.dumps({k: v for k, v in request.items() if k != "noise_model"}, sort_keys=True, separators=(",", ":"))
+    """Search seed of a validated request; noise_model and data_prior are left out so every scoring model shares a stream."""
+    canonical = json.dumps({k: v for k, v in request.items() if k not in ("noise_model", "data_prior")}, sort_keys=True, separators=(",", ":"))
     return int.from_bytes(hashlib.sha256((ALGORITHM_VERSION + canonical).encode()).digest()[:4], "little")
 
 
@@ -389,19 +395,31 @@ class LocalRadiusComputer:
                 "Physical noise is calibrated once from full-head64; localization remains grid-limited with independently seeded layout noise."]}
         self._baselines = {}
 
-    def engine_for(self, model):
-        """Field engine for a noise model; correlated variants share the iid signal caches."""
+    def engine_for(self, model, prior=None):
+        """Field engine and source weights for a noise model or data prior; noise variants share the signal caches."""
+        if prior is not None:
+            key = ("data_prior", json.dumps(prior, sort_keys=True))
+            if key not in self._engines:
+                from .workflows import data_prior
+                data = {"source_xyz_mm": self.source_xyz_mm, "generation_xyz_mm": self.generation_xyz_mm}
+                weights, generation = data_prior.apply(self.root, data, prior, self.weights, self.generation_weights)
+                kernel = data_prior.kernel(prior)
+                engine = LayoutSearchMetrics(self.hc[:, :self.n], self.hb[:, :self.n], weights, noise_kernel=None if kernel is None
+                                             else (self.candidate_xyz_mm, self.reference_xyz_mm, *kernel))
+                self._engines[key] = (engine, weights, generation)
+            return self._engines[key]
         kernel = noise_models.field_kernel(model)
         if kernel not in self._engines:
             self._engines[kernel] = self.engine.with_noise_kernel((self.candidate_xyz_mm, self.reference_xyz_mm, *kernel))
-        return self._engines[kernel]
+        return self._engines[kernel], self.weights, self.generation_weights
 
-    def _localize(self, field, layout_id, model=None, xyz=None):
-        sigma = np.sqrt(self.engine.reference_mean_contrast_signal_power_v2 * .01)
-        covariance = noise_models.localization_covariance(model, xyz, field[:, :self.n], self.weights, sigma * sigma, 1e-8)
+    def _localize(self, field, layout_id, model=None, xyz=None, prior=None):
+        engine, weights, generation = self.engine_for(model, prior) if prior is not None else (self.engine, self.weights, self.generation_weights)
+        sigma = np.sqrt(engine.reference_mean_contrast_signal_power_v2 * .01)
+        covariance = noise_models.localization_covariance(model, xyz, field[:, :self.n], weights, sigma * sigma, 1e-8)
         return evaluate_grid_localization(field[:, :self.n], field[:, self.n:], self.source_xyz_mm, self.generation_xyz_mm,
             source_moment_am=1e-8, physical_electrode_noise_std_v=sigma,
-            noise_seed=SEED, layout_id=layout_id, noise_repetitions=16, generation_source_weights=self.generation_weights,
+            noise_seed=SEED, layout_id=layout_id, noise_repetitions=16, generation_source_weights=generation,
             physical_noise_covariance_v2=covariance, noise_model=noise_models.describe(model))
 
     def compute(self, raw, progress=lambda **kwargs: None):
@@ -412,12 +430,23 @@ class LocalRadiusComputer:
         progress(stage="geometry", message="构建ROI约束路径与不接触区域", progress=.18)
         domain = RadiusDomain(self.vertices, self.adjacency, self.bank_ids, self.areas, self.masks, self.centers, rois, request["radius_mm"] / 1000)
         combinations, center_selection = select_radius_center_combinations(self.vertices, self.centers, rois, seed)
-        model = request.get("noise_model")
-        engine = self.engine_for(model)
+        prior = request.get("data_prior")
+        if prior is not None:
+            from .workflows import data_prior
+            # The prior's fitted noise enters field, search and localization like a spatial preset.
+            model = data_prior.noise_model(prior)
+        else:
+            model = request.get("noise_model")
+        engine = self.engine_for(model, prior)[0]
         winner, diagnostics = bounded_radius_search(domain, engine, combinations, seed, progress)
         provenance = {**self.provenance, "search_seed": seed, "localization_noise_seed": SEED,
             "region_roi_ids": list(rois), "center_selection": center_selection,
-            **({"noise_model": noise_models.describe(model), "search_seed_excludes_noise_model": True} if model else {})}
+            **({"noise_model": noise_models.describe(model), "search_seed_excludes_noise_model": True} if model and not prior else {})}
+        if prior is not None:
+            prior_files = ["src/compact_eeg/workflows/data_prior.py", "src/compact_eeg/workflows/eeg_recording.py", data_prior.ATLAS_PATH]
+            provenance.update(data_prior=data_prior.describe(prior), search_seed_excludes_data_prior=True,
+                              source_prior="data_prior region gains on the frozen 4096 cortical area quadrature",
+                              code_sha256={**provenance["code_sha256"], **{path: sha256_file(self.root / path) for path in prior_files}})
         result = {"status": "no_layout" if winner is None else "completed", "request": request,
             "layout": None, "metrics": None, "geometry": None, "provenance": provenance,
             "diagnostics": {**diagnostics, "center_combinations": [list(c) for c in combinations],
@@ -431,12 +460,12 @@ class LocalRadiusComputer:
         progress(stage="metrics", message="冻结点位，评价重建、敏感度及源定位", progress=.82)
         field = engine.evaluate(selected, snr_db=(20,))
         condition = field["conditions"][0]
-        key = json.dumps(model, sort_keys=True)
+        key = json.dumps([model, prior], sort_keys=True)
         if key not in self._baselines:
-            self._baselines[key] = self._localize(self.hb, "local_radius_reference64", model, self.reference_xyz_mm)
+            self._baselines[key] = self._localize(self.hb, "local_radius_reference64", model, self.reference_xyz_mm, prior)
         baseline = self._baselines[key]
         progress(stage="localization", message="计算冻结布局的离散源定位误差", progress=.91)
-        loc = self._localize(self.hc[selected], "local_radius_" + layout_id, model, self.candidate_xyz_mm[selected])
+        loc = self._localize(self.hc[selected], "local_radius_" + layout_id, model, self.candidate_xyz_mm[selected], prior)
         reference_utility = baseline.report["source_lower10_utility_dmax50mm"]
         relative_loc = loc.report["source_lower10_utility_dmax50mm"] / reference_utility if reference_utility > 1e-12 else None
         values = [condition["field_retention_unclipped"], winner["sensitivity_tail"], relative_loc]

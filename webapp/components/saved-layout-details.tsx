@@ -71,6 +71,7 @@ export function SavedLayoutContent({ record, ar, returnHref, compact = false, on
 
     <section aria-label={tx('下一步操作')} className="space-y-2">
       {nextSteps.length > 0 && <div className="flex flex-wrap gap-2">{nextSteps.map((step, index) => <a key={step.label} className={cn(buttonVariants({ variant: index === 0 ? 'default' : 'outline', size: 'lg' }), 'px-3', index > 0 && 'border-border bg-card')} href={step.href}>{tx(step.label)}</a>)}</div>}
+      {record.request?.data_prior && <p className="text-sm text-muted-foreground">{tx('此布局按数据先验（区域源功率与拟合噪声）搜索；分数只与相同数据先验的记录直接比较，不进入信号仿真和电极编辑。')}</p>}
       {record.request?.noise_model && <p className="text-sm text-muted-foreground">{tx('信号仿真使用独立噪声；空间相关噪声下搜索的布局不进入信号仿真')}</p>}
       {record.evaluation_condition && <p className="text-sm text-muted-foreground">{tx('此坐标评价使用非默认的噪声模型、电导率情景或头模；分数只与相同条件的评价直接比较，信号仿真只接受默认协议下的布局。')}</p>}
     </section>

@@ -59,6 +59,26 @@ void test('export writes MNE, EEGLAB and SVG files and hides crowded names unles
   assert.match(readFileSync(join(directory, 'layout.svg'), 'utf8'), />Cz<\/text>/);
 }));
 
+void test('design reads .elc and .sfp montages and assigns regions on request', () => inTemporary(directory => {
+  const labels = join(directory, 'labels.tsv'), design = join(directory, 'design.json');
+  writeFileSync(labels, 'name\tregion\n' + names.map(name => `${name}\t0`).join('\n') + '\n');
+  run('design', labels, '--out', design);
+  run('export', design, '--format', 'mne', '--out-dir', directory);
+  run('export', design, '--format', 'eeglab', '--out-dir', directory);
+  const base = JSON.parse(readFileSync(design, 'utf8'));
+  const elc = join(directory, 'electrodes.elc'), sfp = join(directory, 'electrodes.sfp'), out = join(directory, 'montage.json');
+  assert.match(run('design', elc, '--out', out).stderr, /region/);
+  assert.match(run('design', sfp, '--regions', '4', '--out', out).stderr, /单位/);
+  assert.match(run('design', elc, '--regions', '5', '--out', out).stderr, /--regions must be/);
+  for (const args of [[elc, '--regions', '4'], [sfp, '--regions', '4', '--unit', 'mm']]) {
+    assert.equal(run('design', ...args, '--out', out).status, 0, args[0]);
+    const montage = JSON.parse(readFileSync(out, 'utf8'));
+    assert.deepEqual([montage.xyz_mm, montage.electrode_names], [base.xyz_mm, base.electrode_names]);
+    assert.deepEqual(montage.source_metadata.region_assignment, { method: 'balanced-spatial/1', region_count: 4 });
+    assert.deepEqual([0, 1, 2, 3].map(region => montage.region_indices.filter(value => value === region).length), [16, 16, 16, 16]);
+  }
+}));
+
 void test('the command line rejects incomplete commands before starting a calculation', () => {
   assert.equal(run('help').status, 0);
   assert.match(run('help').stdout, /evaluate --design/);

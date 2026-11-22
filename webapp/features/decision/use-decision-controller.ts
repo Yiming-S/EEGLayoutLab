@@ -1,5 +1,5 @@
 'use client';
-import { CONDUCTIVITY_SCENARIOS, NOISE_MODEL_PRESETS } from '../../contracts/scientific-options.mjs';
+import { CONDUCTIVITY_SCENARIOS, NOISE_MODEL_PRESETS, normalizeDataPrior } from '../../contracts/scientific-options.mjs';
 import { useLanguage } from '@/components/language-provider';
 
 /* oxlint-disable next/no-html-link-for-pages -- preserve established vinext navigation */
@@ -10,6 +10,7 @@ import { followTask, submitTask, cancelTask, isTaskRunning, type TaskConnection 
 import { canCompareRecord } from '@/lib/workspace-navigation';
 import { safeReturnHref } from '@/lib/ui-language';
 import type { LocalLibrary, SavedRecord } from '@/lib/local-library';
+import type { DataPrior } from '@/lib/local-compute';
 
 import {
   comparisonNotes,
@@ -26,6 +27,14 @@ import {
   type DesignJob,
   type NoiseModel,
 } from '@/lib/design-decision';
+
+/** What a result was computed for: the fields the request carries, after the defaults each option implies. */
+function evaluationIdentity(value: { action: string; design: unknown; radius_mm?: number; seed?: number; noise: string; scenario: string; robustness: boolean; prior: DataPrior | null }) {
+  const evaluate = value.action === 'evaluate';
+  return JSON.stringify({ action: value.action, design: value.design, radius_mm: value.radius_mm, seed: value.seed,
+    // A data prior carries its own noise, so the noise choice is not part of the request.
+    noise: value.prior ? '' : value.noise, scenario: evaluate ? value.scenario : '', robustness: evaluate && !value.scenario && value.robustness, prior: value.prior });
+}
 
 export function useDecisionController(
   mode: 'compare' | 'coordinates' = 'compare',
@@ -62,7 +71,10 @@ export function useDecisionController(
   const [radius, setRadius] = useState(6),
     [seed, setSeed] = useState(42),
     [noiseModelId, setNoiseModelId] = useState('iid'),
-    [scenarioId, setScenarioId] = useState('');
+    [scenarioId, setScenarioId] = useState(''),
+    [robustness, setRobustness] = useState(false),
+    [dataPrior, setDataPrior] = useState<DataPrior | null>(null),
+    [dataPriorSource, setDataPriorSource] = useState('');
   const noiseModel = NOISE_MODEL_PRESETS.find((preset) => preset.id === noiseModelId)?.value as NoiseModel | undefined;
   const [action, setAction] = useState<'evaluate' | 'perturb'>('evaluate');
   const [showEvaluated, setShowEvaluated] = useState(true);
@@ -89,6 +101,11 @@ export function useDecisionController(
             if (['evaluate', 'perturb'].includes(draft.action)) setAction(draft.action);
             if (NOISE_MODEL_PRESETS.some((preset) => preset.id === draft.noise_model_id)) setNoiseModelId(draft.noise_model_id);
             if (CONDUCTIVITY_SCENARIOS.some((scenario) => scenario.id === draft.conductivity_scenario)) setScenarioId(draft.conductivity_scenario);
+            if (draft.robustness === true) setRobustness(true);
+            try {
+              const prior = normalizeDataPrior(draft.data_prior) as DataPrior | undefined;
+              if (prior) { setDataPrior(prior); setDataPriorSource(typeof draft.data_prior_source === 'string' ? draft.data_prior_source.slice(0, 200) : ''); }
+            } catch { /* An invalid stored prior is dropped; the draft still restores. */ }
             setDraftNotice('已恢复坐标草稿；尚未重新评价。');
           }
         } catch {
@@ -166,9 +183,10 @@ export function useDecisionController(
         setRecords(rows.map(row => row.record));
         const saved = rows.find(row => row.saved);
         if (saved?.saved) {
-          const { design, action, radius_mm, seed, noise_model_id, conductivity_scenario, result } = saved.saved;
-          setImported(design); setTestTarget('import'); setAction(action); setRadius(radius_mm); setSeed(seed); setNoiseModelId(noise_model_id); setScenarioId(conductivity_scenario);
-          setJobIdentity(JSON.stringify({ action, design, radius_mm, seed, noise: noise_model_id, scenario: conductivity_scenario }));
+          const { design, action, radius_mm, seed, noise_model_id, conductivity_scenario, robustness: robust, data_prior, result } = saved.saved;
+          setImported(design); setTestTarget('import'); setAction(action); setRadius(radius_mm); setSeed(seed); setNoiseModelId(noise_model_id); setScenarioId(conductivity_scenario); setRobustness(robust);
+          setDataPrior(data_prior ?? null); setDataPriorSource('');
+          setJobIdentity(evaluationIdentity({ action, design, radius_mm, seed, noise: noise_model_id, scenario: conductivity_scenario, robustness: robust, prior: data_prior ?? null }));
           setJob({ id: 'saved-' + saved.record.id, key: saved.record.id, status: 'completed', message: '已载入保存的坐标评价。', progress: 1, result, cached: true,
             ...(saved.record.electrode_annotation ? { annotation_id: saved.record.electrode_annotation.id, electrode_annotation: saved.record.electrode_annotation } : {}) });
         }
@@ -193,14 +211,7 @@ export function useDecisionController(
       : targetRecord
         ? exportDesign(targetRecord)
         : null;
-  const requestIdentity = JSON.stringify({
-    action,
-    design,
-    radius_mm: radius,
-    seed,
-    noise: noiseModelId,
-    scenario: action === 'evaluate' ? scenarioId : '',
-  });
+  const requestIdentity = evaluationIdentity({ action, design, radius_mm: radius, seed, noise: noiseModelId, scenario: scenarioId, robustness, prior: dataPrior });
   const result =
     jobIdentity === requestIdentity && job?.status === 'completed'
       ? job.result
@@ -227,14 +238,15 @@ export function useDecisionController(
     try {
       sessionStorage.setItem(
         'eeg-coordinate-tab-draft',
-        JSON.stringify({ design: imported, seed, radius_mm: radius, action, noise_model_id: noiseModelId, conductivity_scenario: scenarioId }),
+        JSON.stringify({ design: imported, seed, radius_mm: radius, action, noise_model_id: noiseModelId, conductivity_scenario: scenarioId, robustness,
+          ...(dataPrior ? { data_prior: dataPrior, data_prior_source: dataPriorSource } : {}) }),
       );
     } catch {
       void Promise.resolve().then(() =>
         setDraftNotice('当前标签页无法暂存坐标；离开前请保留原始文件。'),
       );
     }
-  }, [mode, imported, seed, radius, action, noiseModelId, scenarioId]);
+  }, [mode, imported, seed, radius, action, noiseModelId, scenarioId, robustness, dataPrior, dataPriorSource]);
   useEffect(() => {
     if (ready) window.history.replaceState(null, '', here);
   }, [ready, here]);
@@ -250,15 +262,16 @@ export function useDecisionController(
         const active = health?.active_job, request = active?.request;
         if (controller.signal.aborted || !active || !request || !isTaskRunning(active) || jobSnapshot.current) return;
         if (request.action !== 'evaluate' && request.action !== 'perturb') return;
-        let restored: ElectrodeDesign;
-        try { restored = validateDesign(request.design); } catch { return; }
+        let restored: ElectrodeDesign, prior: DataPrior | undefined;
+        try { restored = validateDesign(request.design); prior = normalizeDataPrior(request.data_prior) as DataPrior | undefined; } catch { return; }
         const noise = NOISE_MODEL_PRESETS.find((preset) => JSON.stringify(preset.value ?? null) === JSON.stringify(request.noise_model ?? null))?.id ?? 'iid';
         const scenario = request.action === 'evaluate' ? (request.conductivity_scenario ?? '') : '';
         setImported(restored); setTestTarget('import');
         if (typeof request.radius_mm === 'number') setRadius(request.radius_mm);
         if (typeof request.seed === 'number') setSeed(request.seed);
-        setAction(request.action); setNoiseModelId(noise); setScenarioId(scenario);
-        setJobIdentity(JSON.stringify({ action: request.action, design: restored, radius_mm: request.radius_mm, seed: request.seed, noise, scenario }));
+        const robust = request.action === 'evaluate' && request.robustness === 'standard/1';
+        setAction(request.action); setNoiseModelId(noise); setScenarioId(scenario); setRobustness(robust); setDataPrior(prior ?? null); setDataPriorSource('');
+        setJobIdentity(evaluationIdentity({ action: request.action, design: restored, radius_mm: request.radius_mm, seed: request.seed, noise, scenario, robustness: robust, prior: prior ?? null }));
         setJob(active); setPollRevision((value) => value + 1);
         setDraftNotice('已恢复离开前提交的坐标评价，正在继续查询进度。');
       })
@@ -286,14 +299,7 @@ export function useDecisionController(
   const computing = busy || (isTaskRunning(job) && connection !== 'blocked');
   async function runEvaluation(action: 'evaluate' | 'perturb') {
     if (!design || computing) return;
-    const submittedIdentity = JSON.stringify({
-      action,
-      design,
-      radius_mm: radius,
-      seed,
-      noise: noiseModelId,
-      scenario: action === 'evaluate' ? scenarioId : '',
-    });
+    const submittedIdentity = evaluationIdentity({ action, design, radius_mm: radius, seed, noise: noiseModelId, scenario: scenarioId, robustness, prior: dataPrior });
     setAction(action);
     setBusy(true);
     setComputeError('');
@@ -301,7 +307,7 @@ export function useDecisionController(
       const controller = new AbortController();
       requestController.current = controller;
       const data = await submitTask<{ job: DesignJob }>('design-evaluation',
-        designSubmission(design, action, radius, seed, noiseModel, scenarioId || undefined), { signal: controller.signal, errorMessage: '计算未启动' });
+        designSubmission(design, action, radius, seed, noiseModel, scenarioId || undefined, robustness, dataPrior ?? undefined), { signal: controller.signal, errorMessage: '计算未启动' });
       if (!alive.current) return;
       setConnection('connected');
       setPollRevision(value => value + 1);
@@ -366,7 +372,12 @@ export function useDecisionController(
     noiseModelId,
     scenarioId,
     setScenarioId,
+    robustness,
+    setRobustness,
     setNoiseModelId,
+    dataPrior,
+    dataPriorSource,
+    setDataPrior: (value: DataPrior | null, source = '') => { setDataPrior(value); setDataPriorSource(value ? source : ''); },
     action,
     showEvaluated,
     setShowEvaluated,

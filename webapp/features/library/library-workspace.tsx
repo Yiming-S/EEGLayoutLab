@@ -18,6 +18,7 @@ import { metricPercent } from '@/lib/ui-language';
 import { stackedCell } from '@/lib/responsive-table';
 import { locationName, RECORD_KIND_LABELS, type CatalogEntry, type CatalogRow, type CatalogView } from '@/lib/records-catalog';
 import { useLibraryController } from './use-library-controller';
+import { ParetoPanel } from './pareto-panel';
 
 /** Filters once typing pauses, so each keystroke does not re-rank the whole catalog. */
 function SearchInput({ value, onSearch, ...props }: { value: string; onSearch: (value: string) => void } & Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'>) {
@@ -114,6 +115,7 @@ export default function LibraryWorkspace() {
           {!selected && choices.length > 0 && <p className="mt-3 text-sm text-muted-foreground">{tx('点击“查看结果”打开记录详情。')}</p>}
           <div className="mt-3 flex items-center justify-between gap-4 text-sm text-muted-foreground"><span>{choices.length}{tx('条记录 · 不同协议分开解释')}</span><div className="flex items-center gap-2"><Button size="sm" variant="outline" disabled={displayPage === 0} onClick={() => setView(value => ({ ...value, page: displayPage - 1 }))}>{tx('上一页')}</Button><span>{displayPage + 1} / {pages}</span><Button size="sm" variant="outline" disabled={displayPage + 1 >= pages} onClick={() => setView(value => ({ ...value, page: displayPage + 1 }))}>{tx('下一页')}</Button></div></div>
         </section>
+        <ParetoPanel entries={choices} title={title} onChoose={choose} />
         {explicitSelection && selected && !choices.some(row => row.id === selected.id) && <p className="lab-panel mt-4 text-sm">{tx('链接指定的方案不在当前筛选列表中；下方仍显示该方案的原始记录。')}</p>}
         {explicitSelection && !selected && !loading ? <p role="alert" className="lab-panel mt-5">{tx('指定记录无法读取，请刷新记录或重新选择。')}</p> : selected && <section id="record-details" className="mt-6 scroll-mt-32 space-y-4">
           {'summary' in selected ? <SavedLayoutDetails key={selected.id + '-' + retry} summary={selected.summary} ar={ar} returnHref={here} onVisibilityChange={refresh} /> : <CatalogExperimentDetails key={selected.id + '-' + retry} entry={selected} parents={data?.records ?? []} ar={ar} returnHref={here} onVisibilityChange={refresh} />}

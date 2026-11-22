@@ -122,7 +122,7 @@ export function layoutCapabilities(
       !!current &&
       ['strict_area', 'cache'].includes(record.dataset_id) &&
       !!record.layout?.regionPatchVertexIndices?.length &&
-      !record.request?.noise_model,
+      !record.request?.noise_model && !record.request?.data_prior,
     compare: !!current && canCompareRecord(record),
     reception: !!current && canSimulateRecord(record),
   };

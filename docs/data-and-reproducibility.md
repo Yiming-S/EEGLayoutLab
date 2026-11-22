@@ -78,3 +78,9 @@ Conductivity-scenario tables (`results/v2/scalp_node_table_scenarios/`) and head
   - Demographic data were not used to select them.
   - IXI002 and IXI012 first failed in `charm`'s spherical registration (`CAT_Surf2Sphere`, Rosetta 2 not installed), before the surface-based label update. Their m2m folders were continued with `charm <id> --surfaces --mesh`, and the builder adopts them with `--charm-resume` (`charm_action: "adopt"`).
   - IXI015, IXI017, IXI019, IXI020, IXI035 and IXI231 are built with `--charm-forceqform`. In their headers the qform and sform matrices differ by rounding, at most 2.3e-5 per entry. `charm` refused IXI017, IXI019, IXI035 and IXI231 without that option; IXI015 and IXI020 were built with it from the start. Their `package.json` records `charm_forceqform: true`.
+
+## Recorded EEG
+
+Recordings stay where they are. `eeg-summary` reads a file in place and writes only its channel covariance, the processing record and the file's SHA-256. Prior fits and channel subsets read summaries, and the coordinates page computes subsets in the browser without uploading anything. A prior file lists each input by label, file name and SHA-256, so a fit can be checked against the original recordings by whoever holds them.
+
+The validation in [Model and metrics](model-and-metrics.md#data-derived-source-prior) used public datasets that are not distributed with this repository or the data bundle. Their summaries, priors and subsets were computed with the command line on the machine holding the recordings.

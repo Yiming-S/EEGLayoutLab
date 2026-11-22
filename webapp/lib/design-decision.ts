@@ -3,8 +3,10 @@ import { translateText, type Locale } from './i18n/core.ts';
 import { localizedRecordTitle } from './i18n/records.ts';
 import { parseAR } from './lab-workflow.ts';
 import { validateCoordinateSource } from '../contracts/coordinate-source.mjs';
-import { CONDUCTIVITY_SCENARIOS, NOISE_MODEL_PRESETS } from '../contracts/scientific-options.mjs';
+import { CONDUCTIVITY_SCENARIOS, NOISE_MODEL_PRESETS, normalizeDataPrior } from '../contracts/scientific-options.mjs';
 import type { CoordinateSourceMetadata } from '../contracts/coordinate-source';
+import type { RobustnessBlock } from './design-robustness.ts';
+import type { DataPrior } from './local-compute';
 
 export type NoiseModel = { kind: 'spatial'; rho: 0.5; length_mm: 10 | 20 | 40 } | { kind: 'brain_background'; fraction: 0.5 };
 
@@ -52,6 +54,8 @@ export type DesignResult = {
   };
   projection_max_mm: number;
   trials: DesignTrial[];
+  /** Present only for requests with `robustness: 'standard/1'`. */
+  robustness?: RobustnessBlock;
 };
 export type DesignJob = {
   id: string;
@@ -64,7 +68,7 @@ export type DesignJob = {
   key?: string;
   cached?: boolean;
   /** Normalized request echoed by the queue; present on receipts and active jobs. */
-  request?: { action?: string; design?: unknown; radius_mm?: number; seed?: number; noise_model?: unknown; conductivity_scenario?: string };
+  request?: { action?: string; design?: unknown; radius_mm?: number; seed?: number; noise_model?: unknown; conductivity_scenario?: string; robustness?: string; data_prior?: unknown };
   annotation_id?: string;
   electrode_annotation?: SavedRecord['electrode_annotation'];
 };
@@ -193,10 +197,14 @@ export function scientificDesign(design: ElectrodeDesign) {
   return request;
 }
 
-export function designSubmission(design: ElectrodeDesign, action: 'evaluate' | 'perturb', radius_mm: number, seed: number, noise_model?: NoiseModel, conductivity_scenario?: string) {
-  // Independent noise is the default and is omitted, preserving existing request keys.
-  const request = { action, design: scientificDesign(design), radius_mm, seed, ...(noise_model ? { noise_model } : {}),
-    ...(conductivity_scenario && action === 'evaluate' ? { conductivity_scenario } : {}) };
+export function designSubmission(design: ElectrodeDesign, action: 'evaluate' | 'perturb', radius_mm: number, seed: number, noise_model?: NoiseModel, conductivity_scenario?: string,
+  robustness?: boolean, data_prior?: DataPrior) {
+  // Independent noise is the default and is omitted, preserving existing request keys; a data prior carries its own noise.
+  const request = { action, design: scientificDesign(design), radius_mm, seed, ...(noise_model && !data_prior ? { noise_model } : {}),
+    ...(conductivity_scenario && action === 'evaluate' ? { conductivity_scenario } : {}),
+    // Robustness is defined on the nominal Ernie head only.
+    ...(robustness && action === 'evaluate' && !conductivity_scenario ? { robustness: 'standard/1' } : {}),
+    ...(data_prior ? { data_prior } : {}) };
   return design.electrode_names || design.source_metadata ? { schema: 'design-submission/1', request,
     electrode_names: design.electrode_names ?? Array.from({ length: 64 }, (_, index) => `E${index + 1}`),
     ...(design.source_metadata ? { source_metadata: design.source_metadata } : {}) } : request;
@@ -204,7 +212,7 @@ export function designSubmission(design: ElectrodeDesign, action: 'evaluate' | '
 
 /** Restore saved original inputs; evaluated coordinates remain a separate result. */
 export function restoreDesignEvaluation(bundle: unknown, record: SavedRecord) {
-  const value = bundle as { schema?: string; record_id?: string; reproduction?: { request?: { action?: string; design?: unknown; radius_mm?: number; seed?: number; noise_model?: unknown; conductivity_scenario?: unknown; head_id?: unknown } }; original_record?: { result?: DesignResult & { request?: unknown } } };
+  const value = bundle as { schema?: string; record_id?: string; reproduction?: { request?: { action?: string; design?: unknown; radius_mm?: number; seed?: number; noise_model?: unknown; conductivity_scenario?: unknown; head_id?: unknown; robustness?: unknown; data_prior?: unknown } }; original_record?: { result?: DesignResult & { request?: unknown } } };
   const request = value?.reproduction?.request, result = value?.original_record?.result;
   if (value?.schema !== 'eeg-reproducibility-bundle/1' || value.record_id !== record.id || request?.action !== 'evaluate' ||
       ![3, 6, 10].includes(request.radius_mm ?? 0) || !Number.isInteger(request.seed) || request.seed! < 0 || request.seed! > 9999 ||
@@ -216,10 +224,14 @@ export function restoreDesignEvaluation(bundle: unknown, record: SavedRecord) {
     : NOISE_MODEL_PRESETS.find(preset => JSON.stringify(preset.value ?? null) === JSON.stringify(request.noise_model))?.id;
   const conductivity_scenario = request.conductivity_scenario === undefined ? ''
     : CONDUCTIVITY_SCENARIOS.find(scenario => scenario.id && scenario.id === request.conductivity_scenario)?.id;
-  if (noise_model_id === undefined || conductivity_scenario === undefined) throw new Error('保存的评价条件不在当前可选范围内');
+  if (noise_model_id === undefined || conductivity_scenario === undefined || ![undefined, 'standard/1'].includes(request.robustness as string))
+    throw new Error('保存的评价条件不在当前可选范围内');
+  let data_prior: DataPrior | undefined;
+  try { data_prior = normalizeDataPrior(request.data_prior) as DataPrior | undefined; } catch { throw new Error('保存的评价条件不在当前可选范围内'); }
   const design = validateDesign({ ...validateDesign(request.design), ...(record.electrode_annotation ? { electrode_names: record.electrode_annotation.electrode_names,
     ...(record.electrode_annotation.source_metadata ? { source_metadata: record.electrode_annotation.source_metadata } : {}) } : {}) });
-  return { design, action: 'evaluate' as const, radius_mm: request.radius_mm!, seed: request.seed!, noise_model_id, conductivity_scenario, result };
+  return { design, action: 'evaluate' as const, radius_mm: request.radius_mm!, seed: request.seed!, noise_model_id, conductivity_scenario,
+    robustness: request.robustness === 'standard/1', data_prior, result };
 }
 
 export function exportDesign(record: SavedRecord): ElectrodeDesign {

@@ -135,3 +135,64 @@ function transfer(points: Point[], from: Float64Array, to: Float64Array, surface
 export const ernieToMni = (points: Point[], surface: ErnieMniSurface) => transfer(points, surface.native, surface.mni, surface, surface.nativeEdge);
 /** MNI mm -> Ernie native mm, through the point's projection on Ernie's scalp warped to MNI. */
 export const mniToErnie = (points: Point[], surface: ErnieMniSurface) => transfer(points, surface.mni, surface.native, surface, surface.mniEdge);
+
+type Projector = { cell: number; edge: number; min: Point; dims: [number, number, number]; cells: Map<number, number[]>; incident: number[][] };
+const projectors = new Map<ErnieMniSurface, Projector>();
+
+/** Uniform grid over the native scalp vertices, and the triangles around each vertex. */
+function projector(surface: ErnieMniSurface): Projector {
+  let built = projectors.get(surface);
+  if (built) return built;
+  const v = surface.native, faces = surface.faces, every = new Uint8Array(TRIANGLES).fill(1), edge = longestEdge(v, faces, every);
+  const min: Point = [Infinity, Infinity, Infinity], max: Point = [-Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < VERTICES; i++) for (let a = 0; a < 3; a++) { min[a] = Math.min(min[a], v[3 * i + a]); max[a] = Math.max(max[a], v[3 * i + a]); }
+  const cell = Math.max(edge, 1), dims = [0, 1, 2].map(a => Math.floor((max[a] - min[a]) / cell) + 1) as [number, number, number];
+  const cells = new Map<number, number[]>(), incident: number[][] = Array.from({ length: VERTICES }, () => []);
+  for (let i = 0; i < VERTICES; i++) {
+    const key = [0, 1, 2].map(a => Math.floor((v[3 * i + a] - min[a]) / cell)).reduce((k, c, a) => k * dims[a] + c, 0);
+    const list = cells.get(key);
+    if (list) list.push(i); else cells.set(key, [i]);
+  }
+  for (let face = 0; face < TRIANGLES; face++) for (let k = 0; k < 3; k++) incident[faces[3 * face + k]].push(face);
+  built = { cell, edge, min, dims, cells, incident };
+  projectors.set(surface, built);
+  return built;
+}
+
+/**
+ * Closest points on Ernie's whole native scalp (every triangle, including those the MNI warp cannot use).
+ * Exact: the closest triangle has a vertex within (nearest vertex distance + longest edge), and the grid finds all such vertices.
+ */
+export function projectOntoScalp(points: Point[], surface: ErnieMniSurface): SurfaceMapping {
+  const { cell, edge, min, dims, cells, incident } = projector(surface), v = surface.native, faces = surface.faces;
+  const result: SurfaceMapping = { points: [], distances_mm: [] };
+  const visit = (point: Point, radius: number, each: (vertex: number) => void) => {
+    const lo = [0, 1, 2].map(a => Math.max(0, Math.floor((point[a] - radius - min[a]) / cell)));
+    const hi = [0, 1, 2].map(a => Math.min(dims[a] - 1, Math.floor((point[a] + radius - min[a]) / cell)));
+    for (let x = lo[0]; x <= hi[0]; x++) for (let y = lo[1]; y <= hi[1]; y++) for (let z = lo[2]; z <= hi[2]; z++)
+      cells.get((x * dims[1] + y) * dims[2] + z)?.forEach(each);
+  };
+  for (const point of points) {
+    if (point.length !== 3 || !point.every(Number.isFinite)) throw new Error('坐标必须是有限的三维数值。');
+    const squared = (i: number) => (v[3 * i] - point[0]) ** 2 + (v[3 * i + 1] - point[1]) ** 2 + (v[3 * i + 2] - point[2]) ** 2;
+    // Grow the search box until it holds a vertex; the true nearest vertex then lies within that distance.
+    let nearest = Infinity;
+    for (let radius = cell; nearest === Infinity; radius *= 2) visit(point, radius, i => { nearest = Math.min(nearest, squared(i)); });
+    visit(point, Math.sqrt(nearest), i => { nearest = Math.min(nearest, squared(i)); });
+    const reach = Math.sqrt(nearest) + edge, seen = new Set<number>();
+    let best = Infinity, bestFace = -1, bestWeights: [number, number, number] = [1, 0, 0];
+    visit(point, reach, i => {
+      if (squared(i) > reach * reach) return;
+      for (const face of incident[i]) {
+        if (seen.has(face)) continue;
+        seen.add(face);
+        const weights = closest(point, v, faces[3 * face], faces[3 * face + 1], faces[3 * face + 2]), q = at(v, faces, face, weights);
+        const distance = (q[0] - point[0]) ** 2 + (q[1] - point[1]) ** 2 + (q[2] - point[2]) ** 2;
+        if (distance < best) { best = distance; bestFace = face; bestWeights = weights; }
+      }
+    });
+    result.points.push(at(v, faces, bestFace, bestWeights));
+    result.distances_mm.push(Math.sqrt(best));
+  }
+  return result;
+}

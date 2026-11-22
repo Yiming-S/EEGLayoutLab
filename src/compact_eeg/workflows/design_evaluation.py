@@ -30,7 +30,7 @@ from compact_eeg.surface_admissibility import load_admissibility
 
 
 REQUIRED_FIELDS = {'action', 'design', 'radius_mm', 'seed'}
-OPTIONAL_FIELDS = {'noise_model', 'conductivity_scenario', 'head_id'}
+OPTIONAL_FIELDS = {'noise_model', 'conductivity_scenario', 'head_id', 'robustness', 'data_prior'}
 
 
 def validate_request(raw):
@@ -49,6 +49,13 @@ def validate_request(raw):
         check_head_id(raw['head_id'])
         if raw.get('action') != 'evaluate' or 'conductivity_scenario' in raw:
             raise ValueError('head_id applies to the evaluate action only, without a conductivity scenario')
+    if 'robustness' in raw:
+        from .design_robustness import validate
+        validate(raw['robustness'], raw)
+    if 'data_prior' in raw:
+        from .data_prior import canonical
+        if canonical(raw['data_prior']) != raw['data_prior'] or 'noise_model' in raw or 'head_id' in raw:
+            raise ValueError('data_prior must be canonical; it replaces noise_model and applies to the Ernie head only')
     d = raw['design']
     if not isinstance(d, dict) or d.get('schema') != 'eeg-electrode-design/1' or d.get('coordinate_system') != 'ernie_native_mm' or d.get('unit') != 'mm':
         raise ValueError('Requires Ernie native millimetre coordinates')
@@ -522,11 +529,18 @@ def evaluate(raw, root=ROOT, progress=lambda *args: None):
                 h, projected, projection_max, qa = native_field(root, xyz, data, pointer, bank_report, progress,
                                                                reception_publisher=publish)
             mode = 'direct_fem'
-    model = noise_models.normalize(request.get('noise_model'))
+    prior = request.get('data_prior')
+    if prior is not None:
+        from . import data_prior
+        # Region gains reweight both source sets; the fitted noise enters like a spatial preset.
+        weights, generation_weights = data_prior.apply(root, data, prior)
+        model = data_prior.noise_model(prior)
+    else:
+        model, generation_weights = noise_models.normalize(request.get('noise_model')), data['generation_area_weights']
     kernel = noise_models.field_kernel(model)
     reference_xyz = data['reference_xyz_mm']
     candidate_xyz = projected
-    source_sets = (data['source_xyz_mm'], data['generation_xyz_mm'], data['generation_area_weights'])
+    source_sets = (data['source_xyz_mm'], data['generation_xyz_mm'], generation_weights)
     if head_id is not None:
         # Every quantity below comes from the head package; evaluated_xyz_mm stays the Ernie layout.
         h, hb, candidate_xyz, reference_xyz, weights, source_sets, head_qa = head_space(root, head_id, projected, data, progress)
@@ -595,6 +609,14 @@ def evaluate(raw, root=ROOT, progress=lambda *args: None):
                     (('nominal', projected), ('observed', bank_xyz[chosen]), ('reference', reference_xyz))}
                 trial['fixed_estimator_field_relative'] = fixed_estimator_retention(h[:, :n], changed, hb[:, :n], weights, noise=correlations)
             trials.append(trial)
+    robustness = None
+    if request.get('robustness'):
+        from . import design_robustness
+        vertices, faces, _ = ernie_scalp(root, data)
+        robustness = design_robustness.evaluate({
+            'root': root, 'data': data, 'kernel': kernel, 'scalp': (vertices, faces), 'n': n, 'weights': weights,
+            'h': h[:, :n], 'xyz': projected, 'hb': hb[:, :n], 'reference_xyz': reference_xyz,
+            'engine': engine, 'reference_engine': field_engine(hb[:, :n], reference_xyz)}, request['seed'], progress)
     return {'schema': 'design-evaluation/1', 'status': 'completed', 'request': request, 'forward_mode': mode,
         'nominal': nominal, 'projection_max_mm': projection_max, 'evaluated_xyz_mm': projected.tolist(),
         'trials': trials, 'provenance': {**data['_admission'], 'head_count': 1, 'bank_sha256': pointer['sha256'],
@@ -604,12 +626,14 @@ def evaluate(raw, root=ROOT, progress=lambda *args: None):
             'source_count': n, 'generation_count': len(data['generation_xyz_mm']), 'candidate_count': len(bank_xyz), 'noise_repetitions': 16,
             'noise_model': noise_models.describe(model), 'nominal_reference_snr_db': 20,
             **({'model_mismatch': mismatch} if mismatch else {}),
-            'source_prior': 'frozen_area_weights', 'estimator_training': 'known_prior_LMMSE',
+            'source_prior': 'frozen_area_weights' if prior is None else 'data_prior_region_gains_on_area_weights',
+            **({'data_prior': data_prior.describe(prior)} if prior is not None else {}), 'estimator_training': 'known_prior_LMMSE',
             'reference_perturbed': False, 'regional_boundary_requalified': False,
             # Recorded by the package builder from the mesh bytes; a package without it is not claimed independent.
             'independent_head_validation': bool(head_id) and qa['head']['head_package']['mapping']['same_subject_as_ernie'] is False,
             'paired_localization_noise': True, 'thread_limit': 1, 'seed': request['seed'],
             'code_sha256': sha256_file(Path(__file__)), 'numpy': np.__version__, 'python': sys.version},
+        **({'robustness': robustness} if robustness else {}),
         'native_qa': qa, 'elapsed_seconds': time.perf_counter() - started}
 
 

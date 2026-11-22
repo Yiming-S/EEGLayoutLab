@@ -20,11 +20,15 @@ node webapp/scripts/eeglayoutlab.mjs help
 
 | Command | Input | Output |
 | --- | --- | --- |
-| `design FILE... --out DESIGN.json [--name NAME]` | A BIDS pair (Ernie native or MNI), a 10-05 name list, the layout CSV, a design JSON, or a search result from this tool | A design: `eeg-electrode-design/1` with names and coordinate source |
+| `design FILE... --out DESIGN.json [--name NAME] [--regions N] [--unit U]` | A BIDS pair (Ernie native, MNI or a digitized head frame with landmarks), an `.elc` or `.sfp` montage, a 10-05 name list, the layout CSV, a design JSON, or a search result from this tool. `--regions 1\|2\|3\|4\|6` assigns balanced spatial regions to files without a region column; `--unit mm\|cm\|m` gives the unit of an `.sfp` file | A design: `eeg-electrode-design/1` with names and coordinate source |
 | `export DESIGN.json --format F --out-dir DIR` | A design | `bids`, `mni`, `mne` (`.elc`), `eeglab` (`.sfp`) or `svg` (layout figure; `--labels yes\|no`) |
 | `evaluate REQUEST.json... --out-dir DIR` | Requests in the `/api/design-evaluation` format, or `design-submission/1` with names | One `<name>.result.json` per request |
-| `evaluate --design DESIGN.json --radius 6 --seed 42 --out-dir DIR` | A design and options: `--action evaluate\|perturb`, `--noise iid\|spatial_10\|spatial_20\|spatial_40\|brain_background`, `--conductivity skull_x0.5\|skull_x2`, `--head ID` | `request.result.json` |
-| `search REQUEST.json... --out-dir DIR` | Requests in the `/api/local-compute` format | One `<name>.result.json` per request |
+| `evaluate --design DESIGN.json --radius 6 --seed 42 --out-dir DIR` | A design and options: `--action evaluate\|perturb`, `--noise iid\|spatial_10\|spatial_20\|spatial_40\|brain_background`, `--conductivity skull_x0.5\|skull_x2`, `--head ID`, `--robustness standard/1`, `--data-prior PRIOR.json` | `request.result.json` |
+| `search REQUEST.json... --out-dir DIR` | Requests in the `/api/local-compute` format; `--data-prior PRIOR.json` adds the prior to each | One `<name>.result.json` per request |
+| `eeg-summary RECORDING... --out-dir DIR [--band 1,40] [--epoch 2] [--label TEXT]` | EDF/EDF+C, BDF, BrainVision `.vhdr` or EEGLAB `.set` recordings. The recording is read in place; only its summary is written | One `<name>.summary.json` (`eeg-covariance-summary/1`) per recording |
+| `prior SUMMARY.json\|DIR... --out PRIOR.json` | Covariance summaries of one band; a directory stands for the summaries in it | `eeg-data-prior/1`, with region gains, noise and the leave-one-out check printed |
+| `channels SUMMARY.json\|DIR... --out SUBSET.json [--test FILE,...\|DIR] [--prior PRIOR.json] [--counts 8,16,24,32] [--draws 200] [--seed 1]` | Training summaries, optional held-out summaries and an optional prior | `eeg-channel-subset/1`, with the training/held-out errors printed per method and size |
+| `pareto RUN.result.json... --out PARETO.json [--objectives LIST]` | `evaluate` and `search` results of one evaluation condition. LIST is comma-separated from `field`, `sensitivity`, `localization`, `p90`, `area`, `dropout`, `impedance`, `replacement` (default `field,sensitivity,localization`) | `eeglayoutlab-cli-pareto/1`: rank, dominating count and values per file, and the files missing an objective |
 | `study STUDY.json --out-dir DIR` | A study in the robustness-study format (`noise_seeds`, `grid_displacements` or `heads`) | `study.json` with case summaries and the aggregation, plus `cases/NN.result.json` |
 
 The request formats are defined in [API formats](../contracts/api-formats.md) and the coordinate files in the [coordinate file interface](coordinate-file-interface.md). A batch continues after a failed request, writes `<name>.error.json` for it and exits with status 1.
@@ -57,6 +61,7 @@ The key and the identity include the interpreter path, so they differ between in
 node webapp/scripts/eeglayoutlab.mjs design labels.tsv --name "my layout" --out my-layout.json
 node webapp/scripts/eeglayoutlab.mjs evaluate --design my-layout.json --radius 6 --seed 42 --out-dir runs/
 node webapp/scripts/eeglayoutlab.mjs export my-layout.json --format mne --out-dir files/
+node webapp/scripts/eeglayoutlab.mjs design sub-01_electrodes.tsv sub-01_coordsystem.json --regions 4 --out digitized.json
 ```
 
 Three complete examples, with their expected scores, are in [`examples/`](../examples/README.md).

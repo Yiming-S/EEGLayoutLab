@@ -1,10 +1,10 @@
 'use client';
 
-import { CONDUCTIVITY_SCENARIOS, NOISE_MODEL_PRESETS, conductivityScenarioLabel, noiseModelLabel } from '../../contracts/scientific-options.mjs';
+import { CONDUCTIVITY_SCENARIOS, NOISE_MODEL_PRESETS, conductivityScenarioLabel, dataPriorLabel, noiseModelLabel } from '../../contracts/scientific-options.mjs';
 import { RuntimeMessage } from '@/components/runtime-message';
 
 /* oxlint-disable next/no-html-link-for-pages -- preserve established vinext navigation */
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { Download } from 'lucide-react';
 import { SiteHeader } from '@/components/site-header';
 import { Button } from '@/components/ui/button';
@@ -27,8 +27,13 @@ import { RecordPicker } from './record-picker';
 import { SaveToProject } from '@/features/projects/project-context';
 import { DecisionRequirements } from './decision-requirements';
 import { CoordinateReviewPanel } from './coordinate-review-panel';
+import { RobustnessPanel } from './robustness-panel';
+import { DataPriorPicker } from '@/features/data/data-prior-picker';
+import { ChannelSubsetPanel } from '@/features/data/channel-subset-panel';
 import { bidsNeedsMniSurface, parseBIDSElectrodes, parseElectrodeLabels } from '@/lib/bids-electrodes';
 import { loadErnieMniSurface } from '@/lib/ernie-mni';
+import { parseMontageFile, type RegionCount } from '@/lib/head-frame-import';
+import type { MontageUnit } from '@/lib/montage-files';
 import { CoordinateFileExports } from './coordinate-file-exports';
 import { LayoutFigureExport } from './layout-figure-export';
 import { evaluationPresentation } from './evaluation-presentation';
@@ -104,6 +109,11 @@ export default function DecisionPage({
     setNoiseModelId,
     scenarioId,
     setScenarioId,
+    robustness,
+    setRobustness,
+    dataPrior,
+    dataPriorSource,
+    setDataPrior,
     action,
     showEvaluated,
     setShowEvaluated,
@@ -124,13 +134,17 @@ export default function DecisionPage({
     cancel,
     preview,
   } = useDecisionController(mode);
+  // Used only for files without a region column, and for the unit of .sfp files, which declare none.
+  const [regionCount, setRegionCount] = useState<RegionCount | 0>(0);
+  const [montageUnit, setMontageUnit] = useState<MontageUnit>('mm');
+  const importOptions = { regionCount: regionCount || undefined };
   const recordA = shown.find((r) => ids.indexOf(r.id) === 0), recordB = shown.find((r) => ids.indexOf(r.id) === 1);
   const pair = !!recordA && !!recordB;
   const presentation = result ? evaluationPresentation(job, result) : null;
   // Every coordinate evaluation is a library record (labelled with its conditions);
   // signal simulation takes only the default protocol.
   const savedEvaluation = !!result && action === 'evaluate';
-  const simulationReady = savedEvaluation && noiseModelId === 'iid' && !scenarioId;
+  const simulationReady = savedEvaluation && noiseModelId === 'iid' && !scenarioId && !dataPrior;
   return (
     <main className="lab-page">
       <SiteHeader
@@ -446,6 +460,13 @@ export default function DecisionPage({
                       }}
                     />
                   </label>
+                  <label className="lab-label">{tx('没有region列时的区域数')}
+                    <select className="lab-select mt-2" value={regionCount} onChange={event => setRegionCount(Number(event.target.value) as RegionCount | 0)}>
+                      <option value={0}>{tx('不自动分区（文件须含region列）')}</option>
+                      {[1, 2, 3, 4, 6].map(count => <option key={count} value={count}>{tx(`按空间位置均衡分为${count}区`)}</option>)}
+                    </select>
+                  </label>
+                  <p className="text-xs text-muted-foreground">{tx('数字化坐标和电极名称列表通常没有本软件的region列。选择区域数后，软件把64个电极按位置分成大小均衡的区域，并在坐标来源中记录分区方法。')}</p>
                   <label className="lab-label">{tx('导入BIDS坐标文件')}
                     <FilePicker multiple accept=".tsv,.json" onChange={async event => {
                       const files = Array.from(event.target.files ?? []);
@@ -453,19 +474,37 @@ export default function DecisionPage({
                       try {
                         if (files.length > 3 || files.some(file => file.size > 65536)) throw new Error('请成对选择electrodes.tsv和coordsystem.json，每个文件不超过64 KB。');
                         const coordinateFiles = await Promise.all(files.map(async file => ({ name: file.name, text: await file.text() })));
-                        const design = parseBIDSElectrodes(coordinateFiles, bidsNeedsMniSurface(coordinateFiles) ? await loadErnieMniSurface() : undefined);
+                        const design = parseBIDSElectrodes(coordinateFiles, bidsNeedsMniSurface(coordinateFiles) ? await loadErnieMniSurface() : undefined, importOptions);
                         setImported(design); setImportError(''); setTestTarget('import');
                       } catch (caught) { setImported(null); setImportError(caught instanceof Error ? caught.message : '导入失败'); }
                     }} />
                   </label>
                   <p className="text-xs text-muted-foreground">{tx('同时选择electrodes.tsv和coordsystem.json；region列为本软件的零基区域扩展，可附electrodes.json说明。坐标须为Ernie原生空间或MNI模板空间，单位mm；MNI坐标经SimNIBS非线性变换映射到Ernie头皮。')}</p>
+                  <p className="text-xs text-muted-foreground">{tx('数字化的头坐标（如CapTrak）须在coordsystem.json中给出NAS、LPA、RPA基准点，单位可为mm、cm或m。软件先按基准点对齐，再拟合到Ernie头皮并投影；这是模板头上的放置，不是个体解剖配准。')}</p>
+                  <label className="lab-label">{tx('导入MNE或EEGLAB电极文件（.elc、.sfp）')}
+                    <FilePicker accept=".elc,.sfp" onChange={async event => {
+                      const file = event.target.files?.[0];
+                      if (!file) return;
+                      try {
+                        if (file.size > 65536) throw new Error('电极坐标文件不超过64 KB。');
+                        setImported(parseMontageFile({ name: file.name, text: await file.text() }, await loadErnieMniSurface(), { ...importOptions, unit: montageUnit }));
+                        setImportError(''); setTestTarget('import');
+                      } catch (caught) { setImported(null); setImportError(caught instanceof Error ? caught.message : '导入失败'); }
+                    }} />
+                  </label>
+                  <label className="lab-label">{tx('.sfp坐标单位')}
+                    <select className="lab-select mt-2" value={montageUnit} onChange={event => setMontageUnit(event.target.value as MontageUnit)}>
+                      {(['mm', 'cm', 'm'] as const).map(unit => <option key={unit} value={unit}>{unit}</option>)}
+                    </select>
+                  </label>
+                  <p className="text-xs text-muted-foreground">{tx('文件须含64个电极和Nz/LPA/RPA（或FidNz/FidT9/FidT10）基准点；.elc自带单位，.sfp没有单位字段，请先选择单位。本软件导出的文件按原坐标读回。')}</p>
                   <label className="lab-label">{tx('按10-05电极名称导入')}
                     <FilePicker accept=".tsv,.csv,.txt" onChange={async event => {
                       const file = event.target.files?.[0];
                       if (!file) return;
                       try {
                         if (file.size > 65536) throw new Error('请选择不超过64 KB的.tsv、.csv或.txt电极名称文件。');
-                        setImported(parseElectrodeLabels({ name: file.name, text: await file.text() })); setImportError(''); setTestTarget('import');
+                        setImported(parseElectrodeLabels({ name: file.name, text: await file.text() }, importOptions)); setImportError(''); setTestTarget('import');
                       } catch (caught) { setImported(null); setImportError(caught instanceof Error ? caught.message : '导入失败'); }
                     }} />
                   </label>
@@ -539,6 +578,7 @@ export default function DecisionPage({
                   <select
                     className="lab-select mt-2"
                     value={noiseModelId}
+                    disabled={Boolean(dataPrior)}
                     onChange={(e) => setNoiseModelId(e.target.value)}
                   >
                     {NOISE_MODEL_PRESETS.map((preset) => (
@@ -547,7 +587,9 @@ export default function DecisionPage({
                       </option>
                     ))}
                   </select>
+                  {dataPrior && <span className="mt-1 block text-xs font-normal leading-5 text-muted-foreground">{tx('已载入数据先验，噪声结构由数据先验给出。')}</span>}
                 </label>
+                {mode === 'coordinates' && <DataPriorPicker value={dataPrior} source={dataPriorSource} onChange={setDataPrior} disabled={computing} />}
                 <label className="lab-label col-span-2">
                   {tx('数据生成头模电导率')}
                   <select
@@ -562,6 +604,13 @@ export default function DecisionPage({
                     ))}
                   </select>
                   <span className="mt-1 block text-xs font-normal leading-5 text-muted-foreground">{tx('只用于“评价当前坐标”。数据由改变颅骨电导率的头模生成，重建与定位仍使用名义模型。')}</span>
+                </label>
+                <label className="col-span-2 flex items-start gap-2 text-sm">
+                  <input type="checkbox" className="mt-1" checked={robustness && !scenarioId} disabled={Boolean(scenarioId)}
+                    onChange={(e) => setRobustness(e.target.checked)} />
+                  <span>{tx('同时评价跨会话稳健性（电极脱落、电极噪声不均、重新佩戴）')}
+                    <span className="mt-1 block text-xs leading-5 text-muted-foreground">{tx(scenarioId ? '稳健性只在名义电导率下评价；请先把数据生成头模电导率设为默认。' : '只用于“评价当前坐标”；名义分数不变，另加约数秒计算。重新佩戴需要预计算头皮节点表。')}</span>
+                  </span>
                 </label>
                 <label className="lab-label">
                   {tx('随机种子')}
@@ -697,7 +746,7 @@ export default function DecisionPage({
                   {tx(presentation!.heading)}
                 </h3>
                 <p className="mt-1 text-xs text-muted-foreground">{tx('原结果来源')} · {tx(presentation!.origin)}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{tx('噪声模型')} · {tx(noiseModelLabel(NOISE_MODEL_PRESETS.find((preset) => preset.id === noiseModelId)?.value))}{action === 'evaluate' && scenarioId && <> · {tx('数据生成头模电导率')} · {tx(conductivityScenarioLabel(scenarioId))}</>}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{tx('噪声模型')} · {tx(dataPrior ? dataPriorLabel(dataPrior) : noiseModelLabel(NOISE_MODEL_PRESETS.find((preset) => preset.id === noiseModelId)?.value))}{action === 'evaluate' && scenarioId && <> · {tx('数据生成头模电导率')} · {tx(conductivityScenarioLabel(scenarioId))}</>}</p>
                 <p className="mt-2 text-sm">
                   {tx('重建保留率 ')}
                   {tx(pct(result.nominal?.field_relative))}{' '}
@@ -711,6 +760,7 @@ export default function DecisionPage({
                   {tx(' ')}
                   {tx(mm(result.projection_max_mm))}。
                 </p>
+                {result.robustness && <RobustnessPanel block={result.robustness} names={design?.electrode_names} />}
                 {action === 'evaluate' && job?.key && <div className="mt-3 flex flex-wrap items-center gap-3">
                   {savedEvaluation && <>
                     <SaveToProject kind="layout" recordId={job.key} annotationId={job.annotation_id} />
@@ -851,6 +901,7 @@ export default function DecisionPage({
         </section>
         {/* Import comes first; the requirements only re-judge the result above. */}
         {mode === 'coordinates' && <DecisionRequirements thresholds={thresholds} onChange={setThresholds} />}
+        {mode === 'coordinates' && <ChannelSubsetPanel />}
         <section className="lab-panel">
           <h2 className="text-lg font-semibold">{tx('验证阶段')}</h2>
           <p className="mt-2 text-sm leading-7">

@@ -1,5 +1,5 @@
 import type { SavedSummary } from './local-library';
-import { conductivityScenarioLabel, noiseModelLabel } from '../contracts/scientific-options.mjs';
+import { conductivityScenarioLabel, dataPriorLabel, noiseModelLabel } from '../contracts/scientific-options.mjs';
 
 // Display vocabulary only: preserve calculation keys, record IDs and raw data.
 export const metricPercent = (value: number | null | undefined, missing = '尚未计算') =>
@@ -39,7 +39,10 @@ export function recordBaseTitle(record: SavedSummary) {
   return `${record.region_count}个区域 · ${location} · ${size}`;
 }
 export function recordNoiseLabel(record: SavedSummary) {
-  return ['design_evaluation', 'offline_radius'].includes(record.dataset_id) || !record.request?.noise_model ? '' : noiseModelLabel(record.request.noise_model);
+  if (['design_evaluation', 'offline_radius'].includes(record.dataset_id)) return '';
+  // A data prior replaces the noise model and names its own noise.
+  if (record.request?.data_prior) return dataPriorLabel(record.request.data_prior);
+  return record.request?.noise_model ? noiseModelLabel(record.request.noise_model) : '';
 }
 /** The non-default evaluation conditions of a saved coordinate evaluation, one label each. */
 export function recordConditionLabels(record: SavedSummary): string[] {
@@ -49,6 +52,7 @@ export function recordConditionLabels(record: SavedSummary): string[] {
     ...(condition.noise_model ? [noiseModelLabel(condition.noise_model)] : []),
     ...(condition.conductivity_scenario ? [conductivityScenarioLabel(condition.conductivity_scenario)] : []),
     ...(condition.head_id ? [`头模：${condition.head_id}`] : []),
+    ...(condition.data_prior ? [dataPriorLabel(condition.data_prior)] : []),
   ];
 }
 export function recordTitle(record: SavedSummary) {

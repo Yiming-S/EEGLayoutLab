@@ -3,6 +3,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { dirname, join, relative } from 'node:path';
 import { DESIGN_WORKFLOW, NATIVE_RUNTIME_RELATIVE, TABLE_RUNTIME_RELATIVE } from '../project-paths.mjs';
 import { runtimeIdentity } from './python-fingerprint.mjs';
+import { DATA_PRIOR_FILES } from '../../contracts/scientific-options.mjs';
 
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 
@@ -96,6 +97,9 @@ export async function scientificContext({ root, python, inputs }, request) {
     files.push(...['package.json', 'scalp.npz', 'admissibility.npz', 'sources.npz', 'mapping.npz', 'table.json'].map(name => `${head}/${name}`),
       headTable.manifest_path, join(directory, 'index.npz'), join(directory, 'rows.npy'));
   }
+  // The robustness module enters the identity only for requests that use it.
+  if (request?.robustness) files.push('src/compact_eeg/workflows/design_robustness.py');
+  if (request?.data_prior) files.push(...DATA_PRIOR_FILES);
   const runtimeRoot = NATIVE_RUNTIME_RELATIVE;
   if (python === join(root, runtimeRoot, 'bin/python')) {
     files.push(relative(root, python));

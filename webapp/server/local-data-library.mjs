@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { readFile, stat, realpath } from 'node:fs/promises';
 import { join, resolve, sep } from 'node:path';
 import { designReceptionRecord } from './reception-v2-support.mjs';
-import { noiseModelLabel } from '../contracts/scientific-options.mjs';
+import { dataPriorLabel, noiseModelLabel } from '../contracts/scientific-options.mjs';
 import { RecordStore } from './storage/records.mjs';
 
 const hash = (value) => createHash('sha256').update(value).digest('hex');
@@ -184,7 +184,7 @@ export class LocalDataLibrary {
   cacheRecord(cache, compatible) {
     const r = cache.result, request = cache.request;
     return validateSavedRecord({ id: cache.key, dataset_id: 'cache', status: r.status,
-      label: `${request.region_count}区 · ${request.mode === 'preset' ? request.mask_codes.join(' + ') : domainLabel(request.mode)} · 半径≤${request.radius_mm} mm${request.noise_model ? ' · ' + noiseModelLabel(request.noise_model) : ''}`,
+      label: `${request.region_count}区 · ${request.mode === 'preset' ? request.mask_codes.join(' + ') : domainLabel(request.mode)} · 半径≤${request.radius_mm} mm${request.noise_model ? ' · ' + noiseModelLabel(request.noise_model) : ''}${request.data_prior ? ' · ' + dataPriorLabel(request.data_prior) : ''}`,
       region_count: request.region_count, radius_cap_mm: request.radius_mm, mode: request.mode,
       spacing_mm: 4, compatible, request, finished_at: cache.finished_at,
       metrics: r.metrics ?? null, geometry: r.geometry ?? null, layout: r.layout ?? null,

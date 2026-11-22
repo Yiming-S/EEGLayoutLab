@@ -546,7 +546,8 @@ void test('non-default coordinate evaluations offer no saved-record, project or 
   const design = { schema: 'eeg-electrode-design/1', coordinate_system: 'ernie_native_mm', unit: 'mm', name: 'Fixture', xyz_mm: xyz, region_indices: xyz.map((_, i) => Number(i >= 32)) };
   const metrics = { field_relative: .9, field_absolute: .8, reference_field_absolute: .9, sensitivity_tail: .9, median_mm: 10, p90_mm: 20, localization_relative: .9, reference_median_mm: 9, reference_p90_mm: 18 };
   const result = { forward_mode: 'scalp_node_table', evaluated_xyz_mm: xyz, nominal: metrics, projection_max_mm: 0, trials: [] };
-  const state = (locale, noiseModelId, scenarioId) => ({ tx: value => localize(value, locale), locale, ids: ['', ''], setIds() {}, error: '', thresholds: jointDecisionThresholds(90), setThresholds() {},
+  const prior = { region_gain: [1.066, 2.606, 0.0985, 1.309, 0.6004, 1.161, 0.0985], rho: 0, length_mm: null };
+  const state = (locale, noiseModelId, scenarioId, dataPrior = null) => ({ tx: value => localize(value, locale), locale, dataPrior, dataPriorSource: '', setDataPrior() {}, ids: ['', ''], setIds() {}, error: '', thresholds: jointDecisionThresholds(90), setThresholds() {},
     setImported() {}, importError: '', draftNotice: '', setImportError() {}, job: { id: 'job', key, status: 'completed', message: '设计评价已完成并保存', progress: 1, result }, computeError: '',
     testTarget: 'import', setTestTarget() {}, radius: 6, setRadius() {}, seed: 42, setSeed() {}, noiseModelId, setNoiseModelId() {}, scenarioId, setScenarioId() {}, action: 'evaluate',
     showEvaluated: true, setShowEvaluated() {}, here: '/coordinates?ar=90&resume=1', shown: [], loaded: true, choices: [], notes: [], design, requestIdentity: 'same', jobIdentity: 'same',
@@ -561,8 +562,8 @@ void test('non-default coordinate evaluations offer no saved-record, project or 
       current = state(locale, 'iid', '');
       const saved = render(Page, { mode: 'coordinates' }, locale);
       assert.ok(saved.includes('/coordinates?a=' + key)); assert.ok(saved.includes('/reception?record=' + key)); assert.ok(saved.includes('/projects?record=' + key));
-      for (const [noise, scenario] of [['spatial_20', ''], ['iid', 'skull_x2']]) {
-        current = state(locale, noise, scenario);
+      for (const [noise, scenario, dataPrior] of [['spatial_20', ''], ['iid', 'skull_x2'], ['iid', '', prior]]) {
+        current = state(locale, noise, scenario, dataPrior);
         const html = render(Page, { mode: 'coordinates' }, locale);
         assert.ok(html.includes('/coordinates?a=' + key) && html.includes('/projects?record=' + key), noise + scenario);
         assert.ok(!html.includes('/reception?record=' + key), noise + scenario);

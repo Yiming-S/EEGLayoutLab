@@ -7,7 +7,11 @@ export type ComputeRequest = {
   mask_codes?: string[];
   /** Optional search noise model; absent means independent equal noise. */
   noise_model?: SearchNoiseModel;
+  /** Optional data-derived source prior and noise (eeg-data-prior/1 request value); replaces noise_model. */
+  data_prior?: DataPrior;
 };
+/** Region gains in DATA_PRIOR_REGIONS order and the fitted noise correlation. */
+export type DataPrior = { region_gain: number[]; rho: number; length_mm: number | null };
 export type SearchNoiseModel = { kind: 'spatial'; rho: 0.5; length_mm: 10 | 20 | 40 };
 export type ComputedLayout = RecordedLayout;
 export type ComputeResult = {
@@ -56,7 +60,7 @@ export type ComputeHealth = {
 export function requestKey(request: ComputeRequest) {
   return JSON.stringify({ region_count: request.region_count, radius_mm: request.radius_mm,
     mode: request.mode, ...(request.mode === 'preset' ? { mask_codes: request.mask_codes } : {}),
-    ...(request.noise_model ? { noise_model: request.noise_model } : {}) });
+    ...(request.noise_model ? { noise_model: request.noise_model } : {}), ...(request.data_prior ? { data_prior: request.data_prior } : {}) });
 }
 
 export function matchingResult(job: ComputeJob | null, request: ComputeRequest) {

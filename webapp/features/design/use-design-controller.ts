@@ -1,8 +1,9 @@
 'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiJson } from '@/client/task-client';
-import { requestKey, type ComputeRequest, type ComputeResult, type ComputeJob, type SearchNoiseModel } from '@/lib/local-compute';
-import { NOISE_MODEL_PRESETS, noiseModelId as presetIdFor } from '../../contracts/scientific-options.mjs';
+import { requestKey, type ComputeRequest, type ComputeResult, type ComputeJob, type DataPrior, type SearchNoiseModel } from '@/lib/local-compute';
+import { dataPriorParam, parseDataPriorParam } from '@/lib/data-prior';
+import { NOISE_MODEL_PRESETS, noiseModelId as presetIdFor, normalizeDataPrior } from '../../contracts/scientific-options.mjs';
 import { comparisonLink, parseAR, REGION_COUNTS } from '@/lib/lab-workflow';
 import type { SavedRecord } from '@/lib/local-library';
 import { MASK_NAMES } from '@/lib/ui-language';
@@ -25,6 +26,7 @@ export function useDesignController() {
   const [extraChoice, setExtraChoice] = useState<Choice | null>(null);
   const [customSlots, setCustomSlots] = useState<string[]>(['PL', 'PR']);
   const [noiseModelId, setNoiseModelId] = useState('iid');
+  const [dataPrior, setDataPrior] = useState<DataPrior | null>(null), [dataPriorSource, setDataPriorSource] = useState('');
   const settingsRef = useRef<HTMLDetailsElement>(null);
   useEffect(() => { if (settingsRef.current) settingsRef.current.open = window.matchMedia('(min-width: 64rem)').matches; }, [ready]);
   useEffect(() => {
@@ -49,6 +51,7 @@ export function useDesignController() {
           setRegions(r.region_count); setRadius(r.radius_mm); setChoiceId(key);
           setCustomSlots(r.mask_codes ? [...r.mask_codes] : []);
           setNoiseModelId(presetIdFor(r.noise_model));
+          setDataPrior((normalizeDataPrior(r.data_prior) as DataPrior | undefined) ?? null);
           if (!choicesFor(p, r.region_count).some((c) => c.id === key)) setExtraChoice({ id: key, label: r.mask_codes!.map((m) => MASKS[m] ?? m).join(' + '), mode: r.mode, maskCodes: r.mask_codes });
         } else { setEditing(false); setRegions(record.region_count); }
       }
@@ -64,6 +67,9 @@ export function useDesignController() {
         const noise = q.get('noise') ?? 'iid';
         if (!SEARCH_NOISE_PRESETS.some((preset) => preset.id === noise)) throw new Error('草稿噪声模型无效');
         setNoiseModelId(noise);
+        if (q.has('prior')) {
+          try { setDataPrior(parseDataPriorParam(q.get('prior')!)); } catch { throw new Error('草稿数据先验无效'); }
+        }
         setEditing(true); setDraft(true);
       }
       setReady(true);
@@ -80,8 +86,10 @@ export function useDesignController() {
   const request = useMemo<ComputeRequest | null>(() => {
     if (!choice) return null;
     const noise_model = searchNoise(noiseModelId);
-    return { region_count: regions, radius_mm: radius, mode: choice.mode, ...(choice.mode === 'preset' ? { mask_codes: choice.maskCodes } : {}), ...(noise_model ? { noise_model } : {}) };
-  }, [choice, regions, radius, noiseModelId]);
+    // A data prior carries its own noise and replaces the noise model.
+    return { region_count: regions, radius_mm: radius, mode: choice.mode, ...(choice.mode === 'preset' ? { mask_codes: choice.maskCodes } : {}),
+      ...(noise_model && !dataPrior ? { noise_model } : {}), ...(dataPrior ? { data_prior: dataPrior } : {}) };
+  }, [choice, regions, radius, noiseModelId, dataPrior]);
   const result = editing && request && computed && requestKey(computed.request) === requestKey(request) ? computed : null;
   const currentStatus = request && status && requestKey(status.request) === requestKey(request) ? status : null;
   const layout = editing ? result?.layout : source?.layout;
@@ -90,7 +98,7 @@ export function useDesignController() {
   const metrics = editing ? result?.metrics : source?.metrics;
   const here = useMemo(() => {
     const q = new URLSearchParams(routeParams);
-    for (const key of ['saved', 'from', 'draft', 'r', 'radius', 'mode', 'masks', 'noise', 'layoutRecord', 'layoutState', 'layoutChannels', 'layoutRegions']) q.delete(key);
+    for (const key of ['saved', 'from', 'draft', 'r', 'radius', 'mode', 'masks', 'noise', 'prior', 'layoutRecord', 'layoutState', 'layoutChannels', 'layoutRegions']) q.delete(key);
     q.set('ar', String(ar));
     if (originId) q.set(originKind, originId);
     if (draft) {
@@ -98,9 +106,10 @@ export function useDesignController() {
       if (choice?.maskCodes) q.set('masks', choice.maskCodes.join(','));
       else if (!choice && customSlots.some(Boolean)) q.set('masks', customSlots.join(','));
       if (noiseModelId !== 'iid') q.set('noise', noiseModelId);
+      if (dataPrior) q.set('prior', dataPriorParam(dataPrior));
     }
     return '/design?' + q.toString();
-  }, [ar, originId, originKind, draft, regions, radius, choice, customSlots, noiseModelId, routeParams]);
+  }, [ar, originId, originKind, draft, regions, radius, choice, customSlots, noiseModelId, dataPrior, routeParams]);
   useEffect(() => { if (ready) window.history.replaceState(null, '', here); }, [ready, here]);
   const changeRegions = (n: number) => {
     if (n === regions) return;
@@ -121,9 +130,12 @@ export function useDesignController() {
     if (!SEARCH_NOISE_PRESETS.some((preset) => preset.id === id)) return;
     setNoiseModelId(id); setDraft(true);
   };
+  const selectDataPrior = (value: DataPrior | null, from = '') => {
+    setDataPrior(value); setDataPriorSource(value ? from : ''); setDraft(true);
+  };
   const startRadius = () => {
     if (!source) return;
-    setRegions(source.region_count); setChoiceId(source.mode.includes('whole') ? 'whole_surface' : 'low_hair'); setRadius(35); setNoiseModelId('iid');
+    setRegions(source.region_count); setChoiceId(source.mode.includes('whole') ? 'whole_surface' : 'low_hair'); setRadius(35); setNoiseModelId('iid'); setDataPrior(null); setDataPriorSource('');
     setCustomSlots([]);
     setEditing(true); setDraft(true);
     setNotice('已新建每区半径约束方案：仅保留区域数和允许位置域，半径初始值为35 mm。区域中心、64点位置和指标由新配置重新计算。');
@@ -133,8 +145,9 @@ export function useDesignController() {
     currentStatus && ['queued', 'running', 'cancelling'].includes(currentStatus.status) ? '当前方案正在计算，完成后显示布局与指标。' :
     !choice ? '请先选择与区域数量兼容的位置组合。' : undefined;
   const comparison = comparisonLink(source, ar);
-  // Signal simulation and the electrode editor keep independent noise.
-  const correlatedNoise = Boolean(editing ? request?.noise_model : source?.request?.noise_model);
+  // Signal simulation and the electrode editor keep independent noise and the area prior.
+  const shown = editing ? request : source?.request;
+  const correlatedNoise = Boolean(shown?.noise_model || shown?.data_prior);
   const receptionId = layout && !correlatedNoise ? editing ? currentStatus?.status === 'completed' ? currentStatus.key : null : source?.id : null;
-  return { error, ready, ar, comparison, here, receptionId, correlatedNoise, count, source, notice, settingsRef, editing, radius, regions, choices, choice, customSlots, selectChoice, selectSlot, changeRegions, startRadius, setRadius, noiseModelId, selectNoiseModel, setDraft, setAR, request, originId, setComputed, setStatus, metrics, layout, geometry, pendingText, currentStatus };
+  return { error, ready, ar, comparison, here, receptionId, correlatedNoise, count, source, notice, settingsRef, editing, radius, regions, choices, choice, customSlots, selectChoice, selectSlot, changeRegions, startRadius, setRadius, noiseModelId, selectNoiseModel, dataPrior, dataPriorSource, selectDataPrior, setDraft, setAR, request, originId, setComputed, setStatus, metrics, layout, geometry, pendingText, currentStatus };
 }

@@ -8,7 +8,7 @@ import { spawn } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { dirname, join, resolve, sep } from 'node:path';
 import { InputIntegrity } from './local-input-integrity.mjs';
-import { normalizeConductivityScenario, normalizeHeadId, normalizeNoiseModel } from '../contracts/scientific-options.mjs';
+import { ROBUSTNESS_LEVELS, normalizeConductivityScenario, normalizeDataPrior, normalizeHeadId, normalizeNoiseModel, normalizeRobustness } from '../contracts/scientific-options.mjs';
 import { readFile, readdir, realpath, stat } from 'node:fs/promises';
 
 const hash = (value) =>
@@ -20,13 +20,15 @@ export function normalizeDesignRequest(x) {
     typeof x !== 'object' ||
     Array.isArray(x) ||
     !['action', 'design', 'radius_mm', 'seed'].every((key) => key in x) ||
-    Object.keys(x).some((key) => !['action', 'design', 'radius_mm', 'seed', 'noise_model', 'conductivity_scenario', 'head_id'].includes(key))
+    Object.keys(x).some((key) => !['action', 'design', 'radius_mm', 'seed', 'noise_model', 'conductivity_scenario', 'head_id', 'robustness', 'data_prior'].includes(key))
   )
     throw new Error('设计评价字段错误');
   // Optional model choices are kept only when non-default, so default requests keep their original cache keys.
   const noiseModel = normalizeNoiseModel(x.noise_model);
   const scenario = normalizeConductivityScenario(x.conductivity_scenario, x.action);
   const head = normalizeHeadId(x.head_id, x.action, scenario);
+  const robustness = normalizeRobustness(x.robustness, x.action, scenario, head);
+  const prior = normalizeDataPrior(x.data_prior, { noiseModel, head });
   const d = x.design;
   if (
     !d ||
@@ -91,6 +93,8 @@ export function normalizeDesignRequest(x) {
     ...(noiseModel ? { noise_model: noiseModel } : {}),
     ...(scenario ? { conductivity_scenario: scenario } : {}),
     ...(head ? { head_id: head } : {}),
+    ...(robustness ? { robustness } : {}),
+    ...(prior ? { data_prior: prior } : {}),
   };
 }
 export function validateDesignResult(r, request, admission) {
@@ -223,6 +227,31 @@ export function validateDesignResult(r, request, admission) {
     )
       throw new Error('几何失败不能携带评分');
   }
+  if (request.robustness ? !validRobustness(r.robustness) : r.robustness !== undefined) throw new Error('稳健性结果无效');
+}
+
+const score = value => Number.isFinite(value) && value >= 0 && value <= 2;
+const summary = (value, count) => value !== null && typeof value === 'object' && ['median', 'p10', 'minimum'].every(key => score(value[key])) &&
+  value.minimum <= value.p10 + 1e-12 && value.p10 <= value.median + 1e-12 && Number.isInteger(value.count) && value.count >= 1 && value.count <= count;
+/** Structure and ranges of the robustness block; the numbers themselves come from the worker. */
+export function validRobustness(b) {
+  if (!b || b.protocol !== 'standard/1' || b.snr_db !== 20 || !b.dropout || !Array.isArray(b.dropout.single?.candidate) ||
+      b.dropout.single.candidate.length !== 64 || !b.dropout.single.candidate.every(score) || !summary(b.dropout.single.reference, 64)) return false;
+  const levels = (list, key, values, count) => Array.isArray(list) && list.length === values.length &&
+    list.every((level, i) => level[key] === values[i] && level.draws === count && summary(level.candidate, count) && summary(level.reference, count));
+  if (!levels(b.dropout.random, 'removed', ROBUSTNESS_LEVELS.dropout, 32) || !levels(b.impedance, 'log_sd', ROBUSTNESS_LEVELS.impedance, 32)) return false;
+  const p = b.replacement;
+  if (p?.status === 'unavailable') return typeof p.reason === 'string' && Object.keys(p).length === 2;
+  if (p?.status !== 'completed' || !Array.isArray(p.centre_mm) || p.centre_mm.length !== 3 || !p.centre_mm.every(Number.isFinite) ||
+      p.jitter_mm !== 2 || typeof p.table_id !== 'string' || !Array.isArray(p.levels) || p.levels.length !== ROBUSTNESS_LEVELS.replacement.length) return false;
+  return p.levels.every((level, i) => level.rms_mm === ROBUSTNESS_LEVELS.replacement[i] && level.trials === 16 && Number.isFinite(level.rotation_deg) &&
+    ['candidate', 'reference'].every(name => {
+      const o = level[name];
+      if (!o || !Number.isInteger(o.completed) || !Number.isInteger(o.rejected) || o.completed + o.rejected !== 16) return false;
+      return o.completed === 0
+        ? o.fixed_estimator === null && o.redigitized === null && o.displacement_rms_mm === null
+        : summary(o.fixed_estimator, 16) && summary(o.redigitized, 16) && o.fixed_estimator.count === o.completed && Number.isFinite(o.displacement_rms_mm);
+    }));
 }
 export class DesignEvaluationService {
   constructor(
