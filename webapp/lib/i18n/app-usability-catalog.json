@@ -134,5 +134,121 @@
   "ui_details_area_note": {
     "source": "总面积上限约束实验 · 只读，不触发计算",
     "en": "Total-area-cap experiment · Read-only, no calculation"
+  },
+  "ui2_file_choose": {
+    "source": "选择文件",
+    "en": "Choose file"
+  },
+  "ui2_file_choose_multiple": {
+    "source": "选择文件（可多选）",
+    "en": "Choose files"
+  },
+  "ui2_file_none": {
+    "source": "未选择文件",
+    "en": "No file chosen"
+  },
+  "ui2_threshold_joint": {
+    "source": "三项最低保留要求",
+    "en": "Minimum retention for all three"
+  },
+  "ui2_threshold_field": {
+    "source": "场重建保留率下限",
+    "en": "Minimum field reconstruction retention"
+  },
+  "ui2_more_filters": {
+    "source": "更多筛选与排序",
+    "en": "More filters and sorting"
+  },
+  "ui2_multi_condition": {
+    "source": "多条件评价",
+    "en": "Evaluated under several conditions"
+  },
+  "ui2_condition_count": {
+    "source": "共{{0}}种条件",
+    "en": "{{0}} conditions"
+  },
+  "ui2_conductivity": {
+    "source": "电导率",
+    "en": "Conductivity"
+  },
+  "ui2_latest": {
+    "source": "最近一次",
+    "en": "Latest"
+  },
+  "ui2_median_range": {
+    "source": "中位数 · 范围 {{0}}–{{1}}",
+    "en": "Median · range {{0}}–{{1}}"
+  },
+  "ui2_conditions_pass": {
+    "source": "{{0}}/{{1}}种条件达到要求",
+    "en": "{{0}}/{{1}} conditions meet the requirement"
+  },
+  "ui2_collapse": {
+    "source": "收起",
+    "en": "Collapse"
+  },
+  "ui2_expand_all": {
+    "source": "展开全部{{0}}条",
+    "en": "Show all {{0}}"
+  },
+  "ui2_requirement_short": {
+    "source": "要求 {{0}}%",
+    "en": "Required {{0}}%"
+  },
+  "ui2_requirement_column": {
+    "source": "最低保留要求 {{0}}%",
+    "en": "Minimum retention {{0}}%"
+  },
+  "ui2_percentage_points": {
+    "source": "个百分点",
+    "en": "pp"
+  },
+  "ui2_b_better": {
+    "source": "（B更好）",
+    "en": "(B is better)"
+  },
+  "ui2_b_worse": {
+    "source": "（B更差）",
+    "en": "(B is worse)"
+  },
+  "ui2_difference": {
+    "source": "差值（B − A）",
+    "en": "Difference (B − A)"
+  },
+  "ui2_cancel": {
+    "source": "取消",
+    "en": "Cancel"
+  },
+  "ui2_switch_layout": {
+    "source": "切换布局",
+    "en": "Switch layout"
+  },
+  "ui2_discard_and_switch": {
+    "source": "放弃编辑并切换",
+    "en": "Discard edits and switch"
+  },
+  "ui2_reception_step1": {
+    "source": "1 · 选择实验源模式",
+    "en": "1 · Choose the source mode"
+  },
+  "ui2_reception_step2": {
+    "source": "2 · 选择布局与信号条件",
+    "en": "2 · Choose the layout and signal conditions"
+  },
+  "ui2_reception_layout": {
+    "source": "选择已计算布局（64电极）",
+    "en": "Choose a computed layout (64 electrodes)"
+  },
+  "ui2_reception_source": {
+    "source": "模拟脑源位置",
+    "en": "Simulated source location"
+  },
+  "ui2_robustness_lead": {
+    "source": "可复现的重复评估：按明确的种子与偏移参数重复原评价协议，逐项保存请求、结果及失败原因。",
+    "en": "Reproducible repeated evaluation: repeat the original protocol with explicit seeds and offsets, saving each request, result and failure reason."
+  },
+  "ui2_not_met": {
+    "source": "未达到：{{0}}",
+    "en": "Not met: {{0}}"
   }
 }

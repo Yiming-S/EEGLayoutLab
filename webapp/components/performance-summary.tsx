@@ -24,11 +24,11 @@ export function PerformanceSummary({ metrics, ar, basis, returnHref, compact = f
         return <div key={item.key} className={`rounded-xl border bg-background/70 ${compact ? 'p-3' : 'p-4'}`}>
           <div className="flex flex-wrap items-start justify-between gap-2">
             <h3 className="text-sm font-semibold">{tx(item.label)}</h3>
-            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${pass ? 'bg-primary/10 text-primary' : valid ? 'bg-amber-50 text-amber-800' : 'bg-secondary text-muted-foreground'}`}>{tx(!valid ? '无法判断' : pass ? '达标' : '未达标')}</span>
+            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${pass ? 'bg-primary/10 text-primary' : valid ? 'bg-warning-surface text-warning' : 'bg-secondary text-muted-foreground'}`}>{tx(!valid ? '无法判断' : pass ? '达标' : '未达标')}</span>
           </div>
           <p className={compact ? 'mt-1 text-xs leading-5 text-muted-foreground' : 'mt-2 text-sm leading-6 text-muted-foreground'}>{tx(item.question)}</p>
           <p className={`${compact ? 'mt-1 text-2xl' : 'mt-3 text-3xl'} break-words font-mono font-semibold tracking-tight tabular-nums`}>{tx(percent(item.value))}</p>
-          <p className={`mt-1 ${compact ? 'text-xs' : 'text-sm'} font-medium ${pass ? 'text-primary' : valid ? 'text-amber-800' : 'text-muted-foreground'}`}>{tx(marginText(item))}</p>
+          <p className={`mt-1 ${compact ? 'text-xs' : 'text-sm'} font-medium ${pass ? 'text-primary' : valid ? 'text-warning' : 'text-muted-foreground'}`}>{tx(marginText(item))}</p>
         </div>;
       })}</div>
       <dl className={`${compact ? 'mt-3 space-y-2 pt-3 text-xs' : 'mt-6 space-y-3 pt-4 text-sm'} border-t`}>

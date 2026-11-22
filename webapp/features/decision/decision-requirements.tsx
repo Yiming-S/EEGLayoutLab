@@ -1,6 +1,7 @@
 'use client';
 
 import { useLanguage } from '@/components/language-provider';
+import { ThresholdSlider } from '@/components/threshold-slider';
 import {
   decisionCriteriaSummary,
   decisionThresholdMode,
@@ -34,21 +35,12 @@ export function DecisionRequirements({
             <option value="custom">{tx('自定义各项要求')}</option>
           </select>
         </label>
-        <label className="lab-label">
-          {tx(joint ? '三项最低保留要求（%）' : '场重建保留率下限（%）')}
-          <input
-            className="lab-select mt-2"
-            type="number"
-            min={joint ? 10 : 1}
-            max={100}
-            value={thresholds.field}
-            onChange={(e) => {
-              const field = Number(e.target.value);
-              if (Number.isInteger(field) && field >= (joint ? 10 : 1) && field <= 100)
-                onChange(joint ? jointDecisionThresholds(field) : { ...thresholds, field });
-            }}
-          />
-        </label>
+        <ThresholdSlider
+          label={joint ? '三项最低保留要求' : '场重建保留率下限'}
+          min={joint ? 10 : 1}
+          value={thresholds.field}
+          onChange={(field) => onChange(joint ? jointDecisionThresholds(field) : { ...thresholds, field })}
+        />
       </div>
       {!joint && (
         <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

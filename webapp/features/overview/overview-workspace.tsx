@@ -8,7 +8,10 @@ import { useOverviewController } from './use-overview-controller';
 import { LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ReferenceLine, ResponsiveContainer, Dot } from 'recharts';
 import { SiteHeader } from '@/components/site-header';
 import { SavedLayoutDetails } from '@/components/saved-layout-details';
-import { percent } from '@/components/performance-summary';
+import { OutcomeBadge, RetentionBar } from '@/components/retention-bar';
+import { ThresholdSlider } from '@/components/threshold-slider';
+import { stackedAction, stackedBody, stackedCell, stackedHead, stackedRow, stackedTitle } from '@/lib/responsive-table';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Sheet } from '@/components/ui/sheet';
 import { HomePlacementOptions, PlacementDesignPresets } from '@/components/placement-options';
@@ -30,58 +33,71 @@ function GettingStarted({ ar }: { ar: number }) {
   </nav>;
 }
 
-const colors = ['#0d8178', '#c08030', '#7b6fc2', '#bc577c', '#416ca0'];
+const colors = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)'];
 export default function OverviewWorkspace() {
   const { tx } = useLanguage();
   const [detailsOpen, setDetailsOpen] = useState(false);
   const { data, domain, setDomain, area, setArea, r, setR, ar, setAR, metric, setMetric, error, setRetry, rows, selected, curve, inspect, here } = useOverviewController();
   const openDetails = (count: number) => { inspect(count); setDetailsOpen(true); };
+  // The y axis starts just below the lowest point or the requirement, so small differences stay visible.
+  const plotted = curve.flatMap(point => REGION_COUNTS.flatMap(n => { const value = point[`r${n}`]; return value != null && Number.isFinite(value) ? [value] : []; }));
+  const lowest = plotted.reduce((low, value) => value < low ? value : low, ar);
+  const highest = plotted.reduce((high, value) => value > high ? value : high, 100);
+  const yMin = Math.max(0, Math.floor((lowest - 5) / 10) * 10), yMax = Math.ceil(highest / 10) * 10;
+  // Region counts with the same conclusion share one card.
+  const conclusions = (records: Parameters<typeof areaConclusion>[0]) => {
+    const groups = new Map<string, number[]>();
+    for (const n of REGION_COUNTS) { const text = areaConclusion(records, domain, n, ar); groups.set(text, [...(groups.get(text) ?? []), n]); }
+    return [...groups].map(([text, counts]) => ({ text, counts }));
+  };
   return <main className="lab-page">
     <SiteHeader current="compare" arPercent={ar} labHref={here} returnHref={here} selection={{ id: selected?.id ?? null, phase: "saved" }} />
     <div className="lab-container">
-      <header className="flex flex-wrap items-center justify-between gap-3 py-5"><div><h1 className="text-2xl font-semibold tracking-tight">{tx("实验总览")}</h1><p className="mt-1 text-base text-muted-foreground">{tx('64个电极，集中布置后还能保留多少信号？')}</p></div><a href="#create-layout" className="rounded-lg border bg-white px-4 py-2 text-sm font-medium text-primary">{tx('按部位创建布局 ↓')}</a></header>
+      <header className="flex flex-wrap items-center justify-between gap-3 py-5"><div><h1 className="text-2xl font-semibold tracking-tight">{tx("实验总览")}</h1><p className="mt-1 text-base text-muted-foreground">{tx('64个电极，集中布置后还能保留多少信号？')}</p></div><a href="#create-layout" className="rounded-lg border bg-card px-4 py-2 text-sm font-medium text-primary">{tx('按部位创建布局 ↓')}</a></header>
       <GettingStarted ar={ar} />
 
       <HomePlacementOptions domain={domain} setDomain={setDomain}>
       <div className="grid items-start gap-4 border-t pt-4 md:grid-cols-[1fr_1fr_1.3fr]">
         <label className="lab-label">{tx("区域表面总面积上限")}<select className="lab-select" value={area} onChange={(e) => setArea(Number(e.target.value))}>{tx(AREA_CAPS.map((n) => <option key={n} value={n}>{tx(n)} {tx(" cm² · 各区域合计面积")}</option>))}</select></label>
         <fieldset><legend className="mb-2 text-sm font-semibold">{tx('查看几个区域的布局？')}</legend><div className="flex flex-wrap gap-1.5">{REGION_COUNTS.map(count => <Button key={count} size="sm" variant={r === count ? 'default' : 'outline'} aria-pressed={r === count} onClick={() => setR(count)}>{tx(`${count}区`)}</Button>)}</div></fieldset>
-        <label className="lab-label">{tx("接受阈值 AR · ")}{tx(ar)}%<input className="mt-4 w-full accent-primary" aria-label={tx("比较接受阈值AR")} type="range" min={10} max={100} step={1} value={ar} onChange={(e) => setAR(Number(e.target.value))} /><span className="mt-1 block text-xs font-normal text-muted-foreground">{tx("要求三项相对指标分别达到此阈值。")}</span></label>
+        <ThresholdSlider value={ar} onChange={setAR} ariaLabel="比较接受阈值AR" hint="要求三项相对指标分别达到此阈值。" />
       </div>
       <p className="text-xs leading-5 text-muted-foreground">{tx('切换以上条件只读取已有结果。单Ernie头模 · 标准64导名义SNR 20 dB。')}</p>
       </HomePlacementOptions>
       {tx(error && <div role="alert" className="lab-panel mb-4"><p><RuntimeMessage message={error} /></p><Button variant="outline" className="mt-3" onClick={() => setRetry((n) => n + 1)}>{tx("重新读取")}</Button></div>)}
-      {tx(data?.warnings.length ? <details className="mb-4 text-sm text-amber-800"><summary>{tx("部分数据未载入")}</summary>{tx(data.warnings.map((w) => <p key={w}>{tx(w)}</p>))}</details> : null)}
+      {tx(data?.warnings.length ? <details className="mb-4 text-sm text-warning"><summary>{tx("部分数据未载入")}</summary>{tx(data.warnings.map((w) => <p key={w}>{tx(w)}</p>))}</details> : null)}
       {tx(!data && !error ? <p className="lab-panel">{tx("正在读取已有比较，不运行仿真…")}</p> : data && <>
         <Sheet open={detailsOpen && !!selected} onOpenChange={setDetailsOpen} closeLabel={tx('关闭方案详情')}
           title={tx('方案详情')} description={tx('总面积上限约束实验 · 只读，不触发计算')}>
           {selected && <SavedLayoutDetails key={selected.id} summary={selected} ar={ar} returnHref={here} compact />}
         </Sheet>
-        <section id="area-comparison" className="lab-panel relative scroll-mt-[calc(var(--workspace-header-height,160px)+16px)] overflow-x-auto" aria-label={tx("五种区域数量统一比较")}>
+        <section id="area-comparison" className="lab-panel relative scroll-mt-[calc(var(--workspace-header-height,160px)+16px)] md:overflow-x-auto" aria-label={tx("五种区域数量统一比较")}>
           <h2 className="mb-4 text-lg font-semibold">{tx('相同面积上限下，几个区域更合适？')}</h2>
-          <table className="w-full min-w-[820px] text-left text-sm"><thead><tr className="border-b text-muted-foreground"><th className="pb-3">{tx("区域数 / 各区电极数")}</th><th>{tx("实际区域总面积")}</th>{tx(METRICS.map((m) => <th key={m.key}>{tx(m.label)}</th>))}<th>{tx("最低保留要求 ")}{tx(ar)}%</th><th><span className="sr-only">{tx("操作")}</span></th></tr></thead><tbody>
+          <table className="w-full text-left text-sm md:min-w-[820px]"><thead className={stackedHead}><tr className="border-b text-muted-foreground"><th className="pb-3">{tx("区域数 / 各区电极数")}</th><th>{tx("实际区域总面积")}</th>{tx(METRICS.map((m) => <th key={m.key}>{tx(m.label)}</th>))}<th>{tx("最低保留要求 ")}{tx(ar)}%</th><th><span className="sr-only">{tx("操作")}</span></th></tr></thead><tbody className={stackedBody}>
             {tx(rows.map((row, i) => { const count = REGION_COUNTS[i], a = assessment(row?.metrics, ar), shortfall = row?.geometry && row.geometry.union_area_cm2 < area * .99;
-              return <tr key={count} className={`border-b last:border-0 ${r === count ? 'bg-primary/5' : ''}`}>
-                <th className="py-4 font-semibold">{tx(count)}{tx("个区域")}<span className="mt-1 block font-mono text-xs font-normal text-muted-foreground">{tx(Array.from({ length: count }, (_, j) => Math.floor(64 / count) + Number(j < 64 % count)).join(' + '))}</span></th>
-                <td>{tx(row?.geometry ? `${row.geometry.union_area_cm2.toFixed(1)} cm²` : '未记录')}{tx(shortfall && <span className="block text-xs text-amber-800">{tx("未用满面积预算")}</span>)}</td>
-                {tx(METRICS.map((m) => { const value = row?.metrics?.[m.key], valid = value != null && Number.isFinite(value); return <td className="font-mono" key={m.key}>{tx(percent(value))}{valid && <span className={`mt-1 block font-sans text-xs ${value >= ar / 100 ? 'text-primary' : 'text-muted-foreground'}`}>{tx(value >= ar / 100 ? '达标' : '未达标')}</span>}</td>; }))}
-                <td className={a.state === 'pass' ? 'font-medium text-primary' : 'text-muted-foreground'}>{tx(!row ? '暂无数据' : a.state === 'pass' ? '三项达标' : a.state === 'undefined' ? '无法判断' : `${METRICS.filter(m => row.metrics?.[m.key] != null && row.metrics[m.key]! >= ar / 100).length}/3项达标`)}{row && a.state === 'fail' && <span className="mt-1 block text-xs">{tx('联合要求未通过')}</span>}</td>
-                <td><Button size="sm" variant={r === count ? 'default' : 'outline'} disabled={!row} onClick={() => openDetails(count)}>{tx("查看布局与指标")}</Button></td>
+              return <tr key={count} className={cn('border-b last:border-0', stackedRow, r === count && 'bg-primary/5')}>
+                <th className={cn('font-semibold md:py-4', stackedTitle)}>{tx(count)}{tx("个区域")}<span className="mt-1 block font-mono text-xs font-normal text-muted-foreground">{tx(Array.from({ length: count }, (_, j) => Math.floor(64 / count) + Number(j < 64 % count)).join(' + '))}</span></th>
+                <td data-label={tx('实际区域总面积')} className={stackedCell}><span>{tx(row?.geometry ? `${row.geometry.union_area_cm2.toFixed(1)} cm²` : '未记录')}{tx(shortfall && <span className="block text-xs text-warning">{tx("未用满面积预算")}</span>)}</span></td>
+                {tx(METRICS.map((m) => <td data-label={tx(m.label)} className={stackedCell} key={m.key}><RetentionBar value={row?.metrics?.[m.key]} threshold={ar / 100} showBadge /></td>))}
+                <td data-label={tx(`最低保留要求 ${ar}%`)} className={stackedCell}>{!row ? <span className="text-muted-foreground">{tx('暂无数据')}</span> : <span><OutcomeBadge outcome={a.state as 'pass' | 'fail' | 'undefined'} className="text-sm">{tx(a.state === 'pass' ? '三项达标' : a.state === 'undefined' ? '无法判断' : `${METRICS.filter(m => row.metrics?.[m.key] != null && row.metrics[m.key]! >= ar / 100).length}/3项达标`)}</OutcomeBadge>{a.state === 'fail' && <span className="mt-1 block text-xs text-muted-foreground">{tx('联合要求未通过')}</span>}</span>}</td>
+                <td className={stackedAction}><Button size="sm" variant={r === count ? 'default' : 'outline'} className="max-md:w-full" disabled={!row} onClick={() => openDetails(count)}>{tx("查看布局与指标")}</Button></td>
               </tr>;
             }))}
-            <tr className="border-t bg-secondary/40"><th className="py-3">{tx("标准全头64导")}</th><td>{tx("全头分布")}</td><td>100%</td><td>100%</td><td>100%</td><td colSpan={2}>{tx("同协议归一化基准")}</td></tr>
+            <tr className={cn('border-t bg-secondary/40', stackedRow)}><th className={cn('md:py-3', stackedTitle)}>{tx("标准全头64导")}</th><td data-label={tx('实际区域总面积')} className={stackedCell}>{tx("全头分布")}</td>{tx(METRICS.map((m) => <td key={m.key} data-label={tx(m.label)} className={cn(stackedCell, 'font-mono')}>100%</td>))}<td colSpan={2} className={cn(stackedCell, 'max-md:before:content-none text-muted-foreground')}>{tx("同协议归一化基准")}</td></tr>
           </tbody></table>
           <p className="mt-3 text-xs leading-5 text-muted-foreground">{tx("各布局的实际面积可低于相同上限，表中已标记。三项指标分别评价重建、幅度和定位，各行采用同一预设优化目标。采用4,096点定位字典和256个生成源；半径约束实验另列。")}</p>
         </section>
         <section className="lab-panel mt-6">
           <div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-lg font-semibold">{tx("扩大总面积后，性能怎样变化？")}</h2><p className="mt-2 text-sm text-muted-foreground">{tx("仅连接已测的60、120、180 cm²条件。点击曲线上的已计算点查看对应方案。")}</p></div>
             <label className="lab-label">{tx("曲线指标")}<select value={metric} onChange={(e) => setMetric(e.target.value as typeof metric)} className="lab-select">{tx(METRICS.map((m) => <option value={m.key} key={m.key}>{tx(m.label)}</option>))}</select></label></div>
-          <div className="mt-5 h-[300px]"><ResponsiveContainer width="100%" height={300}><LineChart data={curve} margin={{ top: 12, right: 20, left: 4, bottom: 8 }}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="area" unit=" cm²" /><YAxis unit="%" domain={[0, 'auto']} /><Tooltip formatter={(v) => tx(v == null ? '未定义' : `${Number(v).toFixed(2)}%`)} labelFormatter={(v) => tx(`总面积上限 ${v} cm²`)} /><Legend /><ReferenceLine y={ar} stroke="#aa792a" strokeDasharray="4 4" label={tx(`AR ${ar}%`)} /><ReferenceLine y={100} stroke="#73878a" strokeDasharray="2 3" />
+          <div className="mt-5 h-[300px]"><ResponsiveContainer width="100%" height={300}><LineChart data={curve} margin={{ top: 12, right: 76, left: 4, bottom: 8 }}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="area" unit=" cm²" /><YAxis unit="%" domain={[yMin, yMax]} allowDecimals={false} /><Tooltip formatter={(v) => tx(v == null ? '未定义' : `${Number(v).toFixed(2)}%`)} labelFormatter={(v) => tx(`总面积上限 ${v} cm²`)} /><Legend /><ReferenceLine y={ar} stroke="var(--chart-threshold)" strokeDasharray="4 4" ifOverflow="extendDomain" label={{ value: tx(`要求 ${ar}%`), position: 'right', fill: 'var(--chart-threshold)', fontSize: 12 }} /><ReferenceLine y={100} stroke="var(--chart-reference)" strokeDasharray="2 3" ifOverflow="extendDomain" label={{ value: tx('标准64导'), position: 'right', fill: 'var(--chart-reference)', fontSize: 12 }} />
             {tx(REGION_COUNTS.map((n, i) => <Line key={n} name={tx(`${n}区`)} dataKey={`r${n}`} stroke={colors[i]} strokeWidth={2} connectNulls={false} isAnimationActive={false} dot={{ r: 4 }} activeDot={(point) => <Dot {...point} r={7} style={{ cursor: 'pointer' }} onClick={() => { const a = (point.payload as { area?: number })?.area; if (a && AREA_CAPS.includes(a)) { setArea(a); openDetails(n); } }} />} />))}
           </LineChart></ResponsiveContainer></div>
           <p className="mt-3 text-sm text-muted-foreground">{tx('曲线阈值线对应当前所选指标；下方结论要求三项指标均达到最低保留要求。')}</p>
           <h3 className="mt-5 text-base font-semibold">{tx('三项联合达标情况')}</h3>
-          <div className="mt-3 grid gap-3 sm:grid-cols-5">{tx(REGION_COUNTS.map((n) => <div key={n} className="rounded-lg bg-secondary/60 p-3 text-sm"><span className="font-semibold">{tx(n)}{tx("区")}</span><p className="mt-1">{tx(areaConclusion(data.records, domain, n, ar))}</p></div>))}</div>
+          <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{conclusions(data.records).map(({ text, counts }) => <li key={text} className={cn('flex items-start gap-3 rounded-lg border p-3 text-sm', text.startsWith('首个达标') ? 'border-success/30 bg-success-surface' : text === '已测范围内未达标' ? 'border-warning/30 bg-warning-surface' : 'bg-secondary/60')}>
+            <span className="flex shrink-0 flex-wrap gap-1">{counts.map(n => <span key={n} className="rounded-md bg-card px-1.5 py-0.5 text-xs font-semibold tabular-nums">{tx(`${n}区`)}</span>)}</span>
+            <span className={cn('font-medium', text.startsWith('首个达标') ? 'text-success' : text === '已测范围内未达标' ? 'text-warning' : '')}>{tx(text)}</span></li>)}</ul>
           <p className="mt-3 text-xs text-muted-foreground">{tx("“首个达标”指三个已计算面积档位中达到AR的最小上限。当前结果采用单Ernie头模，独立头模验证另列阶段。")}</p>
         </section>
       </>)}

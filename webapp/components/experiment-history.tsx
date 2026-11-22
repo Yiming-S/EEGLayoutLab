@@ -92,7 +92,7 @@ export function ExperimentHistory({ recordId }: { recordId: string }) {
           {tx("导出完整实验包")}</Button>
       </div>
       {tx(error ? (
-        <p role="alert" className="mt-3 text-sm text-red-800">
+        <p role="alert" className="mt-3 text-sm text-danger">
           <RuntimeMessage message={error} />
         </p>
       ) : !b ? (

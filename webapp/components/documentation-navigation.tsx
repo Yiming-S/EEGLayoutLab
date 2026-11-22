@@ -27,7 +27,7 @@ export function DocumentationNavigation({ current }: { current: DocumentationPag
       ['guide', '使用指南', '按操作顺序：查看、设计、编辑、仿真、保存。'],
       ['method', '建模与原理', '按计算顺序：脑源、传播、接收、重建、评价。'],
     ] as const).map(([target, title, body]) => <DocumentationLink key={target} target={target} current={current === target}
-      className={'rounded-xl border p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ' + (current === target ? 'border-primary bg-white' : 'border-[#d7e2df] hover:bg-white/70')}>
+      className={'rounded-xl border p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ' + (current === target ? 'border-primary bg-white' : 'border-border hover:bg-white/70')}>
       <span className="block text-base font-semibold text-primary">{tx(title)}</span>
       <span className="mt-1 block text-sm leading-6 text-muted-foreground">{tx(body)}</span>
     </DocumentationLink>)}

@@ -18,6 +18,15 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
+  --color-success: var(--success);
+  --color-success-surface: var(--success-surface);
+  --color-warning: var(--warning);
+  --color-warning-surface: var(--warning-surface);
+  --color-danger: var(--danger);
+  --color-danger-surface: var(--danger-surface);
+  --color-ink-soft: var(--ink-soft);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
@@ -73,11 +82,26 @@ body {
   --border: oklch(0.89 0.012 170);
   --input: oklch(0.89 0.012 170);
   --ring: oklch(0.59 0.09 178);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  /* Outcome colours: pass, shortfall and errors. Text tokens meet 4.5:1 on white and on their surface. */
+  --success: oklch(0.47 0.1 172);
+  --success-surface: oklch(0.96 0.03 172);
+  --warning: oklch(0.5 0.11 62);
+  --warning-surface: oklch(0.97 0.035 85);
+  --danger: oklch(0.5 0.17 27);
+  --danger-surface: oklch(0.97 0.02 27);
+  /* Deep teal of the logo, selected primary tabs and the 3D stage. */
+  --brand: #102f3a;
+  --brand-foreground: #78dfcc;
+  /* Secondary body text on light panels (was #60757b and its neighbours). */
+  --ink-soft: oklch(0.52 0.022 210);
+  /* Series colours for region-count charts, distinguishable in hue and lightness. */
+  --chart-1: #0d8178;
+  --chart-2: #c08030;
+  --chart-3: #7b6fc2;
+  --chart-4: #bc577c;
+  --chart-5: #416ca0;
+  --chart-threshold: #aa792a;
+  --chart-reference: #73878a;
   --radius: 0.625rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
@@ -108,11 +132,22 @@ body {
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --success: oklch(0.75 0.12 172);
+  --success-surface: oklch(0.3 0.05 172);
+  --warning: oklch(0.8 0.12 75);
+  --warning-surface: oklch(0.3 0.05 75);
+  --danger: oklch(0.75 0.15 27);
+  --danger-surface: oklch(0.3 0.06 27);
+  --ink-soft: oklch(0.75 0.02 210);
+  --brand: #0b202a;
+  --brand-foreground: #78dfcc;
+  --chart-1: #4fc3b4;
+  --chart-2: #e0a75a;
+  --chart-3: #a99ff0;
+  --chart-4: #e88aad;
+  --chart-5: #7fa6d8;
+  --chart-threshold: #e0a75a;
+  --chart-reference: #9fb1b4;
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);
@@ -142,9 +177,9 @@ body {
   .lab-container { @apply mx-auto max-w-[1500px] px-4 pb-8 sm:px-6 lg:px-8; }
   .lab-panel { @apply rounded-xl border border-border bg-card p-5; }
   .lab-label { @apply block text-sm font-medium; }
-  .lab-select { @apply mt-2 h-11 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/15; }
+  .lab-select { @apply mt-2 h-11 w-full rounded-lg border border-input bg-card px-3 text-sm font-normal outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground; }
   /* Text fields and text areas; same frame as .lab-select but free height. */
-  .lab-input { @apply mt-2 block min-h-11 w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm font-normal outline-none focus:border-primary focus:ring-2 focus:ring-primary/15; }
+  .lab-input { @apply mt-2 block min-h-11 w-full rounded-lg border border-input bg-card px-3 py-2.5 text-sm font-normal outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground; }
   .lab-eyebrow { @apply text-xs font-semibold tracking-wide text-primary; }
   .brain-stage {
     background:
@@ -193,31 +228,31 @@ body {
   }
 
   .section-kicker {
-    @apply flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.15em] text-[#168172];
+    @apply flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.15em] text-primary;
   }
 
   .method-title {
-    @apply mt-2 text-2xl font-semibold tracking-[-0.025em] text-[#102a34] sm:text-3xl;
+    @apply mt-2 text-2xl font-semibold tracking-[-0.025em] text-foreground sm:text-3xl;
   }
 
   .method-lead {
-    @apply mt-4 text-base leading-7 text-[#526970];
+    @apply mt-4 text-base leading-7 text-ink-soft;
   }
 
   .method-copy {
-    @apply text-sm leading-7 text-[#5d7278];
+    @apply text-sm leading-7 text-ink-soft;
   }
 
   .method-panel {
-    @apply rounded-2xl border border-[#d8e2df] bg-white p-5;
+    @apply rounded-2xl border border-border bg-card p-5;
   }
 
   .method-panel h3 {
-    @apply font-semibold text-[#183640];
+    @apply font-semibold text-foreground;
   }
 
   .method-panel p {
-    @apply mt-2 text-sm leading-7 text-[#61757b];
+    @apply mt-2 text-sm leading-7 text-ink-soft;
   }
 }
 

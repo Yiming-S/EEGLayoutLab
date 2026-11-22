@@ -59,6 +59,6 @@ export function CatalogExperimentDetails({ entry, parents, ar, returnHref, onVis
       {entry.receipt.catalog?.conditions?.length ? <div className="overflow-x-auto"><table className="w-full min-w-[520px] text-left text-sm"><thead><tr className="border-b"><th className="pb-2">{tx('干扰条件')}</th><th>{tx('标准布局重建解释率')}</th><th>{tx('当前布局重建解释率')}</th><th>{tx('信号重建保留率')}</th></tr></thead><tbody>{entry.receipt.catalog.conditions.map(condition => <tr className="border-b last:border-0" key={condition.condition}><th className="py-2 font-normal">{tx(CONDITION_LABELS[condition.condition])}</th><td>{tx(percent(condition.baseline_explained_energy))}</td><td>{tx(percent(condition.candidate_explained_energy))}</td><td>{tx(percent(condition.field_retention))}</td></tr>)}</tbody></table></div> : <p className="text-sm text-muted-foreground">{tx('这条旧任务未保存指标摘要，查看或下载结果时读取完整记录。')}</p>}
       <details className="text-sm"><summary className="cursor-pointer">{tx('查看场景参数')}</summary><pre className="mt-3 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-muted p-3">{JSON.stringify(entry.request, null, 2)}</pre></details>
     </>}
-    {failure && <p role="alert" className="text-sm text-red-700"><RuntimeMessage message={failure} /></p>}
+    {failure && <p role="alert" className="text-sm text-danger"><RuntimeMessage message={failure} /></p>}
   </article>;
 }

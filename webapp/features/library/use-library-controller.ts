@@ -7,10 +7,10 @@ import { preserveResultsContext } from '@/lib/results-library';
 import { comparisonLink, parseAR, radiusDesignLink } from '@/lib/lab-workflow';
 import type { LocalLibrary } from '@/lib/local-library';
 import type { EditorRecord } from '@/lib/electrode-editor';
-import { protocolName } from '@/lib/ui-language';
+import { protocolName, recordConditionLabels } from '@/lib/ui-language';
 import { SOURCE_REGIONS } from '@/lib/source-regions';
-import { buildRecordCatalog, catalogViewLink, matchesCatalogFilters, parseCatalogView, locationName,
-  type CatalogEntry, type CatalogView, type ExperimentReceipt } from '@/lib/records-catalog';
+import { buildRecordCatalog, catalogViewLink, groupConditionVariants, latestPerCondition, matchesCatalogFilters, parseCatalogView, locationName,
+  type CatalogEntry, type CatalogRow, type CatalogView, type ExperimentReceipt } from '@/lib/records-catalog';
 
 const initialView = parseCatalogView(new URLSearchParams());
 
@@ -73,6 +73,9 @@ export function useLibraryController() {
       : tx(SOURCE_REGIONS.find(region => region.id === entry.request.brain_region)?.label ?? entry.request.brain_region ?? '历史源定义');
     return `${tx('信号实验')} · ${source} · ${tx(entry.request.waveform === 'burst' ? '短时爆发' : '持续节律')}`;
   }, [locale, tx, data]);
+  /** A study group is named by its design; each member by its own evaluation condition. */
+  const groupTitle = (entry: CatalogEntry) => 'summary' in entry ? localizedRecordTitle({ ...entry.summary, evaluation_condition: undefined }, locale) : title(entry);
+  const conditionTitle = (entry: CatalogEntry) => 'summary' in entry ? recordConditionLabels(entry.summary).map(label => tx(label)).join(' · ') : title(entry);
   const matched = useMemo(() => catalog.filter(entry => {
     if (!matchesCatalogFilters(entry, view)) return false;
     const parent = data?.records.find(record => record.id === entry.parent_id);
@@ -84,10 +87,15 @@ export function useLibraryController() {
       : (view.sort === 'oldest' ? 1 : -1) * ((Date.parse(a.finished_at ?? '') || 0) - (Date.parse(b.finished_at ?? '') || 0)) || a.id.localeCompare(b.id)), [catalog, view, data, title, tx]);
   const choices = useMemo(() => showSuperseded ? matched : matched.filter(entry => !superseded.has(entry.id)), [matched, superseded, showSuperseded]);
   const foldedCount = matched.length - choices.length;
-  const pages = Math.max(1, Math.ceil(choices.length / 10)), displayPage = Math.min(view.page, pages - 1);
+  // Study cases of one design (one row per head, noise or conductivity condition) page as one row.
+  const rows = useMemo(() => groupConditionVariants(choices), [choices]);
+  const [expanded, setExpanded] = useState<string[]>([]);
+  const toggleGroup = (key: string) => setExpanded(keys => keys.includes(key) ? keys.filter(value => value !== key) : [...keys, key]);
+  const pages = Math.max(1, Math.ceil(rows.length / 10)), displayPage = Math.min(view.page, pages - 1);
   // Details (and their full record) load only for a record the visitor opened.
   const selected = explicitSelection ? catalog.find(entry => entry.id === selectedId) : undefined;
-  const id = selected?.id, listed = choices.slice(displayPage * 10, (displayPage + 1) * 10);
+  const id = selected?.id, listed: CatalogRow[] = rows.slice(displayPage * 10, (displayPage + 1) * 10);
+  const isExpanded = (row: Extract<CatalogRow, { kind: 'group' }>) => expanded.includes(row.key) || row.entries.some(entry => entry.id === id);
   const here = preserveResultsContext(catalogViewLink(ar, id ?? (explicitSelection ? selectedId : ''), { ...view, page: displayPage }), viewContext);
   useEffect(() => { if (ready && !loading) window.history.replaceState(null, '', here); }, [ready, loading, here]);
   const choose = (value: string) => {
@@ -109,5 +117,5 @@ export function useLibraryController() {
   const electrodeCounts = [...new Set(catalog.flatMap(entry => entry.electrode_count === null ? [] : [entry.electrode_count]))].sort((a, b) => a - b);
   const locations = [...new Set(catalog.flatMap(entry => entry.locations))];
   const regionCounts = [...new Set(catalog.flatMap(entry => entry.region_count === null ? [] : [entry.region_count]))].sort((a, b) => a - b);
-  return { showSuperseded, setShowSuperseded, foldedCount, ar, setAR, labHref, here, layout, selected, loading, setLoading, retry, setRetry, error, view, changeView, electrodeCounts, locations, regionCounts, data, catalogWarnings, catalog, listed, id, title, protocol, score, choose, choices, displayPage, setView, pages, explicitSelection, related };
+  return { rows, isExpanded, toggleGroup, groupTitle, conditionTitle, latestPerCondition, showSuperseded, setShowSuperseded, foldedCount, ar, setAR, labHref, here, layout, selected, loading, setLoading, retry, setRetry, error, view, changeView, electrodeCounts, locations, regionCounts, data, catalogWarnings, catalog, listed, id, title, protocol, score, choose, choices, displayPage, setView, pages, explicitSelection, related };
 }

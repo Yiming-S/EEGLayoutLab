@@ -6,6 +6,7 @@ import { ExperimentResult } from '@/features/reception/experiment-result';
 import type { ProjectEntry } from '@/client/projects';
 import { metricDistance, metricPercent } from '@/lib/ui-language';
 import { projectSnapshotView } from './project-snapshot-view';
+import { ThresholdSlider } from '@/components/threshold-slider';
 
 export function ProjectSnapshotViewer({ entry, snapshot }: { entry: ProjectEntry; snapshot: unknown }) {
   const { tx } = useLanguage(), [ar, setAR] = useState(90);
@@ -17,7 +18,7 @@ export function ProjectSnapshotViewer({ entry, snapshot }: { entry: ProjectEntry
   return <div className="space-y-4">
     <p className="text-sm text-muted-foreground">{tx('直接读取项目保存的坐标与指标，不依赖原任务回执或重新计算。')}</p>
     {view.kind === 'layout' ? <>
-      <label className="lab-label">{tx('项目副本的显示保留要求')} · {ar}%<input className="mt-2 w-full accent-primary" type="range" aria-label={tx('项目副本的显示保留要求')} min={10} max={100} value={ar} onChange={event => setAR(Number(event.target.value))} /></label>
+      <ThresholdSlider label="项目副本的显示保留要求" value={ar} onChange={setAR} />
       <PerformanceSummary metrics={view.record.metrics} ar={ar} basis="项目保存的原始布局评价" returnHref="/projects" compact />
     </> : <section className="rounded-lg border p-4"><h3 className="font-semibold">{tx('编辑副本的原始指标')}</h3><dl className="mt-3 grid gap-3 sm:grid-cols-3">
       <div><dt>{tx('场重建保留率')}</dt><dd>{metricPercent(view.result.edited_metrics.field_relative)}</dd></div>

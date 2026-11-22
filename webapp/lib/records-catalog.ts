@@ -114,3 +114,43 @@ export function completedTaskLink(task: ExperimentReceipt, ar = 90, returnTo = '
     : '/electrodes?' + new URLSearchParams({ parent: (task.request as { parent_id: string }).parent_id, ar: String(ar), returnTo }).toString();
   return task.kind === 'source-reception' ? savedSourceLink(task.request as SourceRequest, ar, returnTo) : null;
 }
+
+/** One list row: a record, or one coordinate design evaluated under several non-default conditions. */
+export type CatalogRow = { kind: 'entry'; entry: CatalogEntry } | { kind: 'group'; key: string; entries: CatalogEntry[] };
+
+/** Coordinate evaluations of the same design under non-default conditions (study cases) share a key. */
+export function conditionGroupKey(entry: CatalogEntry): string | null {
+  return 'summary' in entry && entry.summary.dataset_id === 'design_evaluation' && entry.summary.evaluation_condition
+    ? `${entry.summary.region_count}\u0000${entry.summary.label}` : null;
+}
+
+/**
+ * Folds condition variants of one design into a single row at the position of
+ * its first (in the current sort order) member, so a robustness study does not
+ * push other records off the first page. A lone variant stays a plain row.
+ */
+export function groupConditionVariants(entries: CatalogEntry[]): CatalogRow[] {
+  const rows: CatalogRow[] = [], groups = new Map<string, CatalogEntry[]>();
+  for (const entry of entries) {
+    const key = conditionGroupKey(entry);
+    if (!key) { rows.push({ kind: 'entry', entry }); continue; }
+    const members = groups.get(key);
+    if (members) { members.push(entry); continue; }
+    const created = [entry];
+    groups.set(key, created);
+    rows.push({ kind: 'group', key, entries: created });
+  }
+  return rows.map(row => row.kind === 'group' && row.entries.length === 1 ? { kind: 'entry', entry: row.entries[0] } : row);
+}
+
+/** The newest record per distinct condition; a rerun study does not count twice. */
+export function latestPerCondition(entries: CatalogEntry[]): CatalogEntry[] {
+  const latest = new Map<string, CatalogEntry>();
+  for (const entry of entries) {
+    if (!('summary' in entry)) continue;
+    const key = JSON.stringify(entry.summary.evaluation_condition ?? {});
+    const previous = latest.get(key);
+    if (!previous || (Date.parse(entry.finished_at ?? '') || 0) > (Date.parse(previous.finished_at ?? '') || 0)) latest.set(key, entry);
+  }
+  return [...latest.values()];
+}

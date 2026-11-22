@@ -8,6 +8,7 @@ import { RuntimeMessage } from '@/components/runtime-message';
 import { DELIVERY_INPUT_LIMIT } from './research-delivery-reader';
 import { useDeliveryReader } from './use-delivery-reader';
 import { originalDeliveryDownload, deliveryReadmeDownload, deliverySnapshotDownload, saveLocalDeliveryFile } from './delivery-reader-downloads';
+import { FilePicker } from '@/components/ui/file-picker';
 
 const SnapshotViewer = lazy(() => import('./project-snapshot-viewer').then(module => ({ default: module.ProjectSnapshotViewer })));
 const kindLabel = { layout: '布局评价', editor: '电极编辑副本', source: '信号实验' };
@@ -20,13 +21,13 @@ export default function DeliveryReaderWorkspace() {
     <div className="lab-container space-y-5 py-6">
       <header><h1 className="text-2xl font-semibold">{tx('打开本地交付包')}</h1><p className="mt-2 max-w-3xl text-muted-foreground">{tx('在当前浏览器读取项目交付包，查看说明、指标、坐标与波形。')}</p></header>
       <section className="lab-panel space-y-3" aria-label={tx('选择交付包文件')}>
-        <label className="lab-label">{tx('项目交付包 JSON')}<input type="file" accept="application/json,.json" className="mt-2 block w-full text-sm" onChange={event => {
+        <label className="lab-label">{tx('项目交付包 JSON')}<FilePicker accept="application/json,.json" onChange={event => {
           const file = event.target.files?.[0]; event.target.value = ''; if (file) void reader.openFile(file);
         }} /></label>
         <p className="text-sm text-muted-foreground">{tx('文件上限')}：{DELIVERY_INPUT_LIMIT / 1048576} MiB</p>
         {status === 'loading' && <div className="flex flex-wrap items-center gap-3"><output aria-live="polite">{tx('正在读取并校验交付包…')}</output><Button type="button" variant="outline" onClick={() => reader.clear(true)}>{tx('取消读取')}</Button></div>}
         {notice && <output className="block text-sm" aria-live="polite">{tx(notice)}</output>}
-        {error && <p role="alert" className="text-sm text-red-800"><RuntimeMessage message={error} /></p>}
+        {error && <p role="alert" className="text-sm text-danger"><RuntimeMessage message={error} /></p>}
       </section>
       {opened && <>
         <section className="lab-panel space-y-4" aria-label={tx('已校验的交付项目')}>

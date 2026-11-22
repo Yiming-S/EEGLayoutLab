@@ -43,8 +43,8 @@ const ClusterHeadViewer = lazy(() =>
 );
 const RADII = [20, 30, 40, 50];
 const SELECT_STYLE =
-  'h-11 w-full rounded-xl border border-[#cbdcd6] bg-white px-3 text-sm font-medium text-[#173640] focus:outline-none focus:ring-2 focus:ring-[#117d72]';
-const PANEL_STYLE = 'rounded-2xl border border-[#d6e1de] bg-white p-5 sm:p-6';
+  'h-11 w-full rounded-xl border border-border bg-white px-3 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary';
+const PANEL_STYLE = 'rounded-2xl border border-border bg-white p-5 sm:p-6';
 const mm = (value?: number | null) =>
   value == null ? '未计算' : `${value.toFixed(2)} mm`;
 
@@ -60,11 +60,11 @@ function MetricCard({
   const { tx } = useLanguage();
   return (
     <div className={PANEL_STYLE}>
-      <h3 className="text-sm font-medium text-[#536c72]">{tx(label)}</h3>
-      <p className="my-2 font-mono text-3xl font-semibold tracking-tight text-[#102f3a]">
+      <h3 className="text-sm font-medium text-ink-soft">{tx(label)}</h3>
+      <p className="my-2 font-mono text-3xl font-semibold tracking-tight text-brand">
         {tx(value)}
       </p>
-      <p className="text-sm leading-6 text-[#60757b]">{tx(detail)}</p>
+      <p className="text-sm leading-6 text-ink-soft">{tx(detail)}</p>
     </div>
   );
 }
@@ -97,7 +97,7 @@ function PerformanceCurve({
       <h2 className="text-lg font-semibold">
         {tx(sensitivity ? '幅度保留率（最差10%）' : '区域大小与信号重建')}
       </h2>
-      <p className="mb-4 mt-1 text-sm leading-6 text-[#60757b]">
+      <p className="mb-4 mt-1 text-sm leading-6 text-ink-soft">
         {tx(sensitivity
           ? '相对幅度保留率最低的10%皮层面积，按面积加权；不随噪声档位变化。'
           : `相对全头64点 · ${snr} dB · 最小电极间距 ${spacing} mm`)}
@@ -166,7 +166,7 @@ function PerformanceCurve({
           </LineChart>
         </ResponsiveContainer>
       </figure>
-      <p className="mt-3 text-sm leading-6 text-[#687c82]">
+      <p className="mt-3 text-sm leading-6 text-ink-soft">
         {tx("虚线为全头基准的100%相对值。连线仅连接已计算点，不产生中间半径的估计。")}</p>
     </section>
   );
@@ -229,29 +229,29 @@ export default function ResultsPage() {
   const localization = atSnr(selected?.localization ?? null, snr);
 
   return (
-    <main className="min-h-screen bg-[#f4f7f4] text-[#102a34]">
+    <main className="min-h-screen bg-background text-foreground">
       <SiteHeader current="results" arPercent={ar} returnHref={here} />
       <div className="mx-auto max-w-[1500px] space-y-6 px-4 py-7 sm:px-6 lg:px-8">
         <a className="inline-block text-sm font-semibold text-primary underline" href={'/?ar=' + ar}>{tx("← 返回当前已有结果")}</a>
         <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
             <div className="mb-3 flex flex-wrap gap-2">
-              <Badge className="bg-[#102f3a] text-white">
+              <Badge className="bg-brand text-white">
                 {tx("已计算 · 固定64电极")}</Badge>
               <Badge
                 variant="outline"
-                className="border-[#deb968] bg-[#fff8e6] text-[#765814]"
+                className="border-warning/40 bg-warning-surface text-warning"
               >
                 {tx("早期单头模原型 · 未做跨头模验证")}</Badge>
             </div>
             <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
               {tx("历史原型：双区域初始布局")}</h1>
-            <p className="mt-3 max-w-3xl text-base leading-7 text-[#536c72]">
+            <p className="mt-3 max-w-3xl text-base leading-7 text-ink-soft">
               {tx("同样64个电极，集中到两个区域后，保留了多少全头电位场信息？切换已计算配置查看结果与实际点位。")}</p>
           </div>
           <a
             href={methodLink(here, ar, '#first-batch')}
-            className="inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-[#117d72]"
+            className="inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-primary"
           >
             {tx("本批怎么算 ")}<ArrowRight className="size-4" />
           </a>
@@ -290,9 +290,9 @@ export default function ResultsPage() {
               ].map(([label, value]) => (
                 <div
                   key={label}
-                  className="rounded-xl border border-[#d6e1de] bg-white px-4 py-3"
+                  className="rounded-xl border border-border bg-white px-4 py-3"
                 >
-                  <p className="text-sm text-[#60757b]">{tx(label)}</p>
+                  <p className="text-sm text-ink-soft">{tx(label)}</p>
                   <p className="mt-1 text-base font-semibold">{tx(value)}</p>
                 </div>
               )))}
@@ -365,7 +365,7 @@ export default function ResultsPage() {
                   </select>
                 </label>
               </div>
-              <p className="text-sm leading-6 text-[#60757b]">
+              <p className="text-sm leading-6 text-ink-soft">
                 {tx("半径是坐标区域裁剪后的图路径上限，点距是欧氏弦距，采用离散几何定义。本历史批次仅包含2个区域；1、3、4、6区域请查看首页后续实验。所有布局使用按标准64导标定的同一物理噪声强度。")}</p>
             </section>
 
@@ -417,7 +417,7 @@ export default function ResultsPage() {
                     <div>
                       <h2 className="text-lg font-semibold">
                         {tx("这64个点来自计算记录")}</h2>
-                      <p className="mt-2 text-sm leading-6 text-[#60757b]">
+                      <p className="mt-2 text-sm leading-6 text-ink-soft">
                         {tx("位置取自本批FEM的MRI坐标，仅换算单位；触点外观沿法向抬高1.2 mm用于显示，计算使用原始坐标。基准为BioSemi64名称匹配的Ernie-SPM12全头模板。")}</p>
                     </div>
                     <dl className="space-y-3 text-sm">
@@ -434,14 +434,14 @@ export default function ResultsPage() {
                         </div>
                       )))}
                     </dl>
-                    <p className="text-sm leading-6 text-[#60757b]">
+                    <p className="text-sm leading-6 text-ink-soft">
                       {tx("候选贴片面积是离散近似，不等于电极凸包面积。耳后邻近和耳周均为近似坐标掩膜，尚未审核为严格无毛区域。")}</p>
-                    <div className="rounded-xl border border-[#e5c882] bg-[#fff8e8] p-4 text-sm leading-6 text-[#765814]">
+                    <div className="rounded-xl border border-warning/40 bg-warning-surface p-4 text-sm leading-6 text-warning">
                       <Info className="mb-2 size-5" />
                       {tx("本历史批次采用预设位置进行性能评价；群体阈值与最小面积需另行验证。")}</div>
                     <a
                       href="https://github.com/simnibs/example-dataset/releases/tag/v4.1"
-                      className="block text-sm text-[#117d72] underline"
+                      className="block text-sm text-primary underline"
                     >
                       {tx("头模：SimNIBS Ernie · CC BY-NC 4.0")}</a>
                   </aside>
@@ -449,12 +449,12 @@ export default function ResultsPage() {
               </>
             ) : (
               <section
-                className="rounded-2xl border border-[#e5c882] bg-[#fff8e8] p-6"
+                className="rounded-2xl border border-warning/40 bg-warning-surface p-6"
                 aria-live="polite"
               >
-                <h2 className="text-lg font-semibold text-[#765814]">
+                <h2 className="text-lg font-semibold text-warning">
                   {tx("本历史批次未找到该配置的完整布局")}</h2>
-                <p className="mt-2 text-base leading-7 text-[#806a37]">
+                <p className="mt-2 text-base leading-7 text-warning">
                   {tx("20 mm半径、6 mm点距下，本批贪心构造未找到完整64点布局，该条件的几何可行性仍待判定。可选择30、40、50 mm，或4 mm点距。")}</p>
               </section>
             ))}
@@ -476,16 +476,16 @@ export default function ResultsPage() {
 
             <section className={PANEL_STYLE}>
               <h2 className="flex items-center gap-2 text-xl font-semibold">
-                <ChartNoAxesCombined className="size-5 text-[#117d72]" />
+                <ChartNoAxesCombined className="size-5 text-primary" />
                 {tx("已计算配置对比 · ")}{tx(snr)} dB / {tx(spacing)} {tx(" mm点距")}</h2>
-              <p className="mt-2 text-sm leading-6 text-[#60757b]">
+              <p className="mt-2 text-sm leading-6 text-ink-soft">
                 {tx("每格为“信号重建相对保留率 / 幅度保留率（最差10%）”；点击数值可切换3D点位。全头64点的两项相对值均为100%，作为本批相对比较基准。")}</p>
               <div className="mt-4 overflow-x-auto">
                 <table className="w-full min-w-[660px] text-left text-sm">
                   <caption className="sr-only">
                     {tx("区域半径与各组合的已计算物理保留率")}</caption>
                   <thead>
-                    <tr className="border-b border-[#d6e1de]">
+                    <tr className="border-b border-border">
                       <th scope="col" className="p-3 font-semibold">
                         {tx("半径上限")}</th>
                       {tx(RESULT_FAMILIES.map((f) => (
@@ -503,7 +503,7 @@ export default function ResultsPage() {
                     {tx(RADII.map((r) => (
                       <tr
                         key={r}
-                        className="border-b border-[#e5ece9] last:border-0"
+                        className="border-b border-border last:border-0"
                       >
                         <th scope="row" className="p-3 font-medium">
                           {tx(r)} mm
@@ -529,7 +529,7 @@ export default function ResultsPage() {
                                     setFamily(f.id);
                                     setRadius(r);
                                   }}
-                                  className={`rounded-lg px-2 py-3 text-left font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#117d72] ${family === f.id && radius === r ? 'bg-[#e3f3ed] font-semibold text-[#0c6d62]' : 'hover:bg-[#f1f7f4]'}`}
+                                  className={`rounded-lg px-2 py-3 text-left font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${family === f.id && radius === r ? 'bg-primary/10 font-semibold text-primary' : 'hover:bg-background'}`}
                                 >
                                   {tx(retentionPercent(score?.field_relative))} /{tx(' ')}
                                   {tx(retentionPercent(
@@ -537,7 +537,7 @@ export default function ResultsPage() {
                                   ))}
                                 </button>
                               ) : (
-                                <span className="px-2 text-[#71858b]">
+                                <span className="px-2 text-ink-soft">
                                   {tx("未生成")}</span>
                               ))}
                             </td>
@@ -554,14 +554,14 @@ export default function ResultsPage() {
               <h2 className="text-xl font-semibold">
                 {tx("定位诊断子实验 · 固定30 mm / 6 mm · ")}{tx(snr)} dB
               </h2>
-              <p className="mt-2 max-w-4xl text-sm leading-6 text-[#60757b]">
+              <p className="mt-2 max-w-4xl text-sm leading-6 text-ink-soft">
                 {tx("这四个布局在计算性能前选定，与上方半径和点距选择无关。每项为256个源×16次噪声，共4,096次模拟试验。生成源不在反演字典上，但使用同一头模和导电率，仍存在同模型反演偏差。")}</p>
               <div className="mt-4 overflow-x-auto">
                 <table className="w-full min-w-[560px] text-left text-sm">
                   <caption className="sr-only">
                     {tx("固定原型定位误差，单位毫米")}</caption>
                   <thead>
-                    <tr className="border-b border-[#d6e1de]">
+                    <tr className="border-b border-border">
                       <th scope="col" className="p-3">
                         {tx("布局")}</th>
                       <th scope="col" className="p-3">
@@ -589,7 +589,7 @@ export default function ResultsPage() {
                       return (
                         <tr
                           key={row.name}
-                          className="border-b border-[#e5ece9] last:border-0"
+                          className="border-b border-border last:border-0"
                         >
                           <th scope="row" className="p-3 font-medium">
                             {row.name}
@@ -605,7 +605,7 @@ export default function ResultsPage() {
                   </tbody>
                 </table>
               </div>
-              <p className="mt-4 rounded-xl bg-[#fff8e8] p-4 text-sm leading-6 text-[#765814]">
+              <p className="mt-4 rounded-xl bg-warning-surface p-4 text-sm leading-6 text-warning">
                 {tx("独立无噪声检查中，全头基准仍有10.73 mm中位误差、20.57 mm的P90误差。这些误差反映固定法向离散字典的匹配限制；人体定位精度与群体阈值需独立验证。")}</p>
             </section>
 
@@ -615,12 +615,12 @@ export default function ResultsPage() {
                 <a
                   href="/data/fixed64_results.json"
                   download="fixed64_results.json"
-                  className="inline-flex items-center gap-2 rounded-xl border border-[#cbdcd6] px-4 py-2 text-sm font-semibold text-[#117d72]"
+                  className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2 text-sm font-semibold text-primary"
                 >
                   <Download className="size-4" />
                   {tx("下载结果与64点坐标")}</a>
               </div>
-              <ul className="list-disc space-y-2 pl-5 text-sm leading-6 text-[#60757b]">
+              <ul className="list-disc space-y-2 pl-5 text-sm leading-6 text-ink-soft">
                 <li>
                   {tx("结果范围为一个Ernie头模与本批双区域组合，最高值取自已计算布局。1/3/4/6区域见后续实验，跨头模置信区间尚待评价。")}</li>
                 <li>
@@ -630,10 +630,10 @@ export default function ResultsPage() {
                 <li>
                   {tx("本页筛选并展示已保存的早期原型。新布局可在布局设计页计算并判定AR，跨头模验证另列阶段。")}</li>
               </ul>
-              <details className="rounded-xl border border-[#dce6e1] p-4 text-sm">
+              <details className="rounded-xl border border-border p-4 text-sm">
                 <summary className="cursor-pointer font-semibold">
                   {tx("查看可追溯标识")}</summary>
-                <dl className="mt-4 space-y-3 break-all font-mono text-xs leading-6 text-[#60757b]">
+                <dl className="mt-4 space-y-3 break-all font-mono text-xs leading-6 text-ink-soft">
                   <div>
                     <dt>Run</dt>
                     <dd>{tx(data.run_id)}</dd>

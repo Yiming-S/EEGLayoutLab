@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildRecordCatalog, parseCatalogView, catalogViewLink, matchesCatalogFilters, savedSourceLink, completedTaskLink, editorRecordLink } from '../lib/records-catalog.ts';
+import { buildRecordCatalog, groupConditionVariants, latestPerCondition, parseCatalogView, catalogViewLink, matchesCatalogFilters, savedSourceLink, completedTaskLink, editorRecordLink } from '../lib/records-catalog.ts';
 import { sourceKey } from '../lib/source-reception.ts';
 
 const parent = { id: 'a'.repeat(64), dataset_id: 'cache', label: 'AL + AR', region_count: 2, mode: 'preset',
@@ -66,4 +66,19 @@ void test('completed tasks reopen exact editor records and coordinate evaluation
   assert.equal(completedTaskLink({ ...receipt, kind: 'design-evaluation', request: { action: 'evaluate' } }), `/library?record=${receipt.key}&ar=90`);
   assert.equal(completedTaskLink({ ...receipt, kind: 'design-evaluation', request: { action: 'perturb' } }), null);
   assert.equal(completedTaskLink({ ...receipt, status: 'failed' }), null);
+});
+
+void test('condition variants of one coordinate design fold into one row at its first position', () => {
+  const coordinate = (id, finished, condition) => ({ ...parent, id: id.repeat(64), dataset_id: 'design_evaluation', mode: 'imported_coordinates',
+    label: 'AL + AR', request: null, finished_at: finished, ...(condition ? { evaluation_condition: condition } : {}) });
+  const plain = coordinate('1', '2026-11-21T00:00:00Z');
+  const heads = [coordinate('2', '2026-11-20T03:00:00Z', { head_id: 'ixi231' }), coordinate('3', '2026-11-20T02:00:00Z', { head_id: 'ixi230' }),
+    coordinate('4', '2026-11-19T00:00:00Z', { head_id: 'ixi231' })];
+  const lone = { ...coordinate('5', '2026-11-18T00:00:00Z', { head_id: 'ixi017' }), label: 'Other design' };
+  const entries = buildRecordCatalog([plain, heads[0], parent, heads[1], heads[2], lone], [], []);
+  const rows = groupConditionVariants(entries);
+  assert.deepEqual(rows.map(row => row.kind), ['entry', 'group', 'entry', 'entry']);
+  assert.deepEqual(rows[1].entries.map(entry => entry.id), heads.map(entry => entry.id));
+  assert.equal(rows[3].entry.id, lone.id);
+  assert.deepEqual(latestPerCondition(rows[1].entries).map(entry => entry.id).sort((a, b) => a.localeCompare(b)), [heads[0].id, heads[1].id].sort((a, b) => a.localeCompare(b)));
 });

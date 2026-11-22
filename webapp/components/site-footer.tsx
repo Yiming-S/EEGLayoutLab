@@ -18,7 +18,7 @@ export function SiteFooter() {
     event.currentTarget.href = copyrightHref(window.location.pathname, window.location.search, section);
   };
   return (
-    <footer className="border-t border-[#d6e1df] bg-[#f7faf8] text-sm text-[#53686e]">
+    <footer className="border-t border-border bg-background text-sm text-ink-soft">
       <div className="mx-auto flex max-w-[1500px] flex-col gap-3 px-4 py-5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-6 lg:px-8">
         <p className="leading-6">{COPYRIGHT_NOTICE} <span aria-hidden="true">·</span> EEG Layout Lab</p>
         <nav aria-label={tx('版权与许可导航')} className="flex flex-wrap items-center gap-x-5 gap-y-2">
@@ -26,7 +26,7 @@ export function SiteFooter() {
             <a key={section} href={copyrightHref(location.pathname, location.search, section)}
               onClick={(event) => updateLink(event, section)} onAuxClick={(event) => updateLink(event, section)}
               onContextMenu={(event) => updateLink(event, section)}
-              className="inline-flex min-h-9 items-center rounded-sm underline-offset-4 hover:text-[#117d72] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+              className="inline-flex min-h-9 items-center rounded-sm underline-offset-4 hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
               {tx(section === 'about-copyright' ? '关于与版权' : '第三方许可')}
             </a>
           ))}

@@ -65,12 +65,12 @@ export function SavedLayoutContent({ record, ar, returnHref, compact = false, on
         <div className="flex gap-2"><dt className="text-muted-foreground">{tx('电极数 / 区域数')}</dt><dd>{layout ? `${layout.xyzMm.length} / ${record.region_count}` : tx('未记录')}</dd></div>
         <div className="flex gap-2"><dt className="text-muted-foreground">{tx('实际区域总面积')}</dt><dd>{record.geometry ? record.geometry.union_area_cm2.toFixed(1) + ' cm²' : tx('未记录')}</dd></div>
       </dl>
-      {record.dataset_id === 'cache' && !record.compatible && <p className="text-sm text-amber-800">{tx('旧版本记录 · 仅供查阅')}</p>}
+      {record.dataset_id === 'cache' && !record.compatible && <p className="text-sm text-warning">{tx('旧版本记录 · 仅供查阅')}</p>}
     </header>
     {!compact && <RecordVisibilityControl id={record.id} name={localizedRecordTitle(record, locale)} visibility={record.visibility} onChange={onVisibilityChange} />}
 
     <section aria-label={tx('下一步操作')} className="space-y-2">
-      {nextSteps.length > 0 && <div className="flex flex-wrap gap-2">{nextSteps.map((step, index) => <a key={step.label} className={cn(buttonVariants({ variant: index === 0 ? 'default' : 'outline', size: 'lg' }), 'px-3', index > 0 && 'border-[#c4d6d0] bg-card')} href={step.href}>{tx(step.label)}</a>)}</div>}
+      {nextSteps.length > 0 && <div className="flex flex-wrap gap-2">{nextSteps.map((step, index) => <a key={step.label} className={cn(buttonVariants({ variant: index === 0 ? 'default' : 'outline', size: 'lg' }), 'px-3', index > 0 && 'border-border bg-card')} href={step.href}>{tx(step.label)}</a>)}</div>}
       {record.request?.noise_model && <p className="text-sm text-muted-foreground">{tx('信号仿真使用独立噪声；空间相关噪声下搜索的布局不进入信号仿真')}</p>}
       {record.evaluation_condition && <p className="text-sm text-muted-foreground">{tx('此坐标评价使用非默认的噪声模型、电导率情景或头模；分数只与相同条件的评价直接比较，信号仿真只接受默认协议下的布局。')}</p>}
     </section>

@@ -166,7 +166,7 @@ export function ExperimentResult({
       {notice && (
         <section
           aria-live="polite"
-          className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"
+          className="rounded-xl border border-warning/30 bg-warning-surface p-4 text-sm text-warning"
         >
           <h2 className="font-semibold">{tx(notice.title)}</h2>
           <p className="mt-2 leading-6">{tx(notice.explanation)}</p>

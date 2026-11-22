@@ -10,7 +10,7 @@ export function ResultsNavigation({ view, here, selected }: { view: 'overview' |
   return <nav aria-label={tx('结果库视图')} className="mb-5 flex flex-wrap gap-2 rounded-xl border bg-white p-2">
     {([['overview', '实验总览', '查看同协议下的规律与曲线'], ['records', '全部记录', '查找布局、结果与搜索记录']] as const).map(([key, label, description]) =>
       <a key={key} href={resultsViewHref(key, search, selected)} aria-current={view === key ? 'page' : undefined}
-        className={'min-w-0 flex-1 rounded-lg px-4 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ' + (view === key ? 'bg-[#102f3a] text-white' : 'text-[#53686e] hover:bg-secondary')}>
+        className={'min-w-0 flex-1 rounded-lg px-4 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ' + (view === key ? 'bg-brand text-white' : 'text-ink-soft hover:bg-secondary')}>
         <span className="block text-base font-semibold">{tx(label)}</span><span className="mt-1 block text-sm leading-6">{tx(description)}</span>
       </a>)}
   </nav>;

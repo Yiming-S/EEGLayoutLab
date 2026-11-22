@@ -48,7 +48,7 @@ export function RetentionExplainer() {
       ['相对定位评分', '源定位误差经规定规则评分后，相比标准64导表现如何？'],
     ]} />
     <p className="text-base leading-8 text-muted-foreground">{tx("标准64导是本实验的比较基准。其相对指标归一化为100%；")}<strong className="text-foreground">{tx("自身的噪声、重建误差和定位误差仍按绝对数值报告。")}</strong></p>
-    <aside aria-label={tx("固定示例 · 独立于当前配置")} className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950">
+    <aside aria-label={tx("固定示例 · 独立于当前配置")} className="rounded-xl border border-warning/40 bg-warning-surface p-4 text-warning">
       <h3 className="font-semibold">{tx("固定示例 · 独立于当前配置")}</h3>
       <p className="mt-2 text-base leading-7">{tx("下文数值来自")}{tx(example.date)}{tx("保存的双侧耳后邻近区布局：每侧32点，每区半径上限25 mm，最小电极直线间距4 mm。示例数值固定，当前设计结果请在布局设计或计算记录中查看。")}</p>
       <p className="mt-2 text-sm leading-6">{tx("示例采用")}{tx(example.algorithm)}{tx("、单Ernie头模和标准64导标定的名义SNR＝20 dB条件。其他实验协议、信号仿真场景的结果应按各自记录解释。")}</p>

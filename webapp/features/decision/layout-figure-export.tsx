@@ -50,6 +50,6 @@ export function LayoutFigureExport({ design }: { design: ElectrodeDesign }) {
       <Button variant="outline" size="sm" onClick={() => download(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }), base + '.svg')}>{tx('下载')} SVG</Button>
       <Button variant="outline" size="sm" onClick={() => void png()}>{tx('下载')} PNG</Button>
     </div>
-    {error && <p role="alert" className="mt-2 text-sm text-red-800">{tx(error)}</p>}
+    {error && <p role="alert" className="mt-2 text-sm text-danger">{tx(error)}</p>}
   </details>;
 }

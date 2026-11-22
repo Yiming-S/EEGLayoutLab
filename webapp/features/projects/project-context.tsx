@@ -30,7 +30,7 @@ export function SaveToProject({ kind, recordId, receiptId, annotationId }: { kin
         setSavedIdentity(identity);
       })().catch(caught => setError(caught instanceof Error ? caught.message : '项目操作失败')).finally(() => setBusy(false));
     }}>{tx(saved ? '已保存到当前项目' : kind === 'source' ? '保存信号实验到项目' : '保存当前布局到项目')}</Button>
-    {error && <span role="alert" className="max-w-lg text-xs text-red-800"><RuntimeMessage message={error} /></span>}
+    {error && <span role="alert" className="max-w-lg text-xs text-danger"><RuntimeMessage message={error} /></span>}
   </div>;
 }
 

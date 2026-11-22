@@ -4,6 +4,7 @@ import { Globe2, Lock } from 'lucide-react';
 import { useLanguage } from '@/components/language-provider';
 import { RuntimeMessage } from '@/components/runtime-message';
 import { Button } from '@/components/ui/button';
+import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { setRecordVisibility } from '@/client/library';
 import type { RecordVisibility } from '@/lib/local-library';
 
@@ -21,10 +22,11 @@ export function RecordVisibilityControl({ id, name, visibility, onChange }: {
 }) {
   const { tx } = useLanguage();
   const [current, setCurrent] = useState(visibility), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const { confirm, dialog } = useConfirmDialog();
   const label = visibilityLabel(current);
   if (!current || !label) return null;
   const change = async (value: boolean) => {
-    if (value && !window.confirm(tx(`公开后，所有访客都能在共享库看到这条记录：名称「${name}」、电极坐标、计算参数和指标。可随时撤回公开。确认公开？`))) return;
+    if (value && !(await confirm({ title: '公开到共享库', message: `公开后，所有访客都能在共享库看到这条记录：名称「${name}」、电极坐标、计算参数和指标。可随时撤回公开。确认公开？`, confirmLabel: '公开到共享库' }))) return;
     setBusy(true); setError('');
     try { const next = await setRecordVisibility(id, value); setCurrent(next); onChange?.(next); }
     catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); }
@@ -38,10 +40,11 @@ export function RecordVisibilityControl({ id, name, visibility, onChange }: {
       {current.owned && current.state === 'pending' && <p className="text-muted-foreground">{tx('管理员审核通过后，其他访客才能在共享库看到它。')}</p>}
       {current.owned && current.state === 'public' && !current.published_by_me && <p className="text-muted-foreground">{tx('提交过同一配置的另一个浏览器已公开这条记录。')}</p>}
       {current.state === 'removed' && current.reason && <p className="text-muted-foreground">{tx('移除原因：')}{current.reason}</p>}
-      {error && <p role="alert" className="text-red-800"><RuntimeMessage message={error} /></p>}
+      {error && <p role="alert" className="text-danger"><RuntimeMessage message={error} /></p>}
     </div>
     {current.owned && current.scope === 'owner' && (current.published_by_me
       ? <Button variant="outline" size="sm" disabled={busy} onClick={() => void change(false)}>{tx('撤回公开')}</Button>
       : current.state !== 'removed' && current.state !== 'public' && <Button variant="outline" size="sm" disabled={busy} onClick={() => void change(true)}>{tx('公开到共享库')}</Button>)}
+    {dialog}
   </section>;
 }

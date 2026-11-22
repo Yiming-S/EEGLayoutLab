@@ -83,7 +83,7 @@ export default function ReceptionPage() {
             )}
           </p>
         </header>
-        <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+        <div className="mb-5 rounded-lg border border-warning/30 bg-warning-surface p-4 text-sm leading-6 text-warning">
           {tx(
             '单头模仿真：脑信号通过已有FEM传递矩阵投影；心电、眼电采用假设性空间场。源区由坐标定义，用于表示皮层位置。本页AR用于当前场景的信号重建判定；布局评估采用三项联合判定。',
           )}
@@ -104,7 +104,7 @@ export default function ReceptionPage() {
         )}
         {tx(
           fatal && (
-            <p role="alert" className="lab-panel mb-4 text-red-800">
+            <p role="alert" className="lab-panel mb-4 text-danger">
               <RuntimeMessage message={fatal} />
               {tx(' ')}
               <Button variant="outline" onClick={() => setRetry((n) => n + 1)}>
@@ -114,7 +114,7 @@ export default function ReceptionPage() {
           ),
         )}
         <section className="lab-panel mb-4" aria-label={tx('源模式')}>
-          <h2 className="font-semibold">{tx('实验源模式')}</h2>
+          <h2 className="font-semibold">{tx('1 · 选择实验源模式')}</h2>
           <div className="mt-3 flex flex-wrap gap-2">
             <Button
               variant={mode === 'multi_source' ? 'default' : 'outline'}
@@ -153,7 +153,7 @@ export default function ReceptionPage() {
               </label>)}
             </div>
             <p className="mt-2 text-xs leading-5 text-muted-foreground">{tx('颜色对应DK图谱标签定义的六个研究区，与透视图中的分区和实际选源一致。')}</p>
-            {!validSources && <output className="mt-2 block text-sm text-amber-800">{tx('至少选择一个源区域才能运行。')}</output>}
+            {!validSources && <output className="mt-2 block text-sm text-warning">{tx('至少选择一个源区域才能运行。')}</output>}
             {catalog?.cross_region_representatives && <details className="mt-2 text-xs leading-6 text-muted-foreground">
               <summary className="cursor-pointer">{tx('查看所选生成源坐标')}</summary>
               {catalog.cross_region_representatives.filter(s => crossRegions.includes(s.source_region)).map((s, i) => <p key={s.source_region}>S{i + 1} · {tx(SOURCE_REGIONS.find(r => r.id === s.source_region)!.label)} · {tx('源')}{s.generation_source_index} · ({s.xyz_mm.map(v => v.toFixed(1)).join(', ')}) mm</p>)}
@@ -199,7 +199,7 @@ export default function ReceptionPage() {
                 )}
                 {tx(
                   catalogError && (
-                    <span role="alert" className="mt-2 block text-red-800">
+                    <span role="alert" className="mt-2 block text-danger">
                       <RuntimeMessage message={catalogError} />
                     </span>
                   ),
@@ -212,8 +212,9 @@ export default function ReceptionPage() {
           className="lab-panel grid items-end gap-4 md:grid-cols-3 xl:grid-cols-6"
           aria-label={tx('源实验设置')}
         >
+          <h2 className="font-semibold md:col-span-3 xl:col-span-6">{tx('2 · 选择布局与信号条件')}</h2>
           <label className="lab-label md:col-span-3 xl:col-span-2">
-            {tx('1 · 选择已计算布局（64电极）')}
+            {tx('选择已计算布局（64电极）')}
             <select
               className="lab-select"
               value={id}
@@ -240,7 +241,7 @@ export default function ReceptionPage() {
             </select>
           </label>
           <label className="lab-label" hidden={mode !== 'multi_source'}>
-            {tx('2 · 模拟脑源位置')}
+            {tx('模拟脑源位置')}
             <select
               className="lab-select"
               value={region}
@@ -310,7 +311,7 @@ export default function ReceptionPage() {
           </p>
           {tx(
             selected?.dataset_id === 'cache' && !selected.compatible && (
-              <p className="md:col-span-3 xl:col-span-6 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">
+              <p className="md:col-span-3 xl:col-span-6 rounded-lg bg-warning-surface p-3 text-sm text-warning">
                 {tx(
                   '历史布局：沿用该记录的原始64点坐标进行源场景对照。其计算版本与当前布局搜索不同，本页不重新检验当前表面准入或区域分离条件；结果归属于原坐标协议。',
                 )}
@@ -345,7 +346,7 @@ export default function ReceptionPage() {
               )}
               {tx(
                 job && !running(job) && job.status !== 'completed' && (
-                  <p className="mt-1 text-red-800">
+                  <p className="mt-1 text-danger">
                     <RuntimeMessage message={job.message} status={job.status} />
                   </p>
                 ),
@@ -377,7 +378,7 @@ export default function ReceptionPage() {
             error.key === key && error.message && (
               <p
                 role="alert"
-                className="text-sm text-red-800 md:col-span-3 xl:col-span-6"
+                className="text-sm text-danger md:col-span-3 xl:col-span-6"
               >
                 <RuntimeMessage message={error.message} />
               </p>

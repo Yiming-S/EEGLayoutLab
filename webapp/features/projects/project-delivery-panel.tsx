@@ -47,7 +47,7 @@ export function ProjectDeliveryPanel({ project, access }: { project: ResearchPro
     </div>
     {!project.entries.length && <p className="text-sm text-muted-foreground">{tx('先将已完成的实验保存到项目，再导出交付包。')}</p>}
     {busy && <output className="block text-sm">{tx('正在读取并校验交付文件…')}</output>}
-    {error && <p role="alert" className="text-sm text-red-800"><RuntimeMessage message={error} /></p>}
+    {error && <p role="alert" className="text-sm text-danger"><RuntimeMessage message={error} /></p>}
     {prepared && <dl className="grid gap-3 rounded-lg border p-3 text-sm sm:grid-cols-3">
       <div><dt className="text-muted-foreground">{tx('交付文件数')}</dt><dd>{prepared.bundle.files.length}</dd></div>
       <div><dt className="text-muted-foreground">{tx('文件总大小')}</dt><dd>{(prepared.totalBytes / 1048576).toFixed(2)} MiB</dd></div>
