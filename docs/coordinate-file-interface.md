@@ -88,7 +88,7 @@ When the unit is `mm` and the landmarks equal Ernie's template landmarks to with
 
 ## Region assignment on import
 
-Files without regions (head-frame pairs, montage files, BIDS pairs and name lists without a `region` column) need a region count of 1, 2, 3, 4 or 6. The regions are then assigned by position (`balanced-spatial/1`). It is a size-constrained k-means on the Ernie coordinates with the evaluator's balanced sizes (for four regions, 16 each). Each step is solved exactly as an assignment problem, and the initial centres are chosen by farthest-point sampling. Regions of equal size are numbered from anterior to posterior. The assignment does not depend on the order of the electrodes in the file. Regions given in a file are never changed.
+Files without regions (head-frame pairs, montage files, BIDS pairs and name lists without a `region` column) need a region count of 1, 2, 3, 4 or 6. The regions are then assigned by position (`balanced-spatial/1`). It is a size-constrained k-means on the Ernie coordinates with the evaluator's balanced sizes (for four regions, 16 each). Each step is solved exactly as an assignment problem, and the initial centres are chosen by farthest-point sampling. Regions are numbered from anterior to posterior by their centres, ties from left to right. The assignment does not depend on the order of the electrodes in the file. Regions given in a file are never changed.
 
 ## Export
 

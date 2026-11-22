@@ -172,6 +172,36 @@ def test_variance_outliers_need_a_large_ratio_as_well_as_a_robust_z(tmp_path):
     assert 'Fp1' in summary['channels'] and summary['bad_channels'][0]['variance_ratio_to_median'] > 30
 
 
+def write_mixed_edf(path, labels, data, extra_rate, extra_count=12):
+    """EDF with the EEG channels at RATE and ``extra_count`` auxiliary channels at ``extra_rate`` (1 s records, +-1000 uV)."""
+    rates = [RATE] * len(labels) + [extra_rate] * extra_count
+    names, records = labels + [f'AUX{i}' for i in range(extra_count)], data.shape[1] // RATE
+    pad = lambda value, width: str(value).encode('latin-1').ljust(width)[:width]
+    column = lambda values, width: b''.join(pad(v, width) for v in values)
+    ns = len(names)
+    head = pad(0, 8) + pad('X', 80) + pad('X', 80) + pad('01.01.24', 8) + pad('00.00.00', 8) + pad(256 * (ns + 1), 8) + pad('', 44)
+    head += pad(records, 8) + pad(1, 8) + pad(ns, 4) + column(names, 16) + column([''] * ns, 80) + column(['uV'] * ns, 8)
+    head += column([-1000] * ns, 8) + column([1000] * ns, 8) + column([-32768] * ns, 8) + column([32767] * ns, 8) + column([''] * ns, 80)
+    head += column(rates, 8) + column([''] * ns, 32)
+    gain = 2000 / 65535
+    digital = np.clip(np.round((data + 1000) / gain - 32768), -32768, 32767).astype('<i2')
+    aux = np.zeros(extra_rate, dtype='<i2').tobytes()
+    body = b''.join(b''.join(digital[c, r * RATE:(r + 1) * RATE].tobytes() for c in range(len(labels))) + aux * extra_count for r in range(records))
+    path.write_bytes(head + body)
+
+
+@pytest.mark.parametrize('extra_rate', [RATE // 2, RATE * 2])
+def test_edf_channels_at_other_rates_do_not_change_the_eeg_length(tmp_path, extra_rate):
+    # Many auxiliary channels at another rate used to set the length: half the recording was read, or reading failed.
+    data = np.random.default_rng(3).normal(size=(len(LABELS), 60 * RATE)) * 20
+    write_mixed_edf(tmp_path / 'eeg.edf', LABELS, data, RATE)
+    write_mixed_edf(tmp_path / 'mixed.edf', LABELS, data, extra_rate)
+    plain, mixed = er.summarize(tmp_path / 'eeg.edf', ROOT), er.summarize(tmp_path / 'mixed.edf', ROOT)
+    assert mixed['source']['duration_s'] == 60 and mixed['epochs'] == plain['epochs']
+    assert mixed['covariance'] == plain['covariance']
+    assert {s['reason'] for s in mixed['skipped_channels']} == {'not_a_10-05_name'}
+
+
 def test_eeglab_boundaries_split_segments(tmp_path):
     data = signals(seconds=40)
     write_eeglab(tmp_path / 'b.set', LABELS, data, boundaries=[20 * RATE + .5])
@@ -179,6 +209,9 @@ def test_eeglab_boundaries_split_segments(tmp_path):
     assert recording.segments == [(0, 20 * RATE), (20 * RATE, 40 * RATE)]
     # Each segment loses its first epoch: 2 x (10 - 1).
     assert er.summarize(tmp_path / 'b.set', ROOT)['epochs']['total'] == 18
+    # The next segment starts at 0-based floor(latency); Python's round would put 1.5 at 2.
+    write_eeglab(tmp_path / 'c.set', LABELS, data, boundaries=[20 * RATE + 1.5])
+    assert er.open_recording(tmp_path / 'c.set').segments == [(0, 20 * RATE + 1), (20 * RATE + 1, 40 * RATE)]
 
 
 def test_unsupported_inputs_are_explained(tmp_path):

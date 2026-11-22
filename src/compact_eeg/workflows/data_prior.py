@@ -270,6 +270,9 @@ def fit(summaries, root, progress=lambda *a: None):
     shared = [n for n in order if counts[n] >= CHANNEL_PRESENCE * len(summaries)]
     excluded = [s['label'] for s in summaries if not all(n in s['channels'] for n in shared)]
     summaries = [s for s in summaries if all(n in s['channels'] for n in shared)]
+    if not summaries:
+        # Every channel can be in 90% of the summaries while each summary misses a different one.
+        raise ValueError(f'没有一份摘要包含全部{len(shared)}个共同通道，请去掉缺通道较多的摘要后重试')
     if len(shared) < MINIMUM_CHANNELS:
         raise ValueError(f'各摘要共同的通道少于{MINIMUM_CHANNELS}个（{len(shared)}个）')
     xyz = np.array([position[n] for n in shared])

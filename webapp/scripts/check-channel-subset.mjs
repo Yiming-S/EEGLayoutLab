@@ -108,6 +108,12 @@ void test('channels in 90% of the training summaries form the universe, and defa
   assert.deepEqual(report.counts, [8], 'defaults 16, 24 and 32 exceed the 12 channels');
   // With one more summary missing Fp1, it falls below 90% and leaves the universe instead.
   assert.deepEqual(channelSubsets({ training: [...full.slice(1), partial, partial], draws: 20 }).universe, NAMES.slice(1));
+  // Each summary misses a different channel: every channel is in 90% of them, but no summary has all.
+  const gapped = NAMES.slice(0, 10).map((drop, k) => {
+    const keep = NAMES.map((_, i) => i).filter(i => i !== k), c = covariance(40 + k);
+    return summary(`g${k}`, keep.map(i => keep.map(j => c[i][j])), keep.map(i => NAMES[i]));
+  });
+  assert.throws(() => channelSubsets({ training: gapped, draws: 20 }), /没有一份训练摘要包含全部12个共同通道/);
 });
 
 void test('the channels command writes the report from summary files and directories', () => {
@@ -125,5 +131,9 @@ void test('the channels command writes the report from summary files and directo
     assert.deepEqual([report.counts, report.test.map((s) => s.label), report.random.draws], [[3, 5], ['b'], 20]);
     assert.match(run.stdout, /^count\tdata\trandom median/);
     assert.match(spawnSync(process.execPath, [cli, 'channels', join(directory, 'a.json'), '--counts', '40', '--out', out], { encoding: 'utf8' }).stderr, /通道数/);
+    // Recordings with one name in different folders are refused before any is read.
+    const clash = spawnSync(process.execPath, [cli, 'eeg-summary', join(directory, 'a', 'Rec.edf'), join(directory, 'b', 'rec.EDF'), '--out-dir', directory], { encoding: 'utf8' });
+    assert.notEqual(clash.status, 0);
+    assert.match(clash.stderr, /both write rec\.summary\.json/i);
   } finally { rmSync(directory, { recursive: true, force: true }); }
 });

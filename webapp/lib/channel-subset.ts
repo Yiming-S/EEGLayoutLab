@@ -219,6 +219,8 @@ export function channelSubsets(options: SubsetOptions) {
   const trainingSkipped = training.filter((s) => !universe.every((name) => s.channels.includes(name)))
     .map((s) => ({ ...describe(s), missing: universe.filter((name) => !s.channels.includes(name)) }));
   const used = training.filter((s) => universe.every((name) => s.channels.includes(name)));
+  // Every channel can be in 90% of the summaries while each summary misses a different one.
+  if (!used.length) throw new Error(`没有一份训练摘要包含全部${universe.length}个共同通道，请去掉缺通道较多的摘要后重试`);
   // Default sizes that do not fit the universe are dropped; requested sizes must fit.
   const counts = [...new Set(options.counts ?? DEFAULT_COUNTS.filter((k) => k < universe.length))].sort((a, b) => a - b);
   if (!counts.length || !counts.every((k) => Number.isInteger(k) && k >= 2 && k < universe.length))

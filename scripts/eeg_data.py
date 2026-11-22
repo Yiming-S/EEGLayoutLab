@@ -35,6 +35,8 @@ def main():
             from compact_eeg.workflows import eeg_recording
             if set(request) - {'action', 'path', 'band_hz', 'epoch_s', 'label'}:
                 raise ValueError('Unsupported summary fields')
+            if not isinstance(request.get('path'), str) or not request['path']:
+                raise ValueError('summary needs the recording path')
             band = request.get('band_hz', list(eeg_recording.DEFAULT_BAND_HZ))
             if not isinstance(band, list) or len(band) != 2 or not all(isinstance(b, (int, float)) for b in band):
                 raise ValueError('band_hz must be two numbers')

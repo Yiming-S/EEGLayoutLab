@@ -359,11 +359,17 @@ async function main(argv) {
     if (options.label !== undefined && files.length > 1) throw new Error('--label applies to a single recording');
     const band = options.band === undefined ? [1, 40] : options.band.split(',').map(Number);
     const epoch = options.epoch === undefined ? 2 : Number(options.epoch);
-    const env = environment(options), outDir = resolve(options['out-dir']);
+    const outDir = resolve(options['out-dir']);
+    // Recordings with the same name in different folders would write the same summary file.
+    const names = files.map(file => basename(file).replace(/\.(edf|bdf|rec|vhdr|set)$/i, ''));
+    // Case-insensitive, as on macOS and Windows file systems.
+    const clash = names.find((name, k) => names.findIndex(other => other.toLowerCase() === name.toLowerCase()) !== k);
+    if (clash !== undefined) throw new Error(`two recordings would both write ${clash}.summary.json; run them into different --out-dir folders`);
+    const env = environment(options);
     process.stderr.write(`scientific root ${env.root}\npython ${env.python}\n`);
     let failed = 0;
-    for (const file of files) {
-      const name = basename(file).replace(/\.(edf|bdf|vhdr|set)$/i, '');
+    for (const [k, file] of files.entries()) {
+      const name = names[k];
       process.stderr.write(`${name}\n`);
       try {
         const summary = await runWorker(env, 'scripts/eeg_data.py', { action: 'summary', path: resolve(file), band_hz: band, epoch_s: epoch, label: options.label ?? null },

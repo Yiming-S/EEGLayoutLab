@@ -11,13 +11,11 @@ import { ERNIE_MNI_MAPPING, projectOntoScalp, type ErnieMniSurface, type Point }
  *    with its closest point on Ernie's scalp, and the three landmarks are kept as weighted pairs
  *    with Ernie's template landmarks (Horn's closed-form weighted similarity solution).
  * 3. Each transformed electrode is projected onto the scalp. A point more than
- *    REGISTRATION_LIMIT_MM from the scalp after registration is rejected.
+ *    HEAD_REGISTRATION_LIMIT_MM (contracts/coordinate-source.mjs) from the scalp after registration is rejected.
  *
  * This places a measured montage on a template head. It does not model the participant's anatomy,
  * and the landmarks are compared with SimNIBS template landmarks, not with landmarks digitized on Ernie.
  */
-export const REGISTRATION_METHOD = 'head-landmarks-surface/1';
-export const REGISTRATION_LIMIT_MM = 10;
 /** Each landmark counts as this many electrodes in the surface fit. */
 export const LANDMARK_WEIGHT = 8;
 const MAX_ITERATIONS = 500;
@@ -215,13 +213,8 @@ export function assignBalancedRegions(points: Point[], count: number): number[] 
       centers[region] = [0, 1, 2].map(axis => members.reduce((sum, p) => sum + p[axis], 0) / members.length) as Point;
     }
   }
-  // Number regions anterior to posterior, ties left to right; a region keeps its size slot.
+  // Number regions anterior to posterior, ties left to right. The evaluator checks the multiset of sizes, not their order.
   const order = centers.map((c, region) => ({ c, region })).sort((a, b) => b.c[1] - a.c[1] || a.c[0] - b.c[0] || a.region - b.region);
-  const renamed = new Map<number, number>();
-  // Larger regions come first in the balanced allocation; relabel within groups of equal size only.
-  for (const size of new Set(sizes)) {
-    const group = order.filter(item => sizes[item.region] === size), targets = sizes.map((s, i) => (s === size ? i : -1)).filter(i => i >= 0);
-    group.forEach((item, index) => renamed.set(item.region, targets[index]));
-  }
+  const renamed = new Map(order.map((item, index) => [item.region, index]));
   return labels.map(label => renamed.get(label)!);
 }

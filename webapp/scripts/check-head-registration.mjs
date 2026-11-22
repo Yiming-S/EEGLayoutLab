@@ -125,6 +125,9 @@ void test('balanced spatial regions have the evaluator sizes and do not depend o
   for (const count of [1, 2, 3, 4, 6]) {
     const labels = assignBalancedRegions(standard.xyz_mm, count);
     assert.deepEqual(Array.from({ length: count }, (_, r) => labels.filter(l => l === r).length).sort((a, b) => b - a), regionSizes(count));
+    // Region numbers run from anterior to posterior, whatever the region sizes.
+    const front = Array.from({ length: count }, (_, r) => { const ys = standard.xyz_mm.filter((_, i) => labels[i] === r).map(p => p[1]); return ys.reduce((a, b) => a + b, 0) / ys.length; });
+    assert.deepEqual(front, [...front].sort((a, b) => b - a), `${count} regions`);
     const order = standard.xyz_mm.map((_, i) => (i * 37) % 64), shuffled = assignBalancedRegions(order.map(i => standard.xyz_mm[i]), count);
     // Same partition after reordering: electrodes grouped together stay together.
     const together = (l, i, j) => l[i] === l[j];

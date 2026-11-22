@@ -57,9 +57,19 @@ class Recording:
     segments: list
     _read: object = field(repr=False)
     problems: dict = field(default_factory=dict)
+    # EDF/BDF only: channels may have different rates, so their length follows from the records.
+    records: int | None = None
+    record_seconds: float | None = None
 
     def read(self, channels, start, stop):
         return self._read(list(channels), int(start), int(stop))
+
+    def length_at(self, rate):
+        """Sample count and segments of the channels sampled at ``rate``."""
+        if self.records is None:
+            return self.n_samples, self.segments
+        n = self.records * int(round(rate * self.record_seconds))
+        return n, [(0, n)]
 
 
 def _text(raw):
@@ -150,8 +160,9 @@ def _edf(path):
     common = Counter(spr[i] for i in kept).most_common(1)[0][0] if kept else 0
     problems = {i: 'invalid_header_range' if invalid[i] else 'unknown_unit' for i in range(ns)
                 if annotation[i] and labels[i] not in ('EDF Annotations', 'BDF Annotations')}
+    # n_samples and segments are at the most common rate; summarize uses length_at for the rate it reads.
     return Recording('bdf' if bdf else 'edf', path, labels, [rates[i] if not annotation[i] else 0. for i in range(ns)],
-                     int(records * common), [(0, int(records * common))], read, problems)
+                     int(records * common), [(0, int(records * common))], read, problems, records=int(records), record_seconds=duration)
 
 
 def _vhdr(path):
@@ -233,8 +244,10 @@ def _set(path):
     segments = [(i * points, (i + 1) * points) for i in range(trials)]
     if trials == 1:
         events = np.atleast_1d(get('event', []))
-        cuts = sorted({int(round(float(getattr(e, 'latency', 0)))) for e in events
-                       if str(getattr(e, 'type', '')) == 'boundary' and 0 < float(getattr(e, 'latency', 0)) < total})
+        # A boundary at 1-based latency L (L.5 by convention) lies after 1-based sample floor(L), so the next
+        # segment starts at 0-based index floor(L).
+        cuts = sorted({int(np.floor(float(getattr(e, 'latency', 0)))) for e in events if str(getattr(e, 'type', '')) == 'boundary'})
+        cuts = [cut for cut in cuts if 0 < cut < total]
         edges = [0, *cuts, total]
         segments = [(a, b) for a, b in zip(edges[:-1], edges[1:]) if b > a]
 
@@ -329,13 +342,14 @@ def summarize(path, root, *, band=DEFAULT_BAND_HZ, epoch_seconds=DEFAULT_EPOCH_S
     if step < 16:
         raise ValueError('分段太短')
     c = len(channels)
-    usable = sum(max(0, (b - a) // step - 1) for a, b in recording.segments)
+    n_samples, segments = recording.length_at(rate)
+    usable = sum(max(0, (b - a) // step - 1) for a, b in segments)
     if usable < 10:
         raise ValueError('去除每段首个分段后，可用分段少于10个')
     stride = max(1, -(-usable * c * c * 8 // MEMORY_LIMIT_BYTES))
     covariances, epoch_index = [], 0
     chunk = max(1, int(CHUNK_SECONDS * rate) // step) * step
-    for a, b in recording.segments:
+    for a, b in segments:
         if (b - a) // step < 2:
             continue
         state = None
@@ -353,7 +367,7 @@ def summarize(path, root, *, band=DEFAULT_BAND_HZ, epoch_seconds=DEFAULT_EPOCH_S
                     e = e - e.mean(axis=1, keepdims=True)
                     covariances.append(e @ e.T / step)
                 epoch_index += 1
-        progress(b / recording.n_samples)
+        progress(b / n_samples)
     stack = np.asarray(covariances)
     variance = np.median(np.einsum('eii->ei', stack), axis=0)
     flat = variance < FLAT_RATIO * np.median(variance)
@@ -381,7 +395,7 @@ def summarize(path, root, *, band=DEFAULT_BAND_HZ, epoch_seconds=DEFAULT_EPOCH_S
     return {
         'schema': SUMMARY_SCHEMA, 'label': label or path.stem,
         'source': {'format': recording.format, 'file': path.name, 'bytes': path.stat().st_size, 'sha256': sha256(path),
-                   'sampling_rate_hz': float(rate), 'duration_s': recording.n_samples / rate, 'segment_count': len(recording.segments)},
+                   'sampling_rate_hz': float(rate), 'duration_s': n_samples / rate, 'segment_count': len(segments)},
         'mapping_id': mapping_id, 'channels': labels, 'input_labels': [recording.labels[mapped[k][0]] for k in kept],
         'xyz_mm': [positions[name.lower()][1] for name in labels],
         'skipped_channels': skipped, 'bad_channels': bad,

@@ -105,6 +105,15 @@ def test_fit_rejects_mixed_bands_and_too_few_channels(fake_fields):
              'covariance': (np.eye(10) - 1 / 10).tolist()}
     with pytest.raises(ValueError, match='少于'):
         dp.fit([small], ROOT)
+    # Each summary misses a different channel: every channel is in 90% of them, but no summary has all.
+    gapped = []
+    for k in range(10):
+        keep = [i for i in range(len(NAMES)) if i != k]
+        c = np.asarray(a['covariance'])[np.ix_(keep, keep)]
+        c = c - c.mean(axis=0) - c.mean(axis=1)[:, None] + c.mean()
+        gapped.append({**a, 'label': f'g{k}', 'channels': [NAMES[i] for i in keep], 'xyz_mm': XYZ[keep].tolist(), 'covariance': c.tolist()})
+    with pytest.raises(ValueError, match='没有一份摘要包含全部'):
+        dp.fit(gapped, ROOT)
 
 
 def test_request_form():

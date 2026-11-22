@@ -626,5 +626,9 @@
   "roadmap.df0c83d8b2a5": {
     "source": "脑区",
     "en": "Region"
+  },
+  "roadmap.d989ed8e93ac": {
+    "source": "没有一份训练摘要包含全部{{0}}个共同通道，请去掉缺通道较多的摘要后重试",
+    "en": "No training summary has all {{0}} shared channels. Remove the summaries that miss the most channels and try again."
   }
 }
