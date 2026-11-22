@@ -13,7 +13,7 @@ EEG Layout Lab 是免费的科研开源软件，用于设计、查看和比较 E
 | 本机网页版 | 当前开发版本 | 按[源码安装说明](source-installation.zh-CN.md)准备环境，再在浏览器中打开。目前的计算环境安装流程面向 Apple Silicon Mac。 |
 | 服务器网页版 | 准备部署 | 计算与结果存储放在服务器上，见[服务器部署准备说明（英文）](server-deployment.md)。 |
 
-Mac 桌面版已停止维护，桌面外壳和打包工具已从当前源码中移除。[v0.1.2 版本页](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.2)保留历史发布记录，并提供当前使用的基础数据包。
+Mac 桌面版已停止维护，桌面外壳和打包工具已从当前源码中移除。[v0.1.2 版本页](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.2)保留最后一个桌面版的发布记录。当前使用的基础数据包见 [v0.2.0 版本页](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.2.0)。
 
 ## 在本机打开网页版
 

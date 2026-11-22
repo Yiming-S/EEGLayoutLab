@@ -41,8 +41,8 @@ A fresh source installation needs the code and the matching base data bundle. Th
 
 | File | Size | Use |
 | --- | --- | --- |
-| [Base data bundle](https://github.com/Yiming-S/EEGLayoutLab/releases/download/v0.1.2/eeglayoutlab-data-v1.tar.gz) | 282.5 MiB | Model inputs and supplied records for the web application |
-| [Bundle SHA-256 checksum](https://github.com/Yiming-S/EEGLayoutLab/releases/download/v0.1.2/eeglayoutlab-data-v1.tar.gz.sha256) | Text | Verify the data archive before installation |
+| [Base data bundle](https://github.com/Yiming-S/EEGLayoutLab/releases/download/v0.2.0/eeglayoutlab-data-v1.tar.gz) | 282.5 MiB | Model inputs and supplied records for the web application |
+| [Bundle SHA-256 checksum](https://github.com/Yiming-S/EEGLayoutLab/releases/download/v0.2.0/eeglayoutlab-data-v1.tar.gz.sha256) | Text | Verify the data archive before installation |
 
 The repository is private: sign in to a GitHub account with repository access to view or download release files. Follow the [source installation guide](docs/source-installation.md) to verify and install the data, prepare the scientific runtime, and start the browser interface.
 

@@ -12,12 +12,12 @@ The bundle is limited to the application inputs and supplied records. Installed 
 
 ## Install and verify
 
-Download the archive and checksum from [Release v0.1.2](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.2), using an account with access to this private repository. With [GitHub CLI](https://cli.github.com/) installed, run from the matching source checkout:
+Download the archive and checksum from [Release v0.2.0](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.2.0), using an account with access to this private repository. With [GitHub CLI](https://cli.github.com/) installed, run from the matching source checkout:
 
 ```sh
 gh auth login
 mkdir -p releases
-gh release download v0.1.2 --repo Yiming-S/EEGLayoutLab \
+gh release download v0.2.0 --repo Yiming-S/EEGLayoutLab \
   --pattern eeglayoutlab-data-v1.tar.gz \
   --pattern eeglayoutlab-data-v1.tar.gz.sha256 \
   --dir releases

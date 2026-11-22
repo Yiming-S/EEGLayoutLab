@@ -34,13 +34,13 @@ Keep this Terminal window open for the following steps. The repository root is t
 
 ### 2. Install the model data
 
-Download the matching `eeglayoutlab-data-v1.tar.gz` archive and checksum from [Release v0.1.2](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.2). Install this archive separately from the source code. This repository is private, so the release page and assets require repository access.
+Download the matching `eeglayoutlab-data-v1.tar.gz` archive and checksum from [Release v0.2.0](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.2.0). Install this archive separately from the source code. This repository is private, so the release page and assets require repository access.
 
 From the repository root, download and check the archive:
 
 ```sh
 mkdir -p releases
-gh release download v0.1.2 --repo Yiming-S/EEGLayoutLab \
+gh release download v0.2.0 --repo Yiming-S/EEGLayoutLab \
   --pattern eeglayoutlab-data-v1.tar.gz \
   --pattern eeglayoutlab-data-v1.tar.gz.sha256 \
   --dir releases
