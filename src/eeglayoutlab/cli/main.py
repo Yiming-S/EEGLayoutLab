@@ -1,4 +1,5 @@
-"""``eeglayoutlab serve [WORKSPACE] [--root R] [--port N] [--static DIR] [--no-browser]``.
+"""``eeglayoutlab serve [WORKSPACE] [--root R] [--port N] [--static DIR] [--no-browser]``, and ``eeglayoutlab data``
+(data packages, ``eeglayoutlab.data.cli``).
 
 Starts the local service for one workspace (design 0001, decision 6):
 
@@ -37,6 +38,7 @@ import time
 from typing import Any, Callable, Iterator, Optional, Sequence
 import webbrowser
 
+from ..data import cli as data_cli
 from ..jobs import nodepath
 from ..jobs.runtime import repository_root
 from ..server.workspace import Workspace, WorkspaceError, WorkspaceInUse, is_workspace, open_url, write_open_page
@@ -69,6 +71,7 @@ def _parser() -> argparse.ArgumentParser:
     serve.add_argument('--port', type=_port, default=0, metavar='N', help='loopback port (default: a free port)')
     serve.add_argument('--static', metavar='DIR', help='static interface (default: R/webapp/dist/client)')
     serve.add_argument('--no-browser', action='store_true', help='print the address instead of opening a browser')
+    data_cli.add_commands(commands)
     return parser
 
 
@@ -257,6 +260,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     logging.basicConfig(level=logging.WARNING, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
     if args.command == 'serve':
         return serve(args)
+    if args.command == 'data':
+        return data_cli.run(args)
     return _fail(f'unknown command {args.command}', 2)
 
 

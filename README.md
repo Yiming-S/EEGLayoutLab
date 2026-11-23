@@ -80,6 +80,8 @@ The application includes explicit scientific and queue-directory configuration, 
 
 A read-only showcase of the interface (example results, the 3D head and the method pages, no computation) can be built as static files; see [showcase](docs/showcase.md).
 
+Model data is also packaged as versioned packages (base bundle, scalp-node tables, head packages) that `eeglayoutlab data` installs and verifies; see [data packages](docs/data-packages.md).
+
 See [server configuration](docs/server-deployment.md) and [web operations](docs/web-operations.md) for installation requirements, environment examples, monitoring and recovery procedures. The [architecture](docs/architecture.md) documents feature, viewer, task, execution and storage modules.
 
 ## Repository structure
