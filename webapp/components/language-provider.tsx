@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { LANGUAGE_COOKIE, LANGUAGE_STORAGE_KEY, localize, formatDate, type Locale } from '@/lib/i18n/core';
+import { LANGUAGE_COOKIE, LANGUAGE_STORAGE_KEY, localize, formatDate, resolveLocale, type Locale } from '@/lib/i18n/core';
 
 type LanguageContext = {
   locale: Locale;
@@ -29,11 +29,12 @@ export function LanguageProvider({ initialLocale, children }: { initialLocale: L
   }, [locale]);
   useEffect(() => {
     const restore = window.setTimeout(() => {
-      if (document.cookie.split(';').some((part) => part.trim().startsWith(LANGUAGE_COOKIE + '='))) return;
-      try {
-        const saved = localStorage.getItem(LANGUAGE_STORAGE_KEY);
-        if (saved === 'en' || saved === 'zh-CN') setLocale(saved);
-      } catch { /* storage is optional */ }
+      // The static page is rendered in English; choose the saved language, else the browser's.
+      const cookie = document.cookie.split(';').map((part) => part.trim())
+        .find((part) => part.startsWith(LANGUAGE_COOKIE + '='))?.slice(LANGUAGE_COOKIE.length + 1);
+      let saved: string | null = null;
+      try { saved = localStorage.getItem(LANGUAGE_STORAGE_KEY); } catch { /* storage is optional */ }
+      updateLocale(resolveLocale(cookie ?? saved, navigator.languages.join(',')));
     }, 0);
     const sync = (event: StorageEvent) => {
       if (event.key === LANGUAGE_STORAGE_KEY && (event.newValue === 'en' || event.newValue === 'zh-CN')) setLocale(event.newValue);

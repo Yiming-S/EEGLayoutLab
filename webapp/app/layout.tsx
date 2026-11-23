@@ -1,9 +1,7 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
-import { cookies, headers } from 'next/headers';
 import { LanguageProvider } from '@/components/language-provider';
 import { SiteFooter } from '@/components/site-footer';
-import { LANGUAGE_COOKIE, resolveLocale } from '@/lib/i18n/core';
 import './globals.css';
 
 const geistSans = Geist({
@@ -16,31 +14,23 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 });
 
-const localeForRequest = async () => resolveLocale((await cookies()).get(LANGUAGE_COOKIE)?.value, (await headers()).get('accept-language') ?? '');
+// Static export: the page is rendered once at build time, so the language is chosen in the browser
+// (saved choice, then the browser's languages) by LanguageProvider.
+export const metadata: Metadata = {
+  title: { default: 'EEG Layout Lab | EEG Electrode Layout Simulation', template: '%s｜EEG Layout Lab' },
+  description: 'Explore fixed 64-electrode EEG layouts, compare region size and placement, and evaluate signal retention using local simulations.',
+};
 
-export async function generateMetadata(): Promise<Metadata> {
-  const locale = await localeForRequest();
-  return {
-  title: {
-    default: locale === 'en' ? 'EEG Layout Lab | EEG Electrode Layout Simulation' : 'EEG Layout Lab｜脑电电极布局仿真',
-    template: '%s｜EEG Layout Lab',
-  },
-  description:
-    locale === 'en' ? 'Explore fixed 64-electrode EEG layouts, compare region size and placement, and evaluate signal retention using local simulations.' : '固定64电极，比较区域大小与空间布局，通过仿真评价相对全头64导的性能保留。',
-  };
-}
-
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const locale = await localeForRequest();
   return (
-    <html lang={locale}>
+    <html lang="en">
       <head><link rel="icon" type="image/svg+xml" href="/favicon.svg" /></head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <LanguageProvider initialLocale={locale}>
+        <LanguageProvider initialLocale="en">
           {children}
           <SiteFooter />
         </LanguageProvider>
