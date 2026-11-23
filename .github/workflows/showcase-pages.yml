@@ -1,0 +1,65 @@
+name: Showcase site
+
+# Builds the read-only showcase (docs/showcase.md) and deploys it to GitHub Pages.
+# Started by hand only. Needs Pages enabled with "GitHub Actions" as the source, and the
+# repository variable SHOWCASE_CNAME naming a custom domain: the site must be served at a domain root.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: showcase-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require a custom domain
+        env:
+          SHOWCASE_CNAME: ${{ vars.SHOWCASE_CNAME }}
+        run: |
+          if [ -z "$SHOWCASE_CNAME" ]; then
+            echo "Set the repository variable SHOWCASE_CNAME; the showcase must be served at a domain root." >&2
+            exit 1
+          fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: webapp/package-lock.json
+      - name: Install locked web dependencies
+        working-directory: webapp
+        run: npm ci
+      - name: Check the showcase tooling
+        working-directory: webapp
+        run: node --test scripts/check-showcase.mjs
+      - name: Build the showcase
+        working-directory: webapp
+        run: npm run build:showcase
+      - name: Write the custom domain
+        env:
+          SHOWCASE_CNAME: ${{ vars.SHOWCASE_CNAME }}
+        run: printf '%s\n' "$SHOWCASE_CNAME" > webapp/showcase-dist/CNAME
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: webapp/showcase-dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

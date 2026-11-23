@@ -78,6 +78,8 @@ A fresh native FEM run reproduced the qualified `128 × 4352` forward field and 
 
 The application includes explicit scientific and queue-directory configuration, HTTPS reverse-proxy access rules, request identifiers, bounded request logs, local status probes, disk and optional Node-memory admission checks, and maintenance/drain controls. Release manifests record source, data and runtime identities; backup and restore tools preserve scientific records and private project and study archives.
 
+A read-only showcase of the interface (example results, the 3D head and the method pages, no computation) can be built as static files; see [showcase](docs/showcase.md).
+
 See [server configuration](docs/server-deployment.md) and [web operations](docs/web-operations.md) for installation requirements, environment examples, monitoring and recovery procedures. The [architecture](docs/architecture.md) documents feature, viewer, task, execution and storage modules.
 
 ## Repository structure

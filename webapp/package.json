@@ -9,6 +9,8 @@
   "scripts": {
     "dev": "vinext dev",
     "build": "vinext build && node scripts/precompress-models.mjs",
+    "build:showcase": "node scripts/build-showcase.mjs",
+    "showcase:data": "node scripts/build-showcase-data.mjs",
     "start": "node server/start.mjs",
     "lint": "oxlint",
     "format": "oxfmt",
