@@ -1,6 +1,6 @@
 # 0003 — The identity change at 1.0
 
-- **Status:** proposed
+- **Status:** accepted on 2026-11-23 (the recommendations of sections 1–7 and the six decisions below); not yet implemented, planned for phase 4
 - **Date:** 2026-11-23
 - **Design:** [0001 — Local-first application with a Python service](0001-local-first-architecture.md), decisions 3, 7, 8 and 9, phase 4; [0002 — The scientific root of an installed application](0002-installed-scientific-root.md), option D
 
@@ -98,11 +98,11 @@ The other identities (radius search, editor, reception v1 and v2, studies) follo
 
 After 1.0 no absolute path enters any key. The interpreter path is replaced by the runtime identity of section 3. V2's numerical-runtime digest and the forward-cache keys use the same runtime identity.
 
-**Decision for the user: does the platform (`osx-arm64`, `linux-64`) enter the key?**
+**Does the platform (`osx-arm64`, `linux-64`) enter the key?** Decided: yes (decision 1 below).
 - Today the Mac and Linux give the same scores up to 3.5e-14 ([source installation](../source-installation.md#on-a-physical-machine-2026-11-23)).
 - With the platform in the key, a cached result is reused only on the platform that computed it. The numbers then reproduce bit for bit, at the price of no reuse across platforms.
 - Without it, a shared or published result is reused across platforms, and its numbers can differ in the last digits.
-- **Recommended:** in the key. Different numbers should never share a key.
+- In the key, because different numbers should never share a key.
 
 With paths gone, a key computed on one installation is valid on another with the same code, data, runtime and platform. A result record can therefore be checked against a recomputation elsewhere, and shared result libraries become possible. Publishing such a library is a separate decision.
 
@@ -158,11 +158,13 @@ The move edits the imports of every module, so every code digest changes whateve
 
   > 1.0 changes how calculations are identified. Keys no longer depend on where EEGLayoutLab is installed: they depend on the request, the code, the model data packages, the numerical libraries and the platform. Results computed with 0.x stay readable and are listed as 0.x results, but are not reused; each calculation runs again once. Scientific results are unchanged.
 
-## Decisions for the user
+## Decisions
 
-1. **The platform enters keys** (section 4). Recommended: yes.
-2. **The runtime is identified by named distributions, versions and builds** (option 3b), not by every `conda-meta` record. Recommended: yes.
-3. **Records move to the user data directory** (`<data dir>/results`), not to an operating-system cache directory. Recommended: yes.
-4. **No reuse of 0.x results under 1.0;** they are readable only. Recommended: yes.
-5. **`compact_eeg` moves into `eeglayoutlab/core`** (0001's open question "Rename at 1.0"), **in the same release as the identity change**, in phase 4 (section 6). Recommended: yes.
-6. **A data package's version label stays out of keys** (section 2). Recommended: yes.
+Confirmed on 2026-11-23:
+
+1. **The platform enters keys** (section 4). Decided: yes.
+2. **The runtime is identified by named distributions, versions and builds** (option 3b), not by every `conda-meta` record. Decided: yes.
+3. **Records move to the user data directory** (`<data dir>/results`), not to an operating-system cache directory. Decided: yes.
+4. **No reuse of 0.x results under 1.0;** they are readable only. Decided: yes.
+5. **`compact_eeg` moves into `eeglayoutlab/core`** (0001's open question "Rename at 1.0"), **in the same release as the identity change**, in phase 4 (section 6). Decided: yes.
+6. **A data package's version label stays out of keys** (section 2). Decided: yes.
