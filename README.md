@@ -98,7 +98,9 @@ Git tracks application source, required display assets, configuration, documenta
 
 ## Copyright and third-party material
 
-© 2026 Yiming Shen. The project's original source code and accompanying documentation are licensed under the [GNU General Public License version 3 only (GPL-3.0-only)](LICENSE). This permits commercial use; distribution of modified versions must follow the GPL, including its corresponding-source requirements.
+© 2026 Yiming Shen. The project's original source code and accompanying documentation are licensed under the [GNU General Public License version 3 only (GPL-3.0-only)](LICENSE). This permits commercial use of the code; distribution of modified versions must follow the GPL, including its corresponding-source requirements.
+
+**The data files are not under that grant.** The Ernie head-model meshes, the MNI mapping and the Ernie result records in `webapp/public/models/ernie/` and `webapp/public/data/` are derived from the SimNIBS example dataset v4.1 and remain under CC BY-NC 4.0: non-commercial use only, with attribution. The licence does not permit commercial use of those files. A `NOTICE.md` in each of the two directories lists its files and their terms.
 
 Third-party software and data retain their own licenses. SimNIBS uses GPL-3.0-only; Ernie data and its derived scientific and display assets remain under CC BY-NC 4.0. Attribution, source links, and modification descriptions are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
