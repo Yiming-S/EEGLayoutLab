@@ -164,7 +164,7 @@ The plugin API is published only after phase 4; until then the registries are in
 | SimNIBS 4.6 | Large; needed only for FEM, table and head building | Optional, author side |
 | numba, numpy, scipy, openblas | Available on conda-forge for both platforms | Pinned per release. The cortech projection is computed by numpy and scipy, and phase 0 compared projections only with the runtime's numpy 2.3.0 and scipy 1.17.1, so an upgrade needs its own projection check |
 
-**Distribution.** conda-forge is the main installation channel, because it ships the binary dependencies for both platforms. A PyPI package follows once every dependency installs from PyPI. cortech now builds for Python 3.11–3.13; Python support widens from 3.11 to 3.11–3.13 once the test suite passes on 3.12 and 3.13 on both platforms.
+**Distribution.** conda-forge is the main installation channel, because it ships the binary dependencies for both platforms. A PyPI package follows once every dependency installs from PyPI. cortech now builds for Python 3.11–3.13, and the application supports Python 3.11–3.13 (`requires-python = ">=3.11,<3.14"`). On macOS arm64 the test suite passes on 3.12 and 3.13 as on 3.11, and the examples give results identical to 3.11 except for elapsed times; CI runs the suite on Linux x86_64 for all three versions. macOS joins CI when the repository is public. The SimNIBS 4.6 runtime stays on Python 3.11.
 
 ### 11. Testing and release
 
