@@ -3,25 +3,33 @@
 Node computes cache keys as SHA-256 of ``JSON.stringify(...)`` over values from
 ``JSON.parse``. Python's ``json`` differs in number spelling (``1.0`` vs ``1``,
 ``1e-07`` vs ``1e-7``, ``-0.0`` vs ``0``), accepts ``NaN``/``Infinity``, keeps
-integers exact, and slices strings by code point rather than UTF-16 unit. The
-functions here follow ECMA-262 instead.
+integers exact, keeps integer-like keys in insertion order, and slices strings by
+code point rather than UTF-16 unit. The functions here follow ECMA-262 instead.
 """
 from __future__ import annotations
 
 import hashlib
 import json
+from json.decoder import scanstring
 import math
+import re
 from decimal import Decimal
 from typing import Any
 
 __all__ = [
-    'parse', 'stringify', 'sha256_hex', 'number_to_string',
+    'JSONSyntaxError', 'parse', 'stringify', 'sha256_hex', 'number_to_string', 'is_array_index',
     'is_number', 'to_number', 'is_integer', 'hypot', 'round_half_up',
-    'equals_to_precision', 'slice_utf16',
+    'equals_to_precision', 'slice_utf16', 'JS_TRIM', 'js_trim',
 ]
 
 
 # --- JSON.parse -------------------------------------------------------------
+
+class JSONSyntaxError(ValueError):
+    """Text that ``JSON.parse`` refuses with a ``SyntaxError``. The message is Python's, not V8's."""
+
+    name = 'SyntaxError'
+
 
 def _reject_constant(name: str) -> Any:
     raise ValueError(f'JSON.parse rejects {name}')
@@ -32,16 +40,122 @@ def parse(text: str) -> Any:
 
     ``parse_int=float`` mirrors JavaScript, where ``2026`` and ``2026.0`` are the
     same value, and avoids Python's 4300-digit integer limit. A leading BOM is
-    rejected by both parsers.
+    rejected by both parsers. Text that is not JSON raises ``JSONSyntaxError`` (a ``ValueError``).
     """
     if not isinstance(text, str):
         raise TypeError('parse expects str; decode bytes first')
-    return json.loads(text, parse_constant=_reject_constant, parse_int=float)
+    try:
+        try:
+            return json.loads(text, parse_constant=_reject_constant, parse_int=float)
+        except RecursionError:
+            # V8 parses any nesting depth; Python's scanner stops near the recursion limit (about 1,000 levels on
+            # 3.11). Node ignores unknown design fields, so a deeply nested one can sit in an accepted request.
+            return _parse_iterative(text)
+    except JSONSyntaxError:
+        raise
+    except ValueError as error:
+        raise JSONSyntaxError(str(error)) from None
+
+
+_JSON_WHITESPACE = ' \t\n\r'
+# ASCII digits only: JSON.parse, like Python's C scanner, rejects other Unicode digits.
+_JSON_NUMBER = re.compile(r'-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][-+]?[0-9]+)?')
+
+
+def _skip(text: str, index: int) -> int:
+    while index < len(text) and text[index] in _JSON_WHITESPACE:
+        index += 1
+    return index
+
+
+def _key(text: str, index: int) -> tuple[str, int]:
+    if not text.startswith('"', index):
+        raise ValueError(f'JSON.parse expects a property name at {index}')
+    key, index = scanstring(text, index + 1, True)
+    index = _skip(text, index)
+    if not text.startswith(':', index):
+        raise ValueError(f'JSON.parse expects ":" at {index}')
+    return key, _skip(text, index + 1)
+
+
+def _parse_iterative(text: str) -> Any:
+    """``JSON.parse`` without recursion, with the same results as the ``json.loads`` call in ``parse``."""
+    stack: list[list[Any]] = []  # open containers: [list] or [dict, pending key]
+    index = _skip(text, 0)
+    while True:
+        if index >= len(text):
+            raise ValueError('JSON.parse: unexpected end of input')
+        char = text[index]
+        if char in '[{':
+            index = _skip(text, index + 1)
+            if text.startswith(']' if char == '[' else '}', index):
+                value, index = ([] if char == '[' else {}), index + 1
+            elif char == '[':
+                stack.append([[]])
+                continue
+            else:
+                key, index = _key(text, index)
+                stack.append([{}, key])
+                continue
+        elif char == '"':
+            value, index = scanstring(text, index + 1, True)
+        elif match := _JSON_NUMBER.match(text, index):
+            value, index = float(match.group()), match.end()
+        elif text.startswith('true', index):
+            value, index = True, index + 4
+        elif text.startswith('false', index):
+            value, index = False, index + 5
+        elif text.startswith('null', index):
+            value, index = None, index + 4
+        else:
+            raise ValueError(f'JSON.parse: unexpected character at {index}')
+        # Attach the value to the open containers, closing every one that ends here.
+        while True:
+            index = _skip(text, index)
+            if not stack:
+                if index != len(text):
+                    raise ValueError(f'JSON.parse: unexpected data at {index}')
+                return value
+            frame = stack[-1]
+            container = frame[0]
+            if isinstance(container, dict):
+                container[frame[1]] = value  # a repeated key keeps its first position and takes the last value
+                closing = '}'
+            else:
+                container.append(value)
+                closing = ']'
+            if text.startswith(',', index):
+                index = _skip(text, index + 1)
+                if isinstance(container, dict):
+                    frame[1], index = _key(text, index)
+                break
+            if not text.startswith(closing, index):
+                raise ValueError(f'JSON.parse expects "," or "{closing}" at {index}')
+            stack.pop()
+            value, index = container, index + 1
 
 
 def decode_body(body: bytes) -> str:
     """Node's ``Buffer.toString()`` of a whole body: UTF-8 with U+FFFD replacement, BOM kept."""
     return body.decode('utf-8', errors='replace')
+
+
+# --- String.prototype.trim ----------------------------------------------------
+
+# ECMAScript WhiteSpace and LineTerminator, which String.prototype.trim removes.
+# Python's str.strip differs: it removes U+0085 and U+001C-U+001F but keeps U+FEFF.
+JS_TRIM = frozenset('\t\n\x0b\x0c\r \xa0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a'
+                    '\u2028\u2029\u202f\u205f\u3000\ufeff')
+
+
+def js_trim(text: str) -> str:
+    """``text.trim()``."""
+    start, end = 0, len(text)
+    while start < end and text[start] in JS_TRIM:
+        start += 1
+    while end > start and text[end - 1] in JS_TRIM:
+        end -= 1
+    return text[start:end]
 
 
 # --- JSON.stringify ---------------------------------------------------------
@@ -108,12 +222,87 @@ def quote(text: str) -> str:
     return ''.join(out)
 
 
+_MAX_ARRAY_INDEX = 2**32 - 2
+
+
+def is_array_index(key: str) -> bool:
+    """ECMA-262 array index: the canonical decimal string of an integer from 0 to 2**32 - 2.
+
+    ``"0"`` and ``"17"`` are indices; ``"01"``, ``"-1"``, ``"1.5"``, ``"4294967295"`` and non-ASCII digits
+    such as ``"²"`` or ``"٣"`` are ordinary keys.
+    """
+    # The length test comes first: 2**32 - 2 has 10 digits, and int() refuses more than 4300.
+    return (0 < len(key) <= 10 and key.isascii() and key.isdigit() and (key == '0' or key[0] != '0')
+            and int(key) <= _MAX_ARRAY_INDEX)
+
+
+def _own_keys(value: dict) -> list[str]:
+    """OrdinaryOwnPropertyKeys: array indices in ascending numeric order, then the other keys in insertion order."""
+    for key in value:
+        if not isinstance(key, str):
+            raise TypeError('object keys must be strings')
+    indices = sorted((key for key in value if is_array_index(key)), key=int)
+    if not indices:
+        return list(value)
+    return indices + [key for key in value if not is_array_index(key)]
+
+
 def stringify(value: Any) -> str:
-    """``JSON.stringify(value)`` for JSON data: insertion key order, no whitespace, JS numbers.
+    """``JSON.stringify(value)`` for JSON data: JavaScript own-key order, no whitespace, JS numbers.
+
+    Keys are written in V8's order for ordinary objects (ECMA-262 OrdinaryOwnPropertyKeys): array-index keys
+    (``is_array_index``) first in ascending numeric order, then every other key in insertion order. This is
+    the order ``JSON.parse`` gives an object, so ``stringify(parse(text))`` equals Node's
+    ``JSON.stringify(JSON.parse(text))``; worker results with keys such as ``"1"`` and ``"-1"`` hash as in Node.
 
     Absent optional fields must be left out of the dict by the caller, as Node
     builds objects with conditional spreads; ``None`` is serialized as ``null``.
+
+    It does not recurse, so like V8 it writes any nesting depth that ``parse`` accepts.
     """
+    if not isinstance(value, (list, tuple, dict)):
+        return _scalar(value)
+    out: list[str] = []
+    # Open containers: [iterator of (prefix, child), closing bracket, nothing written yet].
+    stack: list[list[Any]] = []
+    child = value
+    while True:
+        if isinstance(child, dict):
+            out.append('{')
+            stack.append([_members(child), '}', True])
+        elif isinstance(child, (list, tuple)):
+            out.append('[')
+            stack.append([_items(child), ']', True])
+        else:
+            out.append(_scalar(child))
+        while stack:
+            frame = stack[-1]
+            entry = next(frame[0], None)
+            if entry is None:
+                out.append(frame[1])
+                stack.pop()
+                continue
+            if frame[2]:
+                frame[2] = False
+            else:
+                out.append(',')
+            out.append(entry[0])
+            child = entry[1]
+            break
+        else:
+            return ''.join(out)
+
+
+def _members(value: dict):
+    keys = _own_keys(value)  # checked before anything of the object is written
+    return ((quote(key) + ':', value[key]) for key in keys)
+
+
+def _items(value):
+    return (('', item) for item in value)
+
+
+def _scalar(value: Any) -> str:
     if value is None:
         return 'null'
     if value is True:
@@ -124,16 +313,6 @@ def stringify(value: Any) -> str:
         return number_to_string(value)
     if isinstance(value, str):
         return quote(value)
-    if isinstance(value, (list, tuple)):
-        return '[' + ','.join(stringify(v) for v in value) + ']'
-    if isinstance(value, dict):
-        for key in value:
-            if not isinstance(key, str):
-                raise TypeError('object keys must be strings')
-        # JavaScript orders integer-like keys first; request formats have none, so refuse rather than guess.
-        if any(key.isdigit() for key in value):
-            raise ValueError('integer-like object keys are ordered differently in JavaScript')
-        return '{' + ','.join(quote(k) + ':' + stringify(v) for k, v in value.items()) + '}'
     raise TypeError(f'not JSON data: {type(value).__name__}')
 
 

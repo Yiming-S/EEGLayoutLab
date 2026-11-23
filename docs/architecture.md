@@ -32,9 +32,10 @@ app route -> feature workspace/controller -> client/task-client
 | [`webapp/server/operations/`](../webapp/server/operations/) | Request correlation, bounded private logs, local status and resource admission |
 | [`src/compact_eeg/workflows/`](../src/compact_eeg/workflows/) | Scientific application workflows |
 | [`src/compact_eeg/`](../src/compact_eeg/) | Geometry, forward modeling, reconstruction and metrics |
+| [`src/eeglayoutlab/`](../src/eeglayoutlab/) | Request schemas and the planned Python service ([design 0001](design/0001-local-first-architecture.md)); not yet used by the Node host |
 | [`scripts/`](../scripts/) | Worker entry points, data/runtime setup and release/recovery tools |
 
-Browser modules do not import server implementations. Server imports are checked for cycles. Shared layout contracts have no renderer dependency. Request fixtures exercise the existing Node and Python validators; schema generation is not part of this implementation. See [API formats](../contracts/api-formats.md).
+Browser modules do not import server implementations. Server imports are checked for cycles. Shared layout contracts have no renderer dependency. Request fixtures exercise the existing Node and Python validators. The design-evaluation and coordinate-source formats are also defined in `eeglayoutlab.schemas`, checked against the Node normalizers, and the interface's types for them are generated from those definitions ([contracts](../contracts/README.md#generated-request-types)). The other formats are not yet ported ([design 0001](design/0001-local-first-architecture.md), phase 1). See [API formats](../contracts/api-formats.md).
 
 The viewer's asset loader validates atlas groups and hashes before use. A scene lifetime owns generated geometry, materials, labels, event listeners, observers and the renderer. `lib/anatomical-head-scene.ts` preserves the existing exports. Reception separates pure result projections, one shared playback timeline and paired receiver panels; display controls do not recalculate scientific scores.
 

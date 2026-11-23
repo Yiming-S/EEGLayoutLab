@@ -1,0 +1,1087 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "EEGLayoutLab",
+    "version": "1",
+    "description": "Local service API. Request formats are defined in eeglayoutlab.schemas. The schemas describe the canonical form of each request; the service also accepts the spellings the Node host accepts for default values (contracts/README.md)."
+  },
+  "paths": {
+    "/api/normalize/coordinate-source": {
+      "post": {
+        "operationId": "normalize_coordinate_source",
+        "summary": "Validate a coordinate-source request and return its canonical form",
+        "description": "Diagnostic endpoint. Reproduces validateCoordinateSource (webapp/contracts/coordinate-source.mjs).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CoordinateSource"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The canonical request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NormalizedRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not valid JSON or not a valid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The body is larger than 65,536 bytes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not application/json.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/normalize/design-evaluation": {
+      "post": {
+        "operationId": "normalize_design_evaluation",
+        "summary": "Validate a design-evaluation request and return its canonical form",
+        "description": "Diagnostic endpoint. Reproduces designSubmission + normalizeDesignRequest (webapp/server/annotations/electrode-names.mjs, webapp/server/design-evaluation-server.mjs).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DesignEvaluationBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The canonical request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NormalizedRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not valid JSON or not a valid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The body is larger than 65,536 bytes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not application/json.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BalancedRegionAssignment": {
+        "additionalProperties": false,
+        "description": "The regions were assigned on import, balanced in space.",
+        "properties": {
+          "method": {
+            "const": "balanced-spatial/1",
+            "title": "Method",
+            "type": "string"
+          },
+          "region_count": {
+            "enum": [
+              1,
+              2,
+              3,
+              4,
+              6
+            ],
+            "title": "Region Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "method",
+          "region_count"
+        ],
+        "title": "BalancedRegionAssignment",
+        "type": "object"
+      },
+      "BrainBackgroundNoise": {
+        "additionalProperties": false,
+        "description": "Design evaluation only; the radius search rejects it.",
+        "properties": {
+          "kind": {
+            "const": "brain_background",
+            "title": "Kind",
+            "type": "string"
+          },
+          "fraction": {
+            "const": 0.5,
+            "title": "Fraction",
+            "type": "number"
+          }
+        },
+        "required": [
+          "kind",
+          "fraction"
+        ],
+        "title": "BrainBackgroundNoise",
+        "type": "object"
+      },
+      "CoordinateSource": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/CoordinateSourceV1"
+          },
+          {
+            "$ref": "#/components/schemas/CoordinateSourceV2"
+          },
+          {
+            "$ref": "#/components/schemas/CoordinateSourceV3"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "schema",
+          "mapping": {
+            "electrode-coordinate-source/1": "#/components/schemas/CoordinateSourceV1",
+            "electrode-coordinate-source/2": "#/components/schemas/CoordinateSourceV2",
+            "electrode-coordinate-source/3": "#/components/schemas/CoordinateSourceV3"
+          }
+        }
+      },
+      "CoordinateSourceV1": {
+        "additionalProperties": false,
+        "description": "An Ernie-native coordinate file.",
+        "properties": {
+          "electrodes_file": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "^[^/\\\\]+$",
+            "title": "Electrodes File",
+            "type": "string"
+          },
+          "coordinate_system": {
+            "const": "ernie_native_mm",
+            "title": "Coordinate System",
+            "type": "string"
+          },
+          "unit": {
+            "const": "mm",
+            "title": "Unit",
+            "type": "string"
+          },
+          "coordinate_system_description": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Coordinate System Description",
+            "type": "string"
+          },
+          "region_index_base": {
+            "const": 0,
+            "title": "Region Index Base",
+            "type": "integer"
+          },
+          "region_description": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Region Description",
+            "type": "string"
+          },
+          "schema": {
+            "const": "electrode-coordinate-source/1",
+            "title": "Schema",
+            "type": "string"
+          },
+          "format": {
+            "const": "bids-electrodes/1",
+            "title": "Format",
+            "type": "string"
+          },
+          "coordsystem_file": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "^[^/\\\\]+$",
+            "title": "Coordsystem File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "electrodes_file",
+          "coordinate_system",
+          "unit",
+          "coordinate_system_description",
+          "region_index_base",
+          "region_description",
+          "schema",
+          "format",
+          "coordsystem_file"
+        ],
+        "title": "CoordinateSourceV1",
+        "type": "object"
+      },
+      "CoordinateSourceV2": {
+        "additionalProperties": false,
+        "description": "A converted input: an MNI coordinate file, or a list of 10-05 electrode names (no coordinate-system file).",
+        "properties": {
+          "electrodes_file": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "^[^/\\\\]+$",
+            "title": "Electrodes File",
+            "type": "string"
+          },
+          "coordinate_system": {
+            "const": "ernie_native_mm",
+            "title": "Coordinate System",
+            "type": "string"
+          },
+          "unit": {
+            "const": "mm",
+            "title": "Unit",
+            "type": "string"
+          },
+          "coordinate_system_description": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Coordinate System Description",
+            "type": "string"
+          },
+          "region_index_base": {
+            "const": 0,
+            "title": "Region Index Base",
+            "type": "integer"
+          },
+          "region_description": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Region Description",
+            "type": "string"
+          },
+          "schema": {
+            "const": "electrode-coordinate-source/2",
+            "title": "Schema",
+            "type": "string"
+          },
+          "format": {
+            "enum": [
+              "bids-electrodes/1",
+              "electrode-labels/1"
+            ],
+            "title": "Format",
+            "type": "string"
+          },
+          "coordsystem_file": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "pattern": "^[^/\\\\]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coordsystem File"
+          },
+          "conversion": {
+            "discriminator": {
+              "mapping": {
+                "cap-labels/1": "#/components/schemas/LabelConversion",
+                "ernie-mni-scalp/1": "#/components/schemas/MniConversion"
+              },
+              "propertyName": "method"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/MniConversion"
+              },
+              {
+                "$ref": "#/components/schemas/LabelConversion"
+              }
+            ],
+            "title": "Conversion"
+          }
+        },
+        "required": [
+          "electrodes_file",
+          "coordinate_system",
+          "unit",
+          "coordinate_system_description",
+          "region_index_base",
+          "region_description",
+          "schema",
+          "format",
+          "coordsystem_file",
+          "conversion"
+        ],
+        "title": "CoordinateSourceV2",
+        "type": "object"
+      },
+      "CoordinateSourceV3": {
+        "additionalProperties": false,
+        "description": "`/2` plus montage files, head-frame registration and regions assigned on import; conversion is null for an\nErnie-native input.",
+        "properties": {
+          "electrodes_file": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "^[^/\\\\]+$",
+            "title": "Electrodes File",
+            "type": "string"
+          },
+          "coordinate_system": {
+            "const": "ernie_native_mm",
+            "title": "Coordinate System",
+            "type": "string"
+          },
+          "unit": {
+            "const": "mm",
+            "title": "Unit",
+            "type": "string"
+          },
+          "coordinate_system_description": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Coordinate System Description",
+            "type": "string"
+          },
+          "region_index_base": {
+            "const": 0,
+            "title": "Region Index Base",
+            "type": "integer"
+          },
+          "region_description": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Region Description",
+            "type": "string"
+          },
+          "schema": {
+            "const": "electrode-coordinate-source/3",
+            "title": "Schema",
+            "type": "string"
+          },
+          "format": {
+            "enum": [
+              "bids-electrodes/1",
+              "electrode-labels/1",
+              "mne-elc/1",
+              "eeglab-sfp/1"
+            ],
+            "title": "Format",
+            "type": "string"
+          },
+          "coordsystem_file": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "pattern": "^[^/\\\\]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coordsystem File"
+          },
+          "conversion": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "cap-labels/1": "#/components/schemas/LabelConversion",
+                    "ernie-mni-scalp/1": "#/components/schemas/MniConversion",
+                    "head-landmarks-surface/1": "#/components/schemas/HeadRegistration"
+                  },
+                  "propertyName": "method"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/MniConversion"
+                  },
+                  {
+                    "$ref": "#/components/schemas/LabelConversion"
+                  },
+                  {
+                    "$ref": "#/components/schemas/HeadRegistration"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversion"
+          },
+          "region_assignment": {
+            "discriminator": {
+              "mapping": {
+                "balanced-spatial/1": "#/components/schemas/BalancedRegionAssignment",
+                "file": "#/components/schemas/FileRegionAssignment"
+              },
+              "propertyName": "method"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FileRegionAssignment"
+              },
+              {
+                "$ref": "#/components/schemas/BalancedRegionAssignment"
+              }
+            ],
+            "title": "Region Assignment"
+          }
+        },
+        "required": [
+          "electrodes_file",
+          "coordinate_system",
+          "unit",
+          "coordinate_system_description",
+          "region_index_base",
+          "region_description",
+          "schema",
+          "format",
+          "coordsystem_file",
+          "conversion",
+          "region_assignment"
+        ],
+        "title": "CoordinateSourceV3",
+        "type": "object"
+      },
+      "DataPrior": {
+        "additionalProperties": false,
+        "description": "The ``request`` value of an ``eeg-data-prior/1`` file; rejected, never rounded.",
+        "properties": {
+          "region_gain": {
+            "items": {
+              "maximum": 1000.0,
+              "minimum": 0.001,
+              "type": "number"
+            },
+            "maxItems": 7,
+            "minItems": 7,
+            "title": "Region Gain",
+            "type": "array"
+          },
+          "rho": {
+            "maximum": 0.95,
+            "minimum": 0,
+            "title": "Rho",
+            "type": "number"
+          },
+          "length_mm": {
+            "anyOf": [
+              {
+                "enum": [
+                  5,
+                  10,
+                  15,
+                  20,
+                  30,
+                  40
+                ],
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Length Mm"
+          }
+        },
+        "required": [
+          "region_gain",
+          "rho",
+          "length_mm"
+        ],
+        "title": "DataPrior",
+        "type": "object"
+      },
+      "DesignEvaluationBody": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/DesignEvaluationRequest"
+          },
+          {
+            "$ref": "#/components/schemas/DesignSubmission"
+          }
+        ]
+      },
+      "DesignEvaluationRequest": {
+        "additionalProperties": false,
+        "description": "Body of ``POST /api/design-evaluation/jobs``. Unknown top-level fields are rejected.",
+        "properties": {
+          "action": {
+            "enum": [
+              "evaluate",
+              "perturb"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "design": {
+            "$ref": "#/components/schemas/ElectrodeDesign"
+          },
+          "radius_mm": {
+            "enum": [
+              3,
+              6,
+              10
+            ],
+            "title": "Radius Mm",
+            "type": "integer"
+          },
+          "seed": {
+            "maximum": 9999,
+            "minimum": 0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "noise_model": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "brain_background": "#/components/schemas/BrainBackgroundNoise",
+                    "iid": "#/components/schemas/IidNoise",
+                    "spatial": "#/components/schemas/SpatialNoise"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/IidNoise"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SpatialNoise"
+                  },
+                  {
+                    "$ref": "#/components/schemas/BrainBackgroundNoise"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Noise Model"
+          },
+          "conductivity_scenario": {
+            "anyOf": [
+              {
+                "enum": [
+                  "skull_x0.5",
+                  "skull_x2"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Conductivity Scenario"
+          },
+          "head_id": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "pattern": "^[a-z0-9]+(?:[_-][a-z0-9]+)*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Head Id"
+          },
+          "robustness": {
+            "anyOf": [
+              {
+                "const": "standard/1",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Robustness"
+          },
+          "data_prior": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DataPrior"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "action",
+          "design",
+          "radius_mm",
+          "seed"
+        ],
+        "title": "DesignEvaluationRequest",
+        "type": "object"
+      },
+      "DesignSubmission": {
+        "additionalProperties": false,
+        "properties": {
+          "schema": {
+            "const": "design-submission/1",
+            "title": "Schema",
+            "type": "string"
+          },
+          "request": {
+            "$ref": "#/components/schemas/DesignEvaluationRequest"
+          },
+          "electrode_names": {
+            "items": {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 64,
+            "minItems": 64,
+            "title": "Electrode Names",
+            "type": "array",
+            "uniqueItems": true
+          },
+          "source_metadata": {
+            "discriminator": {
+              "mapping": {
+                "electrode-coordinate-source/1": "#/components/schemas/CoordinateSourceV1",
+                "electrode-coordinate-source/2": "#/components/schemas/CoordinateSourceV2",
+                "electrode-coordinate-source/3": "#/components/schemas/CoordinateSourceV3"
+              },
+              "propertyName": "schema"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CoordinateSourceV1"
+              },
+              {
+                "$ref": "#/components/schemas/CoordinateSourceV2"
+              },
+              {
+                "$ref": "#/components/schemas/CoordinateSourceV3"
+              }
+            ],
+            "title": "Source Metadata"
+          }
+        },
+        "required": [
+          "schema",
+          "request",
+          "electrode_names"
+        ],
+        "title": "DesignSubmission",
+        "type": "object"
+      },
+      "ElectrodeDesign": {
+        "description": "``eeg-electrode-design/1`` in Ernie native millimetres. Other design fields are dropped.",
+        "properties": {
+          "schema": {
+            "const": "eeg-electrode-design/1",
+            "title": "Schema",
+            "type": "string"
+          },
+          "coordinate_system": {
+            "const": "ernie_native_mm",
+            "title": "Coordinate System",
+            "type": "string"
+          },
+          "unit": {
+            "const": "mm",
+            "title": "Unit",
+            "type": "string"
+          },
+          "name": {
+            "default": "导入布局",
+            "title": "Name",
+            "type": "string"
+          },
+          "xyz_mm": {
+            "items": {
+              "maxItems": 3,
+              "minItems": 3,
+              "prefixItems": [
+                {
+                  "maximum": 500,
+                  "minimum": -500,
+                  "type": "number"
+                },
+                {
+                  "maximum": 500,
+                  "minimum": -500,
+                  "type": "number"
+                },
+                {
+                  "maximum": 500,
+                  "minimum": -500,
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            "maxItems": 64,
+            "minItems": 64,
+            "title": "Xyz Mm",
+            "type": "array"
+          },
+          "region_indices": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 64,
+            "minItems": 64,
+            "title": "Region Indices",
+            "type": "array"
+          }
+        },
+        "required": [
+          "schema",
+          "coordinate_system",
+          "unit",
+          "xyz_mm",
+          "region_indices"
+        ],
+        "title": "ElectrodeDesign",
+        "type": "object"
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "title": "ErrorResponse",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Message for people; not stable."
+          },
+          "code": {
+            "type": "string",
+            "description": "Stable code, listed in contracts/api-formats.md."
+          }
+        },
+        "required": [
+          "error",
+          "code"
+        ]
+      },
+      "FileRegionAssignment": {
+        "additionalProperties": false,
+        "description": "The regions were read from the file.",
+        "properties": {
+          "method": {
+            "const": "file",
+            "title": "Method",
+            "type": "string"
+          }
+        },
+        "required": [
+          "method"
+        ],
+        "title": "FileRegionAssignment",
+        "type": "object"
+      },
+      "HeadRegistration": {
+        "additionalProperties": false,
+        "description": "Digitized head-frame coordinates registered onto Ernie's scalp by their landmarks.",
+        "properties": {
+          "method": {
+            "const": "head-landmarks-surface/1",
+            "title": "Method",
+            "type": "string"
+          },
+          "mapping_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Mapping Id",
+            "type": "string"
+          },
+          "input_coordinate_system": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Input Coordinate System",
+            "type": "string"
+          },
+          "input_unit": {
+            "enum": [
+              "mm",
+              "cm",
+              "m"
+            ],
+            "title": "Input Unit",
+            "type": "string"
+          },
+          "landmark_source": {
+            "enum": [
+              "coordsystem",
+              "file"
+            ],
+            "title": "Landmark Source",
+            "type": "string"
+          },
+          "scale": {
+            "maximum": 2,
+            "minimum": 0.5,
+            "title": "Scale",
+            "type": "number"
+          },
+          "rotation_deg": {
+            "maximum": 180,
+            "minimum": 0,
+            "title": "Rotation Deg",
+            "type": "number"
+          },
+          "max_landmark_residual_mm": {
+            "maximum": 1000,
+            "minimum": 0,
+            "title": "Max Landmark Residual Mm",
+            "type": "number"
+          },
+          "max_surface_distance_mm": {
+            "maximum": 10,
+            "minimum": 0,
+            "title": "Max Surface Distance Mm",
+            "type": "number"
+          },
+          "iterations": {
+            "maximum": 1000,
+            "minimum": 0,
+            "title": "Iterations",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "method",
+          "mapping_id",
+          "input_coordinate_system",
+          "input_unit",
+          "landmark_source",
+          "scale",
+          "rotation_deg",
+          "max_landmark_residual_mm",
+          "max_surface_distance_mm",
+          "iterations"
+        ],
+        "title": "HeadRegistration",
+        "type": "object"
+      },
+      "IidNoise": {
+        "additionalProperties": false,
+        "description": "Accepted for the production model and dropped from canonical output.",
+        "properties": {
+          "kind": {
+            "const": "iid",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "IidNoise",
+        "type": "object"
+      },
+      "LabelConversion": {
+        "additionalProperties": false,
+        "description": "10-05 electrode names placed at the positions of the SimNIBS cap.",
+        "properties": {
+          "method": {
+            "const": "cap-labels/1",
+            "title": "Method",
+            "type": "string"
+          },
+          "mapping_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Mapping Id",
+            "type": "string"
+          },
+          "input_coordinate_system": {
+            "const": "EEG10-20_extended_SPM12",
+            "title": "Input Coordinate System",
+            "type": "string"
+          },
+          "input_unit": {
+            "title": "Input Unit",
+            "type": "null"
+          },
+          "max_surface_distance_mm": {
+            "title": "Max Surface Distance Mm",
+            "type": "null"
+          }
+        },
+        "required": [
+          "method",
+          "mapping_id",
+          "input_coordinate_system",
+          "input_unit",
+          "max_surface_distance_mm"
+        ],
+        "title": "LabelConversion",
+        "type": "object"
+      },
+      "MniConversion": {
+        "additionalProperties": false,
+        "description": "MNI template coordinates mapped onto Ernie's scalp with the SimNIBS nonlinear warp.",
+        "properties": {
+          "method": {
+            "const": "ernie-mni-scalp/1",
+            "title": "Method",
+            "type": "string"
+          },
+          "mapping_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Mapping Id",
+            "type": "string"
+          },
+          "input_coordinate_system": {
+            "enum": [
+              "MNI152NLin6Asym",
+              "MNI152NLin6Sym",
+              "MNI152Lin",
+              "MNI152NLin2009aAsym",
+              "MNI152NLin2009aSym",
+              "MNI152NLin2009bAsym",
+              "MNI152NLin2009bSym",
+              "MNI152NLin2009cAsym",
+              "MNI152NLin2009cSym",
+              "MNI305",
+              "MNIColin27",
+              "IXI549Space",
+              "ICBM452AirSpace",
+              "ICBM452Warp5Space"
+            ],
+            "title": "Input Coordinate System",
+            "type": "string"
+          },
+          "input_unit": {
+            "const": "mm",
+            "title": "Input Unit",
+            "type": "string"
+          },
+          "max_surface_distance_mm": {
+            "maximum": 10,
+            "minimum": 0,
+            "title": "Max Surface Distance Mm",
+            "type": "number"
+          }
+        },
+        "required": [
+          "method",
+          "mapping_id",
+          "input_coordinate_system",
+          "input_unit",
+          "max_surface_distance_mm"
+        ],
+        "title": "MniConversion",
+        "type": "object"
+      },
+      "NormalizedRequest": {
+        "type": "object",
+        "title": "NormalizedRequest",
+        "properties": {
+          "canonical": {
+            "description": "The request as Node's normalizer returns it."
+          },
+          "canonical_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "SHA-256 of JSON.stringify(canonical)."
+          }
+        },
+        "required": [
+          "canonical",
+          "canonical_sha256"
+        ]
+      },
+      "SpatialNoise": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "spatial",
+            "title": "Kind",
+            "type": "string"
+          },
+          "rho": {
+            "const": 0.5,
+            "title": "Rho",
+            "type": "number"
+          },
+          "length_mm": {
+            "enum": [
+              10,
+              20,
+              40
+            ],
+            "title": "Length Mm",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "rho",
+          "length_mm"
+        ],
+        "title": "SpatialNoise",
+        "type": "object"
+      }
+    }
+  }
+}

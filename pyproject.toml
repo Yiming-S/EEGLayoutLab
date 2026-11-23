@@ -17,7 +17,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest==9.0.2"]
+# The local service and its request schemas (src/eeglayoutlab); the science code does not need them.
+service = [
+  "fastapi==0.165.0",
+  "pydantic==2.14.4",
+  "starlette==1.10.0",
+  "uvicorn==0.54.0",
+]
+dev = ["httpx==0.28.1", "pytest==9.0.2"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

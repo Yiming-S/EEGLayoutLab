@@ -1,6 +1,6 @@
 # 0001 — Local-first application with a Python service
 
-- **Status:** proposed; phase 0 complete ([results](#phase-0-results))
+- **Status:** proposed; phase 0 complete ([results](#phase-0-results)); phases 1 and 2 in progress ([phase 2 plan](0001-phase-2-plan.md))
 - **Date:** 2026-11-22
 - **Applies after:** 0.2.0
 - **Current architecture:** [architecture.md](../architecture.md)
@@ -99,8 +99,8 @@ Until the Node host is retired, every request schema follows these rules:
   Numbers and integers are checked by before-validators with `typeof` and `Number.isInteger` semantics. String lengths are checked in after-validators, because Pydantic's `max_length` and `pattern` reject lone surrogates that Node accepts. Pydantic's own JSON parser and type coercion are not used for requests.
 - **Explicit canonical form.** Each format has a `canonical()` builder in Node's key order that omits defaults exactly as Node does. Canonical JSON is never derived from `model_dump`.
 - **Generated variants.** Each format has a generator that runs the real Node normalizer over generated request texts. The shared fixtures alone are not enough: when single rules were replaced by the plain Python version, the fixtures caught only the change to number spelling. Errors in `Math.hypot`, UTF-16 slicing, string quoting, parsing and `trim` passed every fixture.
-- **Generated TypeScript.** Types are generated with `openapi-typescript --default-non-nullable false`, so request fields with defaults stay optional. The interface's parameter types are narrowed to the generated ones. For design evaluation, three parameters are wider than the contract today (`radius_mm`, `conductivity_scenario` and the data prior's `length_mm`), and two string literals are widened to `string`.
-- **Errors.** FastAPI's 422 `{detail}` responses are replaced by 400 `{error, code}`, in the OpenAPI document as well as at run time, and the 413 and 415 checks of the Node host are added.
+- **Generated TypeScript.** Types are generated with `openapi-typescript --default-non-nullable false`, so request fields with defaults stay optional. The interface's parameter types are narrowed to the generated ones; for design evaluation this is done in phase 1, and `designSubmission` takes and returns the generated types (`webapp/lib/api-types.ts`).
+- **Errors.** FastAPI's 422 `{detail}` responses are replaced by 400 `{error, code}`, in the OpenAPI document as well as at run time, and the 413 and 415 checks of the Node route that serves submissions (`communityMiddleware`) are added: the body is limited, as received, to that route's limit for the request kind (65,536 bytes for design evaluation, 32,768 for electrode editing, 4,096 for the others) and decoded as a whole.
 
 A request key is the SHA-256 of `JSON.stringify({request, identity})`, so phase 2 also writes the identity object with `jsjson`. After the Node host is retired, the generated variants can no longer run, but `jsjson`, the validators and the `canonical()` builders stay, so request keys do not change.
 
@@ -188,6 +188,8 @@ Each phase ends with the application fully usable.
 | 4. Retirement | Remove the Node host and its tests. Publish the plugin API. Decide the 1.0 identity change | The repository contains one service implementation. The plugin API has documented examples |
 | Later | Server edition | Deployed when an institution or collaborator needs it |
 
+Phase 2 is planned in slices in [0001-phase-2-plan.md](0001-phase-2-plan.md).
+
 ### Phase 0 results
 
 Completed on 2026-11-22. Both exit criteria are met, and the web stack is confirmed.
@@ -216,7 +218,7 @@ Completed on 2026-11-22. Both exit criteria are met, and the web stack is confir
 
 **Web stack.** Pydantic 2 and FastAPI on Uvicorn are confirmed with the rules in decision 4. The phase 0 schema covers the design-evaluation request and the `design-submission/1` envelope. The envelope's `source_metadata` is accepted without checks for now; it is ported in phase 1.
 
-- One Node behaviour is deliberately not reproduced. Node decodes the request body chunk by chunk. A multi-byte character in the design name that is split across network chunks therefore becomes U+FFFD in Node only. This Node bug is a known exception to equal request keys in phase 2.
+- Phase 0 took Node's body handling from an older handler in `design-evaluation-server.mjs`, which decodes the body chunk by chunk and counts the decoded length. That handler is not reached: the route that serves submissions (`communityMiddleware`) counts the bytes received and decodes the whole body once. The phase 1 service follows that route, so the body is decoded as in Node and there is no exception to equal request keys.
 - The generated OpenAPI 3.1 keeps the allowed values of the contract, for example `radius_mm: 3 | 6 | 10`.
 - `designSubmission` in the interface does not type-check against the generated types in six places:
   - three parameters are wider than the contract;

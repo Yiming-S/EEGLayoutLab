@@ -1,4 +1,5 @@
 import type { DomainMode, RecordedLayout } from '../../contracts/layout';
+import type { DataPriorRequest } from './api-types';
 
 export type ComputeRequest = {
   region_count: number;
@@ -10,8 +11,8 @@ export type ComputeRequest = {
   /** Optional data-derived source prior and noise (eeg-data-prior/1 request value); replaces noise_model. */
   data_prior?: DataPrior;
 };
-/** Region gains in DATA_PRIOR_REGIONS order and the fitted noise correlation. */
-export type DataPrior = { region_gain: number[]; rho: number; length_mm: number | null };
+/** Region gains in DATA_PRIOR_REGIONS order and the fitted noise correlation (eeg-data-prior/1 request value). */
+export type DataPrior = DataPriorRequest;
 export type SearchNoiseModel = { kind: 'spatial'; rho: 0.5; length_mm: 10 | 20 | 40 };
 export type ComputedLayout = RecordedLayout;
 export type ComputeResult = {

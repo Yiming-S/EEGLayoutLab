@@ -1,7 +1,5 @@
-"""Request schemas: the planned single definition of wire formats (design 0001, decision 4).
+"""Request formats, defined once (design 0001, decision 4). ``registry.REQUEST_FORMATS`` lists them all.
 
-Phase 0 spike: only the design-evaluation request is ported.
+Every model follows JavaScript's number and string rules (``jsjson``, ``types``) and builds its canonical
+form explicitly, so the canonical JSON and request keys equal the Node host's.
 """
-from .design_evaluation import DesignEvaluationRequest, ElectrodeDesign, canonical_json, normalize_design_request
-
-__all__ = ['DesignEvaluationRequest', 'ElectrodeDesign', 'canonical_json', 'normalize_design_request']

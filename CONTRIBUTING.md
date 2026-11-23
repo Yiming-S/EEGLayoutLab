@@ -26,7 +26,7 @@ The fast workflow has been exercised locally on a source copy without scientific
 From the repository root:
 
 ```sh
-python -m pip install -e '.[dev]'
+python -m pip install -e '.[dev,service]'
 python -m pytest -m 'not data_bundle and not native_runtime' -q
 cd webapp
 npm ci
@@ -35,6 +35,8 @@ npm run lint
 npm run test:fast
 npm run build
 ```
+
+The `service` extra installs Pydantic, FastAPI and Uvicorn for the request schemas in `src/eeglayoutlab`. Without it the schema parity tests are skipped; CI sets `EEG_REQUIRE_SCHEMA_PARITY=1`, which makes them required. After changing a request schema, regenerate the files in `contracts/generated/` ([contracts](contracts/README.md#generated-request-types)).
 
 For full local checks after installing the matching data and native environment:
 

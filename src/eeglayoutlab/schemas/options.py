@@ -10,9 +10,14 @@ from typing import Annotated, Any, Literal, Union
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, StringConstraints, model_validator
 
 from . import jsjson
-from .types import JsNumber, empty_as_absent, js_integer, js_integer_or_none, number
+from .types import JsNumber, empty_as_absent, js_integer, js_integer_or_none, known_tag, number
 
 _EXACT = ConfigDict(extra='forbid')
+
+# Node's lists in scientific-options.mjs; tests/test_schema_parity.py compares them.
+CONDUCTIVITY_SCENARIOS = ('skull_x0.5', 'skull_x2')
+SPATIAL_NOISE_LENGTHS_MM = (10, 20, 40)
+DATA_PRIOR_LENGTHS_MM = (5, 10, 15, 20, 30, 40)
 
 
 def _half(value: float) -> float:
@@ -34,7 +39,7 @@ class SpatialNoise(BaseModel):
     model_config = _EXACT
     kind: Literal['spatial']
     rho: Half
-    length_mm: Annotated[Literal[10, 20, 40], BeforeValidator(js_integer)]
+    length_mm: Annotated[Literal[SPATIAL_NOISE_LENGTHS_MM], BeforeValidator(js_integer)]  # type: ignore[valid-type]
 
     def canonical(self) -> dict[str, Any]:
         return {'kind': 'spatial', 'rho': 0.5, 'length_mm': self.length_mm}
@@ -50,9 +55,10 @@ class BrainBackgroundNoise(BaseModel):
         return {'kind': 'brain_background', 'fraction': 0.5}
 
 
-NoiseModel = Annotated[Union[IidNoise, SpatialNoise, BrainBackgroundNoise], Field(discriminator='kind')]
+NoiseModel = Annotated[Union[IidNoise, SpatialNoise, BrainBackgroundNoise], Field(discriminator='kind'),
+                       known_tag('kind', ('iid', 'spatial', 'brain_background'))]
 
-ConductivityScenario = Annotated[Literal['skull_x0.5', 'skull_x2'] | None, BeforeValidator(empty_as_absent)]
+ConductivityScenario = Annotated[Literal[CONDUCTIVITY_SCENARIOS] | None, BeforeValidator(empty_as_absent)]  # type: ignore[valid-type]
 
 HeadId = Annotated[
     Annotated[str, StringConstraints(strict=True, max_length=40, pattern=r'^[a-z0-9]+(?:[_-][a-z0-9]+)*$')] | None,
@@ -90,7 +96,7 @@ class DataPrior(BaseModel):
     region_gain: Annotated[list[RegionGain], Field(min_length=7, max_length=7)]
     rho: Annotated[number(ge=0, le=0.95), AfterValidator(_two_decimals)]
     # Required but nullable: null exactly when rho is 0.
-    length_mm: Annotated[Literal[5, 10, 15, 20, 30, 40] | None, BeforeValidator(js_integer_or_none)]
+    length_mm: Annotated[Literal[DATA_PRIOR_LENGTHS_MM] | None, BeforeValidator(js_integer_or_none)]  # type: ignore[valid-type]
 
     @model_validator(mode='after')
     def _length_matches_rho(self) -> DataPrior:

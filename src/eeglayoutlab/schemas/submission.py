@@ -1,7 +1,8 @@
 """``design-submission/1`` envelope (webapp/server/annotations/electrode-names.mjs).
 
-The interface wraps a design-evaluation request with presentation metadata.
-The names never enter the request or its cache key.
+The interface wraps a design-evaluation request with presentation metadata:
+electrode names and, optionally, the coordinate source of an imported layout.
+Neither enters the request or its cache key.
 """
 from __future__ import annotations
 
@@ -9,20 +10,15 @@ from typing import Annotated, Any, Literal, Union
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Discriminator, Field, Tag
 
+from . import coordinate_source
+from .coordinate_source import JS_TRIM, CoordinateSource, utf16_length
 from .design_evaluation import DesignEvaluationRequest
 
-# ECMAScript WhiteSpace and LineTerminator, which String.prototype.trim removes.
-# Python's str.strip differs: it removes U+0085 and U+001C-U+001F but keeps U+FEFF.
-JS_TRIM = frozenset('\t\n\v\f\r              '
-                    '    　﻿')
-
-
-def _utf16_length(text: str) -> int:
-    return len(text.encode('utf-16-le', errors='surrogatepass')) // 2
+__all__ = ['DesignEvaluationBody', 'DesignSubmission', 'ElectrodeNames', 'canonical_submission', 'JS_TRIM']
 
 
 def _electrode_name(value: str) -> str:
-    if all(c in JS_TRIM for c in value) or _utf16_length(value) > 128 or any(ord(c) < 32 or ord(c) == 127 for c in value):
+    if all(c in JS_TRIM for c in value) or utf16_length(value) > 128 or any(ord(c) < 32 or ord(c) == 127 for c in value):
         raise ValueError('electrode names are non-blank, at most 128 UTF-16 units and free of control characters')
     return value
 
@@ -45,11 +41,15 @@ class DesignSubmission(BaseModel):
     schema_: Literal['design-submission/1'] = Field(alias='schema')
     request: DesignEvaluationRequest
     electrode_names: ElectrodeNames
-    # Not ported in the spike: Node checks it with validateCoordinateSource (webapp/contracts/coordinate-source.mjs).
-    source_metadata: dict[str, Any] | None = None
+    # Optional but not nullable: Node checks any value that is present, null included, with validateCoordinateSource.
+    # The default is not validated, so None here means absent; it is left out of the schema so the field stays non-nullable.
+    source_metadata: CoordinateSource = Field(default=None, json_schema_extra=lambda schema: schema.pop('default', None))
 
     def canonical(self) -> dict[str, Any]:
-        return {'request': self.request.canonical(), 'electrode_names': list(self.electrode_names)}
+        out: dict[str, Any] = {'request': self.request.canonical(), 'electrode_names': list(self.electrode_names)}
+        if self.source_metadata is not None:
+            out['source_metadata'] = coordinate_source.canonical(self.source_metadata)
+        return out
 
 
 def _kind(value: Any) -> str:
@@ -66,5 +66,6 @@ DesignEvaluationBody = Annotated[
 
 
 def canonical_submission(body: DesignEvaluationRequest | DesignSubmission) -> dict[str, Any]:
-    """What Node's ``designSubmission`` + ``normalizeDesignRequest`` keep: the request and, if sent, the names."""
+    """What Node's ``designSubmission`` + ``normalizeDesignRequest`` keep: the request and, if sent, the names and
+    the coordinate source, in that order."""
     return body.canonical() if isinstance(body, DesignSubmission) else {'request': body.canonical()}

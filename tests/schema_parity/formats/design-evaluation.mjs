@@ -1,40 +1,31 @@
-// Runs the real Node normalizer over generated design-evaluation request texts and
-// writes inputs and outputs for tests/test_schema_design_parity.py. Deterministic.
-// Usage: node tests/schema_parity/design_variants.mjs <output.json>
-import { readFileSync, writeFileSync } from 'node:fs';
-import { normalizeDesignRequest } from '../../webapp/server/design-evaluation-server.mjs';
-import { designSubmission } from '../../webapp/server/annotations/electrode-names.mjs';
+// design-evaluation: the body of POST /api/design-evaluation/jobs, a bare request or a design-submission/1
+// envelope. Node's outcome is designSubmission followed by normalizeDesignRequest, as in the service.
+import { readFileSync } from 'node:fs';
+import { normalizeDesignRequest } from '../../../webapp/server/design-evaluation-server.mjs';
+import { designSubmission } from '../../../webapp/server/annotations/electrode-names.mjs';
+import { CONDUCTIVITY_SCENARIOS, DATA_PRIOR_LENGTHS_MM, SPATIAL_NOISE_LENGTHS_MM } from '../../../webapp/contracts/scientific-options.mjs';
+import { ABSENT, Raw, collector, createRandom, nextUp, raw, toText } from '../support.mjs';
 
-const output = process.argv[2];
-if (!output) throw new Error('usage: design_variants.mjs <output.json>');
-
-// --- deterministic randomness ------------------------------------------------
-let state = 0x5eed2026;
-const rand32 = () => {
-  state = (state + 0x6d2b79f5) >>> 0;
-  let t = state;
-  t = Math.imul(t ^ (t >>> 15), t | 1);
-  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-  return (t ^ (t >>> 14)) >>> 0;
+/** Node's option lists, compared with the Python schemas' (tests/test_schema_parity.py). */
+export const options = {
+  conductivity_scenarios: CONDUCTIVITY_SCENARIOS.map(scenario => scenario.id).filter(Boolean),
+  spatial_noise_lengths_mm: [...SPATIAL_NOISE_LENGTHS_MM],
+  data_prior_lengths_mm: [...DATA_PRIOR_LENGTHS_MM],
 };
-const random = () => rand32() / 2 ** 32;
-const pick = list => list[Math.floor(random() * list.length)];
-const view = new DataView(new ArrayBuffer(8));
-const bits = x => { view.setFloat64(0, x); return view.getBigUint64(0).toString(16).padStart(16, '0'); };
-const fromBits = b => { view.setBigUint64(0, b); return view.getFloat64(0); };
-const nextUp = (x, steps = 1) => { view.setFloat64(0, x); return fromBits(view.getBigUint64(0) + BigInt(steps)); };
+export const name = 'design-evaluation';
 
-// --- request text with exact number spellings -------------------------------
-class Raw { constructor(text) { this.text = text; } }
-const raw = text => new Raw(text);
-const ABSENT = Symbol('absent');
-const toText = value => {
-  if (value instanceof Raw) return value.text;
-  if (Array.isArray(value)) return '[' + value.map(toText).join(',') + ']';
-  if (value && typeof value === 'object')
-    return '{' + Object.entries(value).filter(([, v]) => v !== ABSENT).map(([k, v]) => JSON.stringify(k) + ':' + toText(v)).join(',') + '}';
-  return JSON.stringify(value);
-};
+export function normalize(value) {
+  const input = designSubmission(value);
+  return {
+    request: normalizeDesignRequest(input.request),
+    ...(input.electrode_names ? { electrode_names: input.electrode_names } : {}),
+    ...(input.source_metadata !== undefined ? { source_metadata: input.source_metadata } : {}),
+  };
+}
+
+const { random, pick } = createRandom(0x5eed2026);
+const { variants, add, addBytes } = collector();
+export { variants };
 
 const grid = (spacing = 5, z = () => 0) => Array.from({ length: 64 }, (_, i) => [(i % 8) * spacing, Math.floor(i / 8) * spacing, z(i)]);
 const balanced = r => Array.from({ length: 64 }, (_, i) => i % r);
@@ -51,9 +42,6 @@ const GAINS = [1, 1.5, 0.25, 2.75, 1000, 0.001, 12.34];
 const PRIOR = { region_gain: GAINS, rho: 0.3, length_mm: 20 };
 const PRIOR_IID = { region_gain: GAINS, rho: 0, length_mm: null };
 
-const variants = [];
-const add = (name, value) => variants.push({ name, text: value instanceof Raw ? value.text : toText(value) });
-const addBytes = (name, bytes) => variants.push({ name, bytes: Buffer.from(bytes).toString('base64') });
 
 // Top level
 add('base', request());
@@ -74,6 +62,11 @@ add('overflow-exponent', request({}, { xyz_mm: grid().map((p, i) => i ? p : [raw
 add('unicode-digit-seed', raw(toText(request()).replace('"seed":2026', '"seed":2٠٢٦')));
 add('huge-integer-in-dropped-field', request({}, { extra: raw('9'.repeat(5000)) }));
 add('huge-integer-seed', request({ seed: raw('1' + '0'.repeat(400)) }));
+// Deeper than Python's recursion limit: JSON.parse accepts any depth and the normalizer drops unknown design fields.
+add('deep-array-in-dropped-field', request({}, { extra: raw('['.repeat(5000) + ']'.repeat(5000)) }));
+add('deep-object-in-dropped-field', request({}, { extra: raw('{"a":'.repeat(3000) + '1' + '}'.repeat(3000)) }));
+add('deep-array-seed', request({ seed: raw('['.repeat(5000) + '2026' + ']'.repeat(5000)) }));
+add('deep-array-unbalanced', request({}, { extra: raw('['.repeat(5000) + ']'.repeat(4999)) }));
 
 // Action, radius and seed
 for (const value of ['perturb', 'Evaluate', 'evaluate ', '', null, 1, true, ['evaluate'], { a: 1 }]) add(`action-${JSON.stringify(value)}`, request({ action: value }));
@@ -217,6 +210,11 @@ add('prior-with-scenario', request({ data_prior: PRIOR, conductivity_scenario: '
 add('prior-with-robustness', request({ data_prior: PRIOR, robustness: 'standard/1' }));
 add('prior-perturb', request({ data_prior: PRIOR, action: 'perturb' }));
 
+// One request per value of Node's option lists, so that a value added on one side only fails parity.
+for (const { id } of CONDUCTIVITY_SCENARIOS) if (id) add(`option-scenario-${id}`, request({ conductivity_scenario: id }));
+for (const length_mm of SPATIAL_NOISE_LENGTHS_MM) add(`option-noise-length-${length_mm}`, request({ noise_model: { ...SPATIAL, length_mm } }));
+for (const length_mm of DATA_PRIOR_LENGTHS_MM) add(`option-prior-length-${length_mm}`, request({ data_prior: { ...PRIOR, length_mm } }));
+
 // Random combinations of every optional field
 const POOLS = {
   action: ['evaluate', 'evaluate', 'perturb'],
@@ -234,87 +232,47 @@ for (let i = 0; i < 800; i++) {
   add(`combo-${i}`, request(fields, pick(DESIGNS)));
 }
 
-// design-submission/1 envelopes (source_metadata is not part of the spike)
+// design-submission/1 envelopes
 const LABELS = Array.from({ length: 64 }, (_, i) => `E${i + 1}`);
 const envelope = (overrides = {}) => ({ schema: 'design-submission/1', request: request(), electrode_names: LABELS, ...overrides });
-const submissions = [];
-const addSubmission = (name, value) => submissions.push({ name, text: toText(value) });
-addSubmission('bare-request', request());
-addSubmission('bare-request-invalid', request({ seed: -1 }));
-addSubmission('envelope', envelope());
-addSubmission('envelope-prior', envelope({ request: request({ data_prior: PRIOR, noise_model: { kind: 'iid' } }) }));
+add('bare-request', request());
+add('bare-request-invalid', request({ seed: -1 }));
+add('envelope', envelope());
+add('envelope-prior', envelope({ request: request({ data_prior: PRIOR, noise_model: { kind: 'iid' } }) }));
 for (const [label, value] of Object.entries({
   spaces: '   ', nbsp: ' ', bom: '﻿', nel: '\u0085', ideographic: '　', lineSeparator: ' ', zeroWidth: '​', ogham: ' ',
   padded: ' Fz ', tab: 'F\tz', del: 'F\u007fz', nul: '\u0000', empty: '', len128: 'x'.repeat(128), len129: 'x'.repeat(129), emoji64: '😀'.repeat(64),
   emoji65: '😀'.repeat(65), loneSurrogate: '\ud800', number: 1, null: null,
 }))
-  addSubmission(`envelope-name-${label}`, envelope({ electrode_names: LABELS.map((n, i) => (i === 5 ? value : n)) }));
-addSubmission('envelope-duplicate-names', envelope({ electrode_names: LABELS.map((n, i) => (i === 5 ? 'E1' : n)) }));
-addSubmission('envelope-63-names', envelope({ electrode_names: LABELS.slice(1) }));
-addSubmission('envelope-names-missing', envelope({ electrode_names: ABSENT }));
-addSubmission('envelope-request-missing', envelope({ request: ABSENT }));
-addSubmission('envelope-request-null', envelope({ request: null }));
-addSubmission('envelope-request-invalid', envelope({ request: request({ radius_mm: 4 }) }));
-addSubmission('envelope-extra', envelope({ extra: 1 }));
-addSubmission('envelope-other-schema', envelope({ schema: 'design-submission/2' }));
-addSubmission('envelope-schema-null', envelope({ schema: null }));
+  add(`envelope-name-${label}`, envelope({ electrode_names: LABELS.map((n, i) => (i === 5 ? value : n)) }));
+add('envelope-duplicate-names', envelope({ electrode_names: LABELS.map((n, i) => (i === 5 ? 'E1' : n)) }));
+add('envelope-63-names', envelope({ electrode_names: LABELS.slice(1) }));
+add('envelope-names-missing', envelope({ electrode_names: ABSENT }));
+add('envelope-request-missing', envelope({ request: ABSENT }));
+add('envelope-request-null', envelope({ request: null }));
+add('envelope-request-invalid', envelope({ request: request({ radius_mm: 4 }) }));
+add('envelope-extra', envelope({ extra: 1 }));
+add('envelope-other-schema', envelope({ schema: 'design-submission/2' }));
+add('envelope-schema-null', envelope({ schema: null }));
 
-// --- run the normalizer --------------------------------------------------------
-const outcome = (text, normalize) => {
-  let parsed;
-  try { parsed = JSON.parse(text); } catch { return { parsed: false, accepted: false, canonical: null }; }
-  try { return { parsed: true, accepted: true, canonical: JSON.stringify(normalize(parsed)) }; }
-  catch (error) { return { parsed: true, accepted: false, canonical: null, error: error.message }; }
-};
-const run = text => outcome(text, normalizeDesignRequest);
-const runSubmission = text => outcome(text, raw => {
-  const input = designSubmission(raw);
-  return { request: normalizeDesignRequest(input.request), ...(input.electrode_names ? { electrode_names: input.electrode_names } : {}) };
-});
-const names = new Set();
-for (const variant of [...variants, ...submissions]) {
-  if (names.has(variant.name)) throw new Error(`duplicate variant ${variant.name}`);
-  names.add(variant.name);
-}
-for (const variant of variants) Object.assign(variant, run(variant.bytes ? Buffer.from(variant.bytes, 'base64').toString() : variant.text));
-for (const variant of submissions) Object.assign(variant, runSubmission(variant.text));
+// Shared fixtures (contracts/fixtures/requests.json): generate.mjs checks that Node still gives the recorded outcome.
+const corpus = JSON.parse(readFileSync(new URL('../../../contracts/fixtures/requests.json', import.meta.url), 'utf8'));
+for (const sample of corpus.cases.filter(sample => sample.service === 'design'))
+  add(`fixture-${sample.name}`, raw(JSON.stringify(sample.request)),
+    { accepted: sample.valid, canonical: sample.valid ? JSON.stringify({ request: sample.canonical }) : null });
 
-// Shared fixtures, normalized here so the Python test compares with Node's own bytes.
-const corpus = JSON.parse(readFileSync(new URL('../../contracts/fixtures/requests.json', import.meta.url), 'utf8'));
-const fixtures = corpus.cases.filter(sample => sample.service === 'design').map(sample => {
-  const result = run(JSON.stringify(sample.request));
-  if (result.accepted !== sample.valid || (sample.valid && result.canonical !== JSON.stringify(sample.canonical))) throw new Error(`fixture ${sample.name} disagrees with Node`);
-  return { name: sample.name, ...result };
-});
+// design-submission/1 envelopes with source_metadata ------------------------------------------------------------
+// Node checks a present source_metadata, null included, with validateCoordinateSource and keeps its key order.
+import { SOURCES } from './coordinate-source.mjs';
 
-// --- number semantics corpora --------------------------------------------------
-const doubles = [0, -0, 1, -1, 0.1, 1e21, 1e-7, 1e-6, 1e20, 123e-20, 5e-324, -5e-324, 2.2250738585072014e-308, Number.MAX_VALUE, Number.MIN_VALUE, 2 ** 53, 2 ** 53 + 2,
-  9.999999999999999e20, 1.0000000000000001e21, 0.000001, 0.0000012345, 100, 1e100, 4 - 1e-7, 0.30000000000000004];
-for (let i = 0; i < 20000; i++) {
-  view.setUint32(0, rand32()); view.setUint32(4, rand32());
-  const x = view.getFloat64(0);
-  if (Number.isFinite(x)) doubles.push(x);
-  doubles.push(Number((random() * 10 ** Math.floor(random() * 30 - 10)).toPrecision(1 + Math.floor(random() * 17))));
-}
-const numbers = doubles.map(x => [bits(x), JSON.stringify(x)]);
-const hypot = [];
-for (let i = 0; i < 20000; i++) {
-  const scale = pick([1e-3, 1, 4, 10, 500, 1e5]);
-  const d = i % 2 ? [random() - 0.5, random() - 0.5, random() - 0.5].map(v => v * scale) : (() => {
-    const u = [random() - 0.5, random() - 0.5, random() - 0.5], s = nextUp(T, Math.floor(random() * 9) - 4) / naive(u);
-    return u.map(v => v * s);
-  })();
-  hypot.push([...d.map(bits), bits(Math.hypot(...d))]);
-}
-const precisionValues = [1.0625, 0.0015, 2.5, 1.2345, 999.95, 0.001, 1000, 1e-3, 1.0005];
-for (let i = 0; i < 20000; i++) {
-  const v = Number(`${1000 + Math.floor(random() * 9000)}e${Math.floor(random() * 7) - 6}`);
-  precisionValues.push(v, nextUp(v, 1), nextUp(v, -1), v * (1 + random() * 1e-4));
-}
-const precision = precisionValues.map(v => [bits(v), Number(v.toPrecision(4)) === v]);
-const roundValues = [];
-for (let k = 0; k <= 100; k++) roundValues.push(k / 100, nextUp(k / 100, 1), nextUp(k / 100, -1), k / 100 + 0.005, k / 1000, k * 0.01);
-for (let i = 0; i < 5000; i++) roundValues.push(random(), Math.floor(random() * 96) / 100);
-const round2 = roundValues.filter(v => v >= 0).map(v => [bits(v), Math.round(v * 100) / 100 === v, bits(Math.round(v * 100))]);
-
-writeFileSync(output, JSON.stringify({ node: process.version, variants, submissions, fixtures, numbers, hypot, precision, round2 }));
+add('envelope-source-absent', envelope({ source_metadata: ABSENT }));
+add('envelope-source-null', envelope({ source_metadata: null }));
+for (const [id, source] of Object.entries(SOURCES)) add(`envelope-source-${id}`, envelope({ source_metadata: source }));
+add('envelope-source-reordered', envelope({ source_metadata: Object.fromEntries(Object.entries(SOURCES.v3Mni).reverse()) }));
+add('envelope-source-first', { schema: 'design-submission/1', source_metadata: SOURCES.v2Labels, electrode_names: LABELS, request: request() });
+add('envelope-source-invalid-unit', envelope({ source_metadata: { ...SOURCES.v1, unit: 'cm' } }));
+add('envelope-source-invalid-labels-head', envelope({ source_metadata: { ...SOURCES.v3Labels, conversion: SOURCES.v3BidsHead.conversion } }));
+for (const [label, value] of Object.entries({ empty: {}, array: [], string: 'x', number: 0, false: false }))
+  add(`envelope-source-${label}`, envelope({ source_metadata: value }));
+add('envelope-source-with-invalid-names', envelope({ source_metadata: SOURCES.v1, electrode_names: LABELS.slice(1) }));
+add('envelope-source-with-invalid-request', envelope({ source_metadata: SOURCES.v1, request: request({ seed: -1 }) }));

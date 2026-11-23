@@ -1,5 +1,5 @@
 import { LABEL_CAP, MNI_COORDINATE_SYSTEMS, validateCoordinateSource } from '../contracts/coordinate-source.mjs';
-import type { CoordinateConversion, CoordinateSourceMetadata } from '../contracts/coordinate-source';
+import type { CoordinateSourceMetadata, MniConversion } from '../contracts/coordinate-source';
 import { validateDesign, type ElectrodeDesign } from './design-decision.ts';
 import { ERNIE_MNI_MAPPING, MAPPING_ID, MNI_EXPORT_SYSTEM, MNI_IMPORT_LIMIT_MM, NATIVE_EXPORT_LIMIT_MM, ernieToMni, mniToErnie,
   type ErnieMniSurface, type Point } from './ernie-mni.ts';
@@ -137,12 +137,12 @@ export function parseBIDSElectrodes(files: CoordinateFile[], surface?: ErnieMniS
       region_index_base: 0, region_description: regions.region_description, conversion: placed.conversion, region_assignment: regions.region_assignment };
     return validateDesign({ ...design, xyz_mm: placed.xyz, region_indices: regions.region_indices, source_metadata: source });
   }
-  let xyz = input, conversion: CoordinateConversion | null = null, frameDescription = system.EEGCoordinateSystemDescription as string;
+  let xyz = input, conversion: MniConversion | null = null, frameDescription = system.EEGCoordinateSystemDescription as string;
   if (mni) {
     const mapped = mniToErnie(input, surface!), worst = mapped.distances_mm.indexOf(Math.max(...mapped.distances_mm));
     if (mapped.distances_mm[worst] > MNI_IMPORT_LIMIT_MM)
       throw new Error(`电极${names[worst]}距Ernie头皮的MNI映射面${mapped.distances_mm[worst].toFixed(1)} mm，超过${MNI_IMPORT_LIMIT_MM} mm。请检查坐标系和单位。`);
-    const maximum = Math.max(...mapped.distances_mm), declared = system.EEGCoordinateSystem as string;
+    const maximum = Math.max(...mapped.distances_mm), declared = system.EEGCoordinateSystem as MniConversion['input_coordinate_system']; // isMni: the same list (test_option_lists_match_node)
     xyz = mapped.points;
     frameDescription = `${declared} coordinates mapped to the Ernie native frame (mm) on the scalp with the SimNIBS nonlinear Ernie-MNI warp` +
       `${declared === MNI_EXPORT_SYSTEM ? '' : ` (the warp targets ${MNI_EXPORT_SYSTEM}; differences between MNI templates are not modelled)`}. ` +

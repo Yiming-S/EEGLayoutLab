@@ -16,7 +16,10 @@ import {
   decisionHref,
   designCSV,
   exportDesign,
+  isConductivityScenario,
+  isPerturbationRadius,
   minimumDistance,
+  PERTURBATION_RADII,
   mm,
   parseDesign,
   pct,
@@ -561,10 +564,10 @@ export default function DecisionPage({
                     <select
                       className="lab-select mt-2"
                       value={radius}
-                      onChange={(e) => setRadius(Number(e.target.value))}
+                      onChange={(e) => { const value = Number(e.target.value); if (isPerturbationRadius(value)) setRadius(value); }}
                     >
                       {tx(
-                        [3, 6, 10].map((r) => (
+                        PERTURBATION_RADII.map((r) => (
                           <option key={r} value={r}>
                             {tx(r)} mm
                           </option>
@@ -595,7 +598,7 @@ export default function DecisionPage({
                   <select
                     className="lab-select mt-2"
                     value={scenarioId}
-                    onChange={(e) => setScenarioId(e.target.value)}
+                    onChange={(e) => { const value = e.target.value; if (value === '' || isConductivityScenario(value)) setScenarioId(value); }}
                   >
                     {CONDUCTIVITY_SCENARIOS.map((scenario) => (
                       <option key={scenario.id} value={scenario.id}>

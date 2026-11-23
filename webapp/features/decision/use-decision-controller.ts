@@ -1,5 +1,5 @@
 'use client';
-import { CONDUCTIVITY_SCENARIOS, NOISE_MODEL_PRESETS, normalizeDataPrior } from '../../contracts/scientific-options.mjs';
+import { NOISE_MODEL_PRESETS, normalizeDataPrior } from '../../contracts/scientific-options.mjs';
 import { useLanguage } from '@/components/language-provider';
 
 /* oxlint-disable next/no-html-link-for-pages -- preserve established vinext navigation */
@@ -11,6 +11,7 @@ import { canCompareRecord } from '@/lib/workspace-navigation';
 import { safeReturnHref } from '@/lib/ui-language';
 import type { LocalLibrary, SavedRecord } from '@/lib/local-library';
 import type { DataPrior } from '@/lib/local-compute';
+import type { ConductivityScenarioId, PerturbationRadius } from '@/lib/api-types';
 
 import {
   comparisonNotes,
@@ -19,6 +20,8 @@ import {
   decisionHref,
   exportDesign,
   designSubmission,
+  isConductivityScenario,
+  isPerturbationRadius,
   restoreDesignEvaluation,
   validateDesign,
   qualification,
@@ -68,10 +71,10 @@ export function useDecisionController(
     [testTarget, setTestTarget] = useState(
       mode === 'coordinates' ? 'import' : 'a',
     );
-  const [radius, setRadius] = useState(6),
+  const [radius, setRadius] = useState<PerturbationRadius>(6),
     [seed, setSeed] = useState(42),
     [noiseModelId, setNoiseModelId] = useState('iid'),
-    [scenarioId, setScenarioId] = useState(''),
+    [scenarioId, setScenarioId] = useState<ConductivityScenarioId | ''>(''),
     [robustness, setRobustness] = useState(false),
     [dataPrior, setDataPrior] = useState<DataPrior | null>(null),
     [dataPriorSource, setDataPriorSource] = useState('');
@@ -97,10 +100,10 @@ export function useDecisionController(
               draft.seed <= 9999
             )
               setSeed(draft.seed);
-            if ([3, 6, 10].includes(draft.radius_mm)) setRadius(draft.radius_mm);
+            if (isPerturbationRadius(draft.radius_mm)) setRadius(draft.radius_mm);
             if (['evaluate', 'perturb'].includes(draft.action)) setAction(draft.action);
             if (NOISE_MODEL_PRESETS.some((preset) => preset.id === draft.noise_model_id)) setNoiseModelId(draft.noise_model_id);
-            if (CONDUCTIVITY_SCENARIOS.some((scenario) => scenario.id === draft.conductivity_scenario)) setScenarioId(draft.conductivity_scenario);
+            if (draft.conductivity_scenario === '' || isConductivityScenario(draft.conductivity_scenario)) setScenarioId(draft.conductivity_scenario);
             if (draft.robustness === true) setRobustness(true);
             try {
               const prior = normalizeDataPrior(draft.data_prior) as DataPrior | undefined;
@@ -266,8 +269,10 @@ export function useDecisionController(
         try { restored = validateDesign(request.design); prior = normalizeDataPrior(request.data_prior) as DataPrior | undefined; } catch { return; }
         const noise = NOISE_MODEL_PRESETS.find((preset) => JSON.stringify(preset.value ?? null) === JSON.stringify(request.noise_model ?? null))?.id ?? 'iid';
         const scenario = request.action === 'evaluate' ? (request.conductivity_scenario ?? '') : '';
+        // A job whose scenario this page does not offer cannot be shown with its conditions.
+        if (scenario !== '' && !isConductivityScenario(scenario)) return;
         setImported(restored); setTestTarget('import');
-        if (typeof request.radius_mm === 'number') setRadius(request.radius_mm);
+        if (isPerturbationRadius(request.radius_mm)) setRadius(request.radius_mm);
         if (typeof request.seed === 'number') setSeed(request.seed);
         const robust = request.action === 'evaluate' && request.robustness === 'standard/1';
         setAction(request.action); setNoiseModelId(noise); setScenarioId(scenario); setRobustness(robust); setDataPrior(prior ?? null); setDataPriorSource('');
