@@ -2302,6 +2302,32 @@ slice = 7
 module = "tests/service/test_key_parity.py"
 note = "reception v1 identity on synthetic roots"
 
+# --- check-showcase.mjs -----------------------------------------------------------------------------------------------
+
+[sites."check-showcase.mjs::the showcase library keeps the curated records and their dataset counts, without visitor fields"]
+disposition = "N"
+note = "static showcase build tooling and browser shim, not the Node host"
+
+[sites."check-showcase.mjs::home-directory prefixes are written as ~ in every string of the published data"]
+disposition = "N"
+note = "static showcase build tooling and browser shim, not the Node host"
+
+[sites."check-showcase.mjs::published health reports no computation and carries no session token"]
+disposition = "N"
+note = "static showcase build tooling and browser shim, not the Node host"
+
+[sites."check-showcase.mjs::only listed GET paths without a query map to showcase files"]
+disposition = "N"
+note = "static showcase build tooling and browser shim, not the Node host"
+
+[sites."check-showcase.mjs::the installed fetch answers /api from showcase files and refuses everything else"]
+disposition = "N"
+note = "static showcase build tooling and browser shim, not the Node host"
+
+[sites."check-showcase.mjs::the committed curation names records the committed data includes"]
+disposition = "N"
+note = "static showcase build tooling and browser shim, not the Node host"
+
 # --- check-single-head-results.mjs ------------------------------------------------------------------------------------
 
 [sites."check-single-head-results.mjs::balanced allocation always totals 64 with no fractional channels"]

@@ -2,9 +2,10 @@
 /**
  * Runs the three examples through the command line and compares their scores with expected.json.
  *
- *   node examples/run-examples.mjs [--root DIR] [--out-dir DIR] [--update-expected]
+ *   node examples/run-examples.mjs [--root DIR] [--out-dir DIR] [--skip-cross-head] [--update-expected]
  *
- * Example 3 needs the cross-head packages under results/v2/heads/; without them it is skipped.
+ * Example 3 needs the cross-head packages under results/v2/heads/. Without them the run fails and names the
+ * missing packages; --skip-cross-head runs examples 1 and 2 only and says that example 3 was not compared.
  */
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -14,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 const here = dirname(fileURLToPath(import.meta.url)), repository = resolve(here, '..');
 const cli = join(repository, 'webapp/scripts/eeglayoutlab.mjs');
 const args = process.argv.slice(2), option = name => { const at = args.indexOf(name); return at < 0 ? undefined : args[at + 1]; };
-const update = args.includes('--update-expected');
+const update = args.includes('--update-expected'), skipCrossHead = args.includes('--skip-cross-head');
 const root = resolve(option('--root') ?? process.env.EEG_REPOSITORY_ROOT ?? repository);
 const out = resolve(option('--out-dir') ?? join(here, 'outputs'));
 const TOLERANCE = 1e-6;
@@ -52,7 +53,10 @@ scores['02-compact-search'] = {
 // 3. The same compact layout on eleven heads (one shared noise seed).
 const heads = readJson(join(here, '03-cross-head/heads.json'));
 const missing = heads.cases.map(entry => entry.head_id).filter(id => !existsSync(join(root, 'results/v2/heads', id, 'table.json')));
-if (missing.length) console.log(`\nExample 3 skipped: head packages without a published table: ${missing.join(', ')}`);
+const notRun = {};
+if (skipCrossHead) notRun['03-cross-head'] = 'skipped with --skip-cross-head';
+else if (missing.length) notRun['03-cross-head'] = `head packages without a published table: ${missing.join(', ')}`;
+if (notRun['03-cross-head']) console.log(`\nExample 3 not run: ${notRun['03-cross-head']}`);
 else {
   const studyFile = join(ex('03-cross-head'), 'study-input.json');
   mkdirSync(ex('03-cross-head'), { recursive: true });
@@ -64,7 +68,10 @@ else {
 }
 
 const expectedPath = join(here, 'expected.json');
-if (update) {
+if (update && Object.keys(notRun).length) {
+  console.error(`\n--update-expected needs every example; not run: ${Object.keys(notRun).join(', ')}`);
+  process.exitCode = 1;
+} else if (update) {
   writeFileSync(expectedPath, JSON.stringify({ schema: 'eeglayoutlab-examples-expected/1', tolerance: TOLERANCE, scores }, null, 2) + '\n');
   console.log(`\nwrote ${expectedPath}`);
 } else {
@@ -73,7 +80,15 @@ if (update) {
     if (typeof want === 'number') { if (typeof got !== 'number' || Math.abs(want - got) > TOLERANCE) differences.push(`${path}: expected ${want}, got ${got}`); }
     else if (want && typeof want === 'object') for (const key of Object.keys(want)) compare(want[key], got?.[key], `${path}.${key}`);
   };
-  for (const name of Object.keys(expected)) if (scores[name]) compare(expected[name], scores[name], name);
-  console.log(differences.length ? `\n${differences.length} differences:\n${differences.join('\n')}` : `\nAll scores match expected.json within ${TOLERANCE}.`);
+  const skipped = [];
+  for (const name of Object.keys(expected)) {
+    if (scores[name]) compare(expected[name], scores[name], name);
+    else if (name in notRun && skipCrossHead) skipped.push(name);
+    else differences.push(`${name}: not run (${notRun[name] ?? 'no scores'})`);
+  }
+  const compared = Object.keys(expected).length - skipped.length;
+  console.log(differences.length ? `\n${differences.length} differences:\n${differences.join('\n')}`
+    : `\nAll scores of ${compared} of ${Object.keys(expected).length} examples match expected.json within ${TOLERANCE}.` +
+      (skipped.length ? ` Not compared: ${skipped.join(', ')}.` : ''));
   process.exitCode = differences.length ? 1 : 0;
 }

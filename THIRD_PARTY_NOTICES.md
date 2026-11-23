@@ -38,6 +38,8 @@ The six research ROIs merge Desikan–Killiany labels from the `aparc_DK40` anno
 
 The stylesheet [`webapp/styles/vendor/shadcn/tailwind.css`](webapp/styles/vendor/shadcn/tailwind.css) is copied without modification from **shadcn 4.18.0**, © 2023 shadcn, under the MIT License. Its [complete license](webapp/styles/vendor/shadcn/LICENSE.md) is retained beside the file. The application uses this local stylesheet; the component-generator CLI is not required at runtime.
 
+The interface fonts in [`webapp/public/fonts/geist/`](webapp/public/fonts/geist/) are the Latin and Latin Extended subsets of **Geist** and **Geist Mono** (variable weight 100–900; Geist 1.800, Geist Mono 1.701), © 2024 The Geist Project Authors, under the **SIL Open Font License 1.1**. The files are unmodified WOFF2 subsets as served by Google Fonts; the [license text](webapp/public/fonts/geist/OFL.txt) is retained beside them. They are served from the application itself, so builds do not download fonts.
+
 The web dependencies are recorded in [`webapp/package-lock.json`](webapp/package-lock.json). Python project dependencies are recorded in [`pyproject.toml`](pyproject.toml); the native runtime setup uses [`configs/runtime/manifest.json`](configs/runtime/manifest.json), the accompanying environment specifications, and upstream package metadata. Each dependency retains its own copyright and license.
 
 This file identifies the principal software and data sources used by the application. It is not a replacement for individual package license files or a complete license inventory for a future bundled binary distribution. Such a distribution must retain the notices for the exact dependency versions it contains.
