@@ -75,6 +75,7 @@ nav:
   - Design:
       - "0001: Local-first application": docs/design/0001-local-first-architecture.md
       - "0001: Phase 2 plan": docs/design/0001-phase-2-plan.md
+      - "0002: Installed scientific root": docs/design/0002-installed-scientific-root.md
   - Third-party notices: THIRD_PARTY_NOTICES.md
 
 theme:
