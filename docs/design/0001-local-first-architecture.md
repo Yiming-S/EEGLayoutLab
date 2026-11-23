@@ -188,7 +188,7 @@ Each phase ends with the application fully usable.
 | 4. Retirement | Remove the Node host and its tests. Publish the plugin API. Decide the 1.0 identity change | The repository contains one service implementation. The plugin API has documented examples |
 | Later | Server edition | Deployed when an institution or collaborator needs it |
 
-Phase 2 is planned in slices in [0001-phase-2-plan.md](0001-phase-2-plan.md). Where the scientific root lies in an application installed from conda-forge (phase 3) is proposed in [0002](0002-installed-scientific-root.md).
+Phase 2 is planned in slices in [0001-phase-2-plan.md](0001-phase-2-plan.md). Where the scientific root lies in an application installed from conda-forge (phase 3) is decided in [0002](0002-installed-scientific-root.md).
 
 ### Phase 0 results
 

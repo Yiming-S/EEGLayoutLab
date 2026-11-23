@@ -1,6 +1,6 @@
 # 0002 — The scientific root of an installed application
 
-- **Status:** proposed
+- **Status:** accepted on 2026-11-23 (recommendation A and the three decisions below); not yet implemented
 - **Date:** 2026-11-23
 - **Design:** [0001 — Local-first application with a Python service](0001-local-first-architecture.md), migration table, phase 3
 
@@ -132,11 +132,13 @@ No change touches a checkout's keys. The installed form's keys are new because i
 - **Reception v2 needs SimNIBS.** Its numerical-runtime digest requires a SimNIBS runtime (MUMPS and the `simnibs` package). The installed form has none, as the Linux runtime has none today, so reception v2 is not available there.
 - **Hard links into the package cache.** conda links package files from its package cache. Code files under R are such links, and they are never written: the workers do not write bytecode, and records are new files. A program that rewrote a code file in place would change the cache copy, as with any conda package.
 
-## Open decisions
+## Decisions
 
-1. **Records in the environment until 1.0** (consequence above), or a per-user root (the variant of A and B) that keeps them when the environment is removed, at the price of an installer step and synchronising code on every upgrade. Recommended: in the environment.
-2. **Exact pins on both platforms** to the Linux lock's versions. Recommended: yes; a later upgrade gets its own projection check (0001, decision 10).
-3. **Read-only prefixes are unsupported.** Recommended: yes, with the error message described above.
+Confirmed on 2026-11-23:
+
+1. **Records in the environment until 1.0** (consequence above), or a per-user root (the variant of A and B) that keeps them when the environment is removed, at the price of an installer step and synchronising code on every upgrade. Decided: in the environment.
+2. **Exact pins on both platforms** to the Linux lock's versions. Decided: yes; a later upgrade gets its own projection check (0001, decision 10).
+3. **Read-only prefixes are unsupported.** Decided: yes, with the error message described above.
 
 ## Findings for phase 2
 
