@@ -26,6 +26,6 @@ Example 3 gives the field retention of that layout across the eleven heads: medi
 
 The runner compares the scores within 1e-6. Each result file also records the request key and the SHA-256 of every model input and worker file. The key includes the Python path, so it differs between installations even when every score matches.
 
-Example 3 needs the cross-head packages under `results/v2/heads/`. They are generated outputs and not part of the data bundle; see [data and reproducibility](../docs/data-and-reproducibility.md) and [building head packages](../docs/server-deployment.md#building-head-packages). Without them the runner skips example 3 and says which packages are missing.
+Example 3 needs the cross-head packages under `results/v2/heads/`. They are generated outputs and not part of the data bundle; see [data and reproducibility](../docs/data-and-reproducibility.md) and [building head packages](../docs/server-deployment.md#building-head-packages). Without them the run fails and names the missing packages; `--skip-cross-head` runs examples 1 and 2 only and reports that example 3 was not compared.
 
 `node examples/run-examples.mjs --update-expected` rewrites `expected.json`. Use it only after an intended change to the model or the methods, and record why in the commit.
