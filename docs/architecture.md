@@ -2,6 +2,8 @@
 
 EEGLayoutLab is a browser application with a Node HTTP host and bounded Python workers. The web application is maintained; the native Mac wrapper and packaging tools have been retired. The macOS scientific runtime remains available for local browser use.
 
+This page describes the current structure. The planned move to a local-first application with a Python service, in stages that keep results and cache keys valid, is described in [design 0001](design/0001-local-first-architecture.md).
+
 ## Module boundaries
 
 ```text
