@@ -96,29 +96,38 @@ def _fail(message: str, code: int = 1) -> int:
     return code
 
 
-def _passes_url_on_stdin() -> bool:
-    """Whether the browser ``webbrowser`` tries first is macOS's launcher, which hands the URL to ``osascript`` on
-    standard input; every other launcher puts it on a command line (``xdg-open URL``, ``$BROWSER URL``)."""
+def _passes_url_on_stdin(browser: object) -> bool:
+    """Whether ``browser`` is macOS's launcher, which hands the URL to ``osascript`` on standard input; every other
+    launcher puts it on a command line (``xdg-open URL``, ``$BROWSER URL``)."""
     launchers = tuple(getattr(webbrowser, name) for name in ('MacOSXOSAScript', 'MacOSX') if hasattr(webbrowser, name))
-    try:
-        return bool(launchers) and isinstance(webbrowser.get(), launchers)
-    except webbrowser.Error:
-        return False
+    return bool(launchers) and isinstance(browser, launchers)
 
 
 def _open_browser(url: str, open_page: Callable[[str], Optional[str]],
                   stopping: Callable[[], bool] = lambda: False) -> None:
     """Opens ``url`` in a browser; on a command line only as the path of the page ``open_page`` writes. Nothing is
-    opened once the service is stopping: ``stopping()`` is true, or ``open_page`` writes no page."""
+    opened once the service is stopping: ``stopping()`` is true, or ``open_page`` writes no page.
+
+    ``webbrowser.get()`` runs first on every platform. Its first call looks for the browsers (on Linux it runs
+    ``xdg-settings`` and reads ``$BROWSER``), which ``webbrowser.open`` would otherwise do after the page is written
+    and after the last ``stopping()`` check, so a stop during that lookup would still start a browser. After it,
+    ``webbrowser.open`` only starts the launcher. Without a browser no page is written."""
     try:
-        if _passes_url_on_stdin():
-            target: Optional[str] = url
+        try:
+            browser: Optional[object] = webbrowser.get()
+        except webbrowser.Error:
+            browser = None
+        if browser is None:
+            opened = False
         else:
-            page = open_page(url)
-            target = None if page is None else pathlib.Path(page).as_uri()
-        if target is None or stopping():
-            return
-        opened = webbrowser.open(target)
+            if _passes_url_on_stdin(browser):
+                target: Optional[str] = url
+            else:
+                page = open_page(url)
+                target = None if page is None else pathlib.Path(page).as_uri()
+            if target is None or stopping():
+                return
+            opened = webbrowser.open(target)
     except Exception:  # noqa: BLE001 - a missing browser must not stop the service
         opened = False
     if not opened:

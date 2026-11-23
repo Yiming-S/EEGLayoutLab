@@ -699,6 +699,63 @@ def test_a_service_that_is_stopping_opens_no_browser_and_leaves_no_open_page(ope
     assert launched == [] and not (Path(opened.path) / STATE / 'open.html').exists()
 
 
+@pytest.mark.parametrize('macos_launchers', [True, False], ids=['launcher-classes', 'no-launcher-classes'])
+@pytest.mark.parametrize('stop', [True, False], ids=['stop-during-lookup', 'no-stop'])
+def test_the_browser_lookup_runs_before_the_open_page_is_written(opened, monkeypatch, macos_launchers, stop):
+    # webbrowser looks for the browsers on its first get() or open() (register_standard_browsers; on Linux it runs
+    # xdg-settings). The lookup must come before the open page is written, also where webbrowser has no macOS
+    # launcher classes (Linux): a stop during it then leaves no page and starts no browser. This runs the standard
+    # library's get() and open() with only the lookup and the launcher replaced.
+    import webbrowser
+    from types import SimpleNamespace
+
+    from eeglayoutlab.cli import main as cli
+
+    runtime = opened.write_runtime(41234, 'f' * 64, '/root')
+    server = SimpleNamespace(started=True, should_exit=False)
+    launched: list[str] = []
+
+    class Recording(webbrowser.BaseBrowser):
+        def open(self, url, new=0, autoraise=True):
+            launched.append(url)
+            return True
+
+    def lookup():
+        if stop:
+            opened.remove_runtime()
+            server.should_exit = True
+        webbrowser._tryorder = []
+        webbrowser.register('recording', None, Recording('recording'), preferred=True)
+
+    monkeypatch.setattr(webbrowser, '_tryorder', None)
+    monkeypatch.setattr(webbrowser, '_browsers', {})
+    monkeypatch.setattr(webbrowser, 'register_standard_browsers', lookup)
+    if not macos_launchers:
+        for name in ('MacOSXOSAScript', 'MacOSX'):
+            monkeypatch.delattr(webbrowser, name, raising=False)
+    cli._open_when_started(server, open_url(runtime), opened.write_open_page)
+    page = Path(opened.path) / STATE / 'open.html'
+    if stop:
+        assert launched == [] and not page.exists()
+    else:
+        assert launched == [page.as_uri()] and open_url(runtime) in page.read_text(encoding='utf-8')
+
+
+def test_no_open_page_without_a_browser(opened, monkeypatch, capsys):
+    import webbrowser
+
+    from eeglayoutlab.cli import main as cli
+
+    def missing(using=None):
+        raise webbrowser.Error('could not locate runnable browser')
+
+    monkeypatch.setattr(cli.webbrowser, 'get', missing)
+    monkeypatch.setattr(cli.webbrowser, 'open', lambda *args, **kwargs: pytest.fail('webbrowser.open was called'))
+    cli._open_browser(open_url(opened.write_runtime(41234, 'f' * 64, '/root')), opened.write_open_page)
+    assert not (Path(opened.path) / STATE / 'open.html').exists()
+    assert 'Open the address above in a browser.' in capsys.readouterr().out
+
+
 @pytest.mark.parametrize('browser', [True, False])
 def test_a_second_serve_opens_or_prints_the_running_instance(tmp_path, monkeypatch, capsys, browser):
     from eeglayoutlab.cli import main as cli
