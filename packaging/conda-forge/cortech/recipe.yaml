@@ -1,0 +1,99 @@
+# Draft conda-forge recipe (rattler-build, recipe format v1) for cortech 0.1, built from source.
+# Not yet submitted to conda-forge/staged-recipes; see README.md for what was verified and
+# what needs upstream coordination first.
+schema_version: 1
+
+context:
+  name: cortech
+  version: "0.1"
+
+package:
+  name: ${{ name }}
+  version: ${{ version }}
+
+source:
+  url: https://github.com/simnibs/cortech/archive/refs/tags/v${{ version }}.tar.gz
+  sha256: 7d1a78c3cdd7aa1582370a9e09166c8eca0a21e0b8e665916900508dbe8a0293
+
+build:
+  number: 0
+  skip:
+    # build.sh is POSIX shell; a Windows build (MSVC, bld.bat) has not been tried.
+    - win
+    # pyproject.toml: requires-python = ">=3.11"
+    - match(python, "<3.11")
+
+requirements:
+  build:
+    - ${{ compiler('c') }}
+    - ${{ compiler('cxx') }}
+    - ${{ stdlib('c') }}
+    # meson.build declares >= 1.2 but adds Cython without C, which needs 1.11
+    - meson >=1.11
+    - ninja
+    - pkg-config
+    - if: build_platform != target_platform
+      then:
+        - python
+        - cross-python_${{ target_platform }}
+        - cython >=3.0
+        - numpy
+  host:
+    - python
+    - pip
+    - meson-python >=0.15
+    - cython >=3.0
+    # numpy headers for the Cython extensions; numpy's run_exports set the runtime bound
+    - numpy
+    # CGAL is header-only; its exact predicates link GMP and MPFR, whose run_exports apply
+    - cgal-cpp >=6.0
+    - eigen
+    - libboost-headers
+    - gmp
+    - mpfr
+  run:
+    - python
+    - nibabel
+    - numba
+    - scipy
+
+tests:
+  - python:
+      imports:
+        - cortech
+        - cortech.cgal.aabb_tree
+        - cortech.cgal.convex_hull_3
+        - cortech.cgal.polygon_mesh_processing
+        - cortech.cgal.surface_mesh_simplification
+      pip_check: true
+  - files:
+      source:
+        - tests/
+      recipe:
+        - run_test.py
+    requirements:
+      run:
+        - pytest
+    script:
+      # Exact projections on known geometry, then one call into each compiled module
+      - python run_test.py
+      - pytest tests -v
+
+about:
+  homepage: https://github.com/simnibs/cortech
+  repository: https://github.com/simnibs/cortech
+  summary: Cortical layer placement and analysis
+  description: |
+    cortech places and analyses cortical layers on triangulated surfaces. It
+    wraps CGAL surface operations (AABB distance queries, convex hulls,
+    polygon mesh processing and simplification) and provides surface
+    utilities such as point-to-surface projection.
+  # LICENSE is the GPLv3 text and pyproject.toml says "GPL3" without "or later";
+  # GPL-3.0-only is the conservative reading until upstream states the SPDX expression.
+  license: GPL-3.0-only
+  license_file: LICENSE
+
+extra:
+  recipe-maintainers:
+    - Yiming-S
+    # Upstream maintainers to be added if they agree to co-maintain the feedstock.
