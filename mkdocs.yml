@@ -45,6 +45,7 @@ nav:
       - 源码安装说明: docs/source-installation.zh-CN.md
   - Model data:
       - Data bundle: data/README.md
+      - Data packages: docs/data-packages.md
       - Data and reproducibility: docs/data-and-reproducibility.md
       - Data sources: data/SOURCES.md
   - How to use:
@@ -63,6 +64,7 @@ nav:
   - Deployment and operations:
       - Server deployment: docs/server-deployment.md
       - Web operations: docs/web-operations.md
+      - Read-only showcase: docs/showcase.md
       - Anonymous queue: docs/anonymous-queue.md
       - Access and dependencies: docs/security.md
       - Architecture: docs/architecture.md
