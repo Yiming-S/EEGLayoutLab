@@ -1,0 +1,44 @@
+name: Documentation
+
+# Builds the documentation site (mkdocs.yml) in strict mode and keeps it as a workflow artifact.
+# Nothing is deployed: GitHub Pages is planned for the showcase site, and how the two share it is
+# decided later. Versioned documentation for tags (mike) is planned in CONTRIBUTING.md,
+# "Building the documentation".
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  site:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: docs/requirements.txt
+      - name: Install the pinned site generator
+        run: python -m pip install -r docs/requirements.txt
+      - name: Build the site in strict mode
+        env:
+          # Links to repository files point to the commit that was built.
+          DOCS_SOURCE_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+          NO_MKDOCS_2_WARNING: '1'
+        run: mkdocs build --strict
+      - uses: actions/upload-artifact@v4
+        with:
+          name: documentation-site
+          path: site/
+          if-no-files-found: error
+          retention-days: 14

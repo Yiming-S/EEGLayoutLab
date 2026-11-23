@@ -119,6 +119,22 @@ The local stylesheet under `webapp/styles/vendor/shadcn/` retains the original C
 
 Describe the resulting behavior, relevant checks and unrun tiers. For scientific changes, identify the inputs/runtime and compare matched conditions. Use [web operations](docs/web-operations.md) for release identity, durable maintenance, backup and restore. Target-server deployment and public-URL acceptance are separate from local verification; see [server deployment](docs/server-deployment.md).
 
+## Building the documentation
+
+The documentation site is built with [MkDocs](https://www.mkdocs.org/) 1.6 and [Material for MkDocs](https://squidfunk.github.io/mkdocs-material/) 9.8 from the repository's own Markdown, read unchanged: `README.md` is the home page and `nav` in `mkdocs.yml` sets the order. Write links as they work on GitHub. `docs/mkdocs_hooks.py` resolves them on the site and sends links to source files and directories to GitHub. The generator is pinned in `docs/requirements.txt`, apart from the application's dependencies. From the repository root, with Python 3.11 or newer:
+
+```sh
+python -m pip install -r docs/requirements.txt
+mkdocs build                 # strict: a broken link, anchor or navigation entry fails the build
+mkdocs serve --no-strict     # live preview on http://127.0.0.1:8000 while writing
+```
+
+The site is written to `site/`, which Git ignores. Add each new page to `nav`; a Markdown file outside `docs/` becomes a page only through `nav`, and links to other files go to GitHub. `.github/workflows/docs.yml` builds the site in strict mode on every push and keeps it as the `documentation-site` artifact for 14 days. It does not deploy.
+
+Material for MkDocs announces its end of life for May 5, 2027 at every build (`NO_MKDOCS_2_WARNING=1` hides the notice). Its successor, Zensical, reads `mkdocs.yml` but not the hooks, so a move is a separate change.
+
+Versioned documentation for tags (design 0001, decision 11) is planned with [mike](https://github.com/jimporter/mike) and not yet wired. A release tag `vX.Y.Z` would publish its site as version `X.Y` with the alias `latest`, `main` would publish as `dev`, and `extra.version.provider: mike` in `mkdocs.yml` would show Material's version selector. The build sets `DOCS_SOURCE_REF` to the tag, so source links match the release. Where the versions are published waits on how the documentation and the showcase site share GitHub Pages; mike's `--deploy-prefix` can place the documentation in a subdirectory of the Pages branch.
+
 ## Licensing
 
 © 2026 Yiming Shen. Original source code and accompanying documentation are licensed under [GPL-3.0-only](LICENSE). Third-party terms remain in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
