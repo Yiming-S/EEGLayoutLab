@@ -8,6 +8,7 @@ skip without cortech.
 """
 from __future__ import annotations
 
+from fractions import Fraction
 import hashlib
 import json
 from pathlib import Path
@@ -217,12 +218,24 @@ def ernie():
 
 
 def phase0_points(candidates, standard64):
+    """The phase 0 set as generated on macOS arm64, on any platform.
+
+    ``Generator.uniform`` returns ``low + (high - low) * u``. numpy's macOS arm64 build
+    computes it as one fused multiply-add, its x86_64 build rounds the product first, so
+    for ``low != 0`` the two differ in the last bit (2 of the 6,745 points). The radii are
+    therefore computed from the same ``u`` with one rounding of the exact result.
+    """
     rng = np.random.default_rng(PHASE0_SEED)
+
+    def uniform(low, high, size):
+        u = rng.random(size)  # the same draws as rng.uniform
+        exact = [Fraction(low) + Fraction(high - low) * Fraction(x) for x in u.ravel()]
+        return np.array([float(x) for x in exact]).reshape(size)
 
     def offsets(n, low, high):
         direction = rng.normal(size=(n, 3))
         direction /= np.linalg.norm(direction, axis=1, keepdims=True)
-        return direction * rng.uniform(low, high, size=(n, 1))
+        return direction * uniform(low, high, (n, 1))
 
     near, far = candidates[::5], candidates[::25]
     return np.vstack([standard64, candidates, near + offsets(len(near), 0, 3), far + offsets(len(far), 5, 15)])

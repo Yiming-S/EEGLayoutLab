@@ -10,7 +10,15 @@
 
 `eeglayoutlab.forward.projection.project_points(vertices, faces, points, 20)` returns the same triangles, weights, projected points and distances as the project's call `cortech.Surface(vertices, faces).project_points(points, pttris=20)`, to the last bit, including the sign of zero. It therefore passes and fails the existing checks exactly where cortech does.
 
-Compared on macOS arm64 with the project runtime: Python 3.11.14, numpy 2.3.0, scipy 1.17.1 and the cortech 0.1 `cp311` release wheel.
+Compared with numpy 2.3.0 and scipy 1.17.1 in five environments; every test passed in each:
+
+| Platform | Python | cortech 0.1 |
+| --- | --- | --- |
+| macOS arm64 (project runtime) | 3.11.14 | `cp311` release wheel |
+| Linux x86_64 (Ubuntu 26.04, the lock's conda builds) | 3.11.14 | `cp311` manylinux release wheel |
+| Linux x86_64 (phase 0 source-build environments) | 3.11.14, 3.12.16, 3.13.18 | built from the v0.1 tag |
+
+The own outputs on Linux also hash to the digests recorded from cortech on macOS (see [Tests](#tests)), so they are the same on both platforms.
 
 | Point set | Points | Bit-identical | Largest projected-point deviation | Triangle differences |
 | --- | --- | --- | --- | --- |
@@ -20,6 +28,7 @@ Compared on macOS arm64 with the project runtime: Python 3.11.14, numpy 2.3.0, s
 
 - **Candidate triangles.** For every Ernie point the candidate list (sorted triangles incident to the 20 nearest vertices) equals cortech's, compared through `return_all_projections`.
 - **Phase 0 set.** The 64 standard positions, the 5,387 bank candidates, every 5th candidate moved 0–3 mm and every 25th moved 5–15 mm in random directions (seed 20261122). The test rebuilds it from the bank and checks its SHA-256 against the phase 0 input file.
+  - numpy's `Generator.uniform(low, high)` returns `low + (high - low) * u`. Its macOS arm64 build computes this as one fused multiply-add; its Linux x86_64 build rounds the product first. With `low = 5`, 2 of the 6,745 points therefore differed in the last bit (1.4e-14 mm) when rebuilt on Linux. Phase 0 generated the set on macOS, so the test computes the radii from the same draws with one rounding of the exact result, and gets the phase 0 set on both platforms.
 - **Mask boundary.** The 692 corners of triangles that have both passing and screened corners, and the 355 edges between an admissible and a screened triangle: points on the corners, 1 mm above and below them along the normal, 2 mm ∓ 1e-9 mm above them (the registration-distance limit), on the edge midpoints, 1 mm above and below the midpoints, 1e-12 mm and 1e-6 mm to either side across the edge, and at a third of each edge.
   - 2,283 of these points are at exactly the same distance from several candidate triangles. For 1,140 of them the tied triangles include an admissible and a screened one, so the admission check of design evaluation is decided by the tie rule (lowest triangle index wins).
 - **Existing checks.** Weights within [−1e-10, 1 + 1e-10] and summing to one within 1e-10, weights reproducing the projected point within 1e-7 mm (`scalp_node_table.project`, `FixedMeshLeadfield.project`), the admission check on the triangle's three corners and the 2 mm registration distance (`design_evaluation.candidate_projector`). All hold on every Ernie point.
@@ -61,11 +70,13 @@ The method is cortech's: the triangles incident to each point's `k` nearest vert
 | Bit identity and candidate lists with cortech on both Ernie sets, with at least 1,000 ties that decide admission | cortech, data bundle | `data_bundle`, `native_runtime` |
 | SHA-256 of the own outputs on both Ernie sets equal to the recorded cortech outputs | data bundle | `data_bundle` |
 
-The recorded phase 0 digest is also that of the outputs saved in phase 0 from the macOS arm64 and Linux x86_64 release wheels. The own module itself has been run only on macOS arm64.
+The recorded phase 0 digest is also that of the outputs saved in phase 0 from the macOS arm64 and Linux x86_64 release wheels.
 
 ```bash
 .runtime/simnibs-4.6.0/bin/python -B -m pytest tests/test_surface_projection.py -q -p no:cacheprovider
 ```
+
+On Linux the tests ran from a copy of the committed tree and of the six data files they read: the bank pointer and report, the candidate geometry, the bank arrays and the admissibility pointer and mask.
 
 ## What adopting it would change
 
@@ -80,6 +91,6 @@ Adopting means replacing the four calls of `cortech.Surface(...).project_points(
   - User installations, which evaluate from bank and table data, no longer need cortech, numba, llvmlite or nibabel; in the Linux table runtime these are there only for the projection (`TABLE_RUNTIME_MODULES` in `check_environment.py`), and their METADATA leaves its identity too.
   - The conda-forge package of EEGLayoutLab no longer waits on a cortech recipe or on its licence question.
   - SimNIBS 4.6 itself requires cortech, so author-side environments (FEM, table and head building) still install it. The draft recipe stays useful there.
-- **numpy and scipy.** The projections still depend on them as cortech's do: on how numpy reduces a row, on `clip` and `norm`, and on `cKDTree`'s neighbour order. Without cortech installed, the recorded digests above are the reference for an upgrade.
+- **numpy and scipy.** The projections still depend on them as cortech's do: on how numpy reduces a row, on `clip` and `norm`, and on `cKDTree`'s neighbour order. Compiled numpy code can round differently by platform, as `Generator.uniform` does; the projection uses none of it and gives the same bits on macOS arm64 and Linux x86_64. Without cortech installed, the recorded digests above are the reference for an upgrade.
 - **Licence.** The module follows cortech's arithmetic step by step and is treated as derived from cortech 0.1 (GPL-3.0). EEGLayoutLab is GPL-3.0-only, which is compatible with `GPL-3.0-only` and `GPL-3.0-or-later`. Before adoption, `THIRD_PARTY_NOTICES.md` needs a cortech entry; it needs one in any case before cortech is distributed with EEGLayoutLab.
 - **Package.** On this branch `src/eeglayoutlab` has no `__init__.py`, so `eeglayoutlab.forward` is importable from `src` but not packaged. It becomes a regular subpackage when merged with the phase 2 branch, which adds `src/eeglayoutlab/__init__.py`.
