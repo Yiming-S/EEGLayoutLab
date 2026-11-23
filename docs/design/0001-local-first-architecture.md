@@ -1,6 +1,6 @@
 # 0001 — Local-first application with a Python service
 
-- **Status:** proposed
+- **Status:** proposed; phase 0 complete ([results](#phase-0-results))
 - **Date:** 2026-11-22
 - **Applies after:** 0.2.0
 - **Current architecture:** [architecture.md](../architecture.md)
@@ -56,7 +56,7 @@ Two properties make it worthwhile:
   - cortech publishes no Intel macOS build.
 - **Later:** Linux aarch64 can be added once every binary dependency builds there.
 
-The minimum macOS version follows the dependency wheels; cortech 0.1 is built for `macosx_11_0_arm64`.
+The minimum macOS version follows the dependency wheels; cortech 0.1 is built for `macosx_11_0_arm64`, and the draft conda-forge recipe was built in phase 0 with the same deployment target, 11.0.
 
 ### 3. Package structure
 
@@ -76,15 +76,33 @@ eeglayoutlab/
 frontend/     React source of the interface
 ```
 
+The package lives at `src/eeglayoutlab`, beside `src/compact_eeg`.
+
 **The science code stays at `src/compact_eeg` until 1.0.** Scientific identities hash repository-relative paths such as `src/compact_eeg/metrics.py`, so moving the files would change every cache key. The new `eeglayoutlab` package imports `compact_eeg`. Moving it into `eeglayoutlab/core` is a deliberate identity change reserved for 1.0. Old records stay readable; only cache reuse is lost (see decision 8).
 
 ### 4. One definition of each contract
 
-- **Python schemas are the only source.** Request and result formats are defined once in `eeglayoutlab/schemas`. The OpenAPI document and the TypeScript types used by the interface are generated from them, so a mismatch between interface and service fails type checking instead of surfacing at run time.
-- **The fixtures become parity tests.** The shared fixtures in `contracts/fixtures/` stay. During migration they check that the Python normalizers produce exactly the canonical JSON of the Node normalizers.
+- **Python schemas are the only source.** Request and result formats are defined once in `eeglayoutlab/schemas`. The OpenAPI document and the TypeScript types used by the interface are generated from them, so a mismatch in shape or in a set of allowed values fails type checking instead of surfacing at run time. Cross-field rules, coordinate and spacing checks and digit limits are checked only by the service.
+- **The fixtures become parity tests.** The shared fixtures in `contracts/fixtures/` stay. During migration they and generated variants (below) check that the Python normalizers produce exactly the canonical JSON of the Node normalizers.
 - **The command line uses the same schemas,** as do any notebook API built on them.
 
-The proposed web stack is Pydantic for schemas and FastAPI on Uvicorn for the service, because OpenAPI generation comes with them. The choice is confirmed in phase 0 (see migration).
+**Web stack: Pydantic 2 for schemas and FastAPI on Uvicorn for the service** (confirmed in phase 0). OpenAPI 3.1 generation comes with them. In phase 0 the design-evaluation request and the `design-submission/1` envelope matched Node on the 20 design-evaluation cases of the shared fixtures and on about 1,300 generated request texts. Requests that Node accepts gave its canonical JSON byte for byte, and requests that Node rejects were rejected. The generated texts were also sent through FastAPI's test client ([schema parity](../../tests/schema_parity/README.md)).
+
+Until the Node host is retired, every request schema follows these rules:
+
+- **JavaScript semantics.** Request JSON is parsed and written with JavaScript's rules, implemented in `eeglayoutlab.schemas.jsjson`:
+  - every JSON number is a double, as in `JSON.parse`, so `1e400` and very long integers become `Infinity`; the literals `NaN` and `Infinity` are rejected;
+  - numbers are written as ECMAScript `Number::toString` writes them (`1`, `1e-7`, `0.000001`, `1e+21`);
+  - `Math.hypot` follows V8 bit for bit; Python's `math.hypot` can differ in the last bit, which changes the outcome of the 4 − 1e-7 mm spacing check;
+  - string lengths and slices count UTF-16 units, lone surrogates are escaped as `JSON.stringify` does, and `trim` uses JavaScript's whitespace set.
+
+  Numbers and integers are checked by before-validators with `typeof` and `Number.isInteger` semantics. String lengths are checked in after-validators, because Pydantic's `max_length` and `pattern` reject lone surrogates that Node accepts. Pydantic's own JSON parser and type coercion are not used for requests.
+- **Explicit canonical form.** Each format has a `canonical()` builder in Node's key order that omits defaults exactly as Node does. Canonical JSON is never derived from `model_dump`.
+- **Generated variants.** Each format has a generator that runs the real Node normalizer over generated request texts. The shared fixtures alone are not enough: when single rules were replaced by the plain Python version, the fixtures caught only the change to number spelling. Errors in `Math.hypot`, UTF-16 slicing, string quoting, parsing and `trim` passed every fixture.
+- **Generated TypeScript.** Types are generated with `openapi-typescript --default-non-nullable false`, so request fields with defaults stay optional. The interface's parameter types are narrowed to the generated ones. For design evaluation, three parameters are wider than the contract today (`radius_mm`, `conductivity_scenario` and the data prior's `length_mm`), and two string literals are widened to `string`.
+- **Errors.** FastAPI's 422 `{detail}` responses are replaced by 400 `{error, code}`, in the OpenAPI document as well as at run time, and the 413 and 415 checks of the Node host are added.
+
+A request key is the SHA-256 of `JSON.stringify({request, identity})`, so phase 2 also writes the identity object with `jsjson`. After the Node host is retired, the generated variants can no longer run, but `jsjson`, the validators and the `canonical()` builders stay, so request keys do not change.
 
 ### 5. Science core and forward backends
 
@@ -142,15 +160,15 @@ The plugin API is published only after phase 4; until then the registries are in
 
 | Dependency | Status | Plan |
 | --- | --- | --- |
-| cortech 0.1 (GPL-3.0) | Not on PyPI or conda-forge. GitHub release wheels exist for CPython 3.11 and 3.12 only. Used through `cortech.Surface` in `cortical_fem.py`, `scalp_node_table.py` and `design_evaluation.py` | Maintain a conda-forge recipe built from source, in coordination with the SimNIBS maintainers. Evaluate an own implementation of the projection, accepted only if it reproduces the current projections within the existing checks |
+| cortech 0.1 (GPL-3.0) | Not on PyPI or conda-forge. GitHub release wheels exist for CPython 3.11 and 3.12 only. Builds from the v0.1 source tag without patches for CPython 3.11–3.13 on both platforms (phase 0). Used only through `cortech.Surface(...).project_points(...)` in `cortical_fem.py`, `scalp_node_table.py`, `design_evaluation.py` and `scripts/check_environment.py` | Keep the conda-forge recipe built from source ([draft](../../packaging/conda-forge/cortech/README.md)) and submit it in coordination with the SimNIBS maintainers. Stay on 0.1 until a later release reproduces the current projections. Evaluate an own implementation of the projection, accepted only if it reproduces the current projections within the existing checks; `project_points` is about 150 lines of numpy and scipy. cortech's installed files enter the scientific identities, so adopting an own implementation is an identity change (decision 8) even when the projections are equal |
 | SimNIBS 4.6 | Large; needed only for FEM, table and head building | Optional, author side |
-| numba, numpy, scipy, openblas | Available on conda-forge for both platforms | Pinned per release |
+| numba, numpy, scipy, openblas | Available on conda-forge for both platforms | Pinned per release. The cortech projection is computed by numpy and scipy, and phase 0 compared projections only with the runtime's numpy 2.3.0 and scipy 1.17.1, so an upgrade needs its own projection check |
 
-**Distribution.** conda-forge is the main installation channel, because it ships the binary dependencies for both platforms. A PyPI package follows once every dependency installs from PyPI. Python support widens from 3.11 to 3.11–3.13 as cortech builds for those versions.
+**Distribution.** conda-forge is the main installation channel, because it ships the binary dependencies for both platforms. A PyPI package follows once every dependency installs from PyPI. cortech now builds for Python 3.11–3.13; Python support widens from 3.11 to 3.11–3.13 once the test suite passes on 3.12 and 3.13 on both platforms.
 
 ### 11. Testing and release
 
-- **Every push** runs unit, schema-parity and contract tests on macOS arm64 and Linux x86_64.
+- **Every push** runs unit, schema-parity and contract tests on macOS arm64 and Linux x86_64. While the Node host is in service, schema-parity tests include the variants generated by the Node normalizers (decision 4).
 - **Data tests** run with the data packages restored from the CI cache. They include the numerical regression against frozen results and the examples with expected scores.
 - **Browser tests** run the key workflows against the Python service: design, evaluation, import, comparison, reception, studies and deliveries.
 - **A tag** builds the conda package, the interface bundle, the showcase site and the versioned documentation.
@@ -163,12 +181,50 @@ Each phase ends with the application fully usable.
 
 | Phase | Work | Exit criteria |
 | --- | --- | --- |
-| 0. Prerequisites | Build the interface as static files without the Node host. Build cortech from source on both platforms. Confirm the web stack | All pages render from the static build behind a plain Python static server. cortech imports and projects on both platforms |
-| 1. Schemas | Create the `eeglayoutlab` package and its schemas. Generate the TypeScript types and use them in the interface. The Node host remains in service, unchanged | For every fixture, the Python normalizer gives exactly the Node canonical JSON. The interface type-checks against generated types |
+| 0. Prerequisites (complete) | Build the interface as static files without the Node host. Build cortech from source on both platforms. Confirm the web stack | All pages render from the static build behind a plain Python static server. cortech imports and projects on both platforms |
+| 1. Schemas | Create the `eeglayoutlab` package and its schemas, starting from the phase 0 design-evaluation schema. Port every request format with its generator of variants. Generate the TypeScript types and use them in the interface. Run the parity tests in CI, with Pydantic, FastAPI and httpx installed so that they do not skip. The Node host remains in service, unchanged | For every fixture and generated variant, the Python normalizer gives exactly the Node canonical JSON. The interface type-checks against generated types |
 | 2. Python service | Implement the API: design, evaluation, editing, import, comparison, reception, studies, workspace and deliveries. Implement the queue and the identity. Switch the interface to the Python service | For the same requests on the same installation, Python request keys equal Node request keys. All browser workflows pass against the Python service. Every Node test is ported or mapped to a Python test |
 | 3. Distribution | Data package commands, conda-forge packages (including cortech), CI on both platforms, documentation site, public repository, static showcase | On a fresh Mac and a fresh Linux machine: install from conda-forge, `eeglayoutlab data install`, run the examples, and match the expected scores |
 | 4. Retirement | Remove the Node host and its tests. Publish the plugin API. Decide the 1.0 identity change | The repository contains one service implementation. The plugin API has documented examples |
 | Later | Server edition | Deployed when an institution or collaborator needs it |
+
+### Phase 0 results
+
+Completed on 2026-11-22. Both exit criteria are met, and the web stack is confirmed.
+
+**Static interface.** With `output: 'export'`, all 15 routes are written as static pages (about 26 MB, of which about 20 MB are model files). A Python static server that maps `/name` to `name.html` renders every page. Only the API requests and the browser's automatic `/favicon.ico` request fail. The interface links to `/design`, not `/design.html`, so the Python service needs the same mapping. The Node host serves the same build unchanged.
+
+- The root layout chose the language on the server from cookies and request headers, which prevents static export. The pages are now rendered in English, and the browser switches to the saved or preferred language after loading.
+- Nine API requests fail on page load: community records, design-evaluation health, electrode-editor parents and records, local-compute health and library, robustness studies, and source-reception health and layouts.
+  - These are among the first endpoints the Python service needs, but not all of them. Requests sent only after another request succeeds do not appear. One example is the header's `/api/community/heartbeat`, posted every 15 seconds once local-compute health answers.
+  - Both community endpoints belong to the retired anonymous queue. The Python service needs workspace equivalents for them, or the interface drops them.
+- Left for later phases:
+  - the English text shown before hydration for Chinese users;
+  - the Geist fonts, which are downloaded at build time and must be included in the source before offline and conda-forge builds;
+  - the `.br` and `.gz` files that `npm run build` writes beside the model binaries and text assets, which were not checked. The Python service must serve them by content negotiation, or the build must stop writing them;
+  - the development server, whose API is the Node service mounted in Vite by `localComputePlugin`. Development against the Python service needs a proxy instead;
+  - static stand-ins for the showcase, whose home and library pages read `/api/local-compute/library`, `/api/electrode-editor/records` and `/api/community/records`. The other requests need a clear "no local service" state.
+
+**cortech from source.** cortech 0.1 builds from the v0.1 source tag for CPython 3.11, 3.12 and 3.13 on macOS arm64 and Linux x86_64. The six source builds used the runtime's numpy 2.3.0 and scipy 1.17.1. Each projects bit-identically to the release wheel on the same platform on 6,745 points: the 64 standard positions, the 5,387 bank candidates and displaced candidates. A draft recipe is in [`packaging/conda-forge/cortech/`](../../packaging/conda-forge/cortech/README.md); it builds and passes its tests on both platforms.
+
+- No source patches are needed. Two build settings are: a `cgal.pc` file for pkg-config and `-Dcpp_std=gnu++17`. They can be removed once upstream's `meson.build` handles both.
+- Submission to conda-forge waits on the cortech maintainers' agreement and on the licence as an SPDX expression (`GPL-3.0-only` or `GPL-3.0-or-later`). EEGLayoutLab is compatible with either. `THIRD_PARTY_NOTICES.md` does not list cortech yet; it needs an entry before cortech is distributed with EEGLayoutLab.
+- Not yet tested: conda-forge's current compiler and sysroot pins (gcc 15, glibc 2.17), Python 3.14, and cross-compiled macOS builds.
+- Upstream issues found that do not affect the project's meshes:
+  - a crash in `points_inside_surface` on the Ernie scalp; the project does not call it;
+  - an `IndexError` in `project_points`, raised through `get_triangle_neighbors`, on meshes in which every vertex has the same number of triangles, such as a single triangle.
+
+**Web stack.** Pydantic 2 and FastAPI on Uvicorn are confirmed with the rules in decision 4. The phase 0 schema covers the design-evaluation request and the `design-submission/1` envelope. The envelope's `source_metadata` is accepted without checks for now; it is ported in phase 1.
+
+- One Node behaviour is deliberately not reproduced. Node decodes the request body chunk by chunk. A multi-byte character in the design name that is split across network chunks therefore becomes U+FFFD in Node only. This Node bug is a known exception to equal request keys in phase 2.
+- The generated OpenAPI 3.1 keeps the allowed values of the contract, for example `radius_mm: 3 | 6 | 10`.
+- `designSubmission` in the interface does not type-check against the generated types in six places:
+  - three parameters are wider than the contract;
+  - two string literals are widened to `string`;
+  - the envelope's `request` inherits these.
+
+  A copy with the generated parameter types type-checks without casts.
+- Validation in Python takes about 3 ms per design request, against 0.1 ms in Node. This is small next to an evaluation of about a second.
 
 ### Retired with the Node host
 
@@ -188,11 +244,11 @@ The 2026-11-20 decision to keep the hosted result library public applied to the 
 - **Public anonymous computing service.** Rejected for the reasons in decision 1.
 - **Fully in-browser computation (WebAssembly).** Pyodide limits memory to about 2 GB, has no subprocesses or threads, and has no cortech build. The table path reads only 192 rows (about 6.7 MB) for a 64-electrode evaluation, so a static computing demo is possible in principle. It would require porting the projection and the estimators; this is not planned.
 - **Native desktop wrapper.** Retired in 0.2.0 and not reconsidered here.
+- **Other Python schema libraries.** msgspec, attrs with cattrs, or JSON Schema first with datamodel-code-generator would need the same JavaScript number and string rules (decision 4). Pydantic expressed every rule of the design request, including discriminated unions, nullable required fields and cross-field checks. Litestar is the alternative host if FastAPI's dependency changes become a problem for conda-forge packaging.
 
 ## Open questions
 
-- **Web stack.** Pydantic and FastAPI is proposed; confirm in phase 0.
 - **Rename at 1.0.** Whether to move `compact_eeg` into `eeglayoutlab/core` at 1.0, accepting the identity change.
 - **Plugin options in the interface.** How extensions declare options that the interface can render generically.
-- **cortech.** Whether its maintainers publish packages, or the project keeps its own recipe.
+- **cortech.** Whether its maintainers publish packages, or the project keeps its own recipe; and whether its licence is `GPL-3.0-only` or `GPL-3.0-or-later`.
 - **Linux aarch64.** Support depends on every binary dependency building there.
