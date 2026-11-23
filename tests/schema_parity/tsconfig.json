@@ -1,0 +1,5 @@
+{
+  "extends": "../../webapp/tsconfig.json",
+  "compilerOptions": { "incremental": false, "types": [] },
+  "include": ["design-submission.typecheck.ts", "generated/openapi.d.ts"]
+}
