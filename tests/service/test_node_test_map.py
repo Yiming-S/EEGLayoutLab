@@ -40,7 +40,7 @@ FORMATS = ROOT / 'tests/schema_parity/formats'
 UNIT_TEST_IMPORT = re.compile(r'''from ['"]node:test['"]''')  # as run-unit-tests.mjs selects files
 
 # Slices whose ports are done: a pending (or NA) entry for one of them fails, unless PENDING_ALLOWED lists it.
-SLICES_DONE = 2
+SLICES_DONE = 3
 # Sites of a done slice whose ports are written beside the map in the same stage; empty once a slice is linked.
 PENDING_ALLOWED: frozenset[str] = frozenset()
 

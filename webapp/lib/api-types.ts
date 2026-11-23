@@ -10,6 +10,8 @@ type Schemas = components['schemas'];
 export type DesignEvaluationRequest = Schemas['DesignEvaluationRequest'];
 /** The body of POST /api/design-evaluation/jobs: a bare request or a design-submission/1 envelope. */
 export type DesignEvaluationBody = Schemas['DesignEvaluationBody'];
+/** The body of POST /api/local-compute/jobs and /lookup (a radius search), in its canonical form. */
+export type RadiusSearchRequest = Schemas['RadiusSearchRequest'];
 // The coordinate-source types are in webapp/contracts/coordinate-source.ts, next to their validator.
 
 export type PerturbationRadius = DesignEvaluationRequest['radius_mm'];

@@ -29,8 +29,8 @@ import sys
 
 from . import nodepath
 
-__all__ = ['InvalidArgValueError', 'check_path', 'encode', 'decode', 'read_file', 'open_check', 'readdir', 'stat',
-           'lstat', 'realpath', 'realpath_sync']
+__all__ = ['InvalidArgValueError', 'check_path', 'inspect_string', 'encode', 'decode', 'read_file', 'open_check',
+           'readdir', 'stat', 'lstat', 'realpath', 'realpath_sync']
 
 _LONE_SURROGATE = re.compile('[\ud800-\udfff]')
 
@@ -46,9 +46,77 @@ def check_path(path: object) -> str:
     if not isinstance(path, str):
         raise nodepath.InvalidArgTypeError(f'The "path" argument must be of type string. Received {path!r}')
     if '\0' in path:
+        inspected = inspect_string(path)
+        if len(_utf16(inspected)) > 128:  # ERR_INVALID_ARG_VALUE cuts the inspected value
+            inspected = _from_utf16(_utf16(inspected)[:128]) + '...'
         raise InvalidArgValueError(f"The argument 'path' must be a string, Uint8Array, or URL without null bytes. "
-                                   f'Received {path!r}')
+                                   f'Received {inspected}')
     return path
+
+
+# --- util.inspect of a string (lib/internal/util/inspect.js: formatPrimitive, strEscape) --------------------------
+
+_ESCAPES = {0x08: '\\b', 0x09: '\\t', 0x0a: '\\n', 0x0c: '\\f', 0x0d: '\\r', 0x5c: '\\\\'}
+_BREAK_LENGTH = 80  # util.inspect.defaultOptions.breakLength
+_MAX_STRING_LENGTH = 10000
+
+
+def _utf16(text: str) -> list[int]:
+    data = text.encode('utf-16-le', errors='surrogatepass')
+    return [data[i] | data[i + 1] << 8 for i in range(0, len(data), 2)]
+
+
+def _from_utf16(units: list[int]) -> str:
+    return b''.join(unit.to_bytes(2, 'little') for unit in units).decode('utf-16-le', errors='surrogatepass')
+
+
+def _str_escape(units: list[int]) -> str:
+    """``strEscape``: control characters, the backslash, C1 controls and lone surrogates escaped, in the quotes the
+    text needs least (single, else double, else a backtick unless it holds one or ``${``)."""
+    quote = "'"
+    if 0x27 in units:
+        text = _from_utf16(units)
+        if '"' not in text:
+            quote = '"'
+        elif '`' not in text and '${' not in text:
+            quote = '`'
+    out = []
+    index = 0
+    while index < len(units):
+        unit = units[index]
+        if (unit == 0x27 and quote == "'") or unit == 0x5c or unit < 0x20 or 0x7e < unit < 0xa0:
+            out.append("\\'" if unit == 0x27 else _ESCAPES.get(unit, f'\\x{unit:02X}'))
+        elif 0xd800 <= unit <= 0xdfff:
+            if unit <= 0xdbff and index + 1 < len(units) and 0xdc00 <= units[index + 1] <= 0xdfff:
+                out.append(_from_utf16(units[index:index + 2]))
+                index += 2
+                continue
+            out.append(f'\\u{unit:x}')
+        else:
+            out.append(chr(unit))
+        index += 1
+    return quote + ''.join(out) + quote
+
+
+def inspect_string(text: str) -> str:
+    """``util.inspect(text)`` with Node's defaults: quoted and escaped; past 76 code units it is split after each
+    line feed into quoted pieces joined by `` +\\n  ``, and past 10000 cut with ``... N more characters``."""
+    units = _utf16(text)
+    trailer = ''
+    if len(units) > _MAX_STRING_LENGTH:
+        remaining = len(units) - _MAX_STRING_LENGTH
+        units = units[:_MAX_STRING_LENGTH]
+        trailer = f"... {remaining} more character{'s' if remaining > 1 else ''}"
+    if len(units) > 16 and len(units) > _BREAK_LENGTH - 4:
+        lines, start = [], 0
+        for index, unit in enumerate(units):
+            if unit == 0x0a:
+                lines.append(units[start:index + 1])
+                start = index + 1
+        if start < len(units):
+            lines.append(units[start:])
+        return ' +\n  '.join(_str_escape(line) for line in lines) + trailer
+    return _str_escape(units) + trailer
 
 
 def encode(path: str) -> bytes:

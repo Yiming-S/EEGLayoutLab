@@ -123,6 +123,65 @@
           }
         }
       }
+    },
+    "/api/normalize/radius-search": {
+      "post": {
+        "operationId": "normalize_radius_search",
+        "summary": "Validate a radius-search request and return its canonical form",
+        "description": "Diagnostic endpoint. Reproduces normalizeRequest (webapp/server/local-compute-server.mjs).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RadiusSearchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The canonical request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NormalizedRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not valid JSON or not a valid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The body is larger than 65,536 bytes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not application/json.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1050,6 +1109,85 @@
           "canonical",
           "canonical_sha256"
         ]
+      },
+      "RadiusSearchRequest": {
+        "additionalProperties": false,
+        "description": "Body of ``POST /api/local-compute/jobs`` and ``/lookup`` in its canonical form: a free mode has no\n``mask_codes``, and the independent noise model is left out. In preset mode ``mask_codes`` lists exactly\n``region_count`` sites, repeats allowed, in order.",
+        "properties": {
+          "region_count": {
+            "enum": [
+              1,
+              2,
+              3,
+              4,
+              6
+            ],
+            "title": "Region Count",
+            "type": "integer"
+          },
+          "radius_mm": {
+            "enum": [
+              15,
+              20,
+              25,
+              30,
+              35,
+              40,
+              45,
+              50,
+              55,
+              60,
+              65,
+              70,
+              75,
+              80
+            ],
+            "title": "Radius Mm",
+            "type": "integer"
+          },
+          "mode": {
+            "enum": [
+              "whole_surface",
+              "low_hair",
+              "preset"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "mask_codes": {
+            "items": {
+              "enum": [
+                "PL",
+                "PR",
+                "AL",
+                "AR",
+                "FL",
+                "FM",
+                "FR",
+                "OL",
+                "OR"
+              ],
+              "type": "string"
+            },
+            "maxItems": 6,
+            "minItems": 1,
+            "title": "Mask Codes",
+            "type": "array"
+          },
+          "noise_model": {
+            "$ref": "#/components/schemas/SpatialNoise"
+          },
+          "data_prior": {
+            "$ref": "#/components/schemas/DataPrior"
+          }
+        },
+        "required": [
+          "region_count",
+          "radius_mm",
+          "mode"
+        ],
+        "title": "RadiusSearchRequest",
+        "type": "object"
       },
       "SpatialNoise": {
         "additionalProperties": false,

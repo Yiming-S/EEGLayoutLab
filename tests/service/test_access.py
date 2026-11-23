@@ -377,7 +377,7 @@ def test_production_host_preserves_ui_routing_and_local_api_guards(app, client):
     ('/api/local-compute/unknown', '未知计算接口'),
     ('/api/local-computeX', '未知计算接口'),
     ('/api/local-compute', '未知计算接口'),
-    ('/api/local-compute/library', '未知计算接口'),
+    ('/api/local-compute/library/' + 'A' * 64, '未知计算接口'),
     ('/api/design-evaluation/heads/x', '未知设计评价接口'),
     ('/api/source-reception/unknown', '未知源实验接口'),
     ('/api/electrode-editor/unknown', 'Unknown editor endpoint'),

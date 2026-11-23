@@ -56,15 +56,19 @@ With `EEG_KEY_PARITY_ROOT` set to a checkout that has `results/v2` and `.runtime
 `data_bundle`) also run:
 
 ```sh
-EEG_KEY_PARITY_ROOT=/path/to/EEGLayoutLab python -m pytest tests/service/test_key_parity.py -m data_bundle -q
+EEG_KEY_PARITY_ROOT=/path/to/EEGLayoutLab python -m pytest tests/service -m data_bundle -q
 ```
 
+In `test_key_parity.py` they are:
+
 - the same comparison on that root with its real runtime, for several interpreter configurations, sharing one
-  queue per configuration (hashing every input again for each case is slow);
+  queue per configuration (hashing every input again for each case is slow), for the design and the radius
+  identity;
 - every stored cache under `results/v2/*_jobs` re-derives `result_sha256` and round-trips byte for byte through
   `jsjson`; every design and editor cache, and every batch `request.json` with an identity, re-derives its key.
 
-Both read the root only. The stored-record check needs neither Node nor Pydantic.
+The library modules add theirs (next section). All of them read the root only; Node runs with a scratch queue
+directory that is never created. The stored-record check needs neither Node nor Pydantic.
 
 ## Service host
 
@@ -105,6 +109,76 @@ The modules:
 
 Without FastAPI, Uvicorn or httpx the tests that need them skip, unless `EEG_REQUIRE_SCHEMA_PARITY=1`; the health
 and static parity also need Node, and the static parity `webapp/node_modules` (`npm ci`).
+
+## Library and catalogs
+
+The read-only library of slice 3 (`eeglayoutlab.jobs`: `records`, `radius`, `library`, `annotations`,
+`design_result`, `reception_records`, `bundle`, `editor_records`, `design_heads`; the routes in
+`server/routes/library.py`) must give Node's bytes on the same root. Every Node reference runs Node's own classes
+with one thread-pool worker and a queue directory that is only resolved, never created.
+
+- `test_radius_search.py`: `schemas.radius_search.normalize_request` gives Node's canonical text or Node's exact
+  message for every variant of the `radius-search` corpus (`tests/schema_parity/formats/radius-search.mjs`), and
+  the variants reach all 15 messages. Acceptance and canonical bytes through the registry and the
+  `/api/normalize/radius-search` route are in the schema parity tests.
+- `test_radius.py`: the worker-result validator (check-local-compute.mjs:61, and 33 cases against Node's
+  `validateWorkerResult` message by message), `code_identity` (top-level `src/compact_eeg/*.py`, raw reads that
+  follow links: B8), `radius_identity` and `RadiusCache.read_cache`.
+- `test_key_parity.py`: the radius identity. `parity/library.mjs` in its `identities` mode builds a fresh
+  `LocalComputeQueue` per case and records `identityFor`. The `radius-*` roots of `key_parity_support.py` (managed
+  runtimes, a linked root, and one break each: a code file linked out of the root, a directory, a dangling or
+  unreadable code file, no `src/compact_eeg`, no worker, no data-prior module) are crossed with interpreter
+  settings and requests, and the base root takes every canonical request of the `radius-search` corpus. Also the
+  port of check-project-structure.mjs:30.
+- `test_library.py`: `Library.list()` and `get(id)` against Node's `queue.library`. `library_support.py` builds
+  the roots (every radius cache case, current and historical strict-area reports, saved coordinate evaluations
+  under each evaluation condition, annotations; a linked root, a linked code file, a bare root, roots that break
+  the offline datasets) and holds the inline Node driver `LIBRARY_DRIVER`. The list compares as a set of record
+  texts plus the `finished_at` order, the rest as text; every record directory is read with `get`. It ports
+  check-local-data-library.mjs (the lookup and submit halves of :83, :102 and :144 come with the queue in
+  slice 4).
+- `test_bundle.py`: `experiment_bundle` and `describe_search` against Node's `experimentBundle`.
+  `bundle_support.py` builds the roots and stand-in interpreters for the frozen-bank export subprocess (arguments,
+  environment, stream kinds, output at and over 1 MiB, invalid UTF-8, exits, signals) and holds `BUNDLE_DRIVER`;
+  children whose exit status decides at the timeout or that pass the buffer (writing after SIGTERM, blocked
+  writing, a process they started reading stdin after their exit) are compared with Node's promisified
+  `execFile`, and saved evaluations that spell a zero as `-0` with Node's bundle. It ports check-coordinate-bundles.mjs and the bundle
+  tests of check-source-upgrade.mjs.
+- `test_library_messages.py`: Node's messages and orders the library reproduces, against Node (inline
+  `MESSAGES_DRIVER`): `normalizeDesignRequest`'s refusals over the design-evaluation corpus and requests that
+  reach each check, `util.inspect` and the NUL-path message, the `Received` part of `ERR_INVALID_ARG_TYPE`, every
+  comparison of V8's `Array.prototype.sort` (`jobs/jssort`), Object.prototype members as family names and `idFor`
+  of lone surrogates; then end to end through `LIBRARY_DRIVER` on roots with refused stored requests, broken
+  strict-area pointers, these identifiers, and `finished_at` values that are not strings at several positions of
+  lists of 3 to 12 records. Where Node releases differ, `library_support.node_generation` measures the running
+  Node (V8's short-array limit: 7 on Node 26, which the service follows, 2 on Node 24; the `Received` text before
+  and after nodejs/node#65607): Python sorts with that Node's limit in the comparisons (`sorting_as_node`), a
+  Node before the hardened text is compared with its own text, and the lists of 3 to 7 records check Node 26's
+  order without Node. The comparisons assume a Node locale whose collation orders the compared labels as UTF-16
+  code units do (no `LANG`, or `en_US`).
+- `test_catalogs.py` and `test_heads.py`: the editor's records and parents, the reception layouts and the head
+  packages, against Node's services (inline `CATALOG_DRIVER` and `HEADS_DRIVER`; the editor sort roots include
+  rows that Node 26 sorts and Node 24 does not, compared with Python sorting at the running Node's limit);
+  `test_heads.py` ports check-design-decision.mjs:516.
+- `test_library_parity.py`: both levels through `parity/library.mjs` (its header documents the spec): the library,
+  every bundle and the four catalogs in its `roots` mode, and the HTTP routes against Node's composed
+  `createLocalComputeService` (the middleware the Node host runs, its session pinned to one owner) on an ephemeral
+  port. Node's `visibility` and `library_scope` members are taken out of its bodies and its `redactPayload` is
+  applied to Python's. The list, the parents and the layouts compare their records as a set plus the
+  `finished_at` order (Node sorts with `localeCompare`, whose collation follows the locale), and the list's
+  annotations as the pinned owner's among Python's; the differences that remain by design (the visibility route,
+  other owners' annotations read by id) are asserted as such. The composed service writes its state under a
+  scratch `serviceDirectory`. Usage:
+  `node tests/service/parity/library.mjs <spec.json> <out.json>`.
+- `test_library_routes.py`: what the comparison cannot show: member order, annotation queries, Node's catch block,
+  lazy construction, `EEG_COMPUTE_PYTHON`, concurrent requests, nothing written, and the HTTP half of
+  check-coordinate-bundles.mjs:80.
+
+With `EEG_KEY_PARITY_ROOT` the `data_bundle` tests of these modules run the ports of the Node data tests and
+compare that installation with Node: the list and every record (the 342 offline radius, 30 strict-area and 30
+historical-area records, every cache row and every saved evaluation: the parent-digest inputs, B13), the bundle of
+every record (the frozen-bank coordinates exported with the installation's own interpreter; about 3 minutes), the
+catalogs, and the routes for every record and a sample of bundles.
 
 ## Node test map
 

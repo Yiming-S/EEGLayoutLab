@@ -44,6 +44,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/normalize/radius-search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validate a radius-search request and return its canonical form
+         * @description Diagnostic endpoint. Reproduces normalizeRequest (webapp/server/local-compute-server.mjs).
+         */
+        post: operations["normalize_radius_search"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -424,6 +444,33 @@ export interface components {
             /** @description SHA-256 of JSON.stringify(canonical). */
             canonical_sha256: string;
         };
+        /**
+         * RadiusSearchRequest
+         * @description Body of ``POST /api/local-compute/jobs`` and ``/lookup`` in its canonical form: a free mode has no
+         *     ``mask_codes``, and the independent noise model is left out. In preset mode ``mask_codes`` lists exactly
+         *     ``region_count`` sites, repeats allowed, in order.
+         */
+        RadiusSearchRequest: {
+            /**
+             * Region Count
+             * @enum {integer}
+             */
+            region_count: 1 | 2 | 3 | 4 | 6;
+            /**
+             * Radius Mm
+             * @enum {integer}
+             */
+            radius_mm: 15 | 20 | 25 | 30 | 35 | 40 | 45 | 50 | 55 | 60 | 65 | 70 | 75 | 80;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "whole_surface" | "low_hair" | "preset";
+            /** Mask Codes */
+            mask_codes?: ("PL" | "PR" | "AL" | "AR" | "FL" | "FM" | "FR" | "OL" | "OR")[];
+            noise_model?: components["schemas"]["SpatialNoise"];
+            data_prior?: components["schemas"]["DataPrior"];
+        };
         /** SpatialNoise */
         SpatialNoise: {
             /**
@@ -512,6 +559,57 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["DesignEvaluationBody"];
+            };
+        };
+        responses: {
+            /** @description The canonical request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NormalizedRequest"];
+                };
+            };
+            /** @description The body is not valid JSON or not a valid request. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The body is larger than 65,536 bytes. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The content type is not application/json. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    normalize_radius_search: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RadiusSearchRequest"];
             };
         };
         responses: {

@@ -259,42 +259,37 @@ note = "saved signal downloads; the owner part is dropped (R1)"
 # --- check-coordinate-bundles.mjs -------------------------------------------------------------------------------------
 
 [sites."check-coordinate-bundles.mjs::coordinate bundle preserves input and evaluated coordinates separately without inventing search history"]
-disposition = "pending"
-slice = 3
-module = "tests/service/test_bundle.py"
+disposition = "P"
+target = "tests/service/test_bundle.py::test_coordinate_bundle_preserves_input_and_evaluated_coordinates_separately"
 
 [sites."check-coordinate-bundles.mjs::read-only coordinate bundle endpoint returns a matching export without starting a worker"]
-disposition = "pending"
-slice = 3
-module = "tests/service/test_bundle.py"
+disposition = "P"
+target = "tests/service/test_library_routes.py::test_read_only_coordinate_bundle_endpoint_returns_a_matching_export_without_starting_a_worker"
+note = "through the route; the library half in test_bundle.py::test_coordinate_bundle_of_a_library_record_starts_no_worker"
 
 [sites."check-coordinate-bundles.mjs::coordinate exports reject missing or redirected source paths and changed source bytes"]
-disposition = "pending"
-slice = 3
-module = "tests/service/test_bundle.py"
+disposition = "P"
+target = "tests/service/test_bundle.py::test_coordinate_exports_reject_missing_or_redirected_source_paths_and_changed_source_bytes"
 
 [sites."check-coordinate-bundles.mjs::coordinate source symlinks cannot escape the experiment directory"]
-disposition = "pending"
-slice = 3
-module = "tests/service/test_bundle.py"
+disposition = "P"
+target = "tests/service/test_bundle.py::test_coordinate_source_symlinks_cannot_escape_the_experiment_directory"
 
 [sites."check-coordinate-bundles.mjs::coordinate exports verify the cache key, result checksum and request identity after validating file bytes"]
-disposition = "pending"
-slice = 3
-module = "tests/service/test_bundle.py"
+disposition = "P"
+target = "tests/service/test_bundle.py::test_coordinate_exports_verify_key_checksum_and_request_identity_after_validating_file_bytes"
 
 [sites."check-coordinate-bundles.mjs::coordinate exports reject source results that no longer match displayed coordinates or metrics"]
-disposition = "pending"
-slice = 3
-module = "tests/service/test_bundle.py"
+disposition = "P"
+target = "tests/service/test_bundle.py::test_coordinate_exports_reject_source_results_that_no_longer_match_displayed_coordinates_or_metrics"
 
 [sites."check-coordinate-bundles.mjs::coordinate history labels have complete English and Chinese translations"]
 disposition = "N"
 
 [sites."check-coordinate-bundles.mjs::evaluations under other conditions are library records with their conditions, never signal-simulation parents"]
-disposition = "pending"
-slice = 3
-module = "tests/service/test_bundle.py"
+disposition = "P"
+target = "tests/service/test_bundle.py::test_evaluations_under_other_conditions_are_library_records_with_their_conditions"
+note = "its assertIndependentNoiseParent assertion ports with signal reception v2 in slice 7"
 
 # --- check-coordinate-interop.mjs -------------------------------------------------------------------------------------
 
@@ -422,7 +417,6 @@ disposition = "N"
 disposition = "C"
 mirror = "tests/test_schema_parity.py::test_variant_parity"
 formats = ["design-evaluation", "radius-search"]
-slice = 3
 note = "the radius format carries data_prior too"
 
 [sites."check-data-prior.mjs::saved prior evaluations restore their prior and stay out of signal simulation and grouping with area-prior records"]
@@ -432,7 +426,7 @@ note = "its assertIndependentNoiseParent line ports with the reception guard in 
 [sites."check-data-prior.mjs::the prior modules and atlas enter the computation identity only for requests with a prior"]
 disposition = "P"
 target = "tests/service/test_design_identity.py::test_prior_files_enter_the_identity_only_with_a_prior"
-note = "its radius code-identity half ports with the radius identity in slice 3"
+note = "its radius code-identity half in test_radius.py::test_radius_identity_adds_prior_files_and_runtime_only_when_present"
 
 [sites."check-data-prior.mjs::record titles name the data prior in both languages"]
 disposition = "N"
@@ -566,9 +560,9 @@ target = "tests/service/test_design_identity.py::test_source_scalp_and_manifest_
 note = "its nativeContext assertion ports with signal reception in slice 7"
 
 [sites."check-design-decision.mjs::head listing offers only complete plain package directories contained in the project"]
-disposition = "pending"
-slice = 3
-module = "tests/service/test_heads.py"
+disposition = "P"
+target = "tests/service/test_heads.py::test_head_listing_offers_only_complete_plain_package_directories_contained_in_the_project"
+note = "Node parity on many more package variants in test_heads_parity"
 
 # --- check-design-robustness.mjs --------------------------------------------------------------------------------------
 
@@ -712,6 +706,7 @@ disposition = "N"
 disposition = "pending"
 slice = 6
 module = "tests/service/test_editor.py"
+note = "its checks already run, with Node's messages, in test_catalogs.py::test_validate_editor_result_messages"
 
 [sites."check-electrode-editor.mjs::new local endpoint retains loopback and session-token protection"]
 disposition = "P"
@@ -996,14 +991,12 @@ disposition = "N"
 disposition = "C"
 mirror = "tests/test_schema_parity.py::test_option_lists_match_node"
 formats = ["radius-search"]
-slice = 3
 note = "MASK_CODES as an option list of the radius format"
 
 [sites."check-lab-workflow.mjs::free placement offers all nine backend-supported sites, including non-preset and repeated choices"]
 disposition = "C"
 mirror = "tests/test_schema_parity.py::test_option_lists_match_node"
 formats = ["radius-search"]
-slice = 3
 note = "MASK_CODES as an option list of the radius format"
 
 [sites."check-lab-workflow.mjs::placement choices remain direct controls; incomplete regional choices cannot display another result"]
@@ -1088,7 +1081,6 @@ reason = "R4"
 disposition = "C"
 mirror = "tests/test_schema_parity.py::test_variant_parity"
 formats = ["radius-search"]
-slice = 3
 note = "normalizeRequest; whole_surface drops empty mask_codes"
 
 [sites."check-local-compute.mjs::local origin, Host and remote address are all checked"]
@@ -1096,10 +1088,9 @@ disposition = "P"
 target = "tests/service/test_access.py::test_local_origin_host_and_remote_address_are_all_checked"
 
 [sites."check-local-compute.mjs::result validation rejects stale request, duplicated points, wrong components and false G"]
-disposition = "pending"
-slice = 3
-module = "tests/service/test_radius.py"
-note = "the result validator"
+disposition = "P"
+target = "tests/service/test_radius.py::test_result_validation_rejects_stale_request_duplicated_points_wrong_components_and_false_g"
+note = "the result validator; Node's message for each check in test_validator_messages_equal_node"
 
 [sites."check-local-compute.mjs::queue has one child, deduplicates identical in-flight requests and records progress"]
 disposition = "pending"
@@ -1141,64 +1132,57 @@ disposition = "N"
 # --- check-local-data-library.mjs -------------------------------------------------------------------------------------
 
 [sites."check-local-data-library.mjs::all offline layouts load read-only with protocol separation and original metric values"]
-disposition = "pending"
-slice = 3
-module = "tests/service/test_library.py"
-note = "dataTest: skipped by test:fast; the port is marked data_bundle"
+disposition = "P"
+target = "tests/service/test_library.py::test_all_offline_layouts_load_read_only_with_original_metric_values"
+note = "dataTest: the port is marked data_bundle; the designLink assertion stays in Node"
 
 [sites."check-local-data-library.mjs::coordinate evaluations appear in the read-only library and reopen their original evaluated coordinates"]
-disposition = "pending"
-slice = 3
-module = "tests/service/test_library.py"
-note = "dataTest: skipped by test:fast; the port is marked data_bundle"
+disposition = "P"
+target = "tests/service/test_library.py::test_coordinate_evaluations_reopen_their_original_evaluated_coordinates"
+note = "dataTest: the port is marked data_bundle"
 
 [sites."check-local-data-library.mjs::existing cache has history after restart and exact lookup does not spawn"]
-disposition = "pending"
-slice = 3
-module = "tests/service/test_library.py"
-note = "the designLink assertion stays in Node"
+disposition = "P"
+target = "tests/service/test_library.py::test_existing_cache_has_history_after_restart"
+note = "the designLink assertion stays in Node; the lookup's hit and miss as cache reads, its job view with the queue in slice 4"
 
 [sites."check-local-data-library.mjs::historical algorithm data stays readable but cannot resume as current cache"]
-disposition = "pending"
-slice = 3
-module = "tests/service/test_library.py"
+disposition = "P"
+target = "tests/service/test_library.py::test_historical_algorithm_data_stays_readable_but_cannot_resume"
+note = "the designLink assertion stays in Node; the lookup miss as a changed key"
 
 [sites."check-local-data-library.mjs::cached result is served while unrelated computation runs, without changing that job"]
-disposition = "pending"
-slice = 3
-module = "tests/service/test_library.py"
+disposition = "P"
+target = "tests/service/test_library.py::test_cached_result_is_served_without_touching_the_store"
+note = "the read side; submit beside a running job ports with the queue in slice 4"
 
 [sites."check-local-data-library.mjs::invalid checksum and malformed records are misses, not usable scores"]
-disposition = "pending"
-slice = 3
-module = "tests/service/test_library.py"
+disposition = "P"
+target = "tests/service/test_library.py::test_invalid_checksum_and_malformed_records_are_misses"
 
 [sites."check-local-data-library.mjs::lookup HTTP endpoint returns a miss without a task, and rejects extra query fields"]
 disposition = "pending"
 slice = 4
 module = "tests/service/test_radius.py"
-note = "the lookup endpoint"
+note = "the lookup endpoint; its read side (hit, miss, refused body) in test_library.py::test_lookup_bodies_hit_miss_or_are_refused_before_any_read"
 
 [sites."check-local-data-library.mjs::input byte changes invalidate memoized SHA even when model pointer stays the same"]
-disposition = "pending"
-slice = 3
-module = "tests/service/test_library.py"
+disposition = "P"
+target = "tests/service/test_library.py::test_input_byte_changes_invalidate_memoized_sha"
 
 [sites."check-local-data-library.mjs::failed input identity blocks cached reuse instead of starting replacement work"]
-disposition = "pending"
-slice = 3
-module = "tests/service/test_library.py"
+disposition = "P"
+target = "tests/service/test_library.py::test_failed_input_identity_blocks_cached_reuse"
+note = "the library's compatible flag and warning; submit's refusal ports with the queue in slice 4"
 
 [sites."check-local-data-library.mjs::library only returns allowlisted opaque IDs, not filesystem paths"]
-disposition = "pending"
-slice = 3
-module = "tests/service/test_library.py"
+disposition = "P"
+target = "tests/service/test_library.py::test_library_only_returns_allowlisted_opaque_ids"
 
 [sites."check-local-data-library.mjs::area importer rejects changed scientific protocols instead of applying stale labels"]
-disposition = "pending"
-slice = 3
-module = "tests/service/test_library.py"
-note = "dataTest: skipped by test:fast; the port is marked data_bundle"
+disposition = "P"
+target = "tests/service/test_library.py::test_area_importer_rejects_changed_scientific_protocols"
+note = "dataTest: the port is marked data_bundle"
 
 # --- check-local-production.mjs ---------------------------------------------------------------------------------------
 
@@ -1579,9 +1563,8 @@ note = "legacy scripts/*.mjs shims; retire in phase 4"
 disposition = "N"
 
 [sites."check-project-structure.mjs::checkout roots and independently scoped implementation identities are explicit"]
-disposition = "pending"
-slice = 3
-module = "tests/service/test_key_parity.py"
+disposition = "P"
+target = "tests/service/test_key_parity.py::test_code_identity_covers_top_level_files_only"
 note = "codeIdentity of the radius identity (top-level src/compact_eeg only)"
 
 # --- check-project-workflow.mjs ---------------------------------------------------------------------------------------
@@ -2434,26 +2417,22 @@ note = "reception v2; the browser sourceKey half stays in Node"
 disposition = "N"
 
 [sites."check-source-upgrade.mjs::real area bundle preserves original bytes identity, all coordinates and stored accepted trace"]
-disposition = "pending"
-slice = 3
-module = "tests/service/test_bundle.py"
-note = "dataTest: skipped by test:fast; the port is marked data_bundle"
+disposition = "P"
+target = "tests/service/test_bundle.py::test_real_area_bundle_preserves_original_bytes_identity_all_coordinates_and_stored_accepted_trace"
+note = "dataTest: the port is marked data_bundle"
 
 [sites."check-source-upgrade.mjs::missing history is explicit and never fabricates zero-score initial state"]
-disposition = "pending"
-slice = 3
-module = "tests/service/test_bundle.py"
+disposition = "P"
+target = "tests/service/test_bundle.py::test_missing_history_is_explicit_and_never_fabricates_zero_score_initial_state"
 
 [sites."check-source-upgrade.mjs::historical field objective keeps its saved trajectory and is not replaced with the tail minimum"]
-disposition = "pending"
-slice = 3
-module = "tests/service/test_bundle.py"
-note = "dataTest: skipped by test:fast; the port is marked data_bundle"
+disposition = "P"
+target = "tests/service/test_bundle.py::test_historical_field_objective_keeps_its_saved_trajectory_and_is_not_replaced_with_the_tail_minimum"
+note = "dataTest: the port is marked data_bundle"
 
 [sites."check-source-upgrade.mjs::synthetic completed native record resolves evaluated coordinates, not unprojected inputs"]
-disposition = "pending"
-slice = 3
-module = "tests/service/test_bundle.py"
+disposition = "P"
+target = "tests/service/test_bundle.py::test_synthetic_completed_native_record_resolves_evaluated_coordinates_not_unprojected_inputs"
 
 [sites."check-source-upgrade.mjs::v2 validator rejects wrong source identity before accepting display data"]
 disposition = "pending"

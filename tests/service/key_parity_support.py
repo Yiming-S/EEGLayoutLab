@@ -568,3 +568,131 @@ def build_roots(base: Path) -> dict[str, tuple[str, str]]:
         root = design_root(base / name, **options)
         roots[name] = (root, os.path.realpath(root))
     return roots
+
+
+# --- The radius identity (phase 2 slice 3) -----------------------------------------------------------------------
+
+LIBRARY_DRIVER = ROOT / 'tests/service/parity/library.mjs'
+# Top-level names of src/compact_eeg beside design_root's: codeIdentity keeps those ending in '.py' (a dot file
+# too) and sorts them by UTF-16 code units, where U+1F600 (D83D DE00) comes before U+FF5A.
+RADIUS_CODE_NAMES = ('b.py', 'Z.py', 'ä.py', 'ｚ.py', '\U0001F600.py', '.hidden.py', 'notes.txt', 'cache.pyc',
+                     'module.py.bak')
+# One radius-specific change each: a code file linked out of the root (Node follows it, plan B8), a directory, a
+# dangling link or an unreadable file among the code files, no src/compact_eeg, no worker, no data-prior module.
+RADIUS_BREAKS = ('linked', 'py_directory', 'dangling_code', 'unreadable_code', 'no_src', 'no_worker', 'no_prior')
+RADIUS_ROOTS: dict[str, dict] = {
+    'radius-base': {},
+    'radius-simnibs': {'runtime': 'simnibs'},
+    'radius-linux64': {'runtime': 'compute-linux-64'},
+    'radius-dangling': {'runtime': 'dangling'},
+    'radius-symlinked': {'runtime': 'simnibs', 'symlinked': True},
+    **{f'radius-{name}': {'radius': name} for name in RADIUS_BREAKS},
+}
+# The radius identity takes the compute interpreter (`python || EEG_COMPUTE_PYTHON || managed || 'python3'`).
+RADIUS_ROOT_CONFIGS: dict[str, tuple[str, ...]] = {
+    'radius-base': ('default', 'explicit', 'env', 'env-empty', 'explicit-empty'),
+    'radius-simnibs': ('default', 'explicit', 'env', 'env-empty', 'explicit-empty'),
+    'radius-linux64': ('default', 'env', 'explicit'),
+    'radius-dangling': ('default', 'env'),
+}
+# identityFor takes any value: the canonical requests (normalizeRequest), and values it never sees from the routes,
+# for its own rules (the data-prior files only for a truthy data_prior, V8's key order, a member read of null).
+RADIUS_KEY_REQUESTS: dict[str, Any] = {
+    'whole': {'region_count': 1, 'radius_mm': 15, 'mode': 'whole_surface'},
+    'preset': {'region_count': 2, 'radius_mm': 35, 'mode': 'preset', 'mask_codes': ['PL', 'PR']},
+    'spatial': {'region_count': 3, 'radius_mm': 20, 'mode': 'low_hair', 'noise_model': SPATIAL},
+    'prior': {'region_count': 4, 'radius_mm': 25, 'mode': 'whole_surface', 'data_prior': PRIOR},
+    'prior-iid': {'region_count': 6, 'radius_mm': 80, 'mode': 'preset', 'mask_codes': ['FL', 'FM', 'FR', 'OL', 'OR', 'AL'],
+                  'data_prior': {**PRIOR, 'rho': 0, 'length_mm': None}},
+    'empty': {},
+    'prior-zero': {'data_prior': 0.0},
+    'prior-empty-string': {'data_prior': ''},
+    'prior-empty-object': {'data_prior': {}},
+    'index-keys': {'2': 'b', 'mode': 'whole_surface', '1': 'a'},
+    'array': [],
+    'string': 'whole_surface',
+    'null': None,
+}
+
+
+def radius_root(directory: Path, *, radius: Optional[str] = None, **options: Any) -> str:
+    """``design_root(directory, **options)`` plus the files of the radius identity (``codeIdentity``): the worker,
+    its configuration and more top-level code files (``RADIUS_CODE_NAMES``); ``radius`` breaks one thing
+    (``RADIUS_BREAKS``). Returns the root string to configure."""
+    assert radius in (None, *RADIUS_BREAKS)
+    root = design_root(directory, **options)
+    tree = Path(os.path.realpath(root))
+    _write(tree, 'scripts/run_local_radius_compute.py', 'radius worker')
+    _write(tree, 'configs/single_head_optimization.json', '{"restarts":2}')
+    for name in RADIUS_CODE_NAMES:
+        _write(tree, f'src/compact_eeg/{name}', f'code {name}')
+    code = tree / 'src/compact_eeg'
+    if radius == 'linked':
+        outside = directory / 'outside.py'
+        outside.write_text('outside code', encoding='utf-8')
+        (code / 'linked.py').symlink_to(outside)
+    elif radius == 'py_directory':
+        (code / 'package.py').mkdir()
+    elif radius == 'dangling_code':
+        (code / 'gone.py').symlink_to(directory / 'no-such-file.py')
+    elif radius == 'unreadable_code':
+        (code / 'b.py').chmod(0)  # read by a user who can read anything: the base identity instead
+    elif radius == 'no_src':
+        shutil.rmtree(code)
+    elif radius == 'no_worker':
+        (tree / 'scripts/run_local_radius_compute.py').unlink()
+    elif radius == 'no_prior':
+        (tree / 'src/compact_eeg/workflows/eeg_recording.py').unlink()
+    return root
+
+
+def radius_cases(roots: dict[str, tuple[str, str]], corpus: dict[str, Any]) -> list[dict]:
+    """The driver's identity cases ``{id, root, python?, env?, request}``: every request of ``RADIUS_KEY_REQUESTS``
+    on every radius root and configuration, and the ``corpus`` requests on the base root."""
+    cases = []
+    for name in RADIUS_ROOTS:
+        for config in RADIUS_ROOT_CONFIGS.get(name, ('default',)):
+            for request_name, request in RADIUS_KEY_REQUESTS.items():
+                cases.append({'id': f'{name}/{config}/{request_name}', 'root': roots[name][0],
+                              **CONFIGS[config], 'request': request})
+    for request_name, request in corpus.items():
+        cases.append({'id': f'radius-base/default/{request_name}', 'root': roots['radius-base'][0], 'request': request})
+    return cases
+
+
+def radius_corpus() -> dict[str, Any]:
+    """Every distinct canonical request of the radius-search corpus (``normalizeRequest``'s output)."""
+    if CORPUS is None:
+        return {}
+    texts = {variant['canonical']: variant['name'] for variant in CORPUS['formats']['radius-search']['variants']
+             if variant['accepted']}
+    return {f'canonical-{name}': jsjson.parse(text) for text, name in texts.items()}
+
+
+def run_library_node(spec: dict, scratch: Path) -> dict:
+    """Runs ``parity/library.mjs`` once over ``spec`` (its header documents the members); the queue directory is
+    only resolved, never created."""
+    queue = scratch / 'node-queue'
+    spec_path, out_path = scratch / 'library-spec.json', scratch / 'library-node.json'
+    spec_path.write_text(jsjson.stringify({'queueDirectory': str(queue), **spec}), encoding='utf-8')
+    subprocess.run(['node', str(LIBRARY_DRIVER), str(spec_path), str(out_path)], check=True, cwd=ROOT, env=NODE_ENV)
+    assert not queue.exists()
+    return json.loads(out_path.read_text(encoding='utf-8'))
+
+
+def radius_outcome(case: dict) -> dict:
+    """The driver's identity outcome computed with ``eeglayoutlab.jobs``: ``LocalComputeQueue``'s configuration (a
+    fresh one per case) and ``identityFor(request)``."""
+    from eeglayoutlab.jobs.radius import RadiusCache
+
+    outcome: dict[str, Any] = {'id': case['id'], 'ok': False}
+    try:
+        config = runtime_config(case['root'], case.get('python'), env=case.get('env', {}))
+        radius = RadiusCache(config.repository_root, config.python)
+        outcome['config'] = {'repositoryRoot': config.repository_root, 'python': config.python}
+        identity, key = radius.identity_for(case['request'])
+    except Exception as error:  # noqa: BLE001 - every failure is compared with Node's
+        outcome.update(_error(error))
+        return outcome
+    return {'id': case['id'], 'ok': True, 'config': outcome['config'], 'identity': jsjson.stringify(identity),
+            'key': key}

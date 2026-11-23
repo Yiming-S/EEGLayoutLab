@@ -6,9 +6,15 @@ configuration, identity text, admission text and key that Node's ``LocalComputeQ
 the error has one (system errors carry absolute paths in their messages), by name for a ``SyntaxError``, the
 others by Node's message.
 
-With ``EEG_KEY_PARITY_ROOT=<checkout>`` the same comparison also runs on that real installation (marked
-``data_bundle``), and every stored design and editor cache and every batch ``request.json`` must re-derive its key.
-Nothing is written under that root.
+The radius identity (slice 3: ``identityFor`` of ``LocalComputeQueue``, the key of every radius record) is compared
+the same way through tests/service/parity/library.mjs, on design roots with the radius code files added
+(``radius_root``): each interpreter configuration, the radius-specific breaks (a code file linked out of the root,
+which Node follows: plan B8) and every canonical request of the radius-search corpus. ``codeIdentity`` covers the
+top-level ``src/compact_eeg/*.py`` only (check-project-structure.mjs:30).
+
+With ``EEG_KEY_PARITY_ROOT=<checkout>`` the same comparisons also run on that real installation (marked
+``data_bundle``; the radius identity also for every stored radius request), and every stored design and editor
+cache and every batch ``request.json`` must re-derive its key. Nothing is written under that root.
 """
 from __future__ import annotations
 
@@ -19,14 +25,16 @@ import re
 import pytest
 
 from eeglayoutlab.jobs import identity as py_identity
+from eeglayoutlab.jobs import nodepath
 from eeglayoutlab.jobs import runtime as py_runtime
 from eeglayoutlab.jobs.identity import request_key
 from eeglayoutlab.schemas import jsjson
 
 from .key_parity_support import (
-    BAD_UTF8_NAME, BANK, CONDA_META, LINE_TERMINATOR_DIST_INFO, NATIVE, NATIVE_DIST_INFO, REQUESTS, TABLE_DIR, Case,
-    PythonCases, all_requests, build_roots, canonical_requests, digest, needs_node, node_outcome, run_node, spec_case,
-    synthetic_cases,
+    BAD_UTF8_NAME, BANK, CONDA_META, CONFIGS, LINE_TERMINATOR_DIST_INFO, NATIVE, NATIVE_DIST_INFO, RADIUS_CODE_NAMES,
+    RADIUS_KEY_REQUESTS, RADIUS_ROOT_CONFIGS, RADIUS_ROOTS, REQUESTS, TABLE_DIR, Case, PythonCases, all_requests,
+    build_roots, canonical_requests, digest, needs_node, node_outcome, radius_cases, radius_corpus, radius_outcome,
+    radius_root, require, run_library_node, run_node, spec_case, synthetic_cases,
 )
 
 CASES = synthetic_cases()
@@ -229,6 +237,123 @@ def test_variants_reach_their_branches(synthetic):
     assert ('"runtime":{"python":null}' in native['identity']) == linux
 
 
+# --- The radius identity (slice 3) -------------------------------------------------------------------------------
+
+RADIUS_CORPUS = radius_corpus()
+RADIUS_CASE_IDS = [f'{name}/{config}/{request}' for name in RADIUS_ROOTS
+                   for config in RADIUS_ROOT_CONFIGS.get(name, ('default',)) for request in RADIUS_KEY_REQUESTS]
+RADIUS_CASE_IDS += [f'radius-base/default/{request}' for request in RADIUS_CORPUS]
+RADIUS_WORKER = 'scripts/run_local_radius_compute.py'
+
+
+@pytest.fixture(scope='session')
+def radius_synthetic(tmp_path_factory):
+    base = tmp_path_factory.mktemp('radius-parity')
+    roots = {}
+    for name, options in RADIUS_ROOTS.items():
+        root = radius_root(base / 'roots' / name, **options)
+        roots[name] = (root, os.path.realpath(root))
+    cases = radius_cases(roots, RADIUS_CORPUS)
+    node = run_library_node({'identities': cases}, base)
+    return roots, {case['id']: case for case in cases}, {result['id']: result for result in node['identities']}, node
+
+
+@needs_node
+@pytest.mark.parametrize('case_id', RADIUS_CASE_IDS)
+def test_radius_key_parity(case_id, radius_synthetic):
+    _, cases, node, _ = radius_synthetic
+    assert radius_outcome(cases[case_id]) == node_outcome(node[case_id])
+
+
+def _code(result) -> dict:
+    return jsjson.parse(result['identity'])['code']
+
+
+@needs_node
+def test_radius_variants_reach_their_branches(radius_synthetic):
+    # Parity alone would also pass if a fixture missed its branch; these pin what each variant exercises.
+    roots, _, result, output = radius_synthetic
+    linux = output['platform'] != 'darwin'
+    ok = lambda case_id: result[case_id]['ok'] and result[case_id]  # noqa: E731
+    failed = lambda case_id: node_outcome(result[case_id])  # noqa: E731
+
+    # The code files: the worker, its configuration and the two pointers, then the top-level *.py (a dot file too)
+    # in UTF-16 code-unit order; nested workflows and other names never.
+    whole = ok('radius-base/default/whole')
+    code = list(_code(whole))
+    assert code[:4] == [RADIUS_WORKER, 'configs/single_head_optimization.json', 'results/v2/current_multiregion_bank.json',
+                        'results/v2/current_surface_admissibility.json']
+    names = [path.removeprefix('src/compact_eeg/') for path in code[4:]]
+    assert all(path.startswith('src/compact_eeg/') and '/' not in name for path, name in zip(code[4:], names))
+    assert names == nodepath.js_sort(names) and names != sorted(names)
+    assert {name for name in RADIUS_CODE_NAMES if name.endswith('.py')} <= set(names)
+    assert not {'notes.txt', 'cache.pyc', 'module.py.bak'} & set(names)
+    assert names.index('\U0001F600.py') < names.index('\uff5a.py')
+    assert _code(whole)[RADIUS_WORKER] == digest('radius worker')
+    assert jsjson.parse(whole['identity'])['version'] == 'local-radius-queue/1'
+    assert jsjson.parse(whole['identity'])['threads'] == 2
+    # The data-prior files only for a truthy data_prior, after the code files.
+    assert list(_code(ok('radius-base/default/prior')))[-3:] == list(py_identity.DATA_PRIOR_FILES)
+    assert list(_code(ok('radius-base/default/prior-empty-object')))[-3:] == list(py_identity.DATA_PRIOR_FILES)
+    for name in ('prior-zero', 'prior-empty-string', 'spatial', 'empty', 'array', 'string'):
+        assert ok(f'radius-base/default/{name}')['identity'] == whole['identity'], name
+    assert ok('radius-no_prior/default/whole') and failed('radius-no_prior/default/prior')['code'] == 'ENOENT'
+    # Requests differ only in their keys; a member read of null fails as in V8.
+    assert len({ok(f'radius-base/default/{name}')['key'] for name in ('whole', 'preset', 'spatial', 'empty')}) == 4
+    assert failed('radius-base/default/null')['message'] == "Cannot read properties of null (reading 'data_prior')"
+    # A code file linked out of the root is followed (plan B8): its target's bytes, under its own name.
+    assert _code(ok('radius-linked/default/whole'))['src/compact_eeg/linked.py'] == digest('outside code')
+    for name, code_name in (('py_directory', 'EISDIR'), ('dangling_code', 'ENOENT'), ('no_src', 'ENOENT'),
+                            ('no_worker', 'ENOENT')):
+        assert failed(f'radius-{name}/default/whole')['code'] == code_name, name
+    unreadable = f'{roots["radius-unreadable_code"][1]}/src/compact_eeg/b.py'
+    if not os.access(unreadable, os.R_OK):
+        assert failed('radius-unreadable_code/default/whole')['code'] == 'EACCES'
+    # The compute interpreter: python || EEG_COMPUTE_PYTHON || the managed runtime || 'python3'.
+    simnibs = roots['radius-simnibs'][0]
+    for config, python in (('default', f'{simnibs}/{NATIVE}/bin/python'), ('explicit', '/explicit/python'),
+                           ('env', '/env/python'), ('env-empty', f'{simnibs}/{NATIVE}/bin/python'),
+                           ('explicit-empty', '/env/python')):
+        assert ok(f'radius-simnibs/{config}/whole')['config']['python'] == python, config
+    assert ok('radius-base/default/whole')['config']['python'] == 'python3'
+    assert ok('radius-linux64/default/whole')['config']['python'].endswith('/.runtime/compute-linux-64/bin/python')
+    assert ok('radius-dangling/default/whole')['config']['python'] == 'python3'
+    # A linked root keeps its spelling; the same files give the same code digests.
+    link, real = roots['radius-symlinked']
+    assert link != real and ok('radius-symlinked/default/whole')['config']['repositoryRoot'] == link
+    assert _code(ok('radius-symlinked/default/whole')) == _code(ok('radius-simnibs/default/whole'))
+    # The interpreter fingerprint enters keys off macOS only.
+    assert ('"runtime":' in whole['identity']) == linux
+    assert RADIUS_CORPUS and all(result[f'radius-base/default/{name}']['ok'] for name in RADIUS_CORPUS)
+
+
+def test_code_identity_covers_top_level_files_only(tmp_path):
+    """check-project-structure.mjs:30 'checkout roots and independently scoped implementation identities are
+    explicit': the checkout root and native interpreter, ``codeIdentity`` over the top-level ``src/compact_eeg``
+    files only, and workflow lists that name files of this checkout under ``src/compact_eeg/workflows/``."""
+    require('pydantic')  # jobs.radius imports the radius-search schema; the native runtime suite has no Pydantic
+    from eeglayoutlab.jobs.radius import code_identity
+
+    checkout = Path(__file__).resolve().parents[2]
+    assert py_runtime.default_repository_root() == os.path.realpath(checkout)
+    assert py_runtime.native_python_path(str(checkout)) == f'{checkout}/.runtime/simnibs-4.6.0/bin/python'
+    for path in ('scripts/run_local_radius_compute.py', 'configs/single_head_optimization.json',
+                 'results/v2/current_multiregion_bank.json', 'results/v2/current_surface_admissibility.json',
+                 'src/compact_eeg/local_radius_compute.py', 'src/compact_eeg/workflows/other.py'):
+        (tmp_path / path).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / path).write_text('{}', encoding='utf-8')
+    identity = code_identity(str(tmp_path))
+    assert 'src/compact_eeg/local_radius_compute.py' in identity
+    assert not any('/workflows/' in path for path in identity)
+    workflows = {*py_identity.DESIGN_WORKFLOW, *py_identity.RECEPTION_WORKFLOW, *py_identity.RECEPTION_V2_WORKFLOW,
+                 *py_identity.EDITOR_WORKFLOW}
+    for path in workflows:
+        assert (checkout / path).read_text(encoding='utf-8')
+        assert path.startswith('src/compact_eeg/workflows/')
+    assert any(path.endswith('/electrode_editor.py') for path in py_identity.EDITOR_WORKFLOW)
+    assert any(path.endswith('/source_reception.py') for path in py_identity.RECEPTION_WORKFLOW)
+
+
 # --- The real installation (EEG_KEY_PARITY_ROOT) ----------------------------------------------------------------
 
 REAL_ROOT = os.environ.get('EEG_KEY_PARITY_ROOT')
@@ -294,3 +419,28 @@ def test_real_root_stored_records_rederive_their_keys():
                         assert request_key(stored['request'], stored['identity']) == entry.name, request_path
                         checked['keys'] += 1
     assert checked['caches'] > 0 and checked['keys'] > 0
+
+
+RADIUS_REAL_CONFIGS = ('default', 'explicit', 'env', 'env-empty')
+
+
+@pytest.mark.data_bundle
+@real_root
+@needs_node
+def test_real_root_radius_key_parity(tmp_path):
+    """The radius identity on the installation: each configuration, and every stored radius request, whose key is
+    its directory's exactly when the record is current (the library's ``compatible``)."""
+    stored = {}
+    directory = Path(REAL_ROOT) / 'results/v2/local_app_jobs'
+    for entry in sorted(directory.iterdir()) if directory.is_dir() else ():
+        cache = entry / 'cache.json'
+        if KEY.fullmatch(entry.name) and cache.is_file():
+            stored[entry.name] = jsjson.parse(cache.read_bytes().decode('utf-8', errors='replace'))['request']
+    cases = [{'id': f'real/{config}/{name}', 'root': REAL_ROOT, **CONFIGS[config], 'request': request}
+             for config in RADIUS_REAL_CONFIGS for name, request in RADIUS_KEY_REQUESTS.items()]
+    cases += [{'id': f'real/default/stored-{key}', 'root': REAL_ROOT, 'request': request} for key, request in stored.items()]
+    node = {result['id']: result for result in run_library_node({'identities': cases}, tmp_path)['identities']}
+    for case in cases:
+        assert radius_outcome(case) == node_outcome(node[case['id']]), case['id']
+    assert stored and all(node[f'real/default/stored-{key}']['ok'] for key in stored)
+    assert node['real/default/whole']['ok']

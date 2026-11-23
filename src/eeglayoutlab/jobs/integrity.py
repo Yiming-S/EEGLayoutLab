@@ -3,14 +3,19 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 from typing import Any, Iterable
 
+from ..schemas import jsjson
 from . import nodefs, nodepath
-from .identity import IdentityError
+from .identity import UNDEFINED, IdentityError, JSTypeError, _js_string, _member, _path, _same, js_truthy
 
-__all__ = ['InputIntegrity']
+__all__ = ['InputIntegrity', 'BANK_POINTER', 'ADMISSION_POINTER']
 
 _CHUNK = 1 << 20
+BANK_POINTER = 'results/v2/current_multiregion_bank.json'
+ADMISSION_POINTER = 'results/v2/current_surface_admissibility.json'
+_SHA256 = re.compile('[a-f0-9]{64}')
 
 
 def _stamp(info: os.stat_result) -> tuple[int, int, int, int, int]:
@@ -89,3 +94,40 @@ class InputIntegrity:
         for path, real_path, stamp, digest in zip(files, real, stamps, known):
             digests[path] = digest if digest is not None else self._read(real_path, stamp)
         return digests
+
+    def _read_json(self, relative_path: str) -> Any:
+        """``JSON.parse(await readFile(join(this.root, relativePath), 'utf8'))``: no containment, links followed."""
+        return jsjson.parse(nodefs.decode(nodefs.read_file(nodepath.join(self.root, relative_path))))
+
+    def verify(self, provenance: Any) -> None:
+        """``await inputs.verify(provenance)`` (local-input-integrity.mjs:20-35): a radius result's forward inputs
+        (the bank pointer, bank, candidates, report and, for ``strict-radius-local/3`` results, the surface mask)
+        still have the digests the result recorded. Raises ``IdentityError`` with Node's message; the checks and
+        digests run one after another in Node's order, so the first failure is Node's."""
+        pointer = self._read_json(BANK_POINTER)
+        if (not js_truthy(provenance)
+                or not _same(_member(provenance, 'bank_path'), _member(pointer, 'path'))
+                or not _same(_member(provenance, 'geometry_path'), _member(pointer, 'candidates'))
+                or not _same(_member(provenance, 'bank_sha256'), _member(pointer, 'sha256'))):
+            raise IdentityError('缓存前向模型身份不一致')
+        entries = [
+            (BANK_POINTER, _member(provenance, 'pointer_sha256')),
+            (_member(pointer, 'path'), _member(provenance, 'bank_sha256')),
+            (_member(pointer, 'candidates'), _member(provenance, 'geometry_sha256')),
+            (_member(pointer, 'report'), _member(provenance, 'bank_report_sha256')),
+        ]
+        version = _member(provenance, 'algorithm_version')
+        if version is not None and version is not UNDEFINED and not isinstance(version, str):
+            raise JSTypeError('provenance.algorithm_version?.startsWith is not a function')
+        if isinstance(version, str) and version.startswith('strict-radius-local/3'):
+            admission = self._read_json(ADMISSION_POINTER)
+            if (not _same(_member(admission, 'path'), _member(provenance, 'surface_admissibility_path'))
+                    or not _same(_member(admission, 'sha256'), _member(provenance, 'surface_admissibility_sha256'))
+                    or not _same(_member(admission, 'schema_version'),
+                                 _member(provenance, 'surface_admissibility_version'))):
+                raise IdentityError('外部表面筛选版本已改变，请重新计算')
+            entries.append((_member(admission, 'path'), _member(admission, 'sha256')))
+        for path, expected in entries:
+            # RegExp.prototype.test converts its argument to a string; the comparison with the digest is strict.
+            if not _SHA256.fullmatch(_js_string(expected)) or not _same(self.digest(_path(path)), expected):
+                raise IdentityError('本地前向数据发生变化，不能使用旧缓存；请核对模型文件')

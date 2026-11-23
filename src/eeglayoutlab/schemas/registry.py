@@ -12,7 +12,7 @@ from typing import Any, Callable, Mapping
 
 from pydantic import TypeAdapter
 
-from . import coordinate_source, options, submission
+from . import coordinate_source, options, radius_search, submission
 
 
 @dataclass(frozen=True)
@@ -62,6 +62,18 @@ REQUEST_FORMATS: dict[str, RequestFormat] = {
                  'webapp/server/design-evaluation-server.mjs)',
             options={
                 'conductivity_scenarios': options.CONDUCTIVITY_SCENARIOS,
+                'spatial_noise_lengths_mm': options.SPATIAL_NOISE_LENGTHS_MM,
+                'data_prior_lengths_mm': options.DATA_PRIOR_LENGTHS_MM,
+            },
+        ),
+        RequestFormat(
+            name='radius-search',
+            schema_name='RadiusSearchRequest',
+            body=radius_search.RadiusSearchRequest,
+            canonical=radius_search.canonical,
+            node='normalizeRequest (webapp/server/local-compute-server.mjs)',
+            options={
+                'mask_codes': radius_search.MASK_CODES,
                 'spatial_noise_lengths_mm': options.SPATIAL_NOISE_LENGTHS_MM,
                 'data_prior_lengths_mm': options.DATA_PRIOR_LENGTHS_MM,
             },

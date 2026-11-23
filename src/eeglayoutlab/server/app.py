@@ -3,8 +3,8 @@
 ``create_app(config)`` builds the service of one process. Every request passes the access checks of
 ``server.access`` first (guard, session cookie, CSRF token for writes); then paths under ``/api/`` go to the JSON
 API and every other path to the static interface (``server.static``). The API has, so far, the health routes of
-the four task kinds (``routes.health``) and, for every request format, a diagnostic endpoint that returns the
-canonical request.
+the four task kinds (``routes.health``), the read-only library and catalogs (``routes.library``) and, for every
+request format, a diagnostic endpoint that returns the canonical request.
 
 The transport follows the route that serves the Node host's job submissions (``communityMiddleware`` in
 webapp/server/community-queue.mjs), so the interface sees the same answers:
@@ -18,7 +18,7 @@ webapp/server/community-queue.mjs), so the interface sees the same answers:
   ``Cache-Control: no-store``, ``X-Content-Type-Options: nosniff`` and
   ``Cross-Origin-Resource-Policy: same-origin``; errors are ``{"error": ..., "code": ...}``;
 - an unknown path or method under one of Node's API prefixes gets Node's 404 message (``node_fallback``), and
-  an unexpected exception a generic 500.
+  an unexpected exception a generic 500 (the library routes answer Node's own 500 instead: ``routes.library``).
 """
 from __future__ import annotations
 
@@ -36,6 +36,7 @@ from ..schemas import jsjson
 from ..schemas.registry import REQUEST_FORMATS, RequestFormat
 
 if TYPE_CHECKING:
+    from ..jobs.runtime import RuntimeConfig
     from .access import Tokens
     from .workspace import UserContext
 
@@ -85,6 +86,9 @@ class ServiceConfig:
     static_dir: Optional[str] = None
     """The static export (``webapp/dist/client``); until it is built (its ``index.html`` is there), pages answer
     503."""
+    runtime: Optional['RuntimeConfig'] = None
+    """The root and interpreters (``jobs.runtime.runtime_config``); by default ``runtime_config(root)`` on first
+    use, with ``EEG_COMPUTE_PYTHON`` as Node reads it."""
 
 
 def json_response(status: int, value: Any) -> Response:
@@ -177,7 +181,7 @@ class RawPathRouting:
 
 def _api(config: ServiceConfig) -> FastAPI:
     from .openapi import openapi_text
-    from .routes import health
+    from .routes import health, library
 
     # The interactive documentation pages load scripts from a CDN, which a local-first service does not do.
     # A trailing slash is an unknown path (404), as in Node, not a redirect built from the Host header.
@@ -203,6 +207,7 @@ def _api(config: ServiceConfig) -> FastAPI:
         return error_response(500, INTERNAL_MESSAGE)
 
     health.add_routes(app, config)
+    library.add_routes(app, config)
     for format in REQUEST_FORMATS.values():
         app.add_api_route(f'/api/normalize/{format.name}', normalize_endpoint(format), methods=['POST'],
                           include_in_schema=False)

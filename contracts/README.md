@@ -20,9 +20,10 @@ The request formats are being moved to one definition in the Python package
 `eeglayoutlab.schemas` ([design 0001](../docs/design/0001-local-first-architecture.md),
 decision 4). Every format in `eeglayoutlab.schemas.registry` reproduces the Node
 normalizer exactly; the tests in [`tests/schema_parity`](../tests/schema_parity/README.md)
-compare them on generated variants and, for design evaluation, also on the shared
-fixtures. The Node host
-remains in service until phase 4.
+compare them on generated variants and, for design evaluation and the radius search,
+also on the shared fixtures. The radius search (`radius-search`) also reproduces
+Node's rejection messages (`eeglayoutlab.schemas.radius_search.normalize_request`).
+The Node host remains in service until phase 4.
 
 [`generated/openapi.json`](generated/openapi.json) is written from those schemas, and
 [`generated/openapi.d.ts`](generated/openapi.d.ts) from that document. Do not edit
@@ -41,8 +42,10 @@ either file is out of date. The interface imports the request types through
 The document describes the canonical form of each request, which the interface
 sends. The service also accepts the spellings Node accepts for a default value
 (`''` for `conductivity_scenario` and `head_id`, `false` or `''` for `robustness`,
-any value for `design.name`, where a non-string means the default name), so a
-request can be valid for the service without being valid for the document.
+any value for `design.name`, where a non-string means the default name; in a radius
+search, `null` or `{"kind": "iid"}` for `noise_model`, `null` for `data_prior` and
+an empty `mask_codes` in a free mode), so a request can be valid for the service
+without being valid for the document.
 
 ## Changing a format
 

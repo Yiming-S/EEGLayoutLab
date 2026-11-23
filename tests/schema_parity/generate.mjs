@@ -8,10 +8,11 @@
 import { writeFileSync } from 'node:fs';
 import * as coordinateSource from './formats/coordinate-source.mjs';
 import * as designEvaluation from './formats/design-evaluation.mjs';
+import * as radiusSearch from './formats/radius-search.mjs';
 import { internalFault } from '../../webapp/server/http/public-errors.mjs';
 import { referenceCorpora } from './reference.mjs';
 
-const FORMATS = [coordinateSource, designEvaluation];
+const FORMATS = [coordinateSource, designEvaluation, radiusSearch];
 
 const output = process.argv[2];
 if (!output) throw new Error('usage: generate.mjs <output.json>');
