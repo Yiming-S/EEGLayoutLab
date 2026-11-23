@@ -80,6 +80,24 @@ VIEWER_QA_URL=http://127.0.0.1:3101/ npm run test:viewer
 
 The HTTP check exercises record loading, layout design, editor evaluation, coordinate evaluation, source reception and exact cache replay. `--native` adds uncached native-coordinate and single/multi-source cases and can take several minutes. Browser tests exercise rendering and interaction separately. Save evidence under the project; `EEG_QA_OUTPUT` selects the viewer capture directory.
 
+The Python service that replaces the Node host ([phase 2 plan](docs/design/0001-phase-2-plan.md)) runs beside it on its own loopback port, with the same scientific root and its own workspace directory, and gains endpoints slice by slice; keep using the Node host for real work until slice 10. It serves the built interface. From the repository root:
+
+```sh
+python -m pip install -e '.[service]'   # also installs the eeglayoutlab command
+(cd webapp && npm run build)
+eeglayoutlab serve /absolute/path/to/workspace --no-browser
+```
+
+It prints `http://127.0.0.1:<port>/open?token=<launch token>`. Opening that address sets the session cookie, which every other request needs; writes also need the token from health. The cookie belongs to the host name, so a page opened on `localhost` instead gets a 401 page. Without `--no-browser` it opens the address once the service answers, through the private page `<workspace>/.eeglayoutlab/open.html`, so that the token is not on the browser's command line, which other local users can read (macOS's default browser gets the address itself). A browser that cannot read files in that directory, such as a snap package outside the home directory, shows an error; open the printed address instead. `--root`, `--static` and `--port` choose another root, export and port; running the command again on the same workspace prints the running instance's address. SIGINT or SIGTERM stops it. A workspace whose `.eeglayoutlab` state cannot be made private, on a FAT, exFAT, NTFS or SMB mount that ignores chmod, is refused; choose one on a local disk.
+
+To run the HTTP check against it, name the workspace's runtime file; `scripts/helpers/service-session.mjs` exchanges the launch token at `/open` for the cookie and reads the token:
+
+```sh
+EEG_SERVICE_RUNTIME=/absolute/path/to/workspace/.eeglayoutlab/runtime.json npm run test:integration
+```
+
+`EEG_SERVICE_TOKEN=<launch token>` with `EEG_TEST_URL` does the same without the file. Both, and `EEG_API_TARGET` below, take `http://127.0.0.1:<port>` only, never `localhost`: Node would connect to `[::1]` first, where another local user could listen on the same port. Until the library endpoint arrives (slice 3), the check passes health, its page routes and the cookie check, then stops at the library. For interface work, `EEG_API_TARGET=http://127.0.0.1:<service port> npm run dev` forwards `/api` and `/open` to the service instead of mounting the Node API; open `/open?token=<launch token>` once on the Vite port to get the cookie there.
+
 `scripts/check-viewer-assets.mjs` covers shared model downloads, version changes, cancellation, retry, eviction and independent scene arrays. `scripts/check-model-loading-browser.mjs` measures actual signal-page model requests and transfers across first load, viewer remount and reload using an existing cached experiment. Run it with `EEG_TEST_URL`, `EEG_BROWSER_EXECUTABLE`, `EEG_SIGNAL_FIXTURE` and `EEG_QA_OUTPUT` set: `node scripts/check-model-loading-browser.mjs --expect-shared`.
 
 For the current deferred viewer, add `--expect-deferred` together with `--expect-shared`. Use an exact cached result from the target QA server as `EEG_SIGNAL_FIXTURE`; a missing cache fails the check without submitting a job. After `npm run build` and a fresh server start, verify the actual compressed HTTP bytes from the host checkout's `webapp/` directory:

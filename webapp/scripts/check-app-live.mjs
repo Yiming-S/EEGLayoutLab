@@ -6,13 +6,19 @@ import { validateEditorResult } from '../server/electrode-editor-server.mjs';
 import { validateDesignResult } from '../server/design-evaluation-server.mjs';
 import { validateSourceResult } from '../server/source-reception-server.mjs';
 import { validateReceptionResult } from '../server/reception-v2-support.mjs';
+import { openServiceSession } from './helpers/service-session.mjs';
 
-const base = process.env.EEG_TEST_URL || 'http://127.0.0.1:3000';
+// Opt-in: the Python service admits only requests with its session cookie; sign in as its launched browser.
+const service = process.env.EEG_SERVICE_RUNTIME || process.env.EEG_SERVICE_TOKEN
+  ? await openServiceSession({ base: process.env.EEG_TEST_URL }) : null;
+const base = service?.base || process.env.EEG_TEST_URL || 'http://127.0.0.1:3000';
 const url = new URL(base);
 if (url.protocol !== 'http:' || !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)) {
   throw new Error('The integration target must be an explicit local HTTP server.');
 }
 let browserCookie = '';
+const sessionHeaders = service ? { Cookie: service.cookie } : {};
+const cookies = () => [service?.cookie, browserCookie].filter(Boolean).join('; ');
 // The server admits 20 submissions a minute per visitor. A fully cached run exceeds that, so wait out the window.
 const admitted = async (send) => {
   for (let attempt = 0; ; attempt++) {
@@ -24,10 +30,11 @@ const admitted = async (send) => {
 };
 const json = async (path, options) => {
   const requestHeaders = new Headers(options?.headers);
-  if (browserCookie) requestHeaders.set('Cookie', browserCookie);
+  const cookie = cookies();
+  if (cookie) requestHeaders.set('Cookie', cookie);
   const response = await admitted(() => fetch(base + path, { ...options, headers: requestHeaders }));
-  const cookie = response.headers.get('set-cookie');
-  if (cookie) browserCookie = cookie.split(';')[0];
+  const issued = response.headers.get('set-cookie');
+  if (issued) browserCookie = issued.split(';')[0];
   const body = await response.json();
   assert.ok(response.ok, `${path}: ${response.status} ${body.error || ''}`);
   return body;
@@ -59,10 +66,11 @@ async function run(endpoint, request, validate) {
 }
 
 for (const route of ['/', '/library', '/design', '/electrodes', '/coordinates', '/decision', '/reception', '/guide', '/method', '/results', '/pilot-results']) {
-  const response = await fetch(base + route);
+  const response = await fetch(base + route, { headers: sessionHeaders });
   assert.equal(response.status, 200, route);
   await response.arrayBuffer();
 }
+if (service) assert.equal((await fetch(base + '/api/local-compute/health')).status, 401, 'The service requires its session cookie.');
 const library = await json('/api/local-compute/library');
 assert.deepEqual(library.warnings, []);
 assert.equal(library.records.filter(r => r.dataset_id === 'strict_area').length, 30);
@@ -110,7 +118,7 @@ if (process.argv.includes('--native')) {
   // Optional protocols are separate cached requests whose provenance names the model; none reaches reception.
   const optionArg = (name) => { const index = process.argv.indexOf(name); return index > 0 ? process.argv[index + 1] : undefined; };
   const notReceivable = async (key) => {
-    const response = await admitted(() => fetch(base + '/api/source-reception/jobs', { method: 'POST', headers: { ...headers, Cookie: browserCookie },
+    const response = await admitted(() => fetch(base + '/api/source-reception/jobs', { method: 'POST', headers: { ...headers, Cookie: cookies() },
       body: JSON.stringify({ record_id: key, mode: 'single_source', source_index: 2, waveform: 'burst', artifact_scale: 1, seed: 2026 }) }));
     // A rate-limit answer says nothing about the record.
     assert.ok(response.status >= 400 && response.status < 500 && response.status !== 429, 'reception must refuse ' + key + ': ' + response.status);
@@ -140,6 +148,6 @@ if (process.argv.includes('--native')) {
     optional.push('head:' + head);
   }
 }
-assert.equal((await fetch(base + '/api/local-compute/jobs', { method: 'POST' })).status, 403);
-assert.equal((await fetch(base + '/api/local-compute/health', { headers: { Origin: 'https://example.org' } })).status, 403);
+assert.equal((await fetch(base + '/api/local-compute/jobs', { method: 'POST', headers: sessionHeaders })).status, 403);
+assert.equal((await fetch(base + '/api/local-compute/health', { headers: { ...sessionHeaders, Origin: 'https://example.org' } })).status, 403);
 console.log(JSON.stringify({ status: 'passed', native_fem_checked: process.argv.includes('--native'), new_coordinate_forward_mode: nativeMode, optional_protocols: optional, scope: 'Local HTTP, numerical jobs, coordinate evaluation, electrode deletion, source simulation and cache replay. No browser QA; new native FEM and v2 sources only with --native.' }));

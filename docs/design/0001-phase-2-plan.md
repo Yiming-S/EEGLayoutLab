@@ -1,6 +1,6 @@
 # 0001, phase 2 — the Python service, in slices
 
-- **Status:** in progress; slice 1 done, slice 2 next. Decisions U1, U2, U3 and U6 were confirmed on 2026-11-23; U4, U5 and U7 are proposed defaults.
+- **Status:** in progress; slices 1 and 2 done, slice 3 next. Decisions U1, U2, U3 and U6 were confirmed on 2026-11-23; U4, U5 and U7 are proposed defaults.
 - **Date:** 2026-11-23
 - **Design:** [0001 — Local-first application with a Python service](0001-local-first-architecture.md), migration table, phase 2
 
@@ -57,6 +57,30 @@ Result (2026-11-23): on the author's installation Python's design key for `{}` e
 - V8 converts a nested array to a string recursively and throws `RangeError` beyond a few thousand levels (about 4,500 on Node 26); Python converts any depth. Only a raw request can carry such a value: normalized requests hold strings.
 
 The Linux branch (the `runtime` member of identities, names that are not UTF-8, `execvp`'s PATH search and `/bin/sh` fallback) is reached only in CI, and CI's Node 22 was not run locally.
+
+### Slice 2 — service host beside Node
+
+`eeglayoutlab serve [WORKSPACE] [--root R] [--port N] [--static DIR] [--no-browser]` (`cli/main.py`, a `[project.scripts]` entry) serves one workspace on a free 127.0.0.1 port, with new tokens at every start. It opens the browser from a thread once the service accepts connections, through the private page `W/.eeglayoutlab/open.html` that redirects to the launch URL (Jupyter's redirect file), so the token is never on a browser's command line; only macOS's default launcher, which reads the URL on standard input, gets the URL itself.
+
+- `server/workspace.py`: the marker `eeglayoutlab-workspace.json` and `W/.eeglayoutlab/` (0700) with the `flock` lock, `runtime.json` (0600, written once the socket is bound, removed as soon as SIGINT or SIGTERM arrives while it is still the process's own) and `open.html` (0600, written only while that runtime file is there, so none outlives the process). The state directory must be a directory of this user, not a link; a looser mode is set to 0700, and a file system that keeps the directory or its files open after chmod (FAT, exFAT, NTFS, SMB mounts) is refused before a token is written; its files are opened through a descriptor of it, never through a link, and written under random names, then renamed; the reader of `runtime.json` takes only a private regular file of this user. A second `serve` on a locked W opens the running instance, or, while the holder has no runtime file (starting or stopping), retries the lock for up to 10 s; a file system without locks is refused.
+- `server/access.py`, the outermost layer: Node's loopback guard on every path; then the session cookie `eeglayoutlab-<port>` that `GET /open?token=` sets (otherwise 401, JSON under `/api/` and an HTML page elsewhere); then, on `POST`, `PUT`, `PATCH` and `DELETE`, the CSRF token with each route family's Node message.
+- `server/app.py`: `create_app(ServiceConfig)`, body limits per task kind, Node's 404 message per prefix and a generic 500 for any unexpected exception. `routes/health.py`: the four health routes.
+- `server/static.py`: the export of `npm run build` (14 pages, the 404 page, cache headers, ETag and `Last-Modified`, `HEAD`, 405), never sidecars, dot files or links out of it, and names found exactly as spelled, also on a file system that ignores case; pages answer 503 until the interface is built (its `index.html` is there), and the export and its pages are looked up at every request, so a build made while the service runs is served without a restart. `Last-Modified` names the whole second that the preconditions compare. Conditional and range requests follow vinext's functions (304, 412, `If-Range`, single ranges, its HTTP-date parser), checked against them by `parity/static_requests.mjs`.
+- In `webapp/`: the opt-in `EEG_API_TARGET` proxy in `vite.config.ts`, `scripts/helpers/service-session.mjs`, and `check-app-live.mjs` signed in through it; the helper and the proxy take `http://127.0.0.1:<port>` only, never `localhost` or `[::1]`, where another local user could listen on the service's port.
+- The Node test map, with the slice's seven access sites ported to `tests/service/test_access.py`.
+
+Result (2026-11-23): health equals Node's real service byte for byte except for the token value, with the worker present and absent, and so do its five headers; the OpenAPI document is unchanged. Against `eeglayoutlab serve` with the author's installation as root, `check-app-live.mjs` passes health, the 11 page routes and the 401 without the cookie, then stops at `GET /api/local-compute/library` (slice 3). Known differences from Node:
+
+- Pages, static files and health need the cookie and pass the guard. Node guarded only the API and answered health to any loopback client.
+- The guard lets one cross-site request through: a top-level `GET /open` navigation with the launch token, which is how a browser marks the redirect from `open.html`. It answers 200 with a page that refreshes to `/` instead of the plan's 303, because a browser sends neither the `SameSite=Strict` cookie nor a same-origin `Sec-Fetch-Site` on a redirect in a chain that a cross-site navigation started (checked in headless Chrome: the 303 ends in the guard's 403, the page in the interface). Every other `/open` still answers 303.
+- The CSRF check runs before routing, so a write without the token on a path where Node answers 404 or 405 (a `PUT`, `PATCH` or `DELETE` on a compute route, a `PUT` on `/api/projects`) gets 403.
+- `GET /api/<kind>/health/<36 characters>` and `.../cancel` are 404 `Unknown queue endpoint`; Node's route pattern answers them with the health body.
+- A refusal raises `ApiError` with its status, and any other exception is a 500. Node turned a plain `Error` into a 400 with its message.
+- JSON responses carry no `Vary: Accept-Encoding`, `X-EEG-Request-Id` or compression, and `.br`/`.gz` sidecars are 404 ("Not carried over").
+- Static files carry a strong ETag, `"<mtime_ns hex>-<size hex>"`, valid because only the original bytes are served; vinext's are weak (`W/"<size>-<seconds>"`, or `W/"<hash>"` for hashed names). So `If-Range` with the file's ETag gets 206 here and the whole file from Node, where only the `Last-Modified` date allows a range. `If-None-Match` and `If-Match` compare weakly on both hosts. `parity/static_requests.mjs` compares the evaluation for Python's ETag, not how the tag is made.
+- The OpenAPI document still lists only 400, 413 and 415 for the normalize endpoints, not 401 and 403.
+
+The health and static parity ran on Node 26 only; CI's Node 22 on Linux was not run locally.
 
 ## Where key equality can break
 
@@ -119,7 +143,7 @@ Unchanged: the `X-EEG-Compute-Token` header (health still returns the token), ev
 
 ## Node tests
 
-The unit-test files in `webapp/scripts` contain about 620 test sites. About 184 are ported to Python, 16 are mirrored by format parity, about 320 stay in Node (19 of them adapted in slice 10), 88 are dropped with the public-service machinery, and the rest belong to the Node host's structure or the Node command line. From slice 2, `tests/service/node_tests.toml` maps every site to its disposition, and a test fails on an unmapped site, a missing Python target or (from slice 10) a pending entry.
+The unit-test files in `webapp/scripts` contain 621 test sites. 184 are ported to Python (14 so far), 16 are mirrored by format parity, 323 stay in Node (19 of them adapted in slice 10), 88 are dropped with the public-service machinery, and 10 belong to the Node host's structure or the Node command line. `tests/service/node_tests.toml` maps every site to its disposition, and `tests/service/test_node_test_map.py` fails on an unmapped site, a missing Python target or a pending entry of a finished slice.
 
 ## Decisions
 

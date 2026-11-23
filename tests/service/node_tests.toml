@@ -1,0 +1,2762 @@
+# The Node test map of design 0001 phase 2 (plan section 6.3), checked by test_node_test_map.py, whose docstring
+# defines the keys and the fields.
+#
+# [sites] has one entry per test( / dataTest( call site in the webapp/scripts/check-*.mjs files that import
+# node:test, grouped by file in source order. A port that belongs to a later slice is "pending" with its slice and
+# module; the stage that writes it changes the entry to "P" with its target. From slice 10 nothing is pending.
+#
+# Reason codes for D (plan section 5.1): R1 anonymous public visitors (networks, cookies, signed sessions, rate
+# limits, per-browser ownership); R2 operations logging, admission and monitoring, and the operator probe; R3 hosted
+# proxy access policy; R4 public library moderation and owner scopes; R5 project credentials; R6 operator
+# maintenance mode for hosted backup and restore; R7 transfer optimisation that loopback does not need.
+#
+# [scripts] lists the opt-in live and Playwright scripts (no node:test) with the slice that retargets them to the
+# Python service.
+
+# --- check-abuse-limits.mjs -------------------------------------------------------------------------------------------
+
+[sites."check-abuse-limits.mjs::client networks group IPv4 by address and IPv6 by /64"]
+disposition = "D"
+reason = "R1"
+note = "network prefixes"
+
+[sites."check-abuse-limits.mjs::fresh cookies on one network share its pending-task cap"]
+disposition = "D"
+reason = "R1"
+note = "per-network pending cap"
+
+[sites."check-abuse-limits.mjs::the per-network request rate replaces the per-address rate"]
+disposition = "D"
+reason = "R1"
+note = "per-network rate"
+
+[sites."check-abuse-limits.mjs::cache-hit receipts cannot push out computed receipts or other networks"]
+disposition = "D"
+reason = "R1"
+note = "receipt retention per network"
+
+[sites."check-abuse-limits.mjs::a lookup of a computed result keeps the computed receipt and writes nothing new"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_queue.py"
+
+[sites."check-abuse-limits.mjs::server faults are generic 500s and paths never reach visitors"]
+disposition = "P"
+target = "tests/service/test_access.py::test_server_faults_are_generic_500s_and_paths_never_reach_the_browser"
+note = "the generic 500; status errors in test_a_status_error_keeps_its_status_and_message; redactPaths is dropped (R2)"
+
+[sites."check-abuse-limits.mjs::heavy reads run two at a time and refuse a long wait line"]
+disposition = "D"
+reason = "R2"
+note = "heavy-read gate"
+
+[sites."check-abuse-limits.mjs::a shutdown during a launch keeps the task queued instead of blocking restart"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_queue.py"
+
+[sites."check-abuse-limits.mjs::a failed queue write stops new work until the disk accepts writes again"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_queue.py"
+
+[sites."check-abuse-limits.mjs::projects are capped per network; never-used empty projects are removed after a month"]
+disposition = "D"
+reason = "R1"
+note = "projects per network; empty-project expiry is also R5 silent deletion"
+
+[sites."check-abuse-limits.mjs::cache keys carry the interpreter identity off macOS only"]
+disposition = "P"
+target = "tests/service/test_fingerprint.py::test_cache_keys_carry_the_interpreter_identity_off_macos_only"
+
+# --- check-api-contracts.mjs ------------------------------------------------------------------------------------------
+
+[sites."check-api-contracts.mjs::versioned API samples preserve accepted fields, rejection rules and exact canonical JSON"]
+disposition = "C"
+mirror = "tests/test_api_contracts.py::test_shared_request_corpus"
+formats = ["design-evaluation", "radius-search", "source-reception"]
+slice = 7
+note = "the worker validators; each format's HTTP normalizer is mirrored by test_variant_parity"
+
+[sites."check-api-contracts.mjs::source service compatibility exports keep the same pure validators"]
+disposition = "E"
+note = "Node re-export identity; retire in phase 4"
+
+# --- check-api-types.mjs ----------------------------------------------------------------------------------------------
+
+[sites."check-api-types.mjs::the generated API types match the committed OpenAPI document"]
+disposition = "C"
+mirror = "tests/test_schema_service.py::test_committed_openapi_document_is_current"
+note = "also stays in Node (openapi-typescript --check)"
+
+# --- check-atlas-roi-contract.mjs -------------------------------------------------------------------------------------
+
+[sites."check-atlas-roi-contract.mjs::atlas version separates every regional combination from legacy cache identity"]
+disposition = "C"
+mirror = "tests/test_schema_parity.py::test_variant_parity"
+formats = ["source-reception"]
+slice = 7
+note = "reception v2 with region_definition 'dk40-six-roi-v1'"
+
+[sites."check-atlas-roi-contract.mjs::all new UI modes use the atlas version; scientific context hashes both membership and definition"]
+disposition = "pending"
+slice = 7
+module = "tests/service/test_key_parity.py"
+note = "the server half (the ROI files enter the v2 identity); the UI half stays in Node"
+
+[sites."check-atlas-roi-contract.mjs::atlas assets contain no local user paths; research ROI merges are disjoint by hemisphere"]
+disposition = "N"
+
+# --- check-browse-controllers.mjs -------------------------------------------------------------------------------------
+
+[sites."check-browse-controllers.mjs::design restores ordered draft masks and AR, then hides results when regional choices change"]
+disposition = "N"
+
+[sites."check-browse-controllers.mjs::an area record remains read-only until explicit radius drafting and never starts computation"]
+disposition = "N"
+
+[sites."check-browse-controllers.mjs::design rejects an invalid draft without promoting it to a ready request"]
+disposition = "N"
+
+[sites."check-browse-controllers.mjs::library keeps an explicit record outside filters and retains overview URL context"]
+disposition = "N"
+
+[sites."check-browse-controllers.mjs::library refresh aborts stale requests and does not replace newer records with late responses"]
+disposition = "N"
+
+[sites."check-browse-controllers.mjs::overview restores controls and updates URL/AR without fetching or changing saved coordinates"]
+disposition = "N"
+
+[sites."check-browse-controllers.mjs::unmount aborts overview and design loads before their late replies can update state"]
+disposition = "N"
+
+# --- check-channel-subset.mjs -----------------------------------------------------------------------------------------
+
+[sites."check-channel-subset.mjs::the error is the projection on the subset differences, whichever subset channel is the reference"]
+disposition = "N"
+
+[sites."check-channel-subset.mjs::greedy selection takes the best pair, then the best next channel at each step"]
+disposition = "N"
+
+[sites."check-channel-subset.mjs::training and held-out inputs cannot share a recording, including legacy summaries"]
+disposition = "N"
+
+[sites."check-channel-subset.mjs::the report compares data, model, 10-20 and random subsets on training and held-out summaries"]
+disposition = "N"
+
+[sites."check-channel-subset.mjs::channels in 90% of the training summaries form the universe, and default sizes that do not fit are dropped"]
+disposition = "N"
+
+[sites."check-channel-subset.mjs::the channels command writes the report from summary files and directories"]
+disposition = "CLI"
+note = "spawns webapp/scripts/eeglayoutlab.mjs, which stays until the Python command line (phase 3, U5)"
+
+# --- check-cli.mjs ----------------------------------------------------------------------------------------------------
+
+[sites."check-cli.mjs::design builds the same design from a name list, its BIDS export and a search run"]
+disposition = "CLI"
+note = "spawns webapp/scripts/eeglayoutlab.mjs, which stays until the Python command line (phase 3, U5)"
+
+[sites."check-cli.mjs::export writes MNE, EEGLAB and SVG files and hides crowded names unless asked"]
+disposition = "CLI"
+note = "spawns webapp/scripts/eeglayoutlab.mjs, which stays until the Python command line (phase 3, U5)"
+
+[sites."check-cli.mjs::design reads .elc and .sfp montages and assigns regions on request"]
+disposition = "CLI"
+note = "spawns webapp/scripts/eeglayoutlab.mjs, which stays until the Python command line (phase 3, U5)"
+
+[sites."check-cli.mjs::the command line rejects incomplete commands before starting a calculation"]
+disposition = "CLI"
+note = "spawns webapp/scripts/eeglayoutlab.mjs, which stays until the Python command line (phase 3, U5)"
+
+# --- check-community-queue.mjs ----------------------------------------------------------------------------------------
+
+[sites."check-community-queue.mjs::all four services share one persistent FIFO slot; timeout starts in the worker"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_queue.py"
+
+[sites."check-community-queue.mjs::exact pending keys share work; one subscriber cannot cancel the others"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_queue.py"
+note = "deduplication of pending keys; the subscriber part is dropped (R1)"
+
+[sites."check-community-queue.mjs::completed cache bypasses a busy worker and repeated lookup reuses a receipt"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_queue.py"
+
+[sites."check-community-queue.mjs::queued cancellation advances; running cancellation waits for actual close; cancelling is not shared"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_queue.py"
+
+[sites."check-community-queue.mjs::queued receipt survives restart and changed scientific identity fails without starting"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_queue.py"
+
+[sites."check-community-queue.mjs::queued receipt executes after clean restart and same-key pending lookup restores it"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_queue.py"
+
+[sites."check-community-queue.mjs::worker PID blocks consecutive restarts; an unconfirmed spawn fails closed"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_queue.py"
+
+[sites."check-community-queue.mjs::one live owner prevents a second scheduler; invalid queue JSON is not overwritten"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_queue.py"
+note = "one owner per workspace lock; a corrupt queue file is kept byte for byte"
+
+[sites."check-community-queue.mjs::per-browser and global queue bounds, invalid inputs, and unknown ownership"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_queue.py"
+note = "the global bound and invalid inputs; the per-browser bound is dropped (R1)"
+
+[sites."check-community-queue.mjs::online estimates deduplicate a browser and expire at 90 seconds; cookies survive restart"]
+disposition = "D"
+reason = "R1"
+note = "online visitor estimates and session-secret cookies"
+
+[sites."check-community-queue.mjs::HTTP enforces same-origin, token, cookie ownership; stats never expose IP or other receipts"]
+disposition = "P"
+target = "tests/service/test_access.py::test_http_enforces_same_origin_and_token"
+note = "the origin and token parts; cookie ownership and IP hiding are dropped (R1)"
+
+[sites."check-community-queue.mjs::backend key mismatch is cancelled and never presented as an old-key result"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_queue.py"
+
+[sites."check-community-queue.mjs::dispose during identity preparation cannot enqueue or launch a late task"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_queue.py"
+
+[sites."check-community-queue.mjs::old IP logs expire and rate-limited visitors can still inspect status"]
+disposition = "D"
+reason = "R1"
+note = "visit logs and per-visitor rate limits"
+
+[sites."check-community-queue.mjs::signal catalog uses bounded metadata and excludes waveform arrays, other browsers and duplicate keys"]
+disposition = "pending"
+slice = 7
+module = "tests/service/test_queue.py"
+note = "the workspace signal catalog; the owner parts are dropped (R1)"
+
+[sites."check-community-queue.mjs::saved signal HTTP downloads are owner-only and bypass current identity preparation"]
+disposition = "pending"
+slice = 7
+module = "tests/service/test_queue.py"
+note = "saved signal downloads; the owner part is dropped (R1)"
+
+# --- check-coordinate-bundles.mjs -------------------------------------------------------------------------------------
+
+[sites."check-coordinate-bundles.mjs::coordinate bundle preserves input and evaluated coordinates separately without inventing search history"]
+disposition = "pending"
+slice = 3
+module = "tests/service/test_bundle.py"
+
+[sites."check-coordinate-bundles.mjs::read-only coordinate bundle endpoint returns a matching export without starting a worker"]
+disposition = "pending"
+slice = 3
+module = "tests/service/test_bundle.py"
+
+[sites."check-coordinate-bundles.mjs::coordinate exports reject missing or redirected source paths and changed source bytes"]
+disposition = "pending"
+slice = 3
+module = "tests/service/test_bundle.py"
+
+[sites."check-coordinate-bundles.mjs::coordinate source symlinks cannot escape the experiment directory"]
+disposition = "pending"
+slice = 3
+module = "tests/service/test_bundle.py"
+
+[sites."check-coordinate-bundles.mjs::coordinate exports verify the cache key, result checksum and request identity after validating file bytes"]
+disposition = "pending"
+slice = 3
+module = "tests/service/test_bundle.py"
+
+[sites."check-coordinate-bundles.mjs::coordinate exports reject source results that no longer match displayed coordinates or metrics"]
+disposition = "pending"
+slice = 3
+module = "tests/service/test_bundle.py"
+
+[sites."check-coordinate-bundles.mjs::coordinate history labels have complete English and Chinese translations"]
+disposition = "N"
+
+[sites."check-coordinate-bundles.mjs::evaluations under other conditions are library records with their conditions, never signal-simulation parents"]
+disposition = "pending"
+slice = 3
+module = "tests/service/test_bundle.py"
+
+# --- check-coordinate-interop.mjs -------------------------------------------------------------------------------------
+
+[sites."check-coordinate-interop.mjs::exported coordinate systems state template provenance and landmarks oriented as a head frame"]
+disposition = "N"
+
+[sites."check-coordinate-interop.mjs::10-05 labels reproduce the standard64 reference and resolve the old 10-20 names"]
+disposition = "NA"
+slice = 10
+note = "line 61 cross-checks through Node normalizeDesignRequest; use the parity corpus canonical or drop it"
+
+[sites."check-coordinate-interop.mjs::label lists reject unknown, repeated or malformed entries"]
+disposition = "N"
+
+[sites."check-coordinate-interop.mjs::surface mapping reproduces the Python builder on the same triangles"]
+disposition = "N"
+
+[sites."check-coordinate-interop.mjs::Ernie -> MNI files -> Ernie keeps names, order, regions and coordinates within 1 µm"]
+disposition = "N"
+
+[sites."check-coordinate-interop.mjs::MNI files with other units, coordinates off the scalp or a mixed frame are rejected"]
+disposition = "N"
+
+[sites."check-coordinate-interop.mjs::MNI export refuses electrodes outside the usable warp and the mapping refuses altered buffers"]
+disposition = "N"
+
+[sites."check-coordinate-interop.mjs::coordinate source /2 accepts only consistent conversions"]
+disposition = "C"
+mirror = "tests/test_schema_parity.py::test_variant_parity"
+formats = ["coordinate-source"]
+
+[sites."check-coordinate-interop.mjs::MNE and EEGLAB montage files carry the native coordinates, names and template landmarks"]
+disposition = "N"
+
+[sites."check-coordinate-interop.mjs::MNE reads the .elc file in millimetres and places it in its fiducial head frame"]
+disposition = "N"
+
+# --- check-coordinate-review.mjs --------------------------------------------------------------------------------------
+
+[sites."check-coordinate-review.mjs::reading a cached native-FEM result is labelled as a read while preserving the original scientific origin"]
+disposition = "NA"
+slice = 10
+note = "its module fixture calls Node normalizeDesignRequest (line 28); use a literal canonical request"
+
+[sites."check-coordinate-review.mjs::unevaluated coordinates have no projected positions, zero displacement or qualified status"]
+disposition = "NA"
+slice = 10
+note = "its module fixture calls Node normalizeDesignRequest (line 28); use a literal canonical request"
+
+[sites."check-coordinate-review.mjs::per-electrode projection review preserves original/result arrays and full exported coordinate precision"]
+disposition = "NA"
+slice = 10
+note = "its module fixture calls Node normalizeDesignRequest (line 28); use a literal canonical request"
+
+[sites."check-coordinate-review.mjs::coordinate review renders unassessed rows without qualification and escapes imported labels"]
+disposition = "NA"
+slice = 10
+note = "its module fixture calls Node normalizeDesignRequest (line 28); use a literal canonical request"
+
+[sites."check-coordinate-review.mjs::the BIDS coordinate subset round-trips names, rows, regions, precise numbers and explicit source declarations"]
+disposition = "N"
+
+[sites."check-coordinate-review.mjs::BIDS adapters reject undeclared/head/MNI frames, other units, unknown regions, missing coordinates and unmatched pairs"]
+disposition = "N"
+
+[sites."check-coordinate-review.mjs::source metadata remains bounded and cannot change scientific normalization, context identity or legacy annotation IDs"]
+disposition = "pending"
+slice = 5
+module = "tests/service/test_key_parity.py"
+note = "source metadata never enters the key"
+
+[sites."check-coordinate-review.mjs::source declarations survive trusted project snapshots and deliveries without entering or changing scientific payload"]
+disposition = "pending"
+slice = 9
+module = "tests/service/test_projects.py"
+
+[sites."check-coordinate-review.mjs::signal project summaries copy only verified original request fields, leave omissions absent and clone arrays"]
+disposition = "pending"
+slice = 9
+module = "tests/service/test_projects.py"
+
+# --- check-cross-region-contract.mjs ----------------------------------------------------------------------------------
+
+[sites."check-cross-region-contract.mjs::all 63 nonempty subsets canonicalize identically in UI and server"]
+disposition = "C"
+mirror = "tests/test_schema_parity.py::test_variant_parity"
+formats = ["source-reception"]
+slice = 7
+
+[sites."check-cross-region-contract.mjs::cross-region mode rejects invalid selection shape and mixed-mode fields"]
+disposition = "C"
+mirror = "tests/test_schema_parity.py::test_variant_parity"
+formats = ["source-reception"]
+slice = 7
+
+[sites."check-cross-region-contract.mjs::legacy request keys survive and new mode, selected set, and physical conditions remain distinct"]
+disposition = "C"
+mirror = "tests/test_schema_parity.py::test_variant_parity"
+formats = ["source-reception"]
+slice = 7
+
+[sites."check-cross-region-contract.mjs::K=1, 3, 6 results are accepted, while source mapping and shape corruption is rejected"]
+disposition = "pending"
+slice = 7
+module = "tests/service/test_source.py"
+note = "the reception v2 result validator"
+
+[sites."check-cross-region-contract.mjs::real source adapter deduplicates permuted selections and restores a pending canonical request"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_queue.py"
+
+# --- check-data-prior.mjs ---------------------------------------------------------------------------------------------
+
+[sites."check-data-prior.mjs::a data prior request value is canonical and replaces the noise model on the Ernie head"]
+disposition = "C"
+mirror = "tests/test_schema_parity.py::test_variant_parity"
+formats = ["design-evaluation"]
+note = "the labels stay in Node"
+
+[sites."check-data-prior.mjs::prior files are read with their fit, and a prior survives the draft URL"]
+disposition = "N"
+
+[sites."check-data-prior.mjs::the services accept a prior only without a noise model, and default requests are unchanged"]
+disposition = "C"
+mirror = "tests/test_schema_parity.py::test_variant_parity"
+formats = ["design-evaluation", "radius-search"]
+slice = 3
+note = "the radius format carries data_prior too"
+
+[sites."check-data-prior.mjs::saved prior evaluations restore their prior and stay out of signal simulation and grouping with area-prior records"]
+disposition = "N"
+note = "its assertIndependentNoiseParent line ports with the reception guard in slice 7"
+
+[sites."check-data-prior.mjs::the prior modules and atlas enter the computation identity only for requests with a prior"]
+disposition = "P"
+target = "tests/service/test_design_identity.py::test_prior_files_enter_the_identity_only_with_a_prior"
+note = "its radius code-identity half ports with the radius identity in slice 3"
+
+[sites."check-data-prior.mjs::record titles name the data prior in both languages"]
+disposition = "N"
+
+# --- check-deferred-head.mjs ------------------------------------------------------------------------------------------
+
+[sites."check-deferred-head.mjs::3D activation waits until the placeholder is within the viewport margin"]
+disposition = "N"
+
+[sites."check-deferred-head.mjs::3D activation falls back on mount when observers are unavailable"]
+disposition = "N"
+
+[sites."check-deferred-head.mjs::the explicit load action activates a viewer without waiting for visibility"]
+disposition = "N"
+
+[sites."check-deferred-head.mjs::a removed placeholder disconnects its observer and ignores late delivery"]
+disposition = "N"
+
+# --- check-delivery-reader-controller.mjs -----------------------------------------------------------------------------
+
+[sites."check-delivery-reader-controller.mjs::only a validated local package becomes selectable and clearing it discards all package state"]
+disposition = "N"
+
+[sites."check-delivery-reader-controller.mjs::oversized files are rejected by byte size before File.text or parsing is called"]
+disposition = "N"
+
+[sites."check-delivery-reader-controller.mjs::validation errors clear any earlier valid package and are shown without rendering unverified data"]
+disposition = "N"
+
+[sites."check-delivery-reader-controller.mjs::a cancelled pending File.text never starts validation when its unabortable read later finishes"]
+disposition = "N"
+
+[sites."check-delivery-reader-controller.mjs::reselection ignores stale file reads while keeping the newer validated package"]
+disposition = "N"
+
+[sites."check-delivery-reader-controller.mjs::a late validator result cannot overwrite a reselected package even if the validator ignores its abort signal"]
+disposition = "N"
+
+[sites."check-delivery-reader-controller.mjs::unmount cancels a pending file read without later validation or state writes"]
+disposition = "N"
+
+[sites."check-delivery-reader-controller.mjs::download descriptors retain exact original Blob bytes and original snapshot and readme strings"]
+disposition = "N"
+
+# --- check-delivery-upload-contract.mjs -------------------------------------------------------------------------------
+
+[sites."check-delivery-upload-contract.mjs:39"]
+disposition = "NA"
+slice = 10
+note = "its fixture is built with Node buildResearchDelivery; use Python-built packages (slice 9)"
+
+[sites."check-delivery-upload-contract.mjs:52"]
+disposition = "NA"
+slice = 10
+note = "its fixture is built with Node buildResearchDelivery; use Python-built packages (slice 9)"
+
+# --- check-demand-renderer.mjs ----------------------------------------------------------------------------------------
+
+[sites."check-demand-renderer.mjs::display changes coalesce into one frame and idle scenes stop drawing"]
+disposition = "N"
+
+[sites."check-demand-renderer.mjs::installed OrbitControls damping continues through rotation and stops at rest"]
+disposition = "N"
+
+[sites."check-demand-renderer.mjs::hidden scenes cancel queued frames and show the latest changes on return"]
+disposition = "N"
+
+[sites."check-demand-renderer.mjs::resizing repaints immediately without a duplicate queued frame"]
+disposition = "N"
+
+[sites."check-demand-renderer.mjs::changes requested during a draw are retained and disposal releases queued work"]
+disposition = "N"
+
+# --- check-design-decision.mjs ----------------------------------------------------------------------------------------
+
+[sites."check-design-decision.mjs::coordinate round trip preserves all coordinates, order, frame and labels"]
+disposition = "N"
+
+[sites."check-design-decision.mjs::method round trip preserves all independent decision thresholds and both records"]
+disposition = "N"
+
+[sites."check-design-decision.mjs::plain comparison links use the same three-metric decision as the overview"]
+disposition = "N"
+
+[sites."check-design-decision.mjs::custom reconstruction-only requirements and legacy independent limits survive reload"]
+disposition = "N"
+
+[sites."check-design-decision.mjs::input rejects unknown frames, blank CSV numbers, duplicates and invalid labels"]
+disposition = "N"
+
+[sites."check-design-decision.mjs::thresholds preserve missing and negative values, and support independent physical units"]
+disposition = "N"
+
+[sites."check-design-decision.mjs::comparison blocks protocol mixing and reports unmatched actual area"]
+disposition = "N"
+
+[sites."check-design-decision.mjs::report retains negative scores, original provenance and independent stage scope"]
+disposition = "N"
+
+[sites."check-design-decision.mjs::result validator rejects a switched request or displaced nominal coordinates"]
+disposition = "pending"
+slice = 5
+module = "tests/service/test_design.py"
+
+[sites."check-design-decision.mjs::worker results cache by exact inputs and do not consume another worker slot on hit"]
+disposition = "pending"
+slice = 5
+module = "tests/service/test_design.py"
+
+[sites."check-design-decision.mjs::cancel keeps shared slot until process close and never creates a success cache"]
+disposition = "pending"
+slice = 5
+module = "tests/service/test_design.py"
+
+[sites."check-design-decision.mjs::shutdown during input validation cannot start a late worker"]
+disposition = "pending"
+slice = 5
+module = "tests/service/test_design.py"
+
+[sites."check-design-decision.mjs::missing cache identities and different anatomical domains are never silent matches"]
+disposition = "N"
+
+[sites."check-design-decision.mjs::corrupt perturbation coordinates, labels or derived spacing are rejected"]
+disposition = "pending"
+slice = 5
+module = "tests/service/test_design.py"
+
+[sites."check-design-decision.mjs::source, scalp and manifest bytes all invalidate the real context identity"]
+disposition = "P"
+target = "tests/service/test_design_identity.py::test_source_scalp_and_manifest_bytes_all_invalidate_the_context_identity"
+note = "its nativeContext assertion ports with signal reception in slice 7"
+
+[sites."check-design-decision.mjs::head listing offers only complete plain package directories contained in the project"]
+disposition = "pending"
+slice = 3
+module = "tests/service/test_heads.py"
+
+# --- check-design-robustness.mjs --------------------------------------------------------------------------------------
+
+[sites."check-design-robustness.mjs::robustness is an evaluate-only option on the nominal Ernie head and leaves default requests unchanged"]
+disposition = "C"
+mirror = "tests/test_schema_parity.py::test_variant_parity"
+formats = ["design-evaluation"]
+note = "the browser half (designSubmission) stays in Node"
+
+[sites."check-design-robustness.mjs::the result validator requires the block exactly when requested and checks its structure"]
+disposition = "pending"
+slice = 5
+module = "tests/service/test_design.py"
+note = "all eight corruptions"
+
+[sites."check-design-robustness.mjs::the library summary, the table rows and the critical electrodes come from the same block"]
+disposition = "N"
+
+[sites."check-design-robustness.mjs::a saved robustness evaluation restores its option with the inputs"]
+disposition = "N"
+
+[sites."check-design-robustness.mjs::the robustness module enters the context identity only for requests that use it"]
+disposition = "P"
+target = "tests/service/test_design_identity.py::test_robustness_module_enters_the_identity_only_for_robustness_requests"
+
+# --- check-design-state.mjs -------------------------------------------------------------------------------------------
+
+[sites."check-design-state.mjs::initial loading and load errors do not invite a computation"]
+disposition = "N"
+
+[sites."check-design-state.mjs::an area record stays a read-only viewing state until an explicit radius configuration is created"]
+disposition = "N"
+
+[sites."check-design-state.mjs::unsubmitted configurations distinguish a complete choice from missing region locations"]
+disposition = "N"
+
+[sites."check-design-state.mjs:51"]
+disposition = "N"
+note = "title `${status} reports the confirmed task state without an estimated percentage`"
+
+[sites."check-design-state.mjs:60"]
+disposition = "N"
+note = "title `${status} does not present a draft as a completed result`"
+
+[sites."check-design-state.mjs::completed status without a loaded layout does not announce an available layout"]
+disposition = "N"
+
+[sites."check-design-state.mjs::loaded results describe known cache and compute provenance without inferring missing provenance"]
+disposition = "N"
+
+[sites."check-design-state.mjs::real design controller restores area records and creates the same radius request only after the explicit action"]
+disposition = "N"
+
+[sites."check-design-state.mjs::real controller keeps scientific objects and URL parameters while rejecting stale task presentation after parameter edits"]
+disposition = "N"
+
+# --- check-editor-ar-restoration.mjs ----------------------------------------------------------------------------------
+
+[sites."check-editor-ar-restoration.mjs::changing AR preserves the saved 63-point record and all working URL parameters across reload"]
+disposition = "N"
+
+[sites."check-editor-ar-restoration.mjs::a newly evaluated 63-point draft retains its tab draft when AR changes"]
+disposition = "N"
+
+[sites."check-editor-ar-restoration.mjs::explicit resume restores later edits to a saved record without reusing old scores"]
+disposition = "N"
+
+[sites."check-editor-ar-restoration.mjs::missing, stale, invalid, or other-parent tab drafts fall back to the specified saved record"]
+disposition = "N"
+
+# --- check-electrode-annotations.mjs ----------------------------------------------------------------------------------
+
+[sites."check-electrode-annotations.mjs::CSV and JSON preserve exact names, coordinate row order and zero-based regions; legacy JSON stays bare"]
+disposition = "N"
+
+[sites."check-electrode-annotations.mjs::production adapter normalization excludes A/B names from request, worker input and scientific key"]
+disposition = "pending"
+slice = 5
+module = "tests/service/test_key_parity.py"
+note = "the electrode names never enter the request or the key"
+
+[sites."check-electrode-annotations.mjs::shared receipts retain owner-specific and same-owner variants across restart without scientific file changes"]
+disposition = "pending"
+slice = 5
+module = "tests/service/test_annotations.py"
+note = "variants survive restart; owners are dropped (R1)"
+
+[sites."check-electrode-annotations.mjs::sidecar integrity, paths, crashed temporaries, private output and storage limits are enforced"]
+disposition = "pending"
+slice = 5
+module = "tests/service/test_annotations.py"
+
+[sites."check-electrode-annotations.mjs::lookup misses do not create metadata, blocked writes fail before receipts, bare cached reads stay available"]
+disposition = "pending"
+slice = 5
+module = "tests/service/test_annotations.py"
+note = "the resource-blocking part is dropped (R2)"
+
+[sites."check-electrode-annotations.mjs::per-owner and per-receipt metadata bounds reject new variants without creating files"]
+disposition = "pending"
+slice = 5
+module = "tests/service/test_annotations.py"
+note = "the per-receipt bound; the per-owner bound is dropped (R1)"
+
+[sites."check-electrode-annotations.mjs::HTTP annotations require policy/token and owner; snapshots and delivery preserve each variant after sidecars disappear"]
+disposition = "pending"
+slice = 5
+module = "tests/service/test_annotations.py"
+note = "policy, token and annotation_id reads; the owner and sharing parts are dropped (R1, R5)"
+
+[sites."check-electrode-annotations.mjs::task polling retains the explicitly selected name variant when a shared receipt has a newer variant"]
+disposition = "N"
+
+[sites."check-electrode-annotations.mjs::multibyte electrode names survive request chunks split inside every UTF-8 character"]
+disposition = "pending"
+slice = 5
+module = "tests/service/test_annotations.py"
+
+[sites."check-electrode-annotations.mjs::opening and refreshing a saved evaluation restores original inputs, exact names, seed and radius with GET only"]
+disposition = "N"
+
+# --- check-electrode-editor.mjs ---------------------------------------------------------------------------------------
+
+[sites."check-electrode-editor.mjs::protocol permits unbalanced deletion, not arbitrary code, thresholds or added slots"]
+disposition = "C"
+mirror = "tests/test_schema_parity.py::test_variant_parity"
+formats = ["electrode-editor"]
+slice = 6
+note = "normalizeEditorRequest"
+
+[sites."check-electrode-editor.mjs::deactivation preserves all stable identities and undo/redo restores exact state"]
+disposition = "N"
+
+[sites."check-electrode-editor.mjs::whole-region deletion updates allocation without redistributing remaining slots"]
+disposition = "N"
+
+[sites."check-electrode-editor.mjs::geometry rejects cross-region movement and restore collisions"]
+disposition = "N"
+
+[sites."check-electrode-editor.mjs::result schema rejects stale requests, malformed geometry and fabricated combined score"]
+disposition = "pending"
+slice = 6
+module = "tests/service/test_editor.py"
+
+[sites."check-electrode-editor.mjs::new local endpoint retains loopback and session-token protection"]
+disposition = "P"
+target = "tests/service/test_access.py::test_editor_endpoint_retains_loopback_and_session_token_protection"
+
+[sites."check-electrode-editor.mjs::editor dictionary and new navigation render in English"]
+disposition = "N"
+
+[sites."check-electrode-editor.mjs::editor shares capacity, caches completed results and retains capacity while cancelling"]
+disposition = "pending"
+slice = 6
+module = "tests/service/test_editor.py"
+
+# --- check-fixed64-results.mjs ----------------------------------------------------------------------------------------
+
+[sites."check-fixed64-results.mjs::export contains 28 configurations, 26 unique layouts and one head"]
+disposition = "N"
+
+[sites."check-fixed64-results.mjs::every computed configuration maps to 64 distinct coordinates and 32+32 allocation"]
+disposition = "N"
+
+[sites."check-fixed64-results.mjs::unconstructed and intermediate configurations return null, never interpolated scores"]
+disposition = "N"
+
+[sites."check-fixed64-results.mjs::only the four geometry-prefrozen 30 mm / 6 mm prototypes contain localization"]
+disposition = "N"
+
+[sites."check-fixed64-results.mjs::relative field values use the noisy baseline denominator; baseline absolute is not 100%"]
+disposition = "N"
+
+[sites."check-fixed64-results.mjs::default displayed values agree with the audited bilateral near-ear prototype"]
+disposition = "N"
+
+[sites."check-fixed64-results.mjs::MRI conversion preserves axes, signs and exact linear scale without projection"]
+disposition = "N"
+
+[sites."check-fixed64-results.mjs::missing metrics are not rendered as zeros and values above 100% are not clipped"]
+disposition = "N"
+
+[sites."check-fixed64-results.mjs::loader rejects malformed data, false evidence labels and non-64 coordinate sets"]
+disposition = "N"
+
+[sites."check-fixed64-results.mjs::public payload contains hashes but no local home paths"]
+disposition = "N"
+
+# --- check-head-registration.mjs --------------------------------------------------------------------------------------
+
+[sites."check-head-registration.mjs::the closed-form similarity fit and the landmark frame recover an exact transform"]
+disposition = "N"
+
+[sites."check-head-registration.mjs::noise-free digitized coordinates register exactly; noisy ones within the expected error"]
+disposition = "N"
+
+[sites."check-head-registration.mjs::the grid scalp projection agrees with the full-surface search"]
+disposition = "N"
+
+[sites."check-head-registration.mjs::EEGLayoutLab .elc and .sfp exports read back unchanged; other montages are registered"]
+disposition = "NA"
+slice = 10
+note = "line 83 passes the submission through Node designSubmission; map it to the design-evaluation corpus"
+
+[sites."check-head-registration.mjs::browser imports use the elc declared unit regardless of the sfp unit selector"]
+disposition = "N"
+
+[sites."check-head-registration.mjs::browser sfp imports keep using the selected unit"]
+disposition = "N"
+
+[sites."check-head-registration.mjs::montage readers refuse ambiguous files"]
+disposition = "N"
+
+[sites."check-head-registration.mjs::BIDS head-frame pairs (CapTrak) are registered; extra channels and n/a rows are skipped"]
+disposition = "N"
+
+[sites."check-head-registration.mjs::balanced spatial regions have the evaluator sizes and do not depend on electrode order"]
+disposition = "N"
+
+[sites."check-head-registration.mjs::another template head (MNE standard_1005 on fsaverage) lands near Ernie's own 10-05 positions"]
+disposition = "N"
+
+# --- check-home-refresh.mjs -------------------------------------------------------------------------------------------
+
+[sites."check-home-refresh.mjs::home leads with the selected layout and separates saved area exploration from new radius designs"]
+disposition = "N"
+
+[sites."check-home-refresh.mjs::selected record owns actions and export; header retains navigation without repeating record actions"]
+disposition = "N"
+
+[sites."check-home-refresh.mjs::refresh catalogs have complete translations and matching interpolation tokens"]
+disposition = "N"
+
+# --- check-host-policy.mjs --------------------------------------------------------------------------------------------
+
+[sites."check-host-policy.mjs::hosted access requires configured proxy, HTTPS host and single client address"]
+disposition = "D"
+reason = "R3"
+
+[sites."check-host-policy.mjs::invalid host configuration fails before service creation"]
+disposition = "D"
+reason = "R3"
+
+[sites."check-host-policy.mjs::proxy HTTP sets Secure cookies and resolves the validated visitor address"]
+disposition = "D"
+reason = "R3"
+
+[sites."check-host-policy.mjs::maintenance signals use operator access and remove handlers on shutdown"]
+disposition = "D"
+reason = "R3"
+
+# --- check-i18n.mjs ---------------------------------------------------------------------------------------------------
+
+[sites."check-i18n.mjs::usage and methods are separate bilingual pages with preserved content and working section links"]
+disposition = "N"
+
+[sites."check-i18n.mjs::documentation navigation retains the original working query across both pages and rejects external returns"]
+disposition = "N"
+
+[sites."check-i18n.mjs::locale resolution honors explicit choice and browser language quality"]
+disposition = "N"
+
+[sites."check-i18n.mjs::catalog has unique sources, both languages, and matching typed placeholder indices"]
+disposition = "N"
+
+[sites."check-i18n.mjs::translation preserves numbers, absent metrics, raw objects, and schema values"]
+disposition = "N"
+
+[sites."check-i18n.mjs::template messages interpolate values and legacy titles without unresolved Han text"]
+disposition = "N"
+
+[sites."check-i18n.mjs::results views retain each other’s controls, selected record, sorting, and threshold"]
+disposition = "N"
+
+[sites."check-i18n.mjs::shared saved-layout details separate evaluation from qualification and gate downstream actions"]
+disposition = "N"
+
+[sites."check-i18n.mjs::historical names are localized while custom names and search results remain stable"]
+disposition = "N"
+
+[sites."check-i18n.mjs::saved editor scores use a complete translated metric label with an unchanged number"]
+disposition = "N"
+
+[sites."check-i18n.mjs::edited records use structured parent locations while unavailable custom names remain untouched"]
+disposition = "N"
+
+[sites."check-i18n.mjs::decision controls disclose all active requirements in both languages"]
+disposition = "N"
+
+[sites."check-i18n.mjs::locale is absent from request/cache identity and threshold assessment"]
+disposition = "N"
+
+[sites."check-i18n.mjs::localized reports preserve negative values and byte-identical raw JSON blocks"]
+disposition = "N"
+
+[sites."check-i18n.mjs::header renders both language choices and all navigation in the selected language"]
+disposition = "N"
+
+[sites."check-i18n.mjs::full method and retention guide server-render in English without untranslated system text"]
+disposition = "N"
+
+[sites."check-i18n.mjs::copyright footer and concise notice render the author, acknowledgments and third-party attribution"]
+disposition = "N"
+
+[sites."check-i18n.mjs::copyright links preserve design queries and method return context without triggering technical details"]
+disposition = "N"
+
+[sites."check-i18n.mjs::performance cards preserve numeric scores and their meaning in both languages"]
+disposition = "N"
+
+[sites."check-i18n.mjs::signal-generation guide renders bilingual content before metrics, with technical details locally collapsed"]
+disposition = "N"
+
+[sites."check-i18n.mjs::signal-generation translations have complete unique sources and no shadowed main-catalog entries"]
+disposition = "N"
+
+[sites."check-i18n.mjs::unknown diagnostic is summarized with raw detail access, not mislabeled as a result"]
+disposition = "N"
+
+[sites."check-i18n.mjs::all twelve route entry points render English system text"]
+disposition = "N"
+
+[sites."check-i18n.mjs::project snapshot layout and edited metrics render bilingual values directly from saved data"]
+disposition = "N"
+
+[sites."check-i18n.mjs::project delivery controls are bilingual and never render access credentials"]
+disposition = "N"
+
+[sites."check-i18n.mjs::coordinate import is separate from comparison and the four workspaces remain bilingual"]
+disposition = "N"
+
+[sites."check-i18n.mjs::all nine placement choices and 3D controls render without Chinese system text in English"]
+disposition = "N"
+
+[sites."check-i18n.mjs::legacy failure codes are display messages and scientific formula uses tau"]
+disposition = "N"
+
+[sites."check-i18n.mjs::date formatting follows selected locale without changing stored timestamp"]
+disposition = "N"
+
+[sites."check-i18n.mjs::research workflow catalog has unique sources, English text and matching placeholders"]
+disposition = "N"
+
+[sites."check-i18n.mjs::worker diagnostics and progress messages from evaluation sources render in English"]
+disposition = "N"
+
+[sites."check-i18n.mjs::noise-model record titles translate the base title and the noise suffix separately"]
+disposition = "N"
+
+[sites."check-i18n.mjs::non-default coordinate evaluations offer no saved-record, project or simulation hand-off"]
+disposition = "N"
+
+[sites."check-i18n.mjs::correlated-noise layouts explain the missing simulation hand-off and head results name their origin"]
+disposition = "N"
+
+[sites."check-i18n.mjs::shared-library visibility states and the publish confirmation are translated"]
+disposition = "N"
+
+# --- check-lab-workflow.mjs -------------------------------------------------------------------------------------------
+
+[sites."check-lab-workflow.mjs::AR query parsing is bounded, includes equality, and does not turn missing metrics into zero"]
+disposition = "N"
+
+[sites."check-lab-workflow.mjs::all 30 actual strict-area records have exactly one entry per domain-area-R and preserved metrics"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_radius.py"
+note = "dataTest; the port is marked data_bundle; area rows and links stay in Node on a recorded library"
+
+[sites."check-lab-workflow.mjs::other protocols, missing rows and unmeasured sizes cannot fill strict-area gaps"]
+disposition = "N"
+
+[sites."check-lab-workflow.mjs::minimum area is only the first tested passing cap, never an interpolated area"]
+disposition = "N"
+
+[sites."check-lab-workflow.mjs::area conclusions distinguish missing, incomplete, undefined and tested failure"]
+disposition = "N"
+
+[sites."check-lab-workflow.mjs::method links preserve the exact draft and AR without interpreting or replacing parameters"]
+disposition = "N"
+
+[sites."check-lab-workflow.mjs::record links preserve exact IDs and AR; historical radius constraints can be restored without translating area protocols"]
+disposition = "N"
+
+[sites."check-lab-workflow.mjs::manual is default; exact cached B can display while old A runs, never vice versa"]
+disposition = "N"
+
+[sites."check-lab-workflow.mjs::editor rejects incompatible region presets and area entry stays read-only by construction"]
+disposition = "N"
+
+[sites."check-lab-workflow.mjs::retention teaching example matches its frozen metric excerpt, including absolute and relative values"]
+disposition = "N"
+
+[sites."check-lab-workflow.mjs::complete retention guide is visible outside historical details and its directory anchors resolve"]
+disposition = "N"
+
+[sites."check-lab-workflow.mjs::retention guide separates model scores, fixed examples, protocols, and live computation"]
+disposition = "N"
+
+[sites."check-lab-workflow.mjs::performance cards link to the guide with the current draft, record, and AR preserved"]
+disposition = "N"
+
+[sites."check-lab-workflow.mjs::navigation groups existing destinations into four workspaces with visible tool tabs"]
+disposition = "N"
+
+[sites."check-lab-workflow.mjs::library URLs preserve filters, Unicode search, page, record and AR with legacy history compatibility"]
+disposition = "N"
+
+[sites."check-lab-workflow.mjs::safe method returns preserve historical page state and reject external or unsupported destinations"]
+disposition = "N"
+
+[sites."check-lab-workflow.mjs::record titles translate mask codes without mutating IDs, requests or raw names"]
+disposition = "N"
+
+[sites."check-lab-workflow.mjs::metric names stay consistent across current and historical scores; undefined is never fail"]
+disposition = "N"
+
+[sites."check-lab-workflow.mjs::historical pages disclose their scope and preserve settings in method links"]
+disposition = "N"
+
+[sites."check-lab-workflow.mjs::method page separates current calculation, historical experiments and unimplemented plans"]
+disposition = "N"
+
+[sites."check-lab-workflow.mjs::all supported preset shortcuts are exposed without inventing subdivided masks or scores"]
+disposition = "C"
+mirror = "tests/test_schema_parity.py::test_option_lists_match_node"
+formats = ["radius-search"]
+slice = 3
+note = "MASK_CODES as an option list of the radius format"
+
+[sites."check-lab-workflow.mjs::free placement offers all nine backend-supported sites, including non-preset and repeated choices"]
+disposition = "C"
+mirror = "tests/test_schema_parity.py::test_option_lists_match_node"
+formats = ["radius-search"]
+slice = 3
+note = "MASK_CODES as an option list of the radius format"
+
+[sites."check-lab-workflow.mjs::placement choices remain direct controls; incomplete regional choices cannot display another result"]
+disposition = "N"
+
+[sites."check-lab-workflow.mjs::display states distinguish pending values from invalid metrics and preserve numeric ranges"]
+disposition = "N"
+
+[sites."check-lab-workflow.mjs::public copy uses factual scope and correct AR, metric and reference terminology"]
+disposition = "N"
+
+# --- check-layout-exports.mjs -----------------------------------------------------------------------------------------
+
+[sites."check-layout-exports.mjs::coordinate and layout exports reuse the import schema and preserve order exactly"]
+disposition = "N"
+
+[sites."check-layout-exports.mjs::invalid and partial layouts disable importable exports without fabricating coordinates"]
+disposition = "N"
+
+[sites."check-layout-exports.mjs::full-result JSON remains the original record and is distinct from importable design JSON"]
+disposition = "N"
+
+[sites."check-layout-exports.mjs::summary uses the current common threshold, preserves real scores and does not invent metadata"]
+disposition = "N"
+
+[sites."check-layout-exports.mjs::experiment export issues exactly one read-only GET and validates schema plus record identity"]
+disposition = "N"
+
+[sites."check-layout-exports.mjs::failed bundle reads are retryable, and unsafe record IDs never issue requests"]
+disposition = "N"
+
+[sites."check-layout-exports.mjs::new export translations are bilingual and do not duplicate existing catalog sources"]
+disposition = "N"
+
+[sites."check-layout-exports.mjs::export menu renders five distinct formats in both languages without automatic fetch"]
+disposition = "N"
+
+# --- check-layout-figure.mjs ------------------------------------------------------------------------------------------
+
+[sites."check-layout-figure.mjs::the projection puts the vertex at the centre, the landmark plane on the circle and the nose up"]
+disposition = "N"
+
+[sites."check-layout-figure.mjs::the SVG draws every electrode once with its region colour, shape and legend, and escapes text"]
+disposition = "N"
+
+[sites."check-layout-figure.mjs::the electrode positions fit inside the figure above the legend"]
+disposition = "N"
+
+# --- check-library-visibility.mjs -------------------------------------------------------------------------------------
+
+[sites."check-library-visibility.mjs::library scope defaults to shared on every host; owner scope is opt-in with review"]
+disposition = "D"
+reason = "R4"
+
+[sites."check-library-visibility.mjs::owners list their records; publishing needs ownership, review gates listing, removal hides links"]
+disposition = "D"
+reason = "R4"
+
+[sites."check-library-visibility.mjs::a second owner publishes independently; shared scope lists all but removed records"]
+disposition = "D"
+reason = "R4"
+
+[sites."check-library-visibility.mjs::a broken moderation file keeps the last valid removals; invalid record files stop startup"]
+disposition = "D"
+reason = "R4"
+
+[sites."check-library-visibility.mjs::moderation tool arguments and the pending list"]
+disposition = "D"
+reason = "R4"
+
+[sites."check-library-visibility.mjs::HTTP: lists show one browser's records plus public and official ones; publishing is owner-only"]
+disposition = "D"
+reason = "R4"
+
+[sites."check-library-visibility.mjs::owners are recorded when a queued task completes, except browsers that left it"]
+disposition = "D"
+reason = "R4"
+
+# --- check-local-compute.mjs ------------------------------------------------------------------------------------------
+
+[sites."check-local-compute.mjs::only bounded parameter schema is accepted; AR cannot trigger a compute request"]
+disposition = "C"
+mirror = "tests/test_schema_parity.py::test_variant_parity"
+formats = ["radius-search"]
+slice = 3
+note = "normalizeRequest; whole_surface drops empty mask_codes"
+
+[sites."check-local-compute.mjs::local origin, Host and remote address are all checked"]
+disposition = "P"
+target = "tests/service/test_access.py::test_local_origin_host_and_remote_address_are_all_checked"
+
+[sites."check-local-compute.mjs::result validation rejects stale request, duplicated points, wrong components and false G"]
+disposition = "pending"
+slice = 3
+module = "tests/service/test_radius.py"
+note = "the result validator"
+
+[sites."check-local-compute.mjs::queue has one child, deduplicates identical in-flight requests and records progress"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_radius.py"
+note = "shell off and OPENBLAS_NUM_THREADS='2' for the radius worker"
+
+[sites."check-local-compute.mjs::disk cache survives queue restart and source identity invalidates it"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_radius.py"
+
+[sites."check-local-compute.mjs::cancellation does not release capacity until child closes; no result is cached"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_worker.py"
+
+[sites."check-local-compute.mjs::wall-clock timeout terminates the worker and returns a non-numeric failure"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_worker.py"
+
+[sites."check-local-compute.mjs::malformed or mismatched worker output fails without crashing the server"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_worker.py"
+
+[sites."check-local-compute.mjs::mutation endpoint requires the random local-session token, including unicode input"]
+disposition = "P"
+target = "tests/service/test_access.py::test_mutation_endpoint_requires_the_session_token_including_unicode_input"
+note = "missing, wrong and '文'x64 tokens"
+
+[sites."check-local-compute.mjs::changing radius hides stale scores and AR never changes compute identity"]
+disposition = "N"
+
+[sites."check-local-compute.mjs::current cache displays during another job, and new computation retains its fresh source label"]
+disposition = "N"
+
+# --- check-local-data-library.mjs -------------------------------------------------------------------------------------
+
+[sites."check-local-data-library.mjs::all offline layouts load read-only with protocol separation and original metric values"]
+disposition = "pending"
+slice = 3
+module = "tests/service/test_library.py"
+note = "dataTest: skipped by test:fast; the port is marked data_bundle"
+
+[sites."check-local-data-library.mjs::coordinate evaluations appear in the read-only library and reopen their original evaluated coordinates"]
+disposition = "pending"
+slice = 3
+module = "tests/service/test_library.py"
+note = "dataTest: skipped by test:fast; the port is marked data_bundle"
+
+[sites."check-local-data-library.mjs::existing cache has history after restart and exact lookup does not spawn"]
+disposition = "pending"
+slice = 3
+module = "tests/service/test_library.py"
+note = "the designLink assertion stays in Node"
+
+[sites."check-local-data-library.mjs::historical algorithm data stays readable but cannot resume as current cache"]
+disposition = "pending"
+slice = 3
+module = "tests/service/test_library.py"
+
+[sites."check-local-data-library.mjs::cached result is served while unrelated computation runs, without changing that job"]
+disposition = "pending"
+slice = 3
+module = "tests/service/test_library.py"
+
+[sites."check-local-data-library.mjs::invalid checksum and malformed records are misses, not usable scores"]
+disposition = "pending"
+slice = 3
+module = "tests/service/test_library.py"
+
+[sites."check-local-data-library.mjs::lookup HTTP endpoint returns a miss without a task, and rejects extra query fields"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_radius.py"
+note = "the lookup endpoint"
+
+[sites."check-local-data-library.mjs::input byte changes invalidate memoized SHA even when model pointer stays the same"]
+disposition = "pending"
+slice = 3
+module = "tests/service/test_library.py"
+
+[sites."check-local-data-library.mjs::failed input identity blocks cached reuse instead of starting replacement work"]
+disposition = "pending"
+slice = 3
+module = "tests/service/test_library.py"
+
+[sites."check-local-data-library.mjs::library only returns allowlisted opaque IDs, not filesystem paths"]
+disposition = "pending"
+slice = 3
+module = "tests/service/test_library.py"
+
+[sites."check-local-data-library.mjs::area importer rejects changed scientific protocols instead of applying stale labels"]
+disposition = "pending"
+slice = 3
+module = "tests/service/test_library.py"
+note = "dataTest: skipped by test:fast; the port is marked data_bundle"
+
+# --- check-local-production.mjs ---------------------------------------------------------------------------------------
+
+[sites."check-local-production.mjs::production host preserves UI routing, local API guards and disposal"]
+disposition = "P"
+target = "tests/service/test_access.py::test_production_host_preserves_ui_routing_and_local_api_guards"
+note = "mapped to eeglayoutlab serve; disposal and the guard over a real socket in test_workspace.py serve tests"
+
+# --- check-module-boundaries.mjs --------------------------------------------------------------------------------------
+
+[sites."check-module-boundaries.mjs::browser modules cannot import server or Node implementations"]
+disposition = "N"
+
+[sites."check-module-boundaries.mjs::framework hosting stays outside the scientific service modules"]
+disposition = "E"
+note = "about webapp/server; retire in phase 4"
+
+[sites."check-module-boundaries.mjs::shared contracts have no rendering, service, or framework dependencies"]
+disposition = "N"
+
+[sites."check-module-boundaries.mjs::server modules have no circular runtime imports"]
+disposition = "E"
+note = "about webapp/server; retire in phase 4"
+
+# --- check-operations.mjs ---------------------------------------------------------------------------------------------
+
+[sites."check-operations.mjs::operations settings are bounded and kept outside scientific parameters"]
+disposition = "D"
+reason = "R2"
+
+[sites."check-operations.mjs::resource samples expose measured free disk and current host RSS without private paths"]
+disposition = "D"
+reason = "R2"
+
+[sites."check-operations.mjs::low disk refuses new work with a safe retryable error and explicit scope"]
+disposition = "D"
+reason = "R2"
+
+[sites."check-operations.mjs::host RSS admission threshold is optional and does not claim worker memory limits"]
+disposition = "D"
+reason = "R2"
+
+[sites."check-operations.mjs::failed or invalid resource observations fail closed without leaking exception text"]
+disposition = "D"
+reason = "R2"
+
+[sites."check-operations.mjs::log allowlist excludes all credentials, query values, inputs and response payloads"]
+disposition = "D"
+reason = "R2"
+
+[sites."check-operations.mjs::operations logs have private permissions, bounded daily bytes and seven-day retention"]
+disposition = "D"
+reason = "R2"
+
+[sites."check-operations.mjs::log queue backpressure and close bound in-memory work while accepted logs flush"]
+disposition = "D"
+reason = "R2"
+
+[sites."check-operations.mjs::symlink log targets fail without breaking application responses"]
+disposition = "D"
+reason = "R2"
+
+[sites."check-operations.mjs::real HTTP generates server request IDs, correlates only task ID/status and redacts sensitive values"]
+disposition = "D"
+reason = "R2"
+
+[sites."check-operations.mjs::operator status requires a direct local non-browser non-proxy request"]
+disposition = "D"
+reason = "R2"
+
+[sites."check-operations.mjs::client cancellation increments aborts once, closes active count and keeps next request usable"]
+disposition = "D"
+reason = "R2"
+
+[sites."check-operations.mjs::application failures become safe 500 responses and logging exceptions remain non-fatal"]
+disposition = "D"
+reason = "R2"
+
+[sites."check-operations.mjs::resource refusal leaves cached lookup, reads and cancellation available through monitoring"]
+disposition = "D"
+reason = "R2"
+
+[sites."check-operations.mjs::unknown URL variation cannot grow route counters or expose request values"]
+disposition = "D"
+reason = "R2"
+
+[sites."check-operations.mjs::stalled filesystem observations time out, remain bounded and recover without duplicate probes"]
+disposition = "D"
+reason = "R2"
+
+[sites."check-operations.mjs::study operation labels identify actions without retaining study IDs or query data"]
+disposition = "D"
+reason = "R2"
+
+# --- check-pareto.mjs -------------------------------------------------------------------------------------------------
+
+[sites."check-pareto.mjs::non-dominated sorting ranks fronts and treats ties as equal"]
+disposition = "N"
+
+[sites."check-pareto.mjs::analysis excludes records missing a chosen objective and sorts the front first"]
+disposition = "N"
+
+[sites."check-pareto.mjs::library records give their objectives and only same-condition current records are grouped"]
+disposition = "N"
+
+[sites."check-pareto.mjs::the pareto command ranks result files of one condition"]
+disposition = "CLI"
+note = "spawns webapp/scripts/eeglayoutlab.mjs, which stays until the Python command line (phase 3, U5)"
+
+# --- check-performance-reading.mjs ------------------------------------------------------------------------------------
+
+[sites."check-performance-reading.mjs::metric status uses original precision, with equality passing"]
+disposition = "N"
+
+[sites."check-performance-reading.mjs::margins are percentage points, not percent error or a clipped progress bar"]
+disposition = "N"
+
+[sites."check-performance-reading.mjs::missing and unavailable metrics never become zero or pass"]
+disposition = "N"
+
+[sites."check-performance-reading.mjs::individual status never replaces the existing joint assessment"]
+disposition = "N"
+
+[sites."check-performance-reading.mjs::every metric keeps its explanation and bilingual plain-language question"]
+disposition = "N"
+
+# --- check-product-operations-integration.mjs -------------------------------------------------------------------------
+
+[sites."check-product-operations-integration.mjs::actual service refuses new uncached work and project writes while preserving cached jobs, lookup, reads and cancellation"]
+disposition = "D"
+reason = "R2"
+note = "ResourceGate refusals"
+
+[sites."check-product-operations-integration.mjs::resource-blocked dispatch preserves FIFO and queue bytes until recovery or cancellation"]
+disposition = "D"
+reason = "R2"
+note = "ResourceGate dispatch"
+
+[sites."check-product-operations-integration.mjs::maintenance requested during asynchronous admission prevents late receipt acceptance"]
+disposition = "D"
+reason = "R6"
+
+[sites."check-product-operations-integration.mjs::maintenance requested during dispatch admission preserves queued state without a worker launch"]
+disposition = "D"
+reason = "R6"
+
+[sites."check-product-operations-integration.mjs::actual request IDs and task correlation are logged without credentials or scientific payloads"]
+disposition = "D"
+reason = "R2"
+note = "request IDs and operations logs"
+
+[sites."check-product-operations-integration.mjs::service disposal waits for accepted project writes and log flushing before releasing its queue lock"]
+disposition = "pending"
+slice = 9
+module = "tests/service/test_delivery.py"
+note = "disposal waits for accepted project writes"
+
+[sites."check-product-operations-integration.mjs::shutdown during asynchronous admission cannot persist a late queued task or project"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_queue.py"
+
+# --- check-project-api.mjs --------------------------------------------------------------------------------------------
+
+[sites."check-project-api.mjs::project API restores credentials across browsers and never lists private projects"]
+disposition = "D"
+reason = "R5"
+note = "project credentials; a workspace lists all its projects"
+
+[sites."check-project-api.mjs::research export authenticates, preserves saved science and remains read-only for shared access"]
+disposition = "pending"
+slice = 9
+module = "tests/service/test_projects.py"
+note = "the shared-access part is dropped (R5)"
+
+[sites."check-project-api.mjs::project writes require policy, session token, bounded JSON and current revisions"]
+disposition = "pending"
+slice = 9
+module = "tests/service/test_projects.py"
+
+[sites."check-project-api.mjs::shared credentials read but cannot edit, attach, remove or rotate sharing"]
+disposition = "D"
+reason = "R5"
+note = "shared credentials"
+
+[sites."check-project-api.mjs::saved source copies survive receipt pruning and cache loss with every scientific field intact"]
+disposition = "pending"
+slice = 9
+module = "tests/service/test_projects.py"
+
+[sites."check-project-api.mjs::source attachment rejects foreign, incomplete or client-supplied scientific data before reading cache"]
+disposition = "pending"
+slice = 9
+module = "tests/service/test_projects.py"
+note = "the foreign-browser part is dropped (R1)"
+
+[sites."check-project-api.mjs::layout attachment loads the trusted archive and detach retains original science"]
+disposition = "pending"
+slice = 9
+module = "tests/service/test_projects.py"
+
+# --- check-project-client.mjs -----------------------------------------------------------------------------------------
+
+[sites."check-project-client.mjs::project access files validate their format, limits and credential fields"]
+disposition = "D"
+reason = "R5"
+note = "project access files"
+
+[sites."check-project-client.mjs::browser vault deduplicates projects and never replaces owner access with a read-only share"]
+disposition = "D"
+reason = "R5"
+note = "access-key vault"
+
+[sites."check-project-client.mjs::sharing puts credentials only in the fragment and project navigation accepts no remote return"]
+disposition = "D"
+reason = "R5"
+note = "share fragments"
+
+[sites."check-project-client.mjs::project HTTP writes use both headers and never send credentials in the request URL or scientific jobs"]
+disposition = "NA"
+slice = 10
+note = "the X-EEG-Project-Key header goes"
+
+[sites."check-project-client.mjs::an uncertain project write is not automatically submitted again"]
+disposition = "N"
+
+[sites."check-project-client.mjs::project display vocabulary is bilingual and scientific identity is not translated"]
+disposition = "N"
+
+[sites."check-project-client.mjs::completed record choices retain each actual service identity and exclude unfinished tasks"]
+disposition = "NA"
+slice = 10
+note = "record choices read /api/community/records"
+
+[sites."check-project-client.mjs::a failed or malformed directory exposes a diagnostic while other completed record types remain available"]
+disposition = "N"
+
+# --- check-project-delivery-client.mjs --------------------------------------------------------------------------------
+
+[sites."check-project-delivery-client.mjs::the downloaded wrapper keeps every original file string, UTF-8 byte and scientific number representation"]
+disposition = "N"
+
+[sites."check-project-delivery-client.mjs::a damaged file or changed manifest is rejected before preparing a download"]
+disposition = "N"
+
+[sites."check-project-delivery-client.mjs::an export for another project or revision cannot replace the selected project delivery"]
+disposition = "N"
+
+[sites."check-project-delivery-client.mjs::unsafe inventory paths, duplicates and unexpected encodings are rejected"]
+disposition = "N"
+
+[sites."check-project-delivery-client.mjs::an aborted request and an accidentally included current access key cannot produce a download"]
+disposition = "NA"
+slice = 10
+note = "the access-key half goes"
+
+# --- check-project-delivery.mjs ---------------------------------------------------------------------------------------
+
+[sites."check-project-delivery.mjs::project delivery serves complete archives to an owner or viewer and rejects revoked access"]
+disposition = "pending"
+slice = 9
+module = "tests/service/test_delivery.py"
+note = "viewer and revoked access are dropped (R5)"
+
+[sites."check-project-delivery.mjs::delivery limits memory and concurrent exports, then recovers from a failed attempt"]
+disposition = "pending"
+slice = 9
+module = "tests/service/test_delivery.py"
+
+[sites."check-project-delivery.mjs::delivery distinguishes current host bytes from the scientific data/runtime lock and fails on missing identities"]
+disposition = "pending"
+slice = 9
+module = "tests/service/test_delivery.py"
+
+[sites."check-project-delivery.mjs::delivery names the lock of the managed runtime in use"]
+disposition = "pending"
+slice = 9
+module = "tests/service/test_delivery.py"
+
+# --- check-project-experiment-associations.mjs ------------------------------------------------------------------------
+
+[sites."check-project-experiment-associations.mjs::project totals distinguish saved name copies from distinct scientific layouts"]
+disposition = "N"
+
+[sites."check-project-experiment-associations.mjs::every name alias of one scientific key has the same associated signal records"]
+disposition = "N"
+
+[sites."check-project-experiment-associations.mjs::candidate switching updates only the filtered view and preserves all historical entries and scientific identities"]
+disposition = "N"
+
+[sites."check-project-experiment-associations.mjs::absent and detached candidates never inherit the previously selected layout or an editor parent"]
+disposition = "N"
+
+[sites."check-project-experiment-associations.mjs::missing parent metadata stays unrecorded and an external scientific ID is kept without inventing a project title"]
+disposition = "N"
+
+[sites."check-project-experiment-associations.mjs::old summaries do not infer a mode, source index, brain region or random seed"]
+disposition = "N"
+
+[sites."check-project-experiment-associations.mjs::zero source indices and seeds are recorded values, not missing values"]
+disposition = "N"
+
+[sites."check-project-experiment-associations.mjs::cross-region request order is preserved and never substituted with calculated-source fields"]
+disposition = "N"
+
+[sites."check-project-experiment-associations.mjs::malformed historical field types cannot break the project view or become default values"]
+disposition = "N"
+
+# --- check-project-store.mjs ------------------------------------------------------------------------------------------
+
+[sites."check-project-store.mjs::project comparison settings retain exact requirements without changing archived calculations"]
+disposition = "pending"
+slice = 9
+module = "tests/service/test_projects.py"
+
+[sites."check-project-store.mjs::comparison settings reject external links, foreign layouts, unsupported parameters and fake scores"]
+disposition = "pending"
+slice = 9
+module = "tests/service/test_projects.py"
+
+[sites."check-project-store.mjs::projects survive restart and cross-browser credentials without storing raw keys"]
+disposition = "D"
+reason = "R5"
+note = "owner key hashes; restart survival is covered by the ports of 72 and 116"
+
+[sites."check-project-store.mjs::an interrupted atomic snapshot write does not prevent recovery or become a scientific result"]
+disposition = "pending"
+slice = 9
+module = "tests/service/test_projects.py"
+
+[sites."check-project-store.mjs::read-only sharing can be rotated and revoked without changing scientific copies"]
+disposition = "D"
+reason = "R5"
+note = "read-only sharing"
+
+[sites."check-project-store.mjs::rename and entry notes preserve exact archived scientific JSON and checksums"]
+disposition = "pending"
+slice = 9
+module = "tests/service/test_projects.py"
+
+[sites."check-project-store.mjs::snapshot persistence precedes metadata and queued mutations enforce revisions"]
+disposition = "pending"
+slice = 9
+module = "tests/service/test_projects.py"
+
+[sites."check-project-store.mjs::detaching entries never deletes original snapshots or scientific files"]
+disposition = "pending"
+slice = 9
+module = "tests/service/test_projects.py"
+
+[sites."check-project-store.mjs::corrupt metadata, snapshots, symlinks and traversal fail closed"]
+disposition = "pending"
+slice = 9
+module = "tests/service/test_projects.py"
+
+[sites."check-project-store.mjs::project root symlinks are rejected rather than followed"]
+disposition = "pending"
+slice = 9
+module = "tests/service/test_projects.py"
+
+[sites."check-project-store.mjs::bounded snapshots and export preflight reject large data before loading payloads"]
+disposition = "pending"
+slice = 9
+module = "tests/service/test_projects.py"
+
+[sites."check-project-store.mjs::shutdown rejects new writes while flushing already accepted metadata writes"]
+disposition = "pending"
+slice = 9
+module = "tests/service/test_projects.py"
+
+# --- check-project-structure.mjs --------------------------------------------------------------------------------------
+
+[sites."check-project-structure.mjs::legacy service exports retain class and function identity"]
+disposition = "E"
+note = "legacy scripts/*.mjs shims; retire in phase 4"
+
+[sites."check-project-structure.mjs::stable routes delegate to feature workspaces and have no service imports"]
+disposition = "N"
+
+[sites."check-project-structure.mjs::checkout roots and independently scoped implementation identities are explicit"]
+disposition = "pending"
+slice = 3
+module = "tests/service/test_key_parity.py"
+note = "codeIdentity of the radius identity (top-level src/compact_eeg only)"
+
+# --- check-project-workflow.mjs ---------------------------------------------------------------------------------------
+
+[sites."check-project-workflow.mjs::the active project is per-tab UI context and clearing it leaves another tab unchanged"]
+disposition = "N"
+
+[sites."check-project-workflow.mjs::active-project hook restores and follows tab changes without making network requests"]
+disposition = "N"
+
+[sites."check-project-workflow.mjs::research selections preserve existing independent thresholds and never use edited layouts as fixed-layout comparisons"]
+disposition = "N"
+
+[sites."check-project-workflow.mjs::saving comparison context keeps only canonical scientific decision controls and requires both project layouts"]
+disposition = "N"
+
+[sites."check-project-workflow.mjs::sharing credentials cannot be forwarded into header or documentation query links"]
+disposition = "N"
+
+[sites."check-project-workflow.mjs::archived scientific views reuse exact saved objects without record-cache access or data projection"]
+disposition = "N"
+
+[sites."check-project-workflow.mjs::field provenance distinguishes an archived shared field, ordinary FEM cache and a new solve"]
+disposition = "N"
+
+[sites."check-project-workflow.mjs::project layout summaries mark whether signal simulation accepts the layout"]
+disposition = "pending"
+slice = 9
+module = "tests/service/test_projects.py"
+
+# --- check-queue-maintenance.mjs --------------------------------------------------------------------------------------
+
+[sites."check-queue-maintenance.mjs::initial maintenance is durable and permits cache reads and lookup misses"]
+disposition = "D"
+reason = "R6"
+
+[sites."check-queue-maintenance.mjs::pause preserves pending IDs and FIFO order across restart until explicitly resumed"]
+disposition = "D"
+reason = "R6"
+
+[sites."check-queue-maintenance.mjs::maintenance waits for active cancellation and reconciles completion without dispatch"]
+disposition = "D"
+reason = "R6"
+
+[sites."check-queue-maintenance.mjs:117"]
+disposition = "D"
+reason = "R6"
+note = "title `pause during submission ${stage} rejects new work after the await`"
+
+[sites."check-queue-maintenance.mjs::a cache hit discovered after maintenance starts is still readable"]
+disposition = "D"
+reason = "R6"
+
+[sites."check-queue-maintenance.mjs::pause during dispatch preparation leaves the queued task untouched"]
+disposition = "D"
+reason = "R6"
+
+[sites."check-queue-maintenance.mjs::an external worker acquiring the slot during dispatch preparation keeps the task queued"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_queue.py"
+note = "without the maintenance flag"
+
+[sites."check-queue-maintenance.mjs::pause during service preparation releases the permit and restores the same queue position"]
+disposition = "D"
+reason = "R6"
+
+[sites."check-queue-maintenance.mjs::confirmed busy contention clears spawn intent and preserves FIFO through maintenance and restart"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_queue.py"
+note = "without the maintenance flag"
+
+[sites."check-queue-maintenance.mjs::an ambiguous thrown start keeps its recovery guard through maintenance and restart"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_queue.py"
+note = "without the maintenance flag"
+
+[sites."check-queue-maintenance.mjs::a worker launched before the pause stays tracked when start resolves afterwards"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_queue.py"
+note = "without the maintenance flag"
+
+[sites."check-queue-maintenance.mjs::drained accounts for external backend activity, permits and uncertain worker guards"]
+disposition = "D"
+reason = "R6"
+
+[sites."check-queue-maintenance.mjs::a failed maintenance write keeps all execution paused and reports unavailable"]
+disposition = "D"
+reason = "R6"
+
+[sites."check-queue-maintenance.mjs::legacy queue files default to running and invalid maintenance state preserves the file"]
+disposition = "D"
+reason = "R6"
+
+[sites."check-queue-maintenance.mjs:294"]
+disposition = "D"
+reason = "R6"
+note = "title `paused restart with a ${guard} guard never reports drained`"
+
+[sites."check-queue-maintenance.mjs::a rejected second queue owner cannot pause the existing execution slot"]
+disposition = "D"
+reason = "R6"
+
+[sites."check-queue-maintenance.mjs::public health shows maintenance but a public token cannot change it"]
+disposition = "D"
+reason = "R6"
+
+# --- check-reception-controller.mjs -----------------------------------------------------------------------------------
+
+[sites."check-reception-controller.mjs::refresh restores the selected queued task instead of the earlier health task, then displays its result"]
+disposition = "NA"
+slice = 10
+note = "a real CommunityQueue serves the fake fetch; use a scripted queue or recorded Python responses"
+
+[sites."check-reception-controller.mjs::a late lookup reply cannot replace a newly selected cached scene"]
+disposition = "N"
+
+[sites."check-reception-controller.mjs::a late submit reply cannot replace a newer selected scene"]
+disposition = "N"
+
+[sites."check-reception-controller.mjs::late poll and cancellation replies cannot overwrite the newly restored task"]
+disposition = "N"
+
+[sites."check-reception-controller.mjs:171"]
+disposition = "N"
+note = "title `a recovered task reaching ${status} stops polling and never becomes a cached result`"
+
+[sites."check-reception-controller.mjs::leaving a shared queued task through cancellation immediately restores idle state"]
+disposition = "N"
+
+[sites."check-reception-controller.mjs::a transient connection error keeps the known task running and later recovers its result"]
+disposition = "N"
+
+[sites."check-reception-controller.mjs:216"]
+disposition = "N"
+note = "title `a blocked HTTP ${status} task can reconnect without changing server state or resubmitting`"
+
+# --- check-reconciliation.mjs -----------------------------------------------------------------------------------------
+
+[sites."check-reconciliation.mjs::only running and exact restart-interrupted failed receipts are recoverable"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_queue.py"
+note = "startup recovery of the local queue"
+
+[sites."check-reconciliation.mjs::pure repair retains owners, annotation variants, order and unknown legacy fields"]
+disposition = "D"
+reason = "R6"
+note = "offline receipt repair of the hosted queue"
+
+[sites."check-reconciliation.mjs::no_layout is valid only for the radius cache; cancellations never revive"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_queue.py"
+note = "startup recovery of the local queue"
+
+[sites."check-reconciliation.mjs::missing, invalid, stale and duplicate observations cannot change receipts"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_queue.py"
+note = "startup recovery of the local queue"
+
+[sites."check-reconciliation.mjs::inspector validates the raw result and full current identity twice without modifying cache"]
+disposition = "D"
+reason = "R6"
+note = "offline receipt repair of the hosted queue"
+
+[sites."check-reconciliation.mjs::legacy cache without identity uses the original key definition and production validator"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_queue.py"
+note = "startup recovery of the local queue"
+
+[sites."check-reconciliation.mjs::rehashed but wrong stored identity and invalid result checksum are retained"]
+disposition = "D"
+reason = "R6"
+note = "offline receipt repair of the hosted queue"
+
+[sites."check-reconciliation.mjs::a changed current key or cache between reads is never accepted"]
+disposition = "D"
+reason = "R6"
+note = "offline receipt repair of the hosted queue"
+
+[sites."check-reconciliation.mjs::cache symlinks and hardlinks are rejected even within the scientific root"]
+disposition = "D"
+reason = "R6"
+note = "offline receipt repair of the hosted queue"
+
+[sites."check-reconciliation.mjs::queue JSON streamed one UTF-8 byte at a time preserves scientific request names"]
+disposition = "D"
+reason = "R6"
+note = "offline receipt repair of the hosted queue"
+
+[sites."check-reconciliation.mjs::inspection fingerprint includes the shared source and coordinate validators"]
+disposition = "D"
+reason = "R6"
+note = "offline receipt repair of the hosted queue"
+
+# --- check-records-catalog.mjs ----------------------------------------------------------------------------------------
+
+[sites."check-records-catalog.mjs::unified catalog keeps actual electrode counts, parent associations and independent schemas"]
+disposition = "N"
+
+[sites."check-records-catalog.mjs::repeated saved signal reads produce one row bound to the newest owned receipt"]
+disposition = "N"
+
+[sites."check-records-catalog.mjs::catalog filters round-trip with established selection, search, paging and historical protocol fields"]
+disposition = "N"
+
+[sites."check-records-catalog.mjs::signal result links preserve every current request field and reject older source protocols"]
+disposition = "N"
+
+[sites."check-records-catalog.mjs::completed tasks reopen exact editor records and coordinate evaluations; incomplete tasks and perturbations do not open nominal records"]
+disposition = "N"
+
+[sites."check-records-catalog.mjs::condition variants of one coordinate design fold into one row at its first position"]
+disposition = "N"
+
+# --- check-research-delivery-reader.mjs -------------------------------------------------------------------------------
+
+[sites."check-research-delivery-reader.mjs:99"]
+disposition = "NA"
+slice = 10
+note = "its fixture is built with Node buildResearchDelivery; use Python-built packages (slice 9)"
+
+[sites."check-research-delivery-reader.mjs:205"]
+disposition = "NA"
+slice = 10
+note = "its fixture is built with Node buildResearchDelivery; use Python-built packages (slice 9)"
+
+[sites."check-research-delivery-reader.mjs::delivery reader rejects excess input and honours cancellation before parsing"]
+disposition = "NA"
+slice = 10
+note = "its fixture is built with Node buildResearchDelivery; use Python-built packages (slice 9)"
+
+[sites."check-research-delivery-reader.mjs::completed editor delivery binds both saved keys and the result checksum"]
+disposition = "NA"
+slice = 10
+note = "its fixture is built with Node buildResearchDelivery; use Python-built packages (slice 9)"
+
+[sites."check-research-delivery-reader.mjs::uploaded metric and summary display values retain their original scalar types"]
+disposition = "NA"
+slice = 10
+note = "its fixture is built with Node buildResearchDelivery; use Python-built packages (slice 9)"
+
+# --- check-research-delivery.mjs --------------------------------------------------------------------------------------
+
+[sites."check-research-delivery.mjs::one research delivery retains exact snapshot bytes and every scientific number"]
+disposition = "pending"
+slice = 9
+module = "tests/service/test_delivery.py"
+
+[sites."check-research-delivery.mjs::export refuses changed scientific text, missing entries and oversized delivery"]
+disposition = "pending"
+slice = 9
+module = "tests/service/test_delivery.py"
+
+[sites."check-research-delivery.mjs::identity substitution and duplicate project entries cannot pass delivery"]
+disposition = "pending"
+slice = 9
+module = "tests/service/test_delivery.py"
+
+[sites."check-research-delivery.mjs::verification detects edits to payload, project annotations, host version and manifest"]
+disposition = "pending"
+slice = 9
+module = "tests/service/test_delivery.py"
+
+[sites."check-research-delivery.mjs::empty projects yield a valid readable handoff and retain saved workflow metadata"]
+disposition = "pending"
+slice = 9
+module = "tests/service/test_delivery.py"
+
+[sites."check-research-delivery.mjs::a recomputed checksum does not make contradictory record paths or headers valid"]
+disposition = "pending"
+slice = 9
+module = "tests/service/test_delivery.py"
+
+# --- check-response-compression.mjs -----------------------------------------------------------------------------------
+
+[sites."check-response-compression.mjs::response encoding honors quality values, explicit refusals and identity"]
+disposition = "D"
+reason = "R7"
+note = "JSON response compression"
+
+[sites."check-response-compression.mjs::compressed JSON preserves every decoded byte, numeric value and API header"]
+disposition = "D"
+reason = "R7"
+note = "JSON response compression"
+
+[sites."check-response-compression.mjs::small JSON avoids compression unless identity was refused; empty statuses stay empty"]
+disposition = "D"
+reason = "R7"
+note = "JSON response compression"
+
+[sites."check-response-compression.mjs::disconnecting during a compressed response leaves subsequent requests usable"]
+disposition = "D"
+reason = "R7"
+note = "JSON response compression"
+
+[sites."check-response-compression.mjs::a lookup completing after client cancellation does not write a late response"]
+disposition = "D"
+reason = "R7"
+note = "JSON response compression"
+
+[sites."check-response-compression.mjs::a late error after headers are sent closes the response without a second header write"]
+disposition = "D"
+reason = "R7"
+note = "JSON response compression"
+
+[sites."check-response-compression.mjs::build variants preserve binary models and replace stale sidecars on rebuild"]
+disposition = "N"
+note = "tests precompress-models.mjs, kept while npm run build writes sidecars"
+
+[sites."check-response-compression.mjs::client build text assets get sidecars; fonts and model binaries are left to their own rules"]
+disposition = "N"
+note = "tests precompress-models.mjs, kept while npm run build writes sidecars"
+
+# --- check-result-view-model.mjs --------------------------------------------------------------------------------------
+
+[sites."check-result-view-model.mjs::receiver and reconstruction projections preserve condition sums, target truth and shared scale"]
+disposition = "N"
+
+[sites."check-result-view-model.mjs::display curves retain negative scores and unavailable ratios; AR only selects existing samples"]
+disposition = "N"
+
+[sites."check-result-view-model.mjs::source selection and layout projections keep coordinates and atlas colors unchanged"]
+disposition = "N"
+
+[sites."check-result-view-model.mjs::playback starts at peak energy, wraps by five samples, seeks, pauses and cleans its only timer"]
+disposition = "N"
+
+[sites."check-result-view-model.mjs::hidden pages suspend playback work and resume from the same sample"]
+disposition = "N"
+
+# --- check-robustness-aggregation.mjs ---------------------------------------------------------------------------------
+
+[sites."check-robustness-aggregation.mjs::type7 empirical quantiles interpolate known finite observations and retain the actual count"]
+disposition = "pending"
+slice = 8
+module = "tests/service/test_studies.py"
+
+[sites."check-robustness-aggregation.mjs::position-study distribution gives each case equal weight while keeping every rejected trial"]
+disposition = "pending"
+slice = 8
+module = "tests/service/test_studies.py"
+
+[sites."check-robustness-aggregation.mjs::an all-rejected position case stays completed with zero finite trial readings"]
+disposition = "pending"
+slice = 8
+module = "tests/service/test_studies.py"
+
+# --- check-robustness-client.mjs --------------------------------------------------------------------------------------
+
+[sites."check-robustness-client.mjs::study download validates its envelope and retains exact original response bytes"]
+disposition = "N"
+
+[sites."check-robustness-client.mjs::study download rejects an incompatible API version before downloading its data"]
+disposition = "N"
+
+[sites."check-robustness-client.mjs::study download rejects HTML, wrong schemas and another study identity"]
+disposition = "N"
+
+# --- check-robustness-controller.mjs ----------------------------------------------------------------------------------
+
+[sites."check-robustness-controller.mjs::open and refresh read existing state without starting a saved draft"]
+disposition = "N"
+
+[sites."check-robustness-controller.mjs::create saves a draft and start remains one separate explicit operation"]
+disposition = "N"
+
+[sites."check-robustness-controller.mjs::overlapping mutation clicks share one pending operation"]
+disposition = "N"
+
+[sites."check-robustness-controller.mjs::unknown mutation outcome blocks repeated writes until an explicit saved-state read"]
+disposition = "N"
+
+[sites."check-robustness-controller.mjs::late mutation response cannot replace a subsequently selected study"]
+disposition = "N"
+
+[sites."check-robustness-controller.mjs::new draft ignores an in-flight mutation without resubmission"]
+disposition = "N"
+
+[sites."check-robustness-controller.mjs::old running poll cannot overwrite newer cancellation and polling never submits"]
+disposition = "N"
+
+[sites."check-robustness-controller.mjs::unmount aborts reads without submitting work"]
+disposition = "N"
+
+[sites."check-robustness-controller.mjs::export returns original response text without reserializing values"]
+disposition = "N"
+
+[sites."check-robustness-controller.mjs::handoff retains original point order, names and scientific layout name independently of study title"]
+disposition = "N"
+
+[sites."check-robustness-controller.mjs::case form rejects duplicates, excess cases, bad values and false noise-radius repetitions"]
+disposition = "N"
+
+[sites."check-robustness-controller.mjs::cross-head drafts fill unused heads, pair one seed and radius, and reject repeated heads"]
+disposition = "N"
+
+[sites."check-robustness-controller.mjs::parent and child status labels retain their separate subjects"]
+disposition = "N"
+
+[sites."check-robustness-controller.mjs::selecting invalid input clears prior valid design and title before reading and rejects oversized files before File.text"]
+disposition = "N"
+
+[sites."check-robustness-controller.mjs::switching to a saved study invalidates a pending File.text result"]
+disposition = "N"
+
+[sites."check-robustness-controller.mjs::newer valid file wins over older deferred reads and unmount prevents late updates"]
+disposition = "N"
+
+[sites."check-robustness-controller.mjs::study export selection change aborts the old response and keeps its errors out of the new study"]
+disposition = "N"
+
+# --- check-robustness-studies.mjs -------------------------------------------------------------------------------------
+
+[sites."check-robustness-studies.mjs::study protocols preserve original normalized requests and keep labels outside scientific identity"]
+disposition = "pending"
+slice = 8
+module = "tests/service/test_studies.py"
+
+[sites."check-robustness-studies.mjs::cross-head studies evaluate one head per case at one radius without conductivity scenarios"]
+disposition = "pending"
+slice = 8
+module = "tests/service/test_studies.py"
+
+[sites."check-robustness-studies.mjs::empirical summaries use case weights and retain rejected trials and failure counts"]
+disposition = "pending"
+slice = 8
+module = "tests/service/test_studies.py"
+
+[sites."check-robustness-studies.mjs::create and reads launch no jobs, completed cases archive exact original caches and survive receipt cleanup"]
+disposition = "pending"
+slice = 8
+module = "tests/service/test_studies.py"
+
+[sites."check-robustness-studies.mjs::a cross-head study binds one identity per head, then creates and runs every head"]
+disposition = "pending"
+slice = 8
+module = "tests/service/test_studies.py"
+
+[sites."check-robustness-studies.mjs::non-head studies still refuse case identities that differ while preparing"]
+disposition = "pending"
+slice = 8
+module = "tests/service/test_studies.py"
+
+[sites."check-robustness-studies.mjs::non-head study records keep the single shared identity older servers verify"]
+disposition = "pending"
+slice = 8
+module = "tests/service/test_studies.py"
+
+[sites."check-robustness-studies.mjs::legacy records written without per-case identities still load and run"]
+disposition = "pending"
+slice = 8
+module = "tests/service/test_studies.py"
+
+[sites."check-robustness-studies.mjs::private study directory and all record operations enforce original browser ownership"]
+disposition = "D"
+reason = "R1"
+note = "per-browser study ownership"
+
+[sites."check-robustness-studies.mjs::concurrent starts from one browser admit at most one parent study"]
+disposition = "pending"
+slice = 8
+module = "tests/service/test_studies.py"
+
+[sites."check-robustness-studies.mjs::cancel during case preparation prevents a later child admission"]
+disposition = "pending"
+slice = 8
+module = "tests/service/test_studies.py"
+
+[sites."check-robustness-studies.mjs::cancel inside original queue write admission prevents receipt creation"]
+disposition = "pending"
+slice = 8
+module = "tests/service/test_studies.py"
+
+[sites."check-robustness-studies.mjs::cancelling a shared queued case removes only the study browser and retains other owners"]
+disposition = "pending"
+slice = 8
+module = "tests/service/test_studies.py"
+
+[sites."check-robustness-studies.mjs::restart pauses the parent and a GET never accepts more cases; explicit resume reconciles owned receipts"]
+disposition = "pending"
+slice = 8
+module = "tests/service/test_studies.py"
+
+[sites."check-robustness-studies.mjs::an uncertain interrupted submission is retained without blindly resubmitting it"]
+disposition = "pending"
+slice = 8
+module = "tests/service/test_studies.py"
+
+[sites."check-robustness-studies.mjs::changed scientific identity fails pending cases without new receipts"]
+disposition = "pending"
+slice = 8
+module = "tests/service/test_studies.py"
+
+[sites."check-robustness-studies.mjs::archive checks exact cache binding and rejects corrupted or symlinked snapshots"]
+disposition = "pending"
+slice = 8
+module = "tests/service/test_studies.py"
+
+[sites."check-robustness-studies.mjs::studies are capped per client network and stale unstarted drafts free their slots"]
+disposition = "D"
+reason = "R1"
+note = "per-network study caps and draft pruning"
+
+[sites."check-robustness-studies.mjs::study count, metadata, total-byte and unsafe-root limits fail before scientific submission"]
+disposition = "pending"
+slice = 8
+module = "tests/service/test_studies.py"
+
+[sites."check-robustness-studies.mjs::a resource refusal pauses the pending case and GET does not retry it"]
+disposition = "D"
+reason = "R2"
+note = "operations ResourceGate"
+
+[sites."check-robustness-studies.mjs::default queue admission remains unchanged while internal expected-key and cancellation guards act before receipts"]
+disposition = "pending"
+slice = 8
+module = "tests/service/test_studies.py"
+
+[sites."check-robustness-studies.mjs::HTTP study writes require origin/token and reads isolate signed browser sessions"]
+disposition = "pending"
+slice = 8
+module = "tests/service/test_studies.py"
+note = "origin and token; signed browser sessions are dropped (R1)"
+
+[sites."check-robustness-studies.mjs::maintenance rejection retains a pending case until an explicit resume"]
+disposition = "D"
+reason = "R6"
+note = "queue maintenance"
+
+[sites."check-robustness-studies.mjs::stopping during preparation does not label the unsubmitted case as cancelled"]
+disposition = "pending"
+slice = 8
+module = "tests/service/test_studies.py"
+
+[sites."check-robustness-studies.mjs::stopping inside queue admission preserves a confirmed unaccepted case for recovery"]
+disposition = "pending"
+slice = 8
+module = "tests/service/test_studies.py"
+
+[sites."check-robustness-studies.mjs::cancel remains usable after an original receipt was removed"]
+disposition = "pending"
+slice = 8
+module = "tests/service/test_studies.py"
+
+[sites."check-robustness-studies.mjs::cancelling remaining work preserves an already failed child and its reason"]
+disposition = "pending"
+slice = 8
+module = "tests/service/test_studies.py"
+
+[sites."check-robustness-studies.mjs::quota-blocked startup keeps existing research readable and waits for explicit recovery"]
+disposition = "pending"
+slice = 8
+module = "tests/service/test_studies.py"
+
+[sites."check-robustness-studies.mjs::cancel clears a transient resource pause and terminal studies cannot resume"]
+disposition = "pending"
+slice = 8
+module = "tests/service/test_studies.py"
+
+[sites."check-robustness-studies.mjs::cancelling recovery pauses clears the directory overlay and never revives a cancelled parent"]
+disposition = "pending"
+slice = 8
+module = "tests/service/test_studies.py"
+
+[sites."check-robustness-studies.mjs::resource admission blocks new work but cannot block cancellation of owned queued work"]
+disposition = "D"
+reason = "R2"
+note = "operations ResourceGate"
+
+[sites."check-robustness-studies.mjs::cancelled completion waits for original-result archive without authorizing later cases"]
+disposition = "pending"
+slice = 8
+module = "tests/service/test_studies.py"
+
+[sites."check-robustness-studies.mjs::explicit parent recovery checks a complete interrupted cache before marking its existing receipt failed"]
+disposition = "pending"
+slice = 8
+module = "tests/service/test_studies.py"
+
+# --- check-runtime-identity-cache.mjs ---------------------------------------------------------------------------------
+
+[sites."check-runtime-identity-cache.mjs::warm runtime checks preserve digest with no new inspector and isolate returned values"]
+disposition = "pending"
+slice = 7
+module = "tests/service/test_runtime_digest.py"
+
+[sites."check-runtime-identity-cache.mjs::same-size writes invalidate even when mtime is restored"]
+disposition = "pending"
+slice = 7
+module = "tests/service/test_runtime_digest.py"
+
+[sites."check-runtime-identity-cache.mjs:55"]
+disposition = "pending"
+slice = 7
+module = "tests/service/test_runtime_digest.py"
+note = "title `numerical discovery ${mutation} invalidates the cached inspection`"
+
+[sites."check-runtime-identity-cache.mjs::missing dependencies fail closed and repaired inputs retry"]
+disposition = "pending"
+slice = 7
+module = "tests/service/test_runtime_digest.py"
+
+[sites."check-runtime-identity-cache.mjs::simultaneous cold and warm queries share a single inspection/check"]
+disposition = "pending"
+slice = 7
+module = "tests/service/test_runtime_digest.py"
+
+[sites."check-runtime-identity-cache.mjs::failed inspection is not reused and observations changed during inspection are rejected"]
+disposition = "pending"
+slice = 7
+module = "tests/service/test_runtime_digest.py"
+
+[sites."check-runtime-identity-cache.mjs::environment keys and bounded least-recently-used entries stay independent"]
+disposition = "pending"
+slice = 7
+module = "tests/service/test_runtime_digest.py"
+
+[sites."check-runtime-identity-cache.mjs::launcher symlink and an earlier PATH executable invalidate the current digest"]
+disposition = "pending"
+slice = 7
+module = "tests/service/test_runtime_digest.py"
+
+[sites."check-runtime-identity-cache.mjs:107"]
+disposition = "pending"
+slice = 7
+module = "tests/service/test_runtime_digest.py"
+note = "title `an earlier PATH symlink becoming executable via ${change} invalidates the digest`"
+
+[sites."check-runtime-identity-cache.mjs:135"]
+disposition = "pending"
+slice = 7
+module = "tests/service/test_runtime_digest.py"
+note = "title `symlink/../ traversal in ${invocation} retains operating-system path semantics`"
+
+[sites."check-runtime-identity-cache.mjs::legacy digest-only inspectors are accepted but not cached"]
+disposition = "pending"
+slice = 7
+module = "tests/service/test_runtime_digest.py"
+
+[sites."check-runtime-identity-cache.mjs::an implicit platform executable search path is inspected each time"]
+disposition = "pending"
+slice = 7
+module = "tests/service/test_runtime_digest.py"
+
+[sites."check-runtime-identity-cache.mjs::zero entry budget disables retention; malformed runtime output fails"]
+disposition = "pending"
+slice = 7
+module = "tests/service/test_runtime_digest.py"
+
+# --- check-runtime-storage.mjs ----------------------------------------------------------------------------------------
+
+[sites."check-runtime-storage.mjs::explicit runtime roots preserve interpreter precedence and reject ambiguous queue paths"]
+disposition = "P"
+target = "tests/service/test_runtime_config.py::test_explicit_runtime_roots_preserve_interpreter_precedence"
+note = "the queue-directory assertions are not ported: the workspace replaces Node's queue directory"
+
+[sites."check-runtime-storage.mjs::the Linux table runtime is selected only when the SimNIBS runtime is absent"]
+disposition = "P"
+target = "tests/service/test_runtime_config.py::test_linux_table_runtime_is_selected_only_without_simnibs"
+
+[sites."check-runtime-storage.mjs::record storage isolates checkouts and preserves the previous JSON when replacement fails"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_storage.py"
+
+[sites."check-runtime-storage.mjs::record reads and batch creation reject symlinks to external data"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_storage.py"
+
+# --- check-scene-rendering.mjs ----------------------------------------------------------------------------------------
+
+[sites."check-scene-rendering.mjs::signal color and selection changes repaint a stationary scene once"]
+disposition = "N"
+
+[sites."check-scene-rendering.mjs::offscreen and hidden-tab resizes pause rendering, then restore both viewports after focus"]
+disposition = "N"
+
+# --- check-service-probe.mjs ------------------------------------------------------------------------------------------
+
+[sites."check-service-probe.mjs::probe arguments accept only direct loopback HTTP and bounded timeouts"]
+disposition = "D"
+reason = "R2"
+
+[sites."check-service-probe.mjs::probe uses raw HTTP without browser metadata and preserves a generated request identifier"]
+disposition = "D"
+reason = "R2"
+
+[sites."check-service-probe.mjs::paused readiness is explicit and does not confuse drained with deleted waiting tasks"]
+disposition = "D"
+reason = "R2"
+
+[sites."check-service-probe.mjs::resource and logging alerts yield nonzero readiness without exposing private response fields"]
+disposition = "D"
+reason = "R2"
+
+[sites."check-service-probe.mjs::invalid schemas, missing trace headers and HTTP failures produce machine-readable probe failure"]
+disposition = "D"
+reason = "R2"
+
+[sites."check-service-probe.mjs::response size and absolute deadline bound oversized and continuously trickling responses"]
+disposition = "D"
+reason = "R2"
+
+[sites."check-service-probe.mjs::output is confined to regular project artifacts paths and rejects links and traversal"]
+disposition = "D"
+reason = "R2"
+
+[sites."check-service-probe.mjs::CLI exits distinguish ready, reachable-not-ready and invalid arguments without stderr secrets"]
+disposition = "D"
+reason = "R2"
+
+# --- check-service-storage.mjs ----------------------------------------------------------------------------------------
+
+[sites."check-service-storage.mjs::service factory shares one record store and honors a paused custom queue directory"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_storage.py"
+note = "one record store and execution slot; the paused queue part is dropped (R6)"
+
+[sites."check-service-storage.mjs::native services preserve managed interpreter precedence over radius overrides"]
+disposition = "P"
+target = "tests/service/test_runtime_config.py::test_native_services_use_the_managed_interpreter_over_radius_overrides"
+
+[sites."check-service-storage.mjs::source identity uses its injected native context without a design service"]
+disposition = "pending"
+slice = 7
+module = "tests/service/test_key_parity.py"
+note = "reception v1 identity on synthetic roots"
+
+# --- check-single-head-results.mjs ------------------------------------------------------------------------------------
+
+[sites."check-single-head-results.mjs::balanced allocation always totals 64 with no fractional channels"]
+disposition = "N"
+
+[sites."check-single-head-results.mjs::all 204 terminal records and all five region counts are required"]
+disposition = "N"
+
+[sites."check-single-head-results.mjs::AR uses all three metrics, selected SNR, inclusive threshold and null propagation"]
+disposition = "N"
+
+[sites."check-single-head-results.mjs::missing or forged global values are rejected; values above one are not clipped"]
+disposition = "N"
+
+[sites."check-single-head-results.mjs::duplicate points and incorrectly balanced labels are rejected"]
+disposition = "N"
+
+[sites."check-single-head-results.mjs::branch choice ranks actual selected metric without modifying source array"]
+disposition = "N"
+
+[sites."check-single-head-results.mjs::published real experiment passes frontend schema and scope checks"]
+disposition = "N"
+note = "skipped without public/data/single_head_optimization.json"
+
+# --- check-source-partitions.mjs --------------------------------------------------------------------------------------
+
+[sites."check-source-partitions.mjs::six ROI IDs and labels match the shared DK definition; no nearest-anchor classifier remains"]
+disposition = "N"
+
+[sites."check-source-partitions.mjs::native cortex and actual source parents share exact atlas material groups without mutating geometry"]
+disposition = "N"
+
+[sites."check-source-partitions.mjs::source label sprites and textures are disposed; source selection scales only the marker"]
+disposition = "N"
+
+[sites."check-source-partitions.mjs::new terminology is bilingual and source colors stay independent of electrode region controls"]
+disposition = "N"
+
+# --- check-source-reception.mjs ---------------------------------------------------------------------------------------
+
+[sites."check-source-reception.mjs::source request is bounded and excludes AR, shell commands, paths and arbitrary coordinates"]
+disposition = "C"
+mirror = "tests/test_schema_parity.py::test_variant_parity"
+formats = ["source-reception"]
+slice = 7
+note = "reception v1 (normalizeSourceRequest)"
+
+[sites."check-source-reception.mjs::source result rejects stale coordinates, missing/duplicate conditions and clipped negative scores"]
+disposition = "pending"
+slice = 7
+module = "tests/service/test_source.py"
+
+[sites."check-source-reception.mjs::waveform composition keeps brain, artifacts and electronic noise separate; AR is display-only"]
+disposition = "N"
+
+[sites."check-source-reception.mjs::cache miss is read-only; source and radius computations share capacity in both directions"]
+disposition = "pending"
+slice = 7
+module = "tests/service/test_source.py"
+
+[sites."check-source-reception.mjs::completed result survives service restart; cache corruption and scientific identity changes miss"]
+disposition = "pending"
+slice = 7
+module = "tests/service/test_source.py"
+
+[sites."check-source-reception.mjs::timeout/cancellation do not free capacity before process close and never cache a score"]
+disposition = "pending"
+slice = 7
+module = "tests/service/test_source.py"
+
+[sites."check-source-reception.mjs::model changes during computation and mismatched worker results cannot become cache hits"]
+disposition = "pending"
+slice = 7
+module = "tests/service/test_source.py"
+
+[sites."check-source-reception.mjs::source API shares existing local-origin and session-token protections"]
+disposition = "P"
+target = "tests/service/test_access.py::test_source_api_shares_local_origin_and_session_token_protections"
+
+[sites."check-source-reception.mjs::original signal download survives changed identity and rejects corrupt or mismatched saved results"]
+disposition = "pending"
+slice = 7
+module = "tests/service/test_source.py"
+
+[sites."check-source-reception.mjs::v2 original download requires its frozen identity layout even when the result checksum is recomputed"]
+disposition = "pending"
+slice = 7
+module = "tests/service/test_source.py"
+
+[sites."check-source-reception.mjs::v1 and v2 signal simulation both refuse a layout searched under correlated noise"]
+disposition = "pending"
+slice = 7
+module = "tests/service/test_source.py"
+
+# --- check-source-result-reading.mjs ----------------------------------------------------------------------------------
+
+[sites."check-source-result-reading.mjs::negative reconstruction and an unusable reference receive distinct explanations without altering scores"]
+disposition = "N"
+
+[sites."check-source-result-reading.mjs::reducing artifacts follows the supported amplitude settings and stops at zero"]
+disposition = "N"
+
+# --- check-source-upgrade.mjs -----------------------------------------------------------------------------------------
+
+[sites."check-source-upgrade.mjs::v2 identities separate source modes, preserve v1 keys and exclude AR"]
+disposition = "C"
+mirror = "tests/test_schema_parity.py::test_variant_parity"
+formats = ["source-reception"]
+slice = 7
+note = "reception v2; the browser sourceKey half stays in Node"
+
+[sites."check-source-upgrade.mjs::field display uses both complete previews for a common scale, and common-target residuals"]
+disposition = "N"
+
+[sites."check-source-upgrade.mjs::real area bundle preserves original bytes identity, all coordinates and stored accepted trace"]
+disposition = "pending"
+slice = 3
+module = "tests/service/test_bundle.py"
+note = "dataTest: skipped by test:fast; the port is marked data_bundle"
+
+[sites."check-source-upgrade.mjs::missing history is explicit and never fabricates zero-score initial state"]
+disposition = "pending"
+slice = 3
+module = "tests/service/test_bundle.py"
+
+[sites."check-source-upgrade.mjs::historical field objective keeps its saved trajectory and is not replaced with the tail minimum"]
+disposition = "pending"
+slice = 3
+module = "tests/service/test_bundle.py"
+note = "dataTest: skipped by test:fast; the port is marked data_bundle"
+
+[sites."check-source-upgrade.mjs::synthetic completed native record resolves evaluated coordinates, not unprojected inputs"]
+disposition = "pending"
+slice = 3
+module = "tests/service/test_bundle.py"
+
+[sites."check-source-upgrade.mjs::v2 validator rejects wrong source identity before accepting display data"]
+disposition = "pending"
+slice = 7
+module = "tests/service/test_source.py"
+
+# --- check-surface-patches.mjs ----------------------------------------------------------------------------------------
+
+[sites."check-surface-patches.mjs::barycentric dual patches integrate one third of each incident triangle"]
+disposition = "N"
+
+[sites."check-surface-patches.mjs::current native two-region patches preserve 32+32 and match the reported areas"]
+disposition = "NA"
+slice = 10
+note = "dataTest; reads the record through LocalComputeQueue.library: read the strict-area record directly"
+
+# --- check-task-client.mjs --------------------------------------------------------------------------------------------
+
+[sites."check-task-client.mjs::temporary disconnection preserves server state and recovers the same task"]
+disposition = "N"
+
+[sites."check-task-client.mjs:28"]
+disposition = "N"
+note = "title `HTTP ${status} ends automatic observation without inventing a failed job`"
+
+[sites."check-task-client.mjs::network retry count is bounded and explicit observation can recover afterwards"]
+disposition = "N"
+
+[sites."check-task-client.mjs::unmount or selected-task change discards a late reply and ends observation"]
+disposition = "N"
+
+[sites."check-task-client.mjs:73"]
+disposition = "N"
+note = "title `observation rejects invalid task identity or status: ${JSON.stringify(invalid)}`"
+
+[sites."check-task-client.mjs::submission and cancellation refresh session tokens and preserve request bytes"]
+disposition = "NA"
+slice = 10
+note = "asserts X-EEG-Compute-Token from health; changes only if the header goes"
+
+[sites."check-task-client.mjs::lost submission response is never retried automatically"]
+disposition = "N"
+
+[sites."check-task-client.mjs::a request timeout is recoverable while caller cancellation is silent"]
+disposition = "N"
+
+[sites."check-task-client.mjs::an incompatible API header stops observation instead of retrying"]
+disposition = "N"
+
+# --- check-viewer-assets.mjs ------------------------------------------------------------------------------------------
+
+[sites."check-viewer-assets.mjs::concurrent viewers download and verify each versioned model once"]
+disposition = "N"
+
+[sites."check-viewer-assets.mjs:187"]
+disposition = "N"
+note = "title `scene arrays and disposal remain independent with ${useUint32 ? '32' : '16'}-bit indices`"
+
+[sites."check-viewer-assets.mjs::canceling one viewer leaves the other viewer and its download active"]
+disposition = "N"
+
+[sites."check-viewer-assets.mjs::canceling all viewers aborts both downloads and a late response cannot poison their retry"]
+disposition = "N"
+
+[sites."check-viewer-assets.mjs::an already canceled viewer makes no metadata or binary requests"]
+disposition = "N"
+
+[sites."check-viewer-assets.mjs::canceling after one geometry is built disposes it exactly once"]
+disposition = "N"
+
+[sites."check-viewer-assets.mjs::canceling during checksum verification cannot retain abandoned bytes"]
+disposition = "N"
+
+[sites."check-viewer-assets.mjs:331"]
+disposition = "N"
+note = "title `${mode} failure is removed so the same model version can be retried`"
+
+[sites."check-viewer-assets.mjs::changed checksums at unchanged URLs load the new deployment"]
+disposition = "N"
+
+[sites."check-viewer-assets.mjs::fresh atlas grouping metadata applies even when verified bytes are reused"]
+disposition = "N"
+
+[sites."check-viewer-assets.mjs::unversioned scalp files are refreshed between loads"]
+disposition = "N"
+
+[sites."check-viewer-assets.mjs:405"]
+disposition = "N"
+note = "title `old models are evicted within ${Object.keys(limits)[0]}`"
+
+[sites."check-viewer-assets.mjs::models larger than the byte budget are shared in flight but not retained"]
+disposition = "N"
+
+# --- check-viewer-refresh.mjs -----------------------------------------------------------------------------------------
+
+[sites."check-viewer-refresh.mjs::standard contacts use square geometry; layout contacts remain circular without altering coordinates"]
+disposition = "N"
+
+[sites."check-viewer-refresh.mjs::rear overview reuses the scene and renderer and restores the main viewport"]
+disposition = "N"
+
+[sites."check-viewer-refresh.mjs::rear overview does not start an editor selection or change a scientific coordinate"]
+disposition = "N"
+
+[sites."check-viewer-refresh.mjs::compact mode preserves full-screen, region data, shape legend, and coordinate documentation"]
+disposition = "N"
+
+# --- check-viewer-resources.mjs ---------------------------------------------------------------------------------------
+
+[sites."check-viewer-resources.mjs::legacy viewer entry point exports the actual renderer, asset loader and palette"]
+disposition = "N"
+
+[sites."check-viewer-resources.mjs::asset loading preserves recorded units, packed normals and native atlas groups"]
+disposition = "N"
+
+[sites."check-viewer-resources.mjs:129"]
+disposition = "N"
+note = "title `asset ${mode} releases every allocated geometry exactly once`"
+
+[sites."check-viewer-resources.mjs::group cleanup deduplicates shared geometry, material and label texture ownership"]
+disposition = "N"
+
+[sites."check-viewer-resources.mjs::scene lifetime runs every cleanup once even when one cleanup fails"]
+disposition = "N"
+
+[sites."check-viewer-resources.mjs::partial scene initialization removes listeners, observers, canvas and renderer; caller retains assets"]
+disposition = "N"
+
+[sites."check-viewer-resources.mjs::successful scene cleanup is idempotent and releases both assets and browser subscriptions"]
+disposition = "N"
+
+[sites."check-viewer-resources.mjs::renderer disposal failure still releases the WebGL context and all browser subscriptions"]
+disposition = "N"
+
+# --- check-worker-lifecycle.mjs ---------------------------------------------------------------------------------------
+
+[sites."check-worker-lifecycle.mjs::execution permit is exclusive, idempotent, and maintenance blocks new owners only"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_worker.py"
+note = "the maintenance part is dropped (R6)"
+
+[sites."check-worker-lifecycle.mjs::worker decodes split UTF-8 and the final unterminated event without treating diagnostics as data"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_worker.py"
+
+[sites."check-worker-lifecycle.mjs::stderr is bounded and spawn errors wait for actual close"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_worker.py"
+
+[sites."check-worker-lifecycle.mjs::timeout escalates termination and never closes transport before the child closes"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_worker.py"
+
+[sites."check-worker-lifecycle.mjs::output overflow and failed stdin stop once, retaining capacity until close"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_worker.py"
+
+[sites."check-worker-lifecycle.mjs::competing services share one permit and result validation retains it after process close"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_worker.py"
+
+[sites."check-worker-lifecycle.mjs::maintenance requested after permit acquisition prevents a late process start"]
+disposition = "D"
+reason = "R6"
+note = "queue maintenance"
+
+[sites."check-worker-lifecycle.mjs::spawn and durable-write failures release the permit without a success result"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_worker.py"
+
+[sites."check-worker-lifecycle.mjs::real process transport completes after collecting its final event"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_worker.py"
+
+[sites."check-worker-lifecycle.mjs::worker completion waits for a surviving native descendant to exit"]
+disposition = "pending"
+slice = 4
+module = "tests/service/test_worker.py"
+note = "skipped on win32"
+
+# --- check-workspace-navigation.mjs -----------------------------------------------------------------------------------
+
+[sites."check-workspace-navigation.mjs::all primary and secondary pages have one workspace"]
+disposition = "N"
+
+[sites."check-workspace-navigation.mjs::saved layouts retain their exact identity across eligible tools"]
+disposition = "N"
+
+[sites."check-workspace-navigation.mjs::all saved-record and header comparison entries inherit the three shared requirements"]
+disposition = "N"
+
+[sites."check-workspace-navigation.mjs::independent decision limits survive tool and documentation navigation"]
+disposition = "N"
+
+[sites."check-workspace-navigation.mjs::native coordinate evaluations can be compared but are not turned into editable patches"]
+disposition = "N"
+
+[sites."check-workspace-navigation.mjs::record actions and workspace links expose simulation only for complete supported protocols"]
+disposition = "N"
+
+[sites."check-workspace-navigation.mjs::layouts searched under correlated noise offer neither signal simulation nor electrode editing"]
+disposition = "N"
+
+[sites."check-workspace-navigation.mjs::drafts and edited copies never use their parent as a completed evaluation"]
+disposition = "N"
+
+[sites."check-workspace-navigation.mjs::explicit no-selection prevents stale source IDs returning through docs"]
+disposition = "N"
+
+[sites."check-workspace-navigation.mjs::both results views retain all filters and current selection after tool excursions"]
+disposition = "N"
+
+[sites."check-workspace-navigation.mjs::docs preserve full work parameters rather than creating a new configuration"]
+disposition = "N"
+
+[sites."check-workspace-navigation.mjs::invalid IDs, counts and external returns cannot become active layout references"]
+disposition = "N"
+
+# --- Opt-in scripts ---------------------------------------------------------------------------------------------------
+
+[scripts."check-app-live.mjs"]
+kind = "live"
+slice = 10
+note = "its route checks run against the Python port from slice 2"
+
+[scripts."check-compression-live.mjs"]
+kind = "live"
+slice = 10
+note = "Python serves identity encoding only; keep the identity-transfer checks"
+
+[scripts."check-design-evaluation-live.mjs"]
+kind = "live"
+slice = 5
+
+[scripts."check-electrode-editor-live.mjs"]
+kind = "live"
+slice = 6
+
+[scripts."check-local-compute-live.mjs"]
+kind = "live"
+slice = 4
+
+[scripts."check-local-library-live.mjs"]
+kind = "live"
+slice = 4
+note = "the read half from slice 3; the cache half (key === row.id) in slice 4"
+
+[scripts."check-radius-recovery-live.mjs"]
+kind = "live"
+slice = 4
+
+[scripts."check-source-reception-live.mjs"]
+kind = "live"
+slice = 7
+
+[scripts."check-head-viewer.mjs"]
+kind = "browser"
+slice = 10
+
+[scripts."check-model-loading-browser.mjs"]
+kind = "browser"
+slice = 10
+note = "depends on static serving without sidecars"
+
+[scripts."check-workflows-browser.mjs"]
+kind = "browser"
+slice = 10
+note = "its reception steps from slice 7"
+
+[scripts."check-coordinate-names-browser.mjs"]
+kind = "browser"
+slice = 9
+note = "the evaluation part with --cache-only from slice 5"
+
+[scripts."check-coordinate-review-browser.mjs"]
+kind = "browser"
+slice = 9
+note = "the evaluation part with --cache-only from slice 5"
+
+[scripts."check-robustness-browser.mjs"]
+kind = "browser"
+slice = 8
+note = "with --cache-only; its Node normalizeDesignRequest import becomes a fixture"
+
+[scripts."check-research-workflow-browser.mjs"]
+kind = "browser"
+slice = 9
+note = "--stage2 and --stage3"
+
+[scripts."check-project-workflow-browser.mjs"]
+kind = "browser"
+slice = 9
+note = "without its two credential checks (R5)"
+
+[scripts."check-productization-browser.mjs"]
+kind = "browser"
+slice = 10
+note = "replaced by a browser check of workspace projects (credentials are R5)"

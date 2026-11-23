@@ -1,4 +1,9 @@
-"""The service's transport and diagnostic endpoints answer as the Node host does (design 0001, decision 6)."""
+"""The service's transport and diagnostic endpoints answer as the Node host does (design 0001, decision 6).
+
+The client is a loopback browser session: it has exchanged the launch token for the session cookie and sends
+the CSRF token with every request (tests/service/service_support.py); access control itself is tested in
+tests/service/test_access.py.
+"""
 import copy
 import hashlib
 import json
@@ -11,13 +16,12 @@ from schema_parity_support import CASES, FORMATS, ROOT, body_bytes, case_id, nee
 require('fastapi')
 require('httpx')
 
-from fastapi.testclient import TestClient  # noqa: E402
-
 from eeglayoutlab.schemas.registry import REQUEST_FORMATS  # noqa: E402
-from eeglayoutlab.server.app import MAX_BODY_BYTES, create_app  # noqa: E402
+from eeglayoutlab.server.app import MAX_BODY_BYTES  # noqa: E402
 from eeglayoutlab.server.openapi import openapi_document, openapi_text  # noqa: E402
+from service.service_support import loopback_client, make_app, static_export  # noqa: E402
 
-client = TestClient(create_app(), raise_server_exceptions=False)
+client = loopback_client(make_app(ROOT), csrf=True)
 JSON = {'content-type': 'application/json'}
 
 
@@ -176,6 +180,12 @@ def test_committed_openapi_document_is_current():
     assert (ROOT / 'contracts/generated/openapi.json').read_text(encoding='utf-8') == openapi_text()
 
 
-def test_interactive_documentation_pages_are_not_served():
-    for path in ('/docs', '/redoc', '/openapi.json'):
+def test_interactive_documentation_pages_are_not_served(tmp_path):
+    for path in ('/api/docs', '/api/redoc', '/api/openapi.json/'):
         assert_error(client.get(path), 404, 'not_found')
+    # Outside /api/ they are not pages of the interface either: the static export's 404 page.
+    pages = loopback_client(make_app(ROOT, static_export(tmp_path / 'static')))
+    for path in ('/docs', '/redoc', '/openapi.json'):
+        response = pages.get(path)
+        assert response.status_code == 404 and response.headers['content-type'] == 'text/html; charset=utf-8'
+        assert 'swagger' not in response.text.lower() and 'redoc' not in response.text.lower()

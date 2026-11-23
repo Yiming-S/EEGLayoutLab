@@ -26,6 +26,10 @@ service = [
 ]
 dev = ["httpx==0.28.1", "pytest==9.0.2"]
 
+[project.scripts]
+# The local application (design 0001, decision 6); needs the service extra.
+eeglayoutlab = "eeglayoutlab.cli.main:main"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src", "scripts"]

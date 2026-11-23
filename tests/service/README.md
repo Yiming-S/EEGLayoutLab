@@ -66,6 +66,61 @@ EEG_KEY_PARITY_ROOT=/path/to/EEGLayoutLab python -m pytest tests/service/test_ke
 
 Both read the root only. The stored-record check needs neither Node nor Pydantic.
 
+## Service host
+
+The HTTP service of slice 2 is tested in process with known tokens. `service_support.py` holds the helpers:
+
+- `synthetic_root` (with or without the radius worker and its bank, which health reports as `available`) and
+  `static_export` (a small export laid out as `npm run build` writes it, with sidecars, a dot directory and links
+  out of it);
+- `make_app`, and `loopback_client`, a `TestClient` at `http://127.0.0.1:<port>` that has already exchanged the
+  launch token at `/open`, so its jar holds the session cookie (`csrf=True` also sends the CSRF token);
+- `asgi_request`, one request passed to the application as uvicorn passes it, with the request target exactly as
+  written (HTTP clients normalize `..` and percent-encoding) and a chosen peer, `Host` and cookie.
+
+The modules:
+
+- `test_access.py`: the loopback guard on every path, `/open` and the session cookie (also from the launcher's
+  page, a cross-site navigation), the CSRF token on writes with each route family's Node message, Node's 404
+  messages per prefix, the body limits per task kind and the generic 500; and, with Node, that
+  `scripts/helpers/service-session.mjs` sends the launch token to 127.0.0.1 only. It holds the slice's ports in the
+  Node test map.
+- `test_health.py`: the four health routes. `parity/health.mjs` serves Node's real `createLocalComputeService` on
+  the same synthetic root, with a scratch queue directory, and records each kind's status, five headers and body;
+  Python must match byte for byte except for the token value, with the worker present and absent. Usage:
+  `node tests/service/parity/health.mjs <root> <queueDirectory> <out.json>`.
+- `test_static.py`: page routes, the 404 page, content types and cache headers, conditional and range requests,
+  `HEAD`, 405, and the paths never served (traversal, encoded separators, dot files, links out of the export,
+  `.br`/`.gz` sidecars, other spellings of a name). `parity/static_requests.mjs` sends the same conditional and
+  range requests, as raw HTTP, to a `node:http` server that evaluates them with vinext's own functions (the Node
+  host's static files), and parses the same HTTP dates; given Python's ETag, Python must answer each with the same
+  status and range (the tag itself is strong here and weak in vinext: design 0001, slice 2, known differences).
+  Usage: `node tests/service/parity/static_requests.mjs <cases.json> <out.json>`. The last test reads the real
+  `webapp/dist/client` when `npm run build` has written it.
+- `test_workspace.py`: the marker, the lock, `runtime.json`, the open page and instance reuse; a state directory
+  that is a link, another user's, or holds links; and `eeglayoutlab serve` in a subprocess over a real socket: a
+  second `serve` opens the running instance, SIGTERM or SIGINT removes the runtime file at once (so a second
+  `serve` during the shutdown starts anew), and a `BROWSER` command that does not return gets the open page while
+  the service answers.
+
+Without FastAPI, Uvicorn or httpx the tests that need them skip, unless `EEG_REQUIRE_SCHEMA_PARITY=1`; the health
+and static parity also need Node, and the static parity `webapp/node_modules` (`npm ci`).
+
+## Node test map
+
+Exit criterion 3 is that every Node test is ported or mapped. `node_tests.toml` has one entry per `test(` /
+`dataTest(` call site in the `webapp/scripts/check-*.mjs` files that import `node:test`, keyed by file and title,
+with its disposition: `P` with the Python `target`, `pending` with the `slice` and `module` that will port it,
+`C` with the format-parity `mirror`, `NA`, `D` with a reason R1-R7, `N`, `E` or `CLI` (the docstring of
+`test_node_test_map.py` defines them). `[scripts]` lists the opt-in live and Playwright scripts with the slice
+that retargets them.
+
+`test_node_test_map.py` reads the scripts with a small JavaScript lexer and fails on an unmapped or stale site, a
+target or mirror that is not a test pytest collects (named without a parametrized `[id]`; a target in
+`tests/service/`), a mirrored format still without a Node generator after its slice, and a
+pending entry of a finished slice (`SLICES_DONE`). A slice changes its sites to `P` and raises `SLICES_DONE` when
+it is done. `python tests/service/test_node_test_map.py` prints the counts.
+
 ## Guards
 
 `test_guards.py` keeps Python's `json` out of `eeglayoutlab.jobs` and `eeglayoutlab.server` (except the
