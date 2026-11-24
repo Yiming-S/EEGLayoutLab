@@ -8,11 +8,17 @@ The header displays online visitors, waiting tasks and running computations.
 Open it to see this browser's recent tasks, queue positions, cancellation
 controls and downloadable results. Refreshing a page does not delete a task.
 
-Online visitors means browsers that sent a visible-page heartbeat within 90
-seconds, not a verified number of people. Tabs in the same browser share one
-anonymous cookie; private windows and separate browsers count separately. The
-interface refreshes these counts every 15 seconds. Hidden pages do not renew
-online presence. An unavailable service displays an unavailable state, not zero.
+The interface reads these counts from `GET /api/community/status` every 15
+seconds and when the page becomes visible. When the answer counts online
+visitors, as the Node host's does, it then sends the visible-page heartbeat
+(`POST /api/community/heartbeat`) and shows that answer; the Python service of
+[design 0001](design/0001-phase-2-plan.md) has neither the count nor the
+heartbeat, and the count and its notices are shown only when the host reports
+one. Online visitors means browsers that sent a visible-page heartbeat within
+90 seconds, not a verified number of people. Tabs in the same browser share one
+anonymous cookie; private windows and separate browsers count separately.
+Hidden pages do not renew online presence. An unavailable service displays an
+unavailable state, not zero.
 
 The server assigns an opaque, signed HttpOnly, SameSite=Strict cookie automatically. It lasts 30 days and each page visit renews it. Explicit HTTPS proxy configuration also sets Secure. There is no
 account, email or password. Clearing that cookie removes the browser's ability

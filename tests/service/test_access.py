@@ -269,7 +269,8 @@ def test_http_enforces_same_origin_and_token(client):
     """check-community-queue.mjs:138 'HTTP enforces same-origin, token, cookie ownership; stats never expose IP or
     other receipts': the origin and token parts. Cookie ownership and visitor statistics are not carried over."""
     headers = {'x-eeg-compute-token': TOKENS.csrf, 'content-type': 'application/json'}
-    # With the token the request passes access control; the queue endpoint itself arrives in slice 4.
+    # With the token the request passes access control; this application runs without its lifespan, so no queue
+    # is started and the job route is an unknown endpoint (test_compute_routes.py serves it).
     assert_error(client.post('/api/local-compute/jobs', headers=headers, content=b'{"n":1}'), 404, 'not_found',
                  'Unknown queue endpoint')
     assert_error(client.post('/api/local-compute/jobs', content=b'{}'), 403, 'request_forbidden', COMPUTE_REFUSED)

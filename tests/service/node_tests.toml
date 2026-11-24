@@ -36,9 +36,8 @@ reason = "R1"
 note = "receipt retention per network"
 
 [sites."check-abuse-limits.mjs::a lookup of a computed result keeps the computed receipt and writes nothing new"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_queue.py"
+disposition = "P"
+target = "tests/service/test_queue.py::test_a_lookup_of_a_computed_result_keeps_the_computed_receipt_and_writes_nothing_new"
 
 [sites."check-abuse-limits.mjs::server faults are generic 500s and paths never reach visitors"]
 disposition = "P"
@@ -51,14 +50,12 @@ reason = "R2"
 note = "heavy-read gate"
 
 [sites."check-abuse-limits.mjs::a shutdown during a launch keeps the task queued instead of blocking restart"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_queue.py"
+disposition = "P"
+target = "tests/service/test_queue.py::test_a_shutdown_during_a_launch_keeps_the_task_queued_instead_of_blocking_restart"
 
 [sites."check-abuse-limits.mjs::a failed queue write stops new work until the disk accepts writes again"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_queue.py"
+disposition = "P"
+target = "tests/service/test_queue.py::test_a_failed_queue_write_stops_new_work_until_the_disk_accepts_writes_again"
 
 [sites."check-abuse-limits.mjs::projects are capped per network; never-used empty projects are removed after a month"]
 disposition = "D"
@@ -172,52 +169,44 @@ note = "spawns webapp/scripts/eeglayoutlab.mjs, which stays until the Python com
 # --- check-community-queue.mjs ----------------------------------------------------------------------------------------
 
 [sites."check-community-queue.mjs::all four services share one persistent FIFO slot; timeout starts in the worker"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_queue.py"
+disposition = "P"
+target = "tests/service/test_queue.py::test_all_four_services_share_one_persistent_fifo_slot"
 
 [sites."check-community-queue.mjs::exact pending keys share work; one subscriber cannot cancel the others"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_queue.py"
-note = "deduplication of pending keys; the subscriber part is dropped (R1)"
+disposition = "P"
+target = "tests/service/test_queue.py::test_exact_pending_keys_share_work_and_cancel_always_cancels"
+note = "deduplication of pending keys; the subscriber part is dropped (R1): one user's cancel stops the shared task"
 
 [sites."check-community-queue.mjs::completed cache bypasses a busy worker and repeated lookup reuses a receipt"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_queue.py"
+disposition = "P"
+target = "tests/service/test_queue.py::test_completed_cache_bypasses_a_busy_worker_and_repeated_lookup_reuses_a_receipt"
 
 [sites."check-community-queue.mjs::queued cancellation advances; running cancellation waits for actual close; cancelling is not shared"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_queue.py"
+disposition = "P"
+target = "tests/service/test_queue.py::test_queued_cancellation_advances_running_cancellation_waits_for_close"
 
 [sites."check-community-queue.mjs::queued receipt survives restart and changed scientific identity fails without starting"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_queue.py"
+disposition = "P"
+target = "tests/service/test_queue.py::test_queued_receipt_survives_restart_and_changed_identity_fails_without_starting"
 
 [sites."check-community-queue.mjs::queued receipt executes after clean restart and same-key pending lookup restores it"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_queue.py"
+disposition = "P"
+target = "tests/service/test_queue.py::test_queued_receipt_executes_after_clean_restart_and_same_key_lookup_restores_it"
 
 [sites."check-community-queue.mjs::worker PID blocks consecutive restarts; an unconfirmed spawn fails closed"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_queue.py"
+disposition = "P"
+target = "tests/service/test_queue.py::test_worker_pid_blocks_consecutive_restarts_and_an_unconfirmed_spawn_fails_closed"
+note = "the worker's process group; the reboot and --clear-interrupted releases in test_queue.py::test_an_unconfirmed_spawn_is_resolved_by_a_reboot_after_its_intent and test_compute_routes.py::test_an_unconfirmed_spawn_blocks_dispatch_until_clear_interrupted"
 
 [sites."check-community-queue.mjs::one live owner prevents a second scheduler; invalid queue JSON is not overwritten"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_queue.py"
+disposition = "P"
+target = "tests/service/test_queue.py::test_one_live_owner_prevents_a_second_service_and_invalid_queue_json_is_not_overwritten"
 note = "one owner per workspace lock; a corrupt queue file is kept byte for byte"
 
 [sites."check-community-queue.mjs::per-browser and global queue bounds, invalid inputs, and unknown ownership"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_queue.py"
-note = "the global bound and invalid inputs; the per-browser bound is dropped (R1)"
+disposition = "P"
+target = "tests/service/test_queue.py::test_the_global_queue_bound_invalid_inputs_and_unknown_receipts"
+note = "the global bound and invalid inputs; the per-browser bound is dropped (R1); the 429 queue_limited in test_queue.py::test_the_queue_bound_maps_to_nodes_http_code"
 
 [sites."check-community-queue.mjs::online estimates deduplicate a browser and expire at 90 seconds; cookies survive restart"]
 disposition = "D"
@@ -230,14 +219,12 @@ target = "tests/service/test_access.py::test_http_enforces_same_origin_and_token
 note = "the origin and token parts; cookie ownership and IP hiding are dropped (R1)"
 
 [sites."check-community-queue.mjs::backend key mismatch is cancelled and never presented as an old-key result"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_queue.py"
+disposition = "P"
+target = "tests/service/test_queue.py::test_backend_key_mismatch_is_cancelled_and_never_presented_as_an_old_key_result"
 
 [sites."check-community-queue.mjs::dispose during identity preparation cannot enqueue or launch a late task"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_queue.py"
+disposition = "P"
+target = "tests/service/test_queue.py::test_dispose_during_identity_preparation_cannot_enqueue_or_launch_a_late_task"
 
 [sites."check-community-queue.mjs::old IP logs expire and rate-limited visitors can still inspect status"]
 disposition = "D"
@@ -255,6 +242,40 @@ disposition = "pending"
 slice = 7
 module = "tests/service/test_queue.py"
 note = "saved signal downloads; the owner part is dropped (R1)"
+
+# --- check-community-status.mjs ---------------------------------------------------------------------------------------
+
+[sites."check-community-status.mjs::the task menu reads both status shapes and counts visitors only when the host does"]
+disposition = "N"
+note = "the interface's task menu (components/community-status-model.ts), on both hosts"
+
+[sites."check-community-status.mjs::an answer the menu cannot show is not a status"]
+disposition = "N"
+
+[sites."check-community-status.mjs::the status route is read with a plain GET: no token, no heartbeat, no visibility header"]
+disposition = "N"
+note = "GET /api/community/status, which both hosts serve (slice 4)"
+
+[sites."check-community-status.mjs::the Python service gets the plain status read only"]
+disposition = "N"
+
+[sites."check-community-status.mjs::the Node host, which counts visitors, gets its visible-page heartbeat and the menu shows its answer"]
+disposition = "N"
+note = "POST /api/community/heartbeat only for a host whose status counts visitors"
+
+[sites."check-community-status.mjs::each request of a refresh has its own time limit, so a slow Node host still answers"]
+disposition = "N"
+note = "an 8 s limit per request, as health and the heartbeat each had"
+
+[sites."check-community-status.mjs::on the Node host the menu still counts each browser and logs its visit"]
+disposition = "N"
+note = "Node's own CommunityQueue and community routes over HTTP"
+
+[sites."check-community-status.mjs::a refused or unreadable status is offline"]
+disposition = "N"
+
+[sites."check-community-status.mjs::the component refreshes through the model with the page visibility and shows the visitor notices only with a count"]
+disposition = "N"
 
 # --- check-coordinate-bundles.mjs -------------------------------------------------------------------------------------
 
@@ -398,9 +419,9 @@ module = "tests/service/test_source.py"
 note = "the reception v2 result validator"
 
 [sites."check-cross-region-contract.mjs::real source adapter deduplicates permuted selections and restores a pending canonical request"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_queue.py"
+disposition = "P"
+target = "tests/service/test_queue.py::test_a_source_adapter_deduplicates_permuted_selections_and_restores_a_pending_canonical_request"
+note = "jobs.kinds.ServiceAdapter over the Node test's stub service, with the cross-region order; the reception normalizer and adapter come with slice 7"
 
 # --- check-data-prior.mjs ---------------------------------------------------------------------------------------------
 
@@ -928,9 +949,8 @@ disposition = "N"
 disposition = "N"
 
 [sites."check-lab-workflow.mjs::all 30 actual strict-area records have exactly one entry per domain-area-R and preserved metrics"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_radius.py"
+disposition = "P"
+target = "tests/service/test_radius.py::test_all_30_actual_strict_area_records_have_exactly_one_entry_per_domain_area_r_and_preserved_metrics"
 note = "dataTest; the port is marked data_bundle; area rows and links stay in Node on a recorded library"
 
 [sites."check-lab-workflow.mjs::other protocols, missing rows and unmeasured sizes cannot fill strict-area gaps"]
@@ -1093,30 +1113,28 @@ target = "tests/service/test_radius.py::test_result_validation_rejects_stale_req
 note = "the result validator; Node's message for each check in test_validator_messages_equal_node"
 
 [sites."check-local-compute.mjs::queue has one child, deduplicates identical in-flight requests and records progress"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_radius.py"
+disposition = "P"
+target = "tests/service/test_radius.py::test_queue_has_one_child_deduplicates_identical_in_flight_requests_and_records_progress"
 note = "shell off and OPENBLAS_NUM_THREADS='2' for the radius worker"
 
 [sites."check-local-compute.mjs::disk cache survives queue restart and source identity invalidates it"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_radius.py"
+disposition = "P"
+target = "tests/service/test_radius.py::test_disk_cache_survives_queue_restart_and_source_identity_invalidates_it"
 
 [sites."check-local-compute.mjs::cancellation does not release capacity until child closes; no result is cached"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_worker.py"
+disposition = "P"
+target = "tests/service/test_radius.py::test_cancellation_does_not_release_capacity_until_child_closes_no_result_is_cached"
+note = "on the run path (jobs.radius.RadiusJobs); the transport and the permit also on a stand-in queue in test_worker.py::test_cancellation_does_not_release_capacity_until_the_child_closes"
 
 [sites."check-local-compute.mjs::wall-clock timeout terminates the worker and returns a non-numeric failure"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_worker.py"
+disposition = "P"
+target = "tests/service/test_radius.py::test_wall_clock_timeout_terminates_the_worker_and_returns_a_non_numeric_failure"
+note = "on the run path; also on a stand-in queue in test_worker.py::test_wall_clock_timeout_terminates_the_worker_with_a_non_numeric_failure"
 
 [sites."check-local-compute.mjs::malformed or mismatched worker output fails without crashing the server"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_worker.py"
+disposition = "P"
+target = "tests/service/test_radius.py::test_malformed_or_mismatched_worker_output_fails_without_crashing_the_server"
+note = "on the run path; also on a stand-in queue in test_worker.py::test_malformed_or_mismatched_worker_output_fails_without_crashing"
 
 [sites."check-local-compute.mjs::mutation endpoint requires the random local-session token, including unicode input"]
 disposition = "P"
@@ -1143,8 +1161,8 @@ note = "dataTest: the port is marked data_bundle"
 
 [sites."check-local-data-library.mjs::existing cache has history after restart and exact lookup does not spawn"]
 disposition = "P"
-target = "tests/service/test_library.py::test_existing_cache_has_history_after_restart"
-note = "the designLink assertion stays in Node; the lookup's hit and miss as cache reads, its job view with the queue in slice 4"
+target = "tests/service/test_library.py::test_an_exact_lookup_of_a_stored_record_is_a_hit_and_does_not_spawn"
+note = "the listing half in test_library.py::test_existing_cache_has_history_after_restart; the designLink assertion stays in Node"
 
 [sites."check-local-data-library.mjs::historical algorithm data stays readable but cannot resume as current cache"]
 disposition = "P"
@@ -1153,18 +1171,17 @@ note = "the designLink assertion stays in Node; the lookup miss as a changed key
 
 [sites."check-local-data-library.mjs::cached result is served while unrelated computation runs, without changing that job"]
 disposition = "P"
-target = "tests/service/test_library.py::test_cached_result_is_served_without_touching_the_store"
-note = "the read side; submit beside a running job ports with the queue in slice 4"
+target = "tests/service/test_library.py::test_a_cached_result_is_served_while_unrelated_computation_runs"
+note = "the read side in test_library.py::test_cached_result_is_served_without_touching_the_store"
 
 [sites."check-local-data-library.mjs::invalid checksum and malformed records are misses, not usable scores"]
 disposition = "P"
 target = "tests/service/test_library.py::test_invalid_checksum_and_malformed_records_are_misses"
 
 [sites."check-local-data-library.mjs::lookup HTTP endpoint returns a miss without a task, and rejects extra query fields"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_radius.py"
-note = "the lookup endpoint; its read side (hit, miss, refused body) in test_library.py::test_lookup_bodies_hit_miss_or_are_refused_before_any_read"
+disposition = "P"
+target = "tests/service/test_compute_routes.py::test_the_lookup_endpoint_answers_without_a_task_and_rejects_extra_fields"
+note = "over HTTP with the workspace queue; the read side (hit, miss, refused body) in test_library.py::test_lookup_bodies_hit_miss_or_are_refused_before_any_read"
 
 [sites."check-local-data-library.mjs::input byte changes invalidate memoized SHA even when model pointer stays the same"]
 disposition = "P"
@@ -1172,8 +1189,8 @@ target = "tests/service/test_library.py::test_input_byte_changes_invalidate_memo
 
 [sites."check-local-data-library.mjs::failed input identity blocks cached reuse instead of starting replacement work"]
 disposition = "P"
-target = "tests/service/test_library.py::test_failed_input_identity_blocks_cached_reuse"
-note = "the library's compatible flag and warning; submit's refusal ports with the queue in slice 4"
+target = "tests/service/test_library.py::test_failed_input_identity_blocks_cached_reuse_instead_of_starting_work"
+note = "the library's compatible flag and warning in test_library.py::test_failed_input_identity_blocks_cached_reuse"
 
 [sites."check-local-data-library.mjs::library only returns allowlisted opaque IDs, not filesystem paths"]
 disposition = "P"
@@ -1341,9 +1358,9 @@ module = "tests/service/test_delivery.py"
 note = "disposal waits for accepted project writes"
 
 [sites."check-product-operations-integration.mjs::shutdown during asynchronous admission cannot persist a late queued task or project"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_queue.py"
+disposition = "P"
+target = "tests/service/test_queue.py::test_shutdown_during_asynchronous_admission_cannot_persist_a_late_queued_task"
+note = "the queued task; projects are slice 9"
 
 # --- check-project-api.mjs --------------------------------------------------------------------------------------------
 
@@ -1623,32 +1640,28 @@ disposition = "D"
 reason = "R6"
 
 [sites."check-queue-maintenance.mjs::an external worker acquiring the slot during dispatch preparation keeps the task queued"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_queue.py"
-note = "without the maintenance flag"
+disposition = "P"
+target = "tests/service/test_queue.py::test_an_external_worker_acquiring_the_slot_during_dispatch_preparation_keeps_the_task_queued"
+note = "without the maintenance flag; the installation lock taken during preparation in test_queue.py::test_another_workspace_taking_the_installation_lock_while_a_task_is_prepared_keeps_it_queued"
 
 [sites."check-queue-maintenance.mjs::pause during service preparation releases the permit and restores the same queue position"]
 disposition = "D"
 reason = "R6"
 
 [sites."check-queue-maintenance.mjs::confirmed busy contention clears spawn intent and preserves FIFO through maintenance and restart"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_queue.py"
+disposition = "P"
+target = "tests/service/test_queue.py::test_confirmed_busy_contention_clears_spawn_intent_and_preserves_fifo_through_restart"
 note = "without the maintenance flag"
 
 [sites."check-queue-maintenance.mjs::an ambiguous thrown start keeps its recovery guard through maintenance and restart"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_queue.py"
+disposition = "P"
+target = "tests/service/test_queue.py::test_an_ambiguous_thrown_start_keeps_its_recovery_guard_through_restart"
 note = "without the maintenance flag"
 
 [sites."check-queue-maintenance.mjs::a worker launched before the pause stays tracked when start resolves afterwards"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_queue.py"
-note = "without the maintenance flag"
+disposition = "P"
+target = "tests/service/test_queue.py::test_a_worker_launched_while_the_service_stops_stays_tracked"
+note = "without the maintenance flag: the pause is the shutdown's stop_scheduling"
 
 [sites."check-queue-maintenance.mjs::drained accounts for external backend activity, permits and uncertain worker guards"]
 disposition = "D"
@@ -1708,9 +1721,8 @@ note = "title `a blocked HTTP ${status} task can reconnect without changing serv
 # --- check-reconciliation.mjs -----------------------------------------------------------------------------------------
 
 [sites."check-reconciliation.mjs::only running and exact restart-interrupted failed receipts are recoverable"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_queue.py"
+disposition = "P"
+target = "tests/service/test_queue.py::test_only_running_and_exact_restart_interrupted_failed_receipts_are_recoverable"
 note = "startup recovery of the local queue"
 
 [sites."check-reconciliation.mjs::pure repair retains owners, annotation variants, order and unknown legacy fields"]
@@ -1719,15 +1731,13 @@ reason = "R6"
 note = "offline receipt repair of the hosted queue"
 
 [sites."check-reconciliation.mjs::no_layout is valid only for the radius cache; cancellations never revive"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_queue.py"
+disposition = "P"
+target = "tests/service/test_queue.py::test_no_layout_is_valid_only_for_the_radius_search_and_cancellations_never_revive"
 note = "startup recovery of the local queue"
 
 [sites."check-reconciliation.mjs::missing, invalid, stale and duplicate observations cannot change receipts"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_queue.py"
+disposition = "P"
+target = "tests/service/test_queue.py::test_missing_invalid_stale_and_duplicate_observations_cannot_change_receipts"
 note = "startup recovery of the local queue"
 
 [sites."check-reconciliation.mjs::inspector validates the raw result and full current identity twice without modifying cache"]
@@ -1736,9 +1746,8 @@ reason = "R6"
 note = "offline receipt repair of the hosted queue"
 
 [sites."check-reconciliation.mjs::legacy cache without identity uses the original key definition and production validator"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_queue.py"
+disposition = "P"
+target = "tests/service/test_queue.py::test_a_radius_cache_without_identity_uses_the_key_definition_and_the_production_validator"
 note = "startup recovery of the local queue"
 
 [sites."check-reconciliation.mjs::rehashed but wrong stored identity and invalid result checksum are retained"]
@@ -2233,14 +2242,12 @@ disposition = "P"
 target = "tests/service/test_runtime_config.py::test_linux_table_runtime_is_selected_only_without_simnibs"
 
 [sites."check-runtime-storage.mjs::record storage isolates checkouts and preserves the previous JSON when replacement fails"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_storage.py"
+disposition = "P"
+target = "tests/service/test_storage.py::test_record_storage_isolates_checkouts_and_preserves_the_previous_json"
 
 [sites."check-runtime-storage.mjs::record reads and batch creation reject symlinks to external data"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_storage.py"
+disposition = "P"
+target = "tests/service/test_storage.py::test_record_reads_and_batch_creation_reject_symlinks_to_external_data"
 
 # --- check-scene-rendering.mjs ----------------------------------------------------------------------------------------
 
@@ -2287,10 +2294,9 @@ reason = "R2"
 # --- check-service-storage.mjs ----------------------------------------------------------------------------------------
 
 [sites."check-service-storage.mjs::service factory shares one record store and honors a paused custom queue directory"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_storage.py"
-note = "one record store and execution slot; the paused queue part is dropped (R6)"
+disposition = "P"
+target = "tests/service/test_compute_routes.py::test_the_services_share_one_record_store_and_one_execution_slot"
+note = "one record store and execution slot, the queue in W/.eeglayoutlab, --cache-only in place of the paused start; the custom queue directory is dropped (R6); the store's writes in test_storage.py::test_the_service_shares_one_record_store"
 
 [sites."check-service-storage.mjs::native services preserve managed interpreter precedence over radius overrides"]
 disposition = "P"
@@ -2570,35 +2576,29 @@ disposition = "N"
 # --- check-worker-lifecycle.mjs ---------------------------------------------------------------------------------------
 
 [sites."check-worker-lifecycle.mjs::execution permit is exclusive, idempotent, and maintenance blocks new owners only"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_worker.py"
+disposition = "P"
+target = "tests/service/test_worker.py::test_execution_permit_is_exclusive_and_idempotent"
 note = "the maintenance part is dropped (R6)"
 
 [sites."check-worker-lifecycle.mjs::worker decodes split UTF-8 and the final unterminated event without treating diagnostics as data"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_worker.py"
+disposition = "P"
+target = "tests/service/test_worker.py::test_worker_decodes_split_utf8_and_the_final_unterminated_event"
 
 [sites."check-worker-lifecycle.mjs::stderr is bounded and spawn errors wait for actual close"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_worker.py"
+disposition = "P"
+target = "tests/service/test_worker.py::test_stderr_is_bounded_and_spawn_errors_wait_for_actual_close"
 
 [sites."check-worker-lifecycle.mjs::timeout escalates termination and never closes transport before the child closes"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_worker.py"
+disposition = "P"
+target = "tests/service/test_worker.py::test_timeout_escalates_termination_and_never_closes_before_the_child_closes"
 
 [sites."check-worker-lifecycle.mjs::output overflow and failed stdin stop once, retaining capacity until close"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_worker.py"
+disposition = "P"
+target = "tests/service/test_worker.py::test_output_overflow_and_failed_stdin_stop_once_retaining_capacity_until_close"
 
 [sites."check-worker-lifecycle.mjs::competing services share one permit and result validation retains it after process close"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_worker.py"
+disposition = "P"
+target = "tests/service/test_worker.py::test_competing_services_share_one_permit_and_validation_retains_it_after_close"
 
 [sites."check-worker-lifecycle.mjs::maintenance requested after permit acquisition prevents a late process start"]
 disposition = "D"
@@ -2606,19 +2606,16 @@ reason = "R6"
 note = "queue maintenance"
 
 [sites."check-worker-lifecycle.mjs::spawn and durable-write failures release the permit without a success result"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_worker.py"
+disposition = "P"
+target = "tests/service/test_worker.py::test_spawn_and_durable_write_failures_release_the_permit_without_a_success_result"
 
 [sites."check-worker-lifecycle.mjs::real process transport completes after collecting its final event"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_worker.py"
+disposition = "P"
+target = "tests/service/test_worker.py::test_real_process_transport_completes_after_collecting_its_final_event"
 
 [sites."check-worker-lifecycle.mjs::worker completion waits for a surviving native descendant to exit"]
-disposition = "pending"
-slice = 4
-module = "tests/service/test_worker.py"
+disposition = "P"
+target = "tests/service/test_worker.py::test_worker_completion_waits_for_a_surviving_native_descendant_to_exit"
 note = "skipped on win32"
 
 # --- check-workspace-navigation.mjs -----------------------------------------------------------------------------------
@@ -2682,15 +2679,17 @@ slice = 6
 [scripts."check-local-compute-live.mjs"]
 kind = "live"
 slice = 4
+note = "retargeted in slice 4: the Python service through EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN, Node otherwise; it computes, so run it on a copy of the installation"
 
 [scripts."check-local-library-live.mjs"]
 kind = "live"
 slice = 4
-note = "the read half from slice 3; the cache half (key === row.id) in slice 4"
+note = "retargeted in slice 4 (EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN): the read half, and the cache half (key === row.id) from a workspace that did not compute the rows"
 
 [scripts."check-radius-recovery-live.mjs"]
 kind = "live"
 slice = 4
+note = "retargeted in slice 4 (EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN); it computes, so run it on a copy; its fixed original record and provenance version describe an older installation"
 
 [scripts."check-source-reception-live.mjs"]
 kind = "live"

@@ -6,13 +6,16 @@ Node serves the four from ``communityMiddleware`` (community-queue.mjs) with the
 ``active_job`` keeping its first position. ``token`` is the CSRF token every write sends back as
 ``X-EEG-Compute-Token``; health is reachable only with the session cookie.
 
-The local service has no operator maintenance mode, so ``maintenance`` and ``drained`` are ``false``; the
-active task of the kind (``active_job``) arrives with the job engine (slice 4).
+With the workspace queue started (the application's lifespan, ``routes.compute.ComputeHost``), ``active_job`` is
+the first pending receipt of the kind viewed without its result (``WorkspaceQueue.active``), and ``maintenance`` and
+``drained`` are the queue's: ``maintenance`` is ``eeglayoutlab serve --cache-only`` (Node's operator maintenance
+mode is not carried over), ``drained`` that nothing runs or may still run. Without a queue they are ``null``,
+``false`` and ``false``.
 """
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional
 
 from fastapi import FastAPI, Response
 
@@ -21,6 +24,7 @@ from ..app import json_response
 
 if TYPE_CHECKING:
     from ..app import ServiceConfig
+    from .compute import ComputeHost
 
 KINDS = ('local-compute', 'design-evaluation', 'source-reception', 'electrode-editor')
 MASK_CODES = ['PL', 'PR', 'AL', 'AR', 'FL', 'FM', 'FR', 'OL', 'OR']
@@ -43,10 +47,18 @@ def health(config: 'ServiceConfig') -> dict[str, Any]:
     }
 
 
-def add_routes(app: FastAPI, config: 'ServiceConfig') -> None:
-    async def endpoint() -> Response:
-        return json_response(200, health(config))
+def add_routes(app: FastAPI, config: 'ServiceConfig', compute: Optional['ComputeHost'] = None) -> None:
+    def route(kind: str) -> Callable[[], Awaitable[Response]]:
+        async def endpoint() -> Response:
+            body = health(config)
+            queue = compute.queue if compute is not None else None
+            if queue is not None:
+                # Assigned in place: active_job keeps its position, as Node's spread keeps it.
+                body['active_job'] = await queue.active(kind)
+                body.update(queue.maintenance_status())
+            return json_response(200, body)
+        return endpoint
 
     for kind in KINDS:
-        app.add_api_route(f'/api/{kind}/health', endpoint, methods=['GET'], include_in_schema=False,
+        app.add_api_route(f'/api/{kind}/health', route(kind), methods=['GET'], include_in_schema=False,
                           name=f'health_{kind.replace("-", "_")}')

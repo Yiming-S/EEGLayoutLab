@@ -104,8 +104,12 @@ The modules:
 - `test_workspace.py`: the marker, the lock, `runtime.json`, the open page and instance reuse; a state directory
   that is a link, another user's, or holds links; and `eeglayoutlab serve` in a subprocess over a real socket: a
   second `serve` opens the running instance, SIGTERM or SIGINT removes the runtime file at once (so a second
-  `serve` during the shutdown starts anew), and a `BROWSER` command that does not return gets the open page while
-  the service answers.
+  `serve` during the shutdown starts anew; a stop right after the file is written leaves none), a `BROWSER`
+  command that does not return gets the open page while the service answers, and the flags of slice 4:
+  `--cache-only` reports maintenance, `--clear-interrupted` releases an unconfirmed spawn, a corrupt
+  `queue.json` makes `serve` exit 1 and is kept, Ctrl+C pressed twice during a radius job still stops its
+  worker and writes its records, a stop before the compute services exist dispatches nothing, and a failed last
+  write of the queue makes `serve` exit 1.
 
 Without FastAPI, Uvicorn or httpx the tests that need them skip, unless `EEG_REQUIRE_SCHEMA_PARITY=1`; the health
 and static parity also need Node, and the static parity `webapp/node_modules` (`npm ci`).
@@ -123,7 +127,7 @@ with one thread-pool worker and a queue directory that is only resolved, never c
   `/api/normalize/radius-search` route are in the schema parity tests.
 - `test_radius.py`: the worker-result validator (check-local-compute.mjs:61, and 33 cases against Node's
   `validateWorkerResult` message by message), `code_identity` (top-level `src/compact_eeg/*.py`, raw reads that
-  follow links: B8), `radius_identity` and `RadiusCache.read_cache`.
+  follow links: B8), `radius_identity` and `RadiusCache.read_cache`; its run path is in the next section.
 - `test_key_parity.py`: the radius identity. `parity/library.mjs` in its `identities` mode builds a fresh
   `LocalComputeQueue` per case and records `identityFor`. The `radius-*` roots of `key_parity_support.py` (managed
   runtimes, a linked root, and one break each: a code file linked out of the root, a directory, a dangling or
@@ -135,8 +139,8 @@ with one thread-pool worker and a queue directory that is only resolved, never c
   under each evaluation condition, annotations; a linked root, a linked code file, a bare root, roots that break
   the offline datasets) and holds the inline Node driver `LIBRARY_DRIVER`. The list compares as a set of record
   texts plus the `finished_at` order, the rest as text; every record directory is read with `get`. It ports
-  check-local-data-library.mjs (the lookup and submit halves of :83, :102 and :144 come with the queue in
-  slice 4).
+  check-local-data-library.mjs; the lookup and submit halves of :83, :102 and :144 run on `RadiusJobs` with a
+  spawn that fails the test, and the lookup endpoint of :121 is in `test_compute_routes.py`.
 - `test_bundle.py`: `experiment_bundle` and `describe_search` against Node's `experimentBundle`.
   `bundle_support.py` builds the roots and stand-in interpreters for the frozen-bank export subprocess (arguments,
   environment, stream kinds, output at and over 1 MiB, invalid UTF-8, exits, signals) and holds `BUNDLE_DRIVER`;
@@ -179,6 +183,85 @@ compare that installation with Node: the list and every record (the 342 offline 
 historical-area records, every cache row and every saved evaluation: the parent-digest inputs, B13), the bundle of
 every record (the frozen-bank coordinates exported with the installation's own interpreter; about 3 minutes), the
 catalogs, and the routes for every record and a sample of bundles.
+
+## Job engine, queue and radius jobs
+
+Slice 4 writes: the worker transport and the execution slot, the record writes, the radius run path, the workspace
+queue and the job routes. Everything that computes or writes runs on synthetic roots in `tmp_path` with stand-in
+workers; the Node references write only under their case roots and scratch directories.
+
+- `test_worker.py` (`jobs.worker`, `jobs.slot`): check-worker-lifecycle.mjs, whose fake children (`FakeChild`)
+  drive the worker through its `spawn` hook, and the transport half of check-local-compute.mjs:97, :106 and :111 on
+  `Runner`, a stand-in queue that holds the permit as `LocalComputeQueue` does. Then spawn errors, the stdin
+  encoding, callbacks that raise, the hard bound on a run whose output or group outlives its leader, and the
+  installation lock (its place beside the record trees, a holder in another process, the probe that takes nothing,
+  the descriptor open for writing, the descriptor closed when the check after its `flock` fails, the lock during a
+  run, links and directories out of the root, refused with `createBatch`'s message, and the root resolved with
+  `realpath(3)` as `create_batch` resolves it: a link spelling the root in another case or normalization, and a
+  dangling link).
+  `parity/worker.mjs` runs Node's own `startPythonWorker` on 169 scripted fake children (89 written out, among
+  them every cut of a 35-byte sample of valid and invalid UTF-8 through both decoders, and 80 seeded random UTF-8
+  splits) and on 23 real processes (exit codes, signals, the output bound, the timeout's SIGKILL, a surviving
+  descendant, stdin modes, spawn errors, a script without a `#!` line, PATH search, invalid UTF-8); every callback
+  and close is compared as JSON text. Usage:
+  `node tests/service/parity/worker.mjs <spec.json> <out.json>` (its header documents the spec).
+- `test_storage.py` (`jobs.records`, the write side): check-runtime-storage.mjs:35 and :56, the record-store half
+  of check-service-storage.mjs:12, and `publish_cache` (B16): a valid cache is never replaced, threads and
+  processes racing for one key publish once, errors leave the cache as it was, a crash leaves only a `*.tmp` that
+  readers ignore. `parity/records.mjs` runs Node's `RecordStore` and `atomicJson` with its `fs/promises` calls
+  recorded (replaced through `syncBuiltinESMExports` before `records.mjs` is imported), on 18 cases built once per
+  side; values, error messages, call traces and resulting trees (names, types, modes, link counts, link targets,
+  bytes) must be equal. Usage: `node tests/service/parity/records.mjs <spec.json> <out.json>`; its ops are
+  `createBatch`, `write`, `atomicJson`, `publish`, `read`, `keys`, `path` and `directory`, with `$number`
+  stand-ins and `cycle` for circular values.
+- `test_radius.py`, the run path (`RadiusJobs`): check-local-compute.mjs:72 (one child, the shell off, two BLAS
+  threads), :86, :97, :106 and :111, driven through `radius_support.FakeChild` as Node drives its fake children;
+  the permit and installation lock held until the records are written, another workspace computing, a paused slot
+  and a broken lock, a cancel during the spawn, a cancelled caller, a cache published first by another workspace,
+  `aclose`, the job map's bound, a real worker process, and the timeout case of the parity under a loop stalled for
+  less than its timer.
+  `parity/radius_run.mjs` runs Node's `LocalComputeQueue` with an injected `spawnProcess`, a pinned `Date` and
+  pinned job ids on 13 cases (completed, no layout, worker failure, spawn throw, invalid result, timeout, cancel,
+  stdin error, output limit, dispose and restart, store failure, normalized requests, code-root provenance); the
+  `request.json`, `job.json` and `cache.json` bytes, the job states and the child's spawn arguments must be equal.
+  Usage:
+  `node tests/service/parity/radius_run.mjs <spec.json> <out.json>`. With `EEG_KEY_PARITY_ROOT`,
+  check-lab-workflow.mjs:25 reads that installation's strict-area records (no lookup, no submit).
+- `test_queue.py` (`jobs.queue`, `jobs.kinds`): with the stub adapters of check-community-queue.mjs:11-38
+  (`queue_support.Stubs`), the scheduler tests of check-community-queue.mjs, the queue tests of
+  check-abuse-limits.mjs and check-queue-maintenance.mjs (without the maintenance flag), check-reconciliation.mjs as
+  startup recovery, check-cross-region-contract.mjs:124 and check-product-operations-integration.mjs:131. Then
+  crash consistency of `queue.json`, corrupt files kept byte for byte, a failed last write at `dispose` kept for
+  the service, the boot id and `clear_interrupted` (for an unconfirmed spawn and for a recorded worker pid; a clock
+  set forward is no reboot), process-group liveness, the installation lock held by another workspace before the task
+  is prepared or taken while it is prepared (the task stays queued, nothing is written), a record tree out of the
+  root (Node's message, after the key check; a restart is not blocked), a hit's stored `finished_at` that is not a
+  string, finalization from the completion callback, retention, `cache_only`, the statuses of
+  `task-client.ts`, and the local-compute adapter over `RadiusJobs`. `parity/queue_views.mjs` runs Node's
+  `CommunityQueue` with the same stubs on 9 scenarios; views, statistics and the maintenance status must be equal
+  once `owners`, `networks` and `online_visitors` are removed and identifiers numbered in order of appearance.
+  Usage: `node tests/service/parity/queue_views.mjs <spec.json> <out.json>`.
+- `test_compute_routes.py` (`server/routes/compute.py`, `community.py`, the lifespan): the application with its
+  lifespan over HTTP on a root whose worker is `compute_support.FAKE_WORKER`, a stand-in for
+  `scripts/run_local_radius_compute.py` that plays the plan step of each request (`compute_support.serving` starts
+  it on a workspace). Submit and poll, the stored receipt, joins and cancels, failure messages, the lookup endpoint
+  (check-local-data-library.mjs:121), the services sharing one store and one slot (check-service-storage.mjs:12),
+  two workspaces of one root computing one at a time (the waiting one writes nothing), `ComputeHost.stop_soon`
+  (serve's first signal) stopping the worker while the service still answers, and before the services exist
+  stopping them once built (a queued task stays queued), `--cache-only`, the 429 bound, a
+  restart through a second application, an unconfirmed spawn and its log hint, Node's body, JSON, CSRF and query
+  rules, and a corrupt queue file. `parity/compute_routes.mjs` serves Node's composed
+  `createLocalComputeService` (its scheduler's state in a scratch directory) on the same root with the same fake
+  worker; the 37 steps of `compute_support.STEPS` must give the same statuses, content types and bodies (ids,
+  times and the token masked, Node's `online_visitors` dropped) and the same record tree under
+  `R/results/v2/local_app_jobs`; on a root whose `results` is a link out of it, 4 steps give Node's refusal, and on
+  one whose `results` link spells the root in upper case, Node's result. Usage:
+  `node tests/service/parity/compute_routes.mjs <spec.json> <out.json>`.
+
+The Node references need Node; the run path, the queue's adapter tests and the routes also need Pydantic (and the
+routes FastAPI and httpx). Without them those tests skip, unless `EEG_REQUIRE_SCHEMA_PARITY=1`. The process tests
+(groups, signals, the lock) are written for macOS and Linux, and they wait on events with generous bounds so that
+they hold under load.
 
 ## Node test map
 

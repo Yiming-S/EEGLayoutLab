@@ -3,10 +3,20 @@ import assert from 'node:assert/strict';
 import { mkdir, readdir, writeFile, readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { resolve, join } from 'node:path';
-import { validateSavedRecord } from './local-data-library.mjs';
+import { validateSavedRecord } from '../server/local-data-library.mjs';
+import { openServiceSession } from './helpers/service-session.mjs';
 
-const base = 'http://localhost:3000', root = resolve('..');
-const json = async (url, options) => { const response = await fetch(base + url, options); assert.ok(response.ok, `${url}: ${response.status}`); return response.json(); };
+// The Node host at EEG_TEST_URL (default http://127.0.0.1:3000), or the Python service (eeglayoutlab serve): with
+// EEG_SERVICE_RUNTIME (its <workspace>/.eeglayoutlab/runtime.json) or EEG_SERVICE_TOKEN and EEG_TEST_URL, sign in
+// as its launched browser and send the session cookie. EEG_REPOSITORY_ROOT is the root the service serves (default
+// this checkout).
+const service = process.env.EEG_SERVICE_RUNTIME || process.env.EEG_SERVICE_TOKEN
+  ? await openServiceSession({ base: process.env.EEG_TEST_URL }) : null;
+const base = service?.base || process.env.EEG_TEST_URL || 'http://127.0.0.1:3000';
+const call = (path, options = {}) => fetch(base + path,
+  { ...options, headers: { ...options.headers, ...(service ? { Cookie: service.cookie } : {}) } });
+const root = resolve(process.env.EEG_REPOSITORY_ROOT || '..');
+const json = async (url, options) => { const response = await call(url, options); assert.ok(response.ok, `${url}: ${response.status}`); return response.json(); };
 const files = async () => (await readdir(join(root, 'results/v2/local_app_jobs'), { recursive: true })).filter((p) => p.endsWith('request.json')).sort();
 const unchangedSources = ['webapp/public/data/single_head_optimization.json', 'results/v2/current_strict_area_budget_study.json'];
 const hashes = async () => Promise.all(unchangedSources.map(async (p) => createHash('sha256').update(await readFile(join(root, p))).digest('hex')));
@@ -44,7 +54,7 @@ assert.equal((await json('/api/local-compute/health')).active_job?.id, health.ac
 const areaRecord = selected.find((row) => row.dataset_id === 'strict_area');
 const routes = ['/', '/?domain=whole_scalp_free&area=120&r=3&ar=50', '/design', `/design?from=${areaRecord.id}&ar=50`, '/library', `/library?record=${areaRecord.id}&ar=50`, '/method?ar=50&returnTo=%2Fdesign%3Far%3D50', '/results'];
 for (const route of routes) {
-  const response = await fetch(base + route); assert.equal(response.status, 200);
+  const response = await call(route); assert.equal(response.status, 200);
 }
 const report = { status: 'passed', completed_utc: new Date().toISOString(), datasets: library.datasets,
   cached_requests_checked: timings.length, no_new_task_files: true, original_data_unchanged: true,

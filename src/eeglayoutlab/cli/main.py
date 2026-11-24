@@ -1,4 +1,5 @@
-"""``eeglayoutlab serve [WORKSPACE] [--root R] [--port N] [--static DIR] [--no-browser]``.
+"""``eeglayoutlab serve [WORKSPACE] [--root R] [--port N] [--static DIR] [--no-browser] [--cache-only]
+[--clear-interrupted]``.
 
 Starts the local service for one workspace (design 0001, decision 6):
 
@@ -17,9 +18,23 @@ Starts the local service for one workspace (design 0001, decision 6):
   goes to the browser in ``W/.eeglayoutlab/open.html`` (``workspace.write_open_page``), not on its command line,
   which every local user can read; only macOS's default launcher, which passes the URL on standard input, gets the
   URL itself.
+- **Job queue** (``W/.eeglayoutlab/queue.json``): started with the service, after its restart rules. A queue file
+  that cannot be used stops ``serve`` with a message and stays as it was. ``--cache-only`` serves stored results
+  and refuses new computations (Node's maintenance mode); ``--clear-interrupted`` lets the queue dispatch again after
+  a crash left a spawn whose outcome is unknown (a receipt with ``starting`` and no worker) or the pid of a worker
+  that blocks dispatch while a process with that pid lives, once the person has checked that no worker of the
+  earlier run is still computing.
 
 The service stops on SIGINT or SIGTERM: the runtime file is removed at once, so that a second ``serve`` during the
-graceful shutdown waits for the lock instead of opening an instance that no longer answers.
+graceful shutdown waits for the lock instead of opening an instance that no longer answers. The handlers are
+installed before the runtime file is written, so a stop that comes while the service starts is never the default
+action (the process killed by the signal): ``serve`` then removes the file and exits 0 without serving, or stops the
+server it has started. The first signal also stops the compute services at once, as Node's ``dispose`` does: no new
+dispatch or admission, the running worker sent SIGTERM (``ComputeHost.stop_soon``); one that comes before they are
+built is applied as soon as they are, so nothing is dispatched. Every signal reaches uvicorn as SIGTERM, since uvicorn
+takes a repeated SIGINT (Ctrl+C twice) as a forced exit that skips the lifespan's shutdown; that shutdown waits for
+the worker and writes its records (``ComputeHost.close``). ``serve`` exits 1 when that last write of the queue fails,
+as Node's host does.
 """
 from __future__ import annotations
 
@@ -69,6 +84,11 @@ def _parser() -> argparse.ArgumentParser:
     serve.add_argument('--port', type=_port, default=0, metavar='N', help='loopback port (default: a free port)')
     serve.add_argument('--static', metavar='DIR', help='static interface (default: R/webapp/dist/client)')
     serve.add_argument('--no-browser', action='store_true', help='print the address instead of opening a browser')
+    serve.add_argument('--cache-only', action='store_true',
+                       help='serve stored results only; new computations are refused')
+    serve.add_argument('--clear-interrupted', action='store_true',
+                       help='dispatch again after an interrupted run whose worker may not have started or may still '
+                            'run; use only once no worker of that run is still computing')
     return parser
 
 
@@ -165,7 +185,8 @@ def _bind(port: int) -> socket.socket:
     return sock
 
 
-def _run(workspace: Workspace, root: str, static: str, port: int, browser: bool) -> int:
+def _run(workspace: Workspace, root: str, static: str, port: int, browser: bool, cache_only: bool = False,
+         clear_interrupted: bool = False) -> int:
     import uvicorn
 
     from ..server.access import Tokens
@@ -184,40 +205,69 @@ def _run(workspace: Workspace, root: str, static: str, port: int, browser: bool)
         sock = _bind(port)
     except OSError as error:
         return _fail(f'cannot listen on 127.0.0.1:{port}: {error.strerror}')
-    try:
-        bound = sock.getsockname()[1]
+    # A stop can come at any time from here on: before the server exists it is only noted, and serve then exits
+    # without serving.
+    stopping = threading.Event()
+    servers: list[Any] = []
+    apps: list[Any] = []
+
+    def stop(number: int, frame: Any) -> None:
+        # The runtime file goes first: until the lock is released, a second serve then waits for it instead of
+        # opening this instance, which stops accepting connections within 0.1 s.
+        stopping.set()
         try:
-            workspace.write_runtime(bound, tokens.launch, root)
-        except WorkspaceError as error:
-            return _fail(str(error))
-        except OSError as error:
-            return _fail(f'cannot write {workspace.runtime_path}: {error.strerror}')
-        config = ServiceConfig(root=root, port=bound, tokens=tokens, user=workspace.user_context(root),
-                               static_dir=static)
-        server = Server(uvicorn.Config(
-            create_app(config), host='127.0.0.1', port=bound, timeout_keep_alive=5, timeout_graceful_shutdown=5,
-            access_log=False, log_level='warning', proxy_headers=False, server_header=False, ws='none',
-            lifespan='on'))
-        url = open_url({'port': bound, 'token': tokens.launch})
-        print(f'EEG Layout Lab: {url}', flush=True)
-        print(f'Workspace: {workspace.path} (PID {os.getpid()}); press Ctrl+C to stop.', flush=True)
-        if export_root(static) is None:
-            print(f'The interface is not built ({static}); run npm run build in webapp/.', flush=True)
+            workspace.remove_runtime()
+        except OSError:
+            pass
+        if apps:
+            # Node's dispose on the first signal: the running worker is stopped now, not after the graceful wait (and
+            # services not built yet are stopped once they are).
+            apps[0].compute.stop_soon()
+        if servers:
+            # Always as SIGTERM: uvicorn would take a second SIGINT as a forced exit, which skips the lifespan's
+            # shutdown (ComputeHost.close) and leaves the worker and its records unattended.
+            servers[0].handle_exit(signal.SIGTERM, frame)
 
-        def stop(number: int, frame: Any) -> None:
-            # The runtime file goes first: until the lock is released, a second serve then waits for it instead of
-            # opening this instance, which stops accepting connections within 0.1 s.
-            try:
-                workspace.remove_runtime()
-            except OSError:
-                pass
-            server.handle_exit(number, frame)
-
+    try:
         with _signals(stop):
+            bound = sock.getsockname()[1]
+            try:
+                workspace.write_runtime(bound, tokens.launch, root)
+            except WorkspaceError as error:
+                return _fail(str(error))
+            except OSError as error:
+                return _fail(f'cannot write {workspace.runtime_path}: {error.strerror}')
+            config = ServiceConfig(root=root, port=bound, tokens=tokens, user=workspace.user_context(root),
+                                   static_dir=static, cache_only=cache_only, clear_interrupted=clear_interrupted)
+            app = create_app(config)
+            apps.append(app)
+            server = Server(uvicorn.Config(
+                app, host='127.0.0.1', port=bound, timeout_keep_alive=5, timeout_graceful_shutdown=5,
+                access_log=False, log_level='warning', proxy_headers=False, server_header=False, ws='none',
+                lifespan='on'))
+            servers.append(server)
+            if stopping.is_set():
+                # Stopped while starting: the file may have been written after the handler removed it.
+                workspace.remove_runtime()
+                return 0
+            url = open_url({'port': bound, 'token': tokens.launch})
+            print(f'EEG Layout Lab: {url}', flush=True)
+            print(f'Workspace: {workspace.path} (PID {os.getpid()}); press Ctrl+C to stop.', flush=True)
+            if cache_only:
+                print('Cache only: stored results are served; new computations are refused.', flush=True)
+            if export_root(static) is None:
+                print(f'The interface is not built ({static}); run npm run build in webapp/.', flush=True)
             if browser:
                 threading.Thread(target=_open_when_started, args=(server, url, workspace.write_open_page),
                                  name='open-browser', daemon=True).start()
-            server.run(sockets=[sock])
+            try:
+                server.run(sockets=[sock])
+            except SystemExit:
+                # uvicorn exits this way when the lifespan's startup fails (a queue file that cannot be used).
+                failure = app.compute.failure
+                return _fail(failure or 'the service did not start')
+            if app.compute.failure:
+                return _fail(app.compute.failure)
     finally:
         sock.close()
     return 0
@@ -256,7 +306,7 @@ def serve(args: argparse.Namespace) -> int:
     except WorkspaceError as error:
         return _fail(str(error))
     try:
-        return _run(workspace, root, static, args.port, not args.no_browser)
+        return _run(workspace, root, static, args.port, not args.no_browser, args.cache_only, args.clear_interrupted)
     finally:
         workspace.close()
 

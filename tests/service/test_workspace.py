@@ -631,6 +631,271 @@ def test_serve_rejects_bad_arguments(tmp_path, args, message):
     assert result.returncode == 2 and message in result.stderr
 
 
+# A stop that comes while serve starts: the handlers are installed before the runtime file is written, so a SIGTERM
+# right after the write is noted, serve exits without serving and the file is gone. Installed after the write (slice
+# 2), the signal's default action killed the process (-15) and left the file behind.
+STOP_AFTER_WRITE = """
+import os, signal, sys
+from eeglayoutlab.cli import main as cli
+from eeglayoutlab.server.workspace import Workspace
+original = Workspace.write_runtime
+def write_then_stop(self, *args, **kwargs):
+    original(self, *args, **kwargs)
+    os.kill(os.getpid(), signal.SIGTERM)
+Workspace.write_runtime = write_then_stop
+sys.exit(cli.main(sys.argv[1:]))
+"""
+
+
+@needs_service
+def test_a_stop_right_after_the_runtime_file_is_written_leaves_no_runtime_file(tmp_path):
+    from .service_support import synthetic_root
+
+    root = synthetic_root(tmp_path / 'root')
+    workspace = tmp_path / 'workspace'
+    result = subprocess.run([sys.executable, '-c', STOP_AFTER_WRITE, 'serve', str(workspace), '--root', str(root),
+                             '--no-browser'], cwd=tmp_path, env=environment(), stdin=subprocess.DEVNULL,
+                            capture_output=True, text=True, timeout=60)
+    assert result.returncode == 0, (result.returncode, result.stderr)
+    assert 'EEG Layout Lab:' not in result.stdout
+    assert not (workspace / STATE / 'runtime.json').exists()
+    Workspace.open(str(workspace)).close()
+
+
+# A stop after the address is printed but before the compute services exist: SIGTERM as uvicorn starts (the services'
+# loop does not run yet) or while the services are built (it runs, the queue does not exist yet).
+STOP_WHILE_STARTING = """
+import os, signal, sys
+import uvicorn
+from eeglayoutlab.cli import main as cli
+from eeglayoutlab.server.routes.compute import ComputeHost
+owner, name = (uvicorn.Server, 'run') if sys.argv.pop(1) == 'run' else (ComputeHost, '_build')
+original = getattr(owner, name)
+def stopped(self, *args, **kwargs):
+    os.kill(os.getpid(), signal.SIGTERM)
+    return original(self, *args, **kwargs)
+setattr(owner, name, stopped)
+sys.exit(cli.main(sys.argv[1:]))
+"""
+
+
+@needs_service
+@pytest.mark.parametrize('where', ['run', 'build'])
+def test_a_stop_before_the_compute_services_exist_dispatches_nothing(tmp_path, where):
+    """The first signal reaches the compute services even when they do not exist yet: they stop as soon as they are
+    built, so the task an earlier run left queued is neither recovered nor launched, and stays queued."""
+    from .compute_support import REQUESTS, compute_root, key_of
+
+    root = tmp_path / 'root'
+    compute_root(root)
+    workspace = tmp_path / 'workspace'
+    Workspace.open(str(workspace)).close()
+    task = {'id': '11111111-1111-4111-8111-111111111111', 'sequence': 1, 'kind': 'local-compute',
+            'key': key_of(root, REQUESTS['hold']), 'request': REQUESTS['hold'], 'status': 'queued',
+            'created_at': '2026-11-23T08:00:00.000Z', 'progress': 0, 'cached': False, 'catalog': {}}
+    queue = workspace / STATE / 'queue.json'
+    queue.write_text(jsjson.stringify({'schema': 'eeglayoutlab-queue/1', 'sequence': 1, 'tasks': [task]}),
+                     encoding='utf-8')
+    env = {**environment(), 'EEG_COMPUTE_PYTHON': sys.executable}
+    result = subprocess.run([sys.executable, '-c', STOP_WHILE_STARTING, where, 'serve', str(workspace), '--root',
+                             str(root), '--no-browser'], cwd=tmp_path, env=env, stdin=subprocess.DEVNULL,
+                            capture_output=True, text=True, timeout=60)
+    assert result.returncode == 0, (result.returncode, result.stderr)
+    assert 'EEG Layout Lab:' in result.stdout and 'Traceback' not in result.stderr, result.stderr
+    assert jsjson.parse(queue.read_text(encoding='utf-8'))['tasks'] == [task]
+    assert not (root / 'results/v2/local_app_jobs').exists()
+    assert not (root / 'results/v2/.eeglayoutlab-execution.lock').exists()
+    assert not (workspace / STATE / 'runtime.json').exists()
+
+
+# The last write of the queue at shutdown fails (a full disk).
+FAILED_LAST_WRITE = """
+import errno, sys
+from eeglayoutlab.cli import main as cli
+from eeglayoutlab.jobs.queue import WorkspaceQueue
+dispose = WorkspaceQueue.dispose
+def full():
+    raise OSError(errno.ENOSPC, 'No space left on device')
+def dispose_on_a_full_disk(self):
+    self._save = full
+    dispose(self)
+WorkspaceQueue.dispose = dispose_on_a_full_disk
+sys.exit(cli.main(sys.argv[1:]))
+"""
+
+
+@needs_service
+def test_serve_exits_1_when_the_last_write_of_the_queue_fails(tmp_path):
+    """Node's host exits 1 when its ``dispose`` throws (start.mjs: ``process.exitCode = 1``), as it does when its
+    last write of the queue fails; so does ``serve``, after a full shutdown. The queue logs the failure as Node's
+    ``failClosed`` does (``computation queue stopped``, with its traceback), then one last line names the file. The
+    signal is sent once a request has been answered, so the services (built in the lifespan, before uvicorn
+    answers) exist: a stop before that builds nothing and exits 0."""
+    import httpx
+
+    from .service_support import synthetic_root
+
+    root = synthetic_root(tmp_path / 'root')
+    workspace = tmp_path / 'workspace'
+    process = subprocess.Popen([sys.executable, '-c', FAILED_LAST_WRITE, 'serve', str(workspace), '--root', str(root),
+                                '--no-browser'], cwd=tmp_path, env=environment(), stdin=subprocess.DEVNULL,
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    try:
+        runtime = wait_for_runtime(workspace, process)
+        with httpx.Client(base_url=f'http://127.0.0.1:{runtime["port"]}', timeout=10) as client:
+            assert client.get(f'/open?token={runtime["token"]}').status_code == 303
+            assert client.get('/api/community/status').status_code == 200
+        code, _, err = stop(process, signal.SIGTERM)
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.communicate()
+    queue = workspace / STATE / 'queue.json'
+    assert code == 1, err
+    last = (f'eeglayoutlab: Cannot write the workspace queue {queue} at shutdown: No space left on device. The next '
+            'start applies its restart rules to the file as it was.')
+    assert err.splitlines()[-1] == last and err.count(str(queue)) == 1, err
+    assert ' ERROR eeglayoutlab.jobs.queue: computation queue stopped\n' in err.split(last)[0], err
+    assert not (workspace / STATE / 'runtime.json').exists()
+    Workspace.open(str(workspace)).close()
+
+
+def serve_and_get(tmp_path: Path, workspace: Path, root: Path, paths: list[str], *flags: str) -> tuple[list, str]:
+    """Runs ``serve`` with ``flags``, opens a session and GETs ``paths``; returns their JSON bodies and stdout."""
+    import httpx
+
+    process = subprocess.Popen(command(str(workspace), '--root', str(root), '--no-browser', *flags), cwd=tmp_path,
+                               env=environment(), stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE, text=True)
+    try:
+        runtime = wait_for_runtime(workspace, process)
+        with httpx.Client(base_url=f'http://127.0.0.1:{runtime["port"]}', timeout=10) as client:
+            assert client.get(f'/open?token={runtime["token"]}').status_code == 303
+            bodies = []
+            for path in paths:
+                response = client.get(path)
+                assert response.status_code == 200, response.text
+                bodies.append(jsjson.parse(response.text))
+        code, out, err = stop(process, signal.SIGTERM)
+        assert code == 0, err
+        return bodies, out
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.communicate()
+
+
+@needs_service
+def test_serve_cache_only_reports_maintenance(tmp_path):
+    from .service_support import synthetic_root
+
+    root = synthetic_root(tmp_path / 'root')
+    workspace = tmp_path / 'workspace'
+    (health, status), out = serve_and_get(tmp_path, workspace, root,
+                                          ['/api/local-compute/health', '/api/community/status'], '--cache-only')
+    assert (health['maintenance'], health['drained'], health['active_job']) == (True, True, None)
+    assert (status['maintenance'], status['drained'], status['available']) == (True, True, True)
+    assert 'Cache only: stored results are served; new computations are refused.' in out
+    assert jsjson.parse((workspace / STATE / 'queue.json').read_text(encoding='utf-8'))['tasks'] == []
+    (health,), out = serve_and_get(tmp_path, workspace, root, ['/api/local-compute/health'])
+    assert (health['maintenance'], health['drained']) == (False, False) and 'Cache only' not in out
+    assert not (root / 'results/v2/.eeglayoutlab-execution.lock').exists()
+
+
+@needs_service
+def test_serve_clear_interrupted_resolves_an_unconfirmed_spawn(tmp_path):
+    from .service_support import synthetic_root
+
+    root = synthetic_root(tmp_path / 'root')
+    workspace = tmp_path / 'workspace'
+    Workspace.open(str(workspace)).close()
+    created = time.strftime('%Y-%m-%dT%H:%M:%S.000Z', time.gmtime())
+    task = {'id': '11111111-1111-4111-8111-111111111111', 'sequence': 1, 'kind': 'local-compute', 'key': 'a' * 64,
+            'request': {'region_count': 1, 'radius_mm': 15, 'mode': 'whole_surface'}, 'status': 'queued',
+            'created_at': created, 'progress': 0, 'cached': False, 'catalog': {}, 'starting': True}
+    queue = workspace / STATE / 'queue.json'
+    queue.write_text(jsjson.stringify({'schema': 'eeglayoutlab-queue/1', 'sequence': 1, 'tasks': [task]}),
+                     encoding='utf-8')
+    (status,), _ = serve_and_get(tmp_path, workspace, root, ['/api/community/status'])
+    assert (status['recovery_blocked'], status['queued_tasks']) == (True, 1)
+    assert jsjson.parse(queue.read_text(encoding='utf-8'))['tasks'][0]['starting'] is True
+    (status,), _ = serve_and_get(tmp_path, workspace, root, ['/api/community/status'], '--clear-interrupted')
+    assert status['recovery_blocked'] is False
+    assert 'starting' not in jsjson.parse(queue.read_text(encoding='utf-8'))['tasks'][0]
+
+
+@needs_service
+@pytest.mark.parametrize('gap', [0.01, 0.05])
+def test_ctrl_c_twice_still_stops_the_running_worker_and_writes_its_records(tmp_path, gap):
+    """uvicorn takes a second SIGINT as a forced exit, which skips the lifespan's shutdown; ``serve`` passes every
+    signal on as SIGTERM, and the first one stops the running worker at once, as Node's dispose does. So when
+    ``serve`` exits the worker's group is gone and its ``job.json`` is written."""
+    import httpx
+
+    from eeglayoutlab.jobs.queue import group_alive
+
+    from .compute_support import REQUESTS, compute_root
+
+    root = tmp_path / 'root'
+    compute_root(root)
+    workspace = tmp_path / 'workspace'
+    env = {**environment(), 'EEG_COMPUTE_PYTHON': sys.executable}
+    process = subprocess.Popen(command(str(workspace), '--root', str(root), '--no-browser'), cwd=tmp_path, env=env,
+                               stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    queue = workspace / STATE / 'queue.json'
+    pid = None
+    try:
+        runtime = wait_for_runtime(workspace, process)
+        with httpx.Client(base_url=f'http://127.0.0.1:{runtime["port"]}', timeout=30) as client:
+            assert client.get(f'/open?token={runtime["token"]}').status_code == 303
+            token = client.get('/api/local-compute/health').json()['token']
+            job = client.post('/api/local-compute/jobs', content=jsjson.stringify(REQUESTS['hold']),
+                              headers={'content-type': 'application/json', 'x-eeg-compute-token': token}).json()['job']
+            deadline = time.monotonic() + 60
+            while not (job['status'] == 'running' and job['progress'] > 0 and pid):
+                assert time.monotonic() < deadline, job
+                time.sleep(0.05)
+                job = client.get(f'/api/local-compute/jobs/{job["id"]}').json()['job']
+                task = jsjson.parse(queue.read_text(encoding='utf-8'))['tasks'][-1]
+                pid = int(task['worker_pid']) if 'worker_pid' in task else None
+        assert group_alive(pid)
+        process.send_signal(signal.SIGINT)
+        time.sleep(gap)
+        process.send_signal(signal.SIGINT)
+        _, err = process.communicate(timeout=60)
+        assert process.returncode == 0, err
+        assert 'Traceback' not in err and 'CancelledError' not in err, err
+        assert not group_alive(pid)
+        [record] = (root / 'results/v2/local_app_jobs').glob('*/*/job.json')
+        stored = jsjson.parse(record.read_text(encoding='utf-8'))
+        assert (stored['id'], stored['status'], stored['message']) == (task['backend_id'], 'cancelled', '任务已停止')
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.communicate()
+        if pid and group_alive(pid):
+            os.killpg(pid, signal.SIGKILL)
+
+
+@needs_service
+def test_serve_refuses_a_corrupt_queue_file_and_keeps_it(tmp_path):
+    from .service_support import synthetic_root
+
+    root = synthetic_root(tmp_path / 'root')
+    workspace = tmp_path / 'workspace'
+    Workspace.open(str(workspace)).close()
+    queue = workspace / STATE / 'queue.json'
+    queue.write_bytes(b'{"schema":"eeglayoutlab-queue/1","sequence":')
+    result = subprocess.run(command(str(workspace), '--root', str(root), '--no-browser'), cwd=tmp_path,
+                            env=environment(), stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=60)
+    assert result.returncode == 1, result.stderr
+    assert f'eeglayoutlab: The workspace queue {queue} cannot be read' in result.stderr
+    assert result.stderr.count('cannot be read') == 1 and 'Traceback' not in result.stderr
+    assert queue.read_bytes() == b'{"schema":"eeglayoutlab-queue/1","sequence":'
+    assert not (workspace / STATE / 'runtime.json').exists()
+    Workspace.open(str(workspace)).close()
+
+
 class CommandLineBrowser:
     """A launcher that would put the URL on a command line (``xdg-open URL``, ``$BROWSER URL``)."""
 
