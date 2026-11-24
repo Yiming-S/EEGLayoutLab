@@ -24,13 +24,13 @@ from __future__ import annotations
 import errno
 import os
 import re
-import stat as stat_module
 import sys
 from typing import Any, Callable, Optional
 import uuid
 
 from ..schemas import jsjson
 from . import nodefs, nodepath
+from .nodefs import _UV_TEXT, _uv_code, read_file, system_error as _annotate
 
 try:
     import fcntl
@@ -49,42 +49,7 @@ RECORD_DIRECTORIES = {
 }
 KEY = re.compile('[a-f0-9]{64}')
 BATCH = re.compile('[a-f0-9-]{36}')
-_CHUNK = 1 << 20
 
-# libuv's uv_strerror texts, which Node's fs errors carry (deps/uv/include/uv.h, UV_ERRNO_MAP; the system errors of
-# util.getSystemErrorMap()). An errno libuv does not map is "Unknown system error -<errno>" in fs.promises.
-_UV_TEXT = {
-    'E2BIG': 'argument list too long', 'EACCES': 'permission denied', 'EADDRINUSE': 'address already in use',
-    'EADDRNOTAVAIL': 'address not available', 'EAFNOSUPPORT': 'address family not supported',
-    'EAGAIN': 'resource temporarily unavailable', 'EALREADY': 'connection already in progress',
-    'EBADF': 'bad file descriptor', 'EBUSY': 'resource busy or locked', 'ECANCELED': 'operation canceled',
-    'ECONNABORTED': 'software caused connection abort', 'ECONNREFUSED': 'connection refused',
-    'ECONNRESET': 'connection reset by peer', 'EDESTADDRREQ': 'destination address required',
-    'EEXIST': 'file already exists', 'EFAULT': 'bad address in system call argument', 'EFBIG': 'file too large',
-    'EFTYPE': 'inappropriate file type or format', 'EHOSTDOWN': 'host is down',
-    'EHOSTUNREACH': 'host is unreachable', 'EILSEQ': 'illegal byte sequence', 'EINTR': 'interrupted system call',
-    'EINVAL': 'invalid argument', 'EIO': 'i/o error', 'EISCONN': 'socket is already connected',
-    'EISDIR': 'illegal operation on a directory', 'ELOOP': 'too many symbolic links encountered',
-    'EMFILE': 'too many open files', 'EMLINK': 'too many links', 'EMSGSIZE': 'message too long',
-    'ENAMETOOLONG': 'name too long', 'ENETDOWN': 'network is down', 'ENETUNREACH': 'network is unreachable',
-    'ENFILE': 'file table overflow', 'ENOBUFS': 'no buffer space available', 'ENODATA': 'no data available',
-    'ENODEV': 'no such device', 'ENOENT': 'no such file or directory', 'ENOEXEC': 'exec format error',
-    'ENOMEM': 'not enough memory', 'ENONET': 'machine is not on the network',
-    'ENOPROTOOPT': 'protocol not available', 'ENOSPC': 'no space left on device',
-    'ENOSYS': 'function not implemented', 'ENOTCONN': 'socket is not connected', 'ENOTDIR': 'not a directory',
-    'ENOTEMPTY': 'directory not empty', 'ENOTSOCK': 'socket operation on non-socket',
-    'ENOTSUP': 'operation not supported on socket', 'ENOTTY': 'inappropriate ioctl for device',
-    'ENXIO': 'no such device or address', 'EOVERFLOW': 'value too large for defined data type',
-    'EPERM': 'operation not permitted', 'EPIPE': 'broken pipe', 'EPROTO': 'protocol error',
-    'EPROTONOSUPPORT': 'protocol not supported', 'EPROTOTYPE': 'protocol wrong type for socket',
-    'ERANGE': 'result too large', 'EREMOTEIO': 'remote I/O error', 'EROFS': 'read-only file system',
-    'ESHUTDOWN': 'cannot send after transport endpoint shutdown',
-    'ESOCKTNOSUPPORT': 'socket type not supported', 'ESPIPE': 'invalid seek', 'ESRCH': 'no such process',
-    'ETIMEDOUT': 'connection timed out', 'ETXTBSY': 'text file is busy', 'EUNATCH': 'protocol driver not attached',
-    'EXDEV': 'cross-device link not permitted',
-}
-# This system's errno values of those names (EOPNOTSUPP, EWOULDBLOCK and other aliases are not libuv names).
-_UV_CODE = {getattr(errno, name): name for name in _UV_TEXT if hasattr(errno, name)}
 # link(2) on a file system without hard links (FAT, exFAT, some network file systems).
 _NO_HARD_LINKS = {getattr(errno, name) for name in ('EPERM', 'ENOTSUP', 'EOPNOTSUPP', 'ENOSYS') if hasattr(errno, name)}
 # Node's flag strings (lib/internal/fs/utils.js, stringToFlags); libuv opens every file with O_CLOEXEC, as os.open.
@@ -96,20 +61,6 @@ _F_BARRIERFSYNC = 85
 
 class RecordError(ValueError):
     """A record path or file Node refuses; the message is Node's, verbatim."""
-
-
-def _uv_code(number: Optional[int]) -> str:
-    if number in _UV_CODE:
-        return _UV_CODE[number]
-    return f'Unknown system error -{number}'
-
-
-def _annotate(error: OSError, syscall: str, path: Optional[str], dest: Optional[str] = None) -> OSError:
-    error.code = _uv_code(error.errno)  # type: ignore[attr-defined]
-    error.syscall = syscall  # type: ignore[attr-defined]
-    error.node_path = path  # type: ignore[attr-defined]
-    error.node_dest = dest  # type: ignore[attr-defined]
-    return error
 
 
 def error_code(error: BaseException) -> Optional[str]:
@@ -134,29 +85,6 @@ def node_message(error: BaseException) -> str:
         return (f"{code}: {text}, {syscall}" + (f" '{path}'" if path is not None else '')
                 + (f" -> '{dest}'" if dest is not None else ''))
     return str(error)
-
-
-def read_file(path: str) -> bytes:
-    """``await readFile(path)``: ``open`` fails with the path in the message; a directory opens and fails on
-    ``read`` (``EISDIR``, without a path)."""
-    try:
-        fd = os.open(nodefs.encode(path), os.O_RDONLY | getattr(os, 'O_CLOEXEC', 0))
-    except OSError as error:
-        raise _annotate(error, 'open', path) from None
-    try:
-        if stat_module.S_ISDIR(os.fstat(fd).st_mode):
-            raise _annotate(OSError(errno.EISDIR, os.strerror(errno.EISDIR)), 'read', None)
-        chunks = []
-        while True:
-            try:
-                chunk = os.read(fd, _CHUNK)
-            except OSError as error:
-                raise _annotate(error, 'read', None) from None
-            if not chunk:
-                return b''.join(chunks)
-            chunks.append(chunk)
-    finally:
-        os.close(fd)
 
 
 def stat(path: str) -> os.stat_result:

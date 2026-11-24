@@ -2,9 +2,11 @@
 
 Node's ``InputIntegrity`` resolves its root with ``fs.realpathSync`` (lib/fs.js: link targets lexically, the given
 spelling kept) and every input with ``fs.promises.realpath`` (``realpath(3)``: physically, and on macOS in the
-on-disk letter case and Unicode normalization). ``tests/service/parity/fs.mjs`` runs both on a tree of links,
-loops, misspelled and differently normalized paths; ``realpath_sync`` and ``realpath`` must give the same paths
-or the same error codes. Without Node (or the service extra) the parity test is skipped.
+on-disk letter case and Unicode normalization). ``tests/service/parity/fs.mjs`` runs both, ``readdir`` and
+``readFile`` on a tree of links, loops, misspelled and differently normalized paths; ``realpath_sync``,
+``realpath``, ``readdir`` and ``read_file`` must give the same values, or fail with the same code and message
+(``records.node_message``: the syscall, and the path as the system received it). Without Node (or the service
+extra) the parity test is skipped.
 """
 from __future__ import annotations
 
@@ -18,9 +20,10 @@ import unicodedata
 import pytest
 
 from eeglayoutlab.jobs import nodefs, nodepath
+from eeglayoutlab.jobs.records import node_message
 from eeglayoutlab.schemas import jsjson
 
-from .key_parity_support import ROOT, needs_node
+from .key_parity_support import NODE_ENV, ROOT, needs_node
 
 DRIVER = ROOT / 'tests/service/parity/fs.mjs'
 NFC = unicodedata.normalize('NFC', 'Jos\u00e9')
@@ -68,13 +71,16 @@ def _python(function, path: str) -> dict:
     try:
         return {'ok': True, 'value': function(path)}
     except OSError as error:
-        return {'ok': False, 'code': errno.errorcode[error.errno]}
+        return {'ok': False, 'code': errno.errorcode[error.errno], 'message': node_message(error)}
     except (TypeError, ValueError) as error:
-        return {'ok': False, 'code': getattr(error, 'code', None) or f'{type(error).__name__}: {error}'}
+        return {'ok': False, 'code': getattr(error, 'code', None) or f'{type(error).__name__}: {error}',
+                'message': str(error)}
 
 
-def _node(result: dict) -> dict:
-    return result if result['ok'] else {'ok': False, 'code': result['code']}
+# fs.mjs's operations and theirs here: readdir's names sorted (the tree's are in the BMP, where JavaScript's sort
+# and Python's agree), readFile by its length.
+OPERATIONS = {'sync': nodefs.realpath_sync, 'promise': nodefs.realpath,
+              'list': lambda path: sorted(nodefs.readdir(path)), 'read': lambda path: len(nodefs.read_file(path))}
 
 
 @pytest.fixture(scope='module')
@@ -83,19 +89,20 @@ def node_results(tmp_path_factory):
     t = _tree(base)
     spec, out = base / 'spec.json', base / 'out.json'
     spec.write_text(jsjson.stringify({'paths': _paths(t)}), encoding='utf-8')
-    subprocess.run(['node', str(DRIVER), str(spec), str(out)], check=True, cwd=ROOT)
+    subprocess.run(['node', str(DRIVER), str(spec), str(out)], check=True, cwd=ROOT, env=NODE_ENV)
     return t, json.loads(out.read_text(encoding='utf-8'))
 
 
 @needs_node
-def test_real_paths_match_node(node_results):
+def test_real_paths_listings_reads_and_their_errors_match_node(node_results):
     t, node = node_results
     assert [entry['path'] for entry in node['results']] == _paths(t)
     mismatches = []
     for entry in node['results']:
-        sync, promise = _python(nodefs.realpath_sync, entry['path']), _python(nodefs.realpath, entry['path'])
-        if sync != _node(entry['sync']) or promise != _node(entry['promise']):
-            mismatches.append((entry['path'], entry['sync'], sync, entry['promise'], promise))
+        for name, function in OPERATIONS.items():
+            ours = _python(function, entry['path'])
+            if ours != entry[name]:
+                mismatches.append((name, entry['path'], entry[name], ours))
     assert mismatches == []
 
 
@@ -170,10 +177,11 @@ def test_realpath_sync_bounds_the_number_of_links(tmp_path, monkeypatch):
 
 
 def test_path_arguments_fail_with_node_codes():
+    # Both are TypeErrors in Node, so its routes answer 500 for them (test_compute_routes).
     for function in (nodefs.realpath, nodefs.realpath_sync, nodefs.read_file, nodefs.readdir, nodefs.stat):
         with pytest.raises(nodefs.InvalidArgValueError) as raised:
             function('/tmp/a\0b')
-        assert raised.value.code == 'ERR_INVALID_ARG_VALUE'
+        assert raised.value.code == 'ERR_INVALID_ARG_VALUE' and isinstance(raised.value, TypeError)
         with pytest.raises(nodepath.InvalidArgTypeError) as raised:
             function(None)
         assert raised.value.code == 'ERR_INVALID_ARG_TYPE'

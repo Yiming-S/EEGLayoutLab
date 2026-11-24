@@ -4,7 +4,9 @@ Node serves the four from ``communityMiddleware`` (community-queue.mjs) with the
 ``{...queue.health(), ...scheduler.maintenanceStatus(), active_job}``, so the members keep that order:
 ``LocalComputeQueue.health()`` (local-compute-server.mjs) first, then ``maintenance`` and ``drained``, with
 ``active_job`` keeping its first position. ``token`` is the CSRF token every write sends back as
-``X-EEG-Compute-Token``; health is reachable only with the session cookie.
+``X-EEG-Compute-Token``; health is reachable only with the session cookie. A failure while the active receipt is
+viewed (its electrode-name annotation missing or failing its checks) is answered as the job routes answer it
+(``compute.failure_response``: 404 or 409 with the annotation's message), as Node's middleware catches it.
 
 With the workspace queue started (the application's lifespan, ``routes.compute.ComputeHost``), ``active_job`` is
 the first pending receipt of the kind viewed without its result (``WorkspaceQueue.active``), and ``maintenance`` and
@@ -48,14 +50,19 @@ def health(config: 'ServiceConfig') -> dict[str, Any]:
 
 
 def add_routes(app: FastAPI, config: 'ServiceConfig', compute: Optional['ComputeHost'] = None) -> None:
+    from .compute import failure_response  # compute imports KINDS from this module
+
     def route(kind: str) -> Callable[[], Awaitable[Response]]:
         async def endpoint() -> Response:
             body = health(config)
             queue = compute.queue if compute is not None else None
             if queue is not None:
-                # Assigned in place: active_job keeps its position, as Node's spread keeps it.
-                body['active_job'] = await queue.active(kind)
-                body.update(queue.maintenance_status())
+                try:
+                    # Assigned in place: active_job keeps its position, as Node's spread keeps it.
+                    body['active_job'] = await queue.active(kind)
+                    body.update(queue.maintenance_status())
+                except Exception as error:  # noqa: BLE001 - Node's catch block (an unreadable annotation: 404, 409)
+                    return failure_response(error)
             return json_response(200, body)
         return endpoint
 

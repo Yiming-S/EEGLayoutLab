@@ -27,8 +27,8 @@ import pytest
 from eeglayoutlab.jobs import records
 from eeglayoutlab.jobs.kinds import ServiceAdapter, call
 from eeglayoutlab.jobs.queue import (
-    DISPATCH_KEY_CHANGED, INTERRUPTED_MESSAGE, QUEUE_SCHEMA, RECEIPT_LIMITS, STATUSES, QueueError, QueueStateError,
-    WorkspaceQueue, boot_id, group_alive, iso, receipt_catalog, retain_receipts,
+    DISPATCH_KEY_CHANGED, INTERRUPTED_MESSAGE, QUEUE_SCHEMA, RECEIPT_LIMITS, STATUSES, TASK_VARIANTS, QueueError,
+    QueueStateError, WorkspaceQueue, boot_id, group_alive, iso, receipt_catalog, retain_receipts,
 )
 from eeglayoutlab.jobs.slot import ExecutionSlot, InstallationLock, execution_lock_path
 from eeglayoutlab.schemas import jsjson
@@ -1508,10 +1508,10 @@ def test_annotation_references_are_a_list_per_receipt(tmp_path):
         with pytest.raises(QueueError) as missing:
             await q.view(task, True, 'f' * 64)
         assert (missing.value.status, missing.value.message) == (404, 'Electrode name annotation not found.')
-        task['annotation_refs'] = [f'{n:064x}' for n in range(20)]
+        task['annotation_refs'] = [f'{n:064x}' for n in range(100)]  # Node's per-owner 20 is dropped (R1)
         with pytest.raises(QueueError) as limited:
             await q.submit('design-evaluation', {'n': 1, 'names': ['c']})
-        assert limited.value.status == 413
+        assert (limited.value.status, limited.value.message) == (413, TASK_VARIANTS)
         no_store = WorkspaceQueue(str(tmp_path / 'other'), stubs.adapters)
         with pytest.raises(QueueError) as unavailable:
             await no_store.submit('design-evaluation', {'n': 2, 'names': ['a']})

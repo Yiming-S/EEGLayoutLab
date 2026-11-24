@@ -15,11 +15,22 @@ running worker and writes the queue once more).
 
 ``run_node`` runs ``parity/compute_routes.mjs`` (its header documents the steps) over a root; ``run_python`` runs the
 same steps through the Python application; ``masked`` puts both answers in the compared form.
+
+The coordinate evaluation (slice 5): ``design_compute_root`` builds a design root (``key_parity_support.design_root``,
+so the scientific context is the real one on both hosts) whose ``scripts/design_evaluation.py`` is ``DESIGN_WORKER``,
+design_support's stand-in with one more behaviour, picked by the design's ``name``: ``change`` alters a code file of
+the identity before it answers, so the context computed again after the close has another key. The root also holds a
+stored evaluation of ``DESIGN_REQUESTS['cached']`` that neither host computed, whose hits are cached receipts, and
+the library's inputs (the radius code tree and the offline datasets), so that the library reads its records and
+bundles. ``cache_digests`` names each ``cache.json`` digest in an answer by its path: the file holds a finish time.
+``names``, ``SOURCE`` and ``envelope`` build ``design-submission/1`` bodies, ``DESIGN_STEPS`` are the HTTP steps both
+hosts run, and ``design_tree`` / ``annotation_tree`` read what they wrote.
 """
 from __future__ import annotations
 
 import contextlib
 import dataclasses
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -33,8 +44,9 @@ from eeglayoutlab.jobs.runtime import runtime_config
 from eeglayoutlab.schemas import jsjson
 from eeglayoutlab.server.app import Service, create_app
 
-from .key_parity_support import NODE_ENV
-from .library_support import code_tree, forward_inputs, radius_result, write
+from .design_support import ADMISSION_POINTER, DESIGN, FAKE_WORKER as DESIGN_FAKE_WORKER, run_result
+from .key_parity_support import NODE_ENV, design_root
+from .library_support import code_tree, forward_inputs, offline_datasets, radius_result, write
 from .service_support import TOKENS, loopback_client, service_config
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -183,10 +195,131 @@ def jobs_tree(root: Path) -> dict[str, str]:
             for path in sorted(base.rglob('*')) if path.is_file()}
 
 
+# --- The coordinate evaluation ---------------------------------------------------------------------------------------
+
+DESIGN_JOBS = 'results/v2/design_evaluation_jobs'
+NODE_ANNOTATIONS = DESIGN_JOBS + '/electrode_annotations'
+WORKSPACE_ANNOTATIONS = 'annotations/electrode-names'
+# A code file of the design identity, which the ``change`` worker alters.
+CHANGED_INPUT = 'src/compact_eeg/metrics.py'
+_ANCHOR = "xyz = design['xyz_mm']\n"
+assert DESIGN_FAKE_WORKER.count(_ANCHOR) == 1
+DESIGN_WORKER = DESIGN_FAKE_WORKER.replace(_ANCHOR, (
+    "if mode == 'change':\n"
+    f"    with open(os.path.join(os.getcwd(), {CHANGED_INPUT!r}), 'a', encoding='utf-8') as handle:\n"
+    "        handle.write('# changed during the run\\n')\n") + _ANCHOR)
+
+
+def design_request(name: str, **extra: Any) -> dict:
+    """check-design-decision.mjs's request, with the design named ``name`` (the stand-in worker's behaviour)."""
+    return {'action': 'evaluate', 'design': {**DESIGN, 'name': name}, 'radius_mm': 6, 'seed': 42, **extra}
+
+
+DESIGN_REQUESTS = {name: design_request(name) for name in ('done', 'cached', 'hold', 'fail', 'stale', 'change')}
+SOURCE = {'schema': 'electrode-coordinate-source/1', 'format': 'bids-electrodes/1', 'electrodes_file': 'electrodes.tsv',
+          'coordsystem_file': 'coordsystem.json', 'coordinate_system': 'ernie_native_mm', 'unit': 'mm',
+          'coordinate_system_description': 'Ernie native space, mm', 'region_index_base': 0,
+          'region_description': 'Two regions, from the file'}
+
+
+def names(version: str) -> list[str]:
+    """64 distinct names with multibyte characters (two, three and four UTF-8 bytes), as the interface imports them."""
+    return [f'{version}-Fp1, left' if i == 0 else f'{version}-Cz "midline"' if i == 1 else f'{version}-电极03' if i == 2
+            else f'{version}-É\U0001F600{i:02d}' if i == 3 else f'{version}-Channel{i + 1:02d}' for i in range(64)]
+
+
+def envelope(request: Any, version: Optional[str] = None, source: Optional[dict] = None, **extra: Any) -> dict:
+    """A ``design-submission/1`` body: ``request`` with the names of ``version`` and, given, the source metadata."""
+    body = {'schema': 'design-submission/1', 'request': request, 'electrode_names': names(version or 'E')}
+    if source is not None:
+        body['source_metadata'] = source
+    return {**body, **extra}
+
+
+def padded(value: Any, size: int) -> str:
+    """``value`` as JSON text padded with spaces to ``size`` UTF-8 bytes."""
+    text = jsjson.stringify(value)
+    return text + ' ' * (size - len(text.encode('utf-8')))
+
+
+def design_key(root: Path, raw: Any) -> str:
+    """The key of ``raw`` on ``root`` (the scientific context of the service's interpreter)."""
+    from eeglayoutlab.jobs.design_result import normalize_design_request
+    from eeglayoutlab.jobs.identity import design_context
+    from eeglayoutlab.jobs.integrity import InputIntegrity
+
+    return design_context(str(root), sys.executable, InputIntegrity(str(root)), normalize_design_request(raw)).key
+
+
+def design_compute_root(directory: Path) -> Path:
+    """A design root with ``DESIGN_WORKER``, a stored evaluation of ``DESIGN_REQUESTS['cached']`` and the inputs
+    of the library (the radius code tree and the offline datasets), so that its records and bundles can be read."""
+    from eeglayoutlab.jobs.design_result import normalize_design_request
+    from eeglayoutlab.jobs.identity import DATA_PRIOR_FILES, design_context
+    from eeglayoutlab.jobs.integrity import InputIntegrity
+
+    root = Path(design_root(directory))
+    kept = {path: (root / path).read_bytes() for path in DATA_PRIOR_FILES}
+    code_tree(root)
+    forward_inputs(root)
+    offline_datasets(root)
+    for path, data in kept.items():  # code_tree writes them too; the design root's bytes stay
+        write(root, path, data)
+    write(root, 'scripts/design_evaluation.py', DESIGN_WORKER)
+    request = normalize_design_request(DESIGN_REQUESTS['cached'])
+    context = design_context(str(root), sys.executable, InputIntegrity(str(root)), request)
+    result = run_result(request)
+    write(root, f'{DESIGN_JOBS}/{context.key}/cache.json', {
+        'key': context.key, 'identity': context.identity, 'result': result,
+        'result_sha256': jsjson.sha256_hex(result), 'finished_at': '2026-01-01T00:00:00.000Z'})
+    assert (root / ADMISSION_POINTER).is_file()
+    return root
+
+
+def tree(base: Path, skip: tuple[str, ...] = ()) -> dict[str, str]:
+    """The files below ``base`` as ``{relative path: text}``, without those below a ``skip`` directory."""
+    if not base.exists():
+        return {}
+    return {str(path.relative_to(base)): path.read_text(encoding='utf-8') for path in sorted(base.rglob('*'))
+            if path.is_file() and not any(str(path.relative_to(base)).startswith(name + '/') for name in skip)}
+
+
+def design_tree(root: Path) -> dict[str, str]:
+    """``R/results/v2/design_evaluation_jobs`` without Node's annotation directory."""
+    return tree(root / DESIGN_JOBS, ('electrode_annotations',))
+
+
+def annotation_tree(directory: Path) -> dict[str, tuple[str, int]]:
+    """The annotation files of ``directory``: ``{name: (text, mode)}``."""
+    if not directory.exists():
+        return {}
+    return {path.name: (path.read_text(encoding='utf-8'), path.stat().st_mode & 0o777)
+            for path in sorted(directory.iterdir())}
+
+
+def cache_digests(answers: list[dict], records: dict[str, str]) -> list[dict]:
+    """``answers`` with the digest of each ``cache.json`` of ``records`` (a ``design_tree``) named by its path:
+    the file holds its finish time, so its digest differs between hosts while the path does not."""
+    names = {hashlib.sha256(text.encode('utf-8')).hexdigest(): f'<sha256 of {path}>' for path, text in records.items()
+             if path.endswith('/cache.json')}
+    out = []
+    for answer in answers:
+        body = answer['body']
+        for digest, name in names.items():
+            body = body.replace(digest, name)
+        out.append({**answer, 'body': body})
+    return out
+
+
+def design_view(client: Any, id: str, annotation: Optional[str] = None) -> Any:
+    query = f'?annotation_id={annotation}' if annotation else ''
+    return client.get(f'/api/design-evaluation/jobs/{id}{query}')
+
+
 # --- Parity with Node's composed service --------------------------------------------------------------------------
 
 # The steps both hosts run (parity/compute_routes.mjs documents them). {N} in a path is the id of the N-th receipt
-# (by first appearance) of the answers so far.
+# (by first appearance) of the answers so far, {aN} the N-th annotation id and {kN} the N-th key.
 STEPS: list[dict] = [
     {'method': 'GET', 'path': '/api/local-compute/health'},
     {'method': 'GET', 'path': '/api/community/status'},
@@ -226,6 +359,85 @@ STEPS: list[dict] = [
     {'method': 'GET', 'path': '/api/local-compute/library'},
     {'method': 'GET', 'path': '/api/community/status'},
 ]
+
+_D = '/api/design-evaluation'
+_R = DESIGN_REQUESTS
+_UNKNOWN = '00000000-0000-4000-8000-000000000000'
+# The coordinate evaluation on design_compute_root. Receipts: {0} done (computed), {1} cached (the stored evaluation),
+# {2} hold (cancelled), {3} fail (cancelled while queued), {4} fail, {5} stale, {6} change. Annotations: {a0} A, {a1}
+# B (its body sent one byte per chunk), {a2} C with source metadata on {0}; {a3} A on {1}; {a4} A on {2}; {a5} D, in a
+# body of exactly the limit, on {0}.
+DESIGN_STEPS: list[dict] = [
+    {'method': 'GET', 'path': f'{_D}/health'},
+    {'method': 'GET', 'path': '/api/community/status'},
+    # A lookup miss creates neither a receipt nor an annotation.
+    {'method': 'POST', 'path': f'{_D}/lookup', 'body': _R['done']},
+    {'method': 'POST', 'path': f'{_D}/lookup', 'body': envelope(_R['done'], 'A')},
+    {'method': 'POST', 'path': f'{_D}/jobs', 'body': envelope(_R['done'], 'A')},
+    {'method': 'GET', 'path': f'{_D}/jobs/{{0}}', 'until': TERMINAL},
+    {'method': 'GET', 'path': f'{_D}/jobs/{{0}}?annotation_id={{a0}}'},
+    {'method': 'POST', 'path': f'{_D}/jobs', 'body': envelope(_R['done'], 'A')},
+    {'method': 'POST', 'path': f'{_D}/jobs', 'body': envelope(_R['done'], 'B'), 'chunks': True},
+    {'method': 'POST', 'path': f'{_D}/lookup', 'body': envelope(_R['done'], 'B')},
+    {'method': 'POST', 'path': f'{_D}/lookup', 'body': _R['done']},
+    {'method': 'POST', 'path': f'{_D}/jobs', 'body': envelope(_R['done'], 'C', SOURCE)},
+    {'method': 'GET', 'path': f'{_D}/jobs/{{0}}?annotation_id={{a1}}'},
+    {'method': 'GET', 'path': f'{_D}/jobs/{{0}}?annotation_id=' + 'b' * 64},
+    {'method': 'GET', 'path': f'{_D}/jobs/{{0}}?annotation_id={{a0}}&annotation_id={{a1}}'},
+    # A stored evaluation neither host computed: one cached receipt, reused with and without names.
+    {'method': 'POST', 'path': f'{_D}/lookup', 'body': _R['cached']},
+    {'method': 'POST', 'path': f'{_D}/jobs', 'body': envelope(_R['cached'], 'A')},
+    {'method': 'POST', 'path': f'{_D}/lookup', 'body': envelope(_R['cached'], 'A')},
+    {'method': 'POST', 'path': f'{_D}/jobs', 'body': _R['cached']},
+    {'method': 'GET', 'path': f'{_D}/jobs/{{1}}?annotation_id={{a3}}'},
+    {'method': 'GET', 'path': f'{_D}/jobs/{{1}}?annotation_id={{a0}}'},
+    # A running worker: joins, the health's active job, a queued task behind it, cancellations.
+    {'method': 'POST', 'path': f'{_D}/jobs', 'body': _R['hold']},
+    {'method': 'GET', 'path': f'{_D}/jobs/{{2}}', 'until': ('running',), 'progress': True},
+    {'method': 'GET', 'path': f'{_D}/health'},
+    {'method': 'POST', 'path': f'{_D}/jobs', 'body': envelope(_R['hold'], 'A')},
+    {'method': 'POST', 'path': f'{_D}/lookup', 'body': _R['hold']},
+    {'method': 'POST', 'path': f'{_D}/jobs', 'body': _R['fail']},
+    {'method': 'GET', 'path': '/api/community/status'},
+    {'method': 'POST', 'path': f'{_D}/jobs/{{3}}/cancel'},
+    {'method': 'POST', 'path': f'{_D}/jobs/{{2}}/cancel'},
+    {'method': 'GET', 'path': f'{_D}/jobs/{{2}}?annotation_id={{a4}}', 'until': TERMINAL},
+    {'method': 'POST', 'path': f'{_D}/jobs/{{2}}/cancel'},
+    {'method': 'POST', 'path': f'{_D}/jobs', 'body': _R['fail']},
+    {'method': 'GET', 'path': f'{_D}/jobs/{{4}}', 'until': TERMINAL},
+    {'method': 'POST', 'path': f'{_D}/jobs', 'body': _R['stale']},
+    {'method': 'GET', 'path': f'{_D}/jobs/{{5}}', 'until': TERMINAL},
+    # The library's record and bundle with an annotation the Python service wrote to W (Node: to R).
+    {'method': 'GET', 'path': '/api/local-compute/library/{k0}?annotation_id={a0}'},
+    {'method': 'GET', 'path': '/api/local-compute/library/{k0}/bundle?annotation_id={a2}'},
+    {'method': 'GET', 'path': '/api/local-compute/library/{k0}?annotation_id={a0}&other=1'},
+    {'method': 'GET', 'path': '/api/local-compute/library/{k0}?annotation_id={a3}'},
+    {'method': 'GET', 'path': '/api/local-compute/library/{k1}?annotation_id={a3}'},
+    {'method': 'GET', 'path': '/api/local-compute/library/{k0}?annotation_id=' + 'c' * 64},
+    # Refusals: the envelope's checks in Node's order, the request format, the body rules, the token.
+    {'method': 'POST', 'path': f'{_D}/jobs', 'body': {**envelope(_R['done'], 'A'), 'electrode_names': names('A')[:63]}},
+    {'method': 'POST', 'path': f'{_D}/jobs', 'body': envelope(_R['done'], 'A', note='x')},
+    {'method': 'POST', 'path': f'{_D}/jobs', 'body': envelope(_R['done'], 'A', {**SOURCE, 'unit': 'cm'})},
+    {'method': 'POST', 'path': f'{_D}/lookup', 'body': {**envelope(_R['done'], 'A'), 'source_metadata': None}},
+    {'method': 'POST', 'path': f'{_D}/jobs', 'body': envelope({}, 'A')},
+    {'method': 'POST', 'path': f'{_D}/jobs', 'body': envelope(None, 'A')},
+    {'method': 'POST', 'path': f'{_D}/lookup', 'body': {**_R['done'], 'design': {**DESIGN, 'unit': 'cm'}}},
+    {'method': 'POST', 'path': f'{_D}/jobs', 'raw': padded(envelope(_R['done'], 'D'), 65536)},
+    {'method': 'POST', 'path': f'{_D}/lookup', 'raw': padded(envelope(_R['done'], 'D'), 65537)},
+    {'method': 'POST', 'path': f'{_D}/jobs', 'raw': '{}', 'type': 'text/plain'},
+    {'method': 'POST', 'path': f'{_D}/jobs', 'raw': '{"schema":'},
+    {'method': 'POST', 'path': f'{_D}/jobs', 'body': envelope(_R['done'], 'A'), 'token': False},
+    {'method': 'POST', 'path': f'{_D}/jobs/{{0}}/cancel', 'token': False},
+    {'method': 'GET', 'path': f'{_D}/jobs/{_UNKNOWN}'},
+    {'method': 'POST', 'path': f'{_D}/jobs/{_UNKNOWN}/cancel'},
+    # The worker changes a code file of the identity: the run fails, and the stored receipt's key is stale.
+    {'method': 'POST', 'path': f'{_D}/jobs', 'body': _R['change']},
+    {'method': 'GET', 'path': f'{_D}/jobs/{{6}}', 'until': TERMINAL},
+    {'method': 'GET', 'path': f'{_D}/jobs/{{1}}'},
+    {'method': 'GET', 'path': f'{_D}/jobs/{{0}}?annotation_id={{a0}}'},
+    {'method': 'POST', 'path': f'{_D}/lookup', 'body': _R['done']},
+    {'method': 'GET', 'path': '/api/community/status'},
+]
 _ID = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
 _TIME = re.compile(r'\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z')
 # The members only Node has, its public-service machinery: the visitor count of the status, and the public library's
@@ -233,10 +445,24 @@ _TIME = re.compile(r'\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z')
 _NODE_ONLY = ('online_visitors', 'visibility', 'library_scope')
 
 
+# A path's ``{N}`` is a UUID that is a whole JSON string (a receipt), not one inside a path such as the interpreter's.
+_RECEIPT = re.compile(r'"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"')
+_ANNOTATION_ID = re.compile(r'"annotation_id":"([a-f0-9]{64})"')
+_KEY = re.compile(r'"key":"([a-f0-9]{64})"')
+
+
 def _ids(text: str, ids: list[str]) -> None:
     for id in _ID.findall(text):
         if id not in ids:
             ids.append(id)
+
+
+def _seen(text: str, seen: dict[str, list[str]]) -> None:
+    """Collects the receipt ids (``''``), annotation ids (``'a'``) and keys (``'k'``) of a body in order."""
+    for kind, pattern in (('', _RECEIPT), ('a', _ANNOTATION_ID), ('k', _KEY)):
+        for value in pattern.findall(text):
+            if value not in seen[kind]:
+                seen[kind].append(value)
 
 
 def _strip(value: Any) -> Any:
@@ -278,30 +504,64 @@ def masked_tree(tree: dict[str, str]) -> dict[str, str]:
     return out
 
 
-def run_node(root: Path, scratch: Path, steps: list[dict] = STEPS) -> dict:
-    """Node's composed service (``createLocalComputeService``) over ``root`` with its state in ``scratch``."""
+def run_node(root: Path, scratch: Path, steps: list[dict] = STEPS, owner: str = 'parity-owner') -> dict:
+    """Node's composed service (``createLocalComputeService``) over ``root`` with its state in ``scratch``, its
+    session pinned to ``owner`` (``LOCAL_OWNER`` gives Node's annotations the Python service's ids and bytes)."""
     spec = scratch / 'spec.json'
     out = scratch / 'out.json'
     spec.write_text(json.dumps({'root': str(root), 'queueDirectory': str(scratch / 'queue'),
-                                'python': sys.executable, 'owner': 'parity-owner', 'steps': steps,
+                                'python': sys.executable, 'owner': owner, 'steps': steps,
                                 'terminal': list(TERMINAL), 'settle_ms': SETTLE * 1000}), encoding='utf-8')
     subprocess.run(['node', str(DRIVER), str(spec), str(out)], check=True, env=NODE_ENV, timeout=300)
     return json.loads(out.read_text(encoding='utf-8'))
 
 
-def _target(path: str, ids: list[str]) -> str:
-    return re.sub(r'\{(\d+)\}', lambda match: ids[int(match.group(1))], path)
+def _target(path: str, seen: dict[str, list[str]]) -> str:
+    return re.sub(r'\{([ak]?)(\d+)\}', lambda match: seen[match.group(1)][int(match.group(2))], path)
+
+
+def chunked(app: Service, client: Any, method: str, target: str, data: bytes, headers: dict[str, str]) -> Any:
+    """One request whose body reaches the application one byte per ASGI message, on the event loop of ``client``'s
+    lifespan (the test client hands an application the whole body at once). Returns ``(status, headers, text)``."""
+    from .service_support import HOST, PORT, session_cookie
+
+    path, _, query = target.partition('?')
+    sent = [(b'host', HOST.encode()), (b'cookie', session_cookie().encode())]
+    sent += [(name.lower().encode('latin-1'), value.encode('latin-1')) for name, value in headers.items()]
+    scope = {'type': 'http', 'asgi': {'version': '3.0'}, 'http_version': '1.1', 'method': method, 'scheme': 'http',
+             'path': path, 'raw_path': path.encode('latin-1'), 'query_string': query.encode('latin-1'),
+             'root_path': '', 'headers': sent, 'client': ('127.0.0.1', 50000), 'server': ('127.0.0.1', PORT)}
+    pieces = [data[index:index + 1] for index in range(len(data))]
+    messages: list[dict] = []
+
+    async def run() -> None:
+        async def receive() -> dict:
+            if pieces:
+                return {'type': 'http.request', 'body': pieces.pop(0), 'more_body': bool(pieces)}
+            return {'type': 'http.request', 'body': b'', 'more_body': False}
+
+        async def send(message: dict) -> None:
+            messages.append(message)
+
+        await app(scope, receive, send)
+
+    client.portal.call(run)
+    start = next(message for message in messages if message['type'] == 'http.response.start')
+    received = {name.decode('latin-1').lower(): value.decode('latin-1') for name, value in start['headers']}
+    body = b''.join(message.get('body', b'') for message in messages if message['type'] == 'http.response.body')
+    return start['status'], received, body.decode('utf-8')
 
 
 def run_python(root: Path, workspace: Path, steps: list[dict] = STEPS) -> dict:
     """The same steps through the Python application, as the driver sends them: ``{N}`` is the N-th distinct id
-    in the bodies so far, POSTs carry the CSRF token unless the step says ``token: false``, a step with ``until``
+    in the bodies so far (``{aN}`` the N-th annotation id, ``{kN}`` the N-th key), POSTs carry the CSRF token unless
+    the step says ``token: false``, a step with ``chunks`` sends its body one byte at a time, a step with ``until``
     is repeated until its job reaches one of those statuses (with ``progress``, a progress above 0)."""
     answers: list[dict] = []
-    ids: list[str] = []
+    seen: dict[str, list[str]] = {'': [], 'a': [], 'k': []}
     with serving(root, workspace, csrf=False) as (app, client):
         for step in steps:
-            target = _target(step['path'], ids)
+            target = _target(step['path'], seen)
             headers = {}
             if step['method'] == 'POST':
                 headers['content-type'] = step.get('type', 'application/json')
@@ -310,8 +570,13 @@ def run_python(root: Path, workspace: Path, steps: list[dict] = STEPS) -> dict:
             data = step['raw'] if 'raw' in step else jsjson.stringify(step['body']) if 'body' in step else None
             deadline = time.monotonic() + SETTLE
             while True:
-                response = client.request(step['method'], target, content=data, headers=headers)
-                body = response.text
+                if step.get('chunks'):
+                    status, received, body = chunked(app, client, step['method'], target,
+                                                     (data or '').encode('utf-8'), headers)
+                    kind = received.get('content-type')
+                else:
+                    response = client.request(step['method'], target, content=data, headers=headers)
+                    status, kind, body = response.status_code, response.headers.get('content-type'), response.text
                 until = step.get('until')
                 if until is None:
                     break
@@ -321,7 +586,8 @@ def run_python(root: Path, workspace: Path, steps: list[dict] = STEPS) -> dict:
                 if time.monotonic() > deadline:
                     raise AssertionError(f'{target} did not settle: {body}')
                 time.sleep(0.02)
-            _ids(body, ids)
-            answers.append({'method': step['method'], 'path': step['path'], 'status': response.status_code,
-                            'type': response.headers.get('content-type'), 'body': body})
-    return {'answers': answers, 'token': TOKENS.csrf, 'tree': jobs_tree(root), 'queue': queue_file(workspace)}
+            _seen(body, seen)
+            answers.append({'method': step['method'], 'path': step['path'], 'status': status, 'type': kind,
+                            'body': body})
+    return {'answers': answers, 'token': TOKENS.csrf, 'tree': jobs_tree(root), 'queue': queue_file(workspace),
+            'design_tree': design_tree(root), 'annotations': annotation_tree(workspace / WORKSPACE_ANNOTATIONS)}

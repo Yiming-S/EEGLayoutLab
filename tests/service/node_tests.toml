@@ -377,10 +377,9 @@ disposition = "N"
 disposition = "N"
 
 [sites."check-coordinate-review.mjs::source metadata remains bounded and cannot change scientific normalization, context identity or legacy annotation IDs"]
-disposition = "pending"
-slice = 5
-module = "tests/service/test_key_parity.py"
-note = "source metadata never enters the key"
+disposition = "P"
+target = "tests/service/test_key_parity.py::test_source_metadata_cannot_change_normalization_context_or_annotation_ids"
+note = "the production adapter (jobs.kinds.design_evaluation_adapter) on synthetic roots with the real context; ids also under the local owner; per-envelope parity with Node's adapter in test_envelope_prepare_parity"
 
 [sites."check-coordinate-review.mjs::source declarations survive trusted project snapshots and deliveries without entering or changing scientific payload"]
 disposition = "pending"
@@ -548,32 +547,27 @@ disposition = "N"
 disposition = "N"
 
 [sites."check-design-decision.mjs::result validator rejects a switched request or displaced nominal coordinates"]
-disposition = "pending"
-slice = 5
-module = "tests/service/test_design.py"
+disposition = "P"
+target = "tests/service/test_design.py::test_result_validator_rejects_a_switched_request_or_displaced_nominal_coordinates"
 
 [sites."check-design-decision.mjs::worker results cache by exact inputs and do not consume another worker slot on hit"]
-disposition = "pending"
-slice = 5
-module = "tests/service/test_design.py"
+disposition = "P"
+target = "tests/service/test_design.py::test_worker_results_cache_by_exact_inputs_and_do_not_consume_another_worker_slot_on_hit"
 
 [sites."check-design-decision.mjs::cancel keeps shared slot until process close and never creates a success cache"]
-disposition = "pending"
-slice = 5
-module = "tests/service/test_design.py"
+disposition = "P"
+target = "tests/service/test_design.py::test_cancel_keeps_shared_slot_until_process_close_and_never_creates_a_success_cache"
 
 [sites."check-design-decision.mjs::shutdown during input validation cannot start a late worker"]
-disposition = "pending"
-slice = 5
-module = "tests/service/test_design.py"
+disposition = "P"
+target = "tests/service/test_design.py::test_shutdown_during_input_validation_cannot_start_a_late_worker"
 
 [sites."check-design-decision.mjs::missing cache identities and different anatomical domains are never silent matches"]
 disposition = "N"
 
 [sites."check-design-decision.mjs::corrupt perturbation coordinates, labels or derived spacing are rejected"]
-disposition = "pending"
-slice = 5
-module = "tests/service/test_design.py"
+disposition = "P"
+target = "tests/service/test_design.py::test_corrupt_perturbation_coordinates_labels_or_derived_spacing_are_rejected"
 
 [sites."check-design-decision.mjs::source, scalp and manifest bytes all invalidate the real context identity"]
 disposition = "P"
@@ -594,9 +588,8 @@ formats = ["design-evaluation"]
 note = "the browser half (designSubmission) stays in Node"
 
 [sites."check-design-robustness.mjs::the result validator requires the block exactly when requested and checks its structure"]
-disposition = "pending"
-slice = 5
-module = "tests/service/test_design.py"
+disposition = "P"
+target = "tests/service/test_design.py::test_the_result_validator_requires_the_block_exactly_when_requested_and_checks_its_structure"
 note = "all eight corruptions"
 
 [sites."check-design-robustness.mjs::the library summary, the table rows and the critical electrodes come from the same block"]
@@ -660,47 +653,42 @@ disposition = "N"
 disposition = "N"
 
 [sites."check-electrode-annotations.mjs::production adapter normalization excludes A/B names from request, worker input and scientific key"]
-disposition = "pending"
-slice = 5
-module = "tests/service/test_key_parity.py"
-note = "the electrode names never enter the request or the key"
+disposition = "P"
+target = "tests/service/test_key_parity.py::test_envelope_names_never_enter_the_request_worker_input_or_key"
+note = "the production adapter (jobs.kinds.design_evaluation_adapter over jobs.design.DesignJobs) and Node's on synthetic roots with the real context, each option alone, both hosts asserted; per-envelope parity in test_envelope_prepare_parity"
 
 [sites."check-electrode-annotations.mjs::shared receipts retain owner-specific and same-owner variants across restart without scientific file changes"]
-disposition = "pending"
-slice = 5
-module = "tests/service/test_annotations.py"
-note = "variants survive restart; owners are dropped (R1)"
+disposition = "P"
+target = "tests/service/test_annotations.py::test_variants_of_one_receipt_survive_a_restart_without_scientific_file_changes"
+note = "for the one local user; owners are dropped (R1)"
 
 [sites."check-electrode-annotations.mjs::sidecar integrity, paths, crashed temporaries, private output and storage limits are enforced"]
-disposition = "pending"
-slice = 5
-module = "tests/service/test_annotations.py"
+disposition = "P"
+target = "tests/service/test_annotations.py::test_sidecar_integrity_paths_crashed_temporaries_private_output_and_storage_limits"
+note = "in W/annotations/electrode-names"
 
 [sites."check-electrode-annotations.mjs::lookup misses do not create metadata, blocked writes fail before receipts, bare cached reads stay available"]
-disposition = "pending"
-slice = 5
-module = "tests/service/test_annotations.py"
-note = "the resource-blocking part is dropped (R2)"
+disposition = "P"
+target = "tests/service/test_annotations.py::test_lookup_misses_create_no_metadata_and_unwritable_storage_fails_before_receipts"
+note = "the resource gate is dropped (R2); a name store that cannot be written blocks the same way"
 
 [sites."check-electrode-annotations.mjs::per-owner and per-receipt metadata bounds reject new variants without creating files"]
-disposition = "pending"
-slice = 5
-module = "tests/service/test_annotations.py"
-note = "the per-receipt bound; the per-owner bound is dropped (R1)"
+disposition = "P"
+target = "tests/service/test_annotations.py::test_the_per_receipt_bound_and_the_file_size_bound_reject_new_variants_without_creating_files"
+note = "the per-owner part becomes the 32,768-byte file bound; the per-owner bound of 20 is dropped (R1), so one user's receipt takes 100 (test_annotations.py::test_twenty_variants_do_not_bound_a_receipt, over HTTP test_compute_routes.py::test_a_receipt_takes_one_hundred_name_variants_over_http)"
 
 [sites."check-electrode-annotations.mjs::HTTP annotations require policy/token and owner; snapshots and delivery preserve each variant after sidecars disappear"]
-disposition = "pending"
-slice = 5
-module = "tests/service/test_annotations.py"
-note = "policy, token and annotation_id reads; the owner and sharing parts are dropped (R1, R5)"
+disposition = "P"
+target = "tests/service/test_compute_routes.py::test_an_evaluation_runs_and_its_names_are_an_annotation_of_the_workspace"
+note = "?annotation_id on the job view, the library record and the bundle (404, 400); below HTTP in test_annotations.py::test_named_variants_are_read_by_the_library_and_validate_as_snapshot_annotations; the token in test_design_writes_need_the_csrf_token_and_fit_the_kind_limit; Node's answers and annotation bytes in test_the_design_routes_answer_and_write_as_node_does; owners and sharing are dropped (R1, R5); the project snapshot and delivery half ports with projects in slice 9"
 
 [sites."check-electrode-annotations.mjs::task polling retains the explicitly selected name variant when a shared receipt has a newer variant"]
 disposition = "N"
 
 [sites."check-electrode-annotations.mjs::multibyte electrode names survive request chunks split inside every UTF-8 character"]
-disposition = "pending"
-slice = 5
-module = "tests/service/test_annotations.py"
+disposition = "P"
+target = "tests/service/test_annotations.py::test_multibyte_names_survive_a_body_split_inside_every_character"
+note = "at the routes' body reader; over HTTP (one byte per ASGI message, 65,536 against 65,537 bytes) in test_compute_routes.py::test_design_writes_need_the_csrf_token_and_fit_the_kind_limit"
 
 [sites."check-electrode-annotations.mjs::opening and refreshing a saved evaluation restores original inputs, exact names, seed and radius with GET only"]
 disposition = "N"
@@ -2697,6 +2685,7 @@ note = "Python serves identity encoding only; keep the identity-transfer checks"
 [scripts."check-design-evaluation-live.mjs"]
 kind = "live"
 slice = 5
+note = "retargeted in slice 5: the Python service through EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN, Node at EEG_TEST_URL otherwise; it computes, so run it on a copy of the installation"
 
 [scripts."check-electrode-editor-live.mjs"]
 kind = "live"
@@ -2738,12 +2727,12 @@ note = "its reception steps from slice 7"
 [scripts."check-coordinate-names-browser.mjs"]
 kind = "browser"
 slice = 9
-note = "the evaluation part with --cache-only from slice 5"
+note = "with --cache-only (EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN, EEG_REPOSITORY_ROOT); its evaluation steps follow its project form, so it stops at its first project request until slice 9"
 
 [scripts."check-coordinate-review-browser.mjs"]
 kind = "browser"
 slice = 9
-note = "the evaluation part with --cache-only from slice 5"
+note = "the evaluation part with --cache-only from slice 5 (EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN, EEG_REPOSITORY_ROOT): its 11 checks before the project snapshot pass; that last check, which checks the stored record and the browser's diagnostics again after its writes, waits for slice 9"
 
 [scripts."check-robustness-browser.mjs"]
 kind = "browser"

@@ -43,7 +43,7 @@ from ..schemas import jsjson
 from . import nodefs, nodepath
 from .design_result import normalize_design_request, validate_design_result
 from .fingerprint import _EXECVP_SKIP
-from .identity import UNDEFINED, JSTypeError, _js_string, _same, js_truthy, request_key
+from .identity import UNDEFINED, JSTypeError, _js_string, _same, js_truthy, request_key, to_number
 from .records import read_file, realpath
 from .reception_records import _hash_json, _js_min, _spread
 
@@ -151,48 +151,6 @@ def _find(items: Any, expression: str, test: Callable[[Any], bool]) -> Any:
         if test(item):
             return item
     return UNDEFINED
-
-
-_DECIMAL = re.compile(r'[+-]?(?:Infinity|(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)')
-_RADIX = re.compile(r'0([xXoObB])([0-9a-fA-F]+)')
-
-
-def _string_to_number(text: str) -> float:
-    """ECMA-262 StringToNumber: JavaScript's whitespace trimmed, ``''`` is 0, ``0x``/``0o``/``0b`` literals without
-    a sign, decimal literals with ASCII digits and ``Infinity``; anything else is ``NaN``."""
-    s = jsjson.js_trim(text)
-    if not s:
-        return 0.0
-    radix = _RADIX.fullmatch(s)
-    if radix:
-        try:
-            return jsjson.to_number(int(radix.group(2), {'x': 16, 'o': 8, 'b': 2}[radix.group(1).lower()]))
-        except ValueError:
-            return math.nan
-    if not _DECIMAL.fullmatch(s):
-        return math.nan
-    if s.endswith('Infinity'):
-        return -math.inf if s.startswith('-') else math.inf
-    return float(s)
-
-
-def to_number(value: Any) -> float:
-    """``Number(value)`` for parsed JSON (``ToNumber``, as ``v * 1000`` applies it): ``null`` is 0, a string goes
-    through StringToNumber, an array through its ``join``; an object is ``NaN``, or V8's ``TypeError`` when it has
-    its own ``toString`` member (a JSON value, never a function)."""
-    if value is UNDEFINED:
-        return math.nan
-    if value is None or value is False:
-        return 0.0
-    if value is True:
-        return 1.0
-    if jsjson.is_number(value):
-        return jsjson.to_number(value)
-    if isinstance(value, (str, list)):
-        return _string_to_number(_js_string(value))
-    if isinstance(value, dict) and 'toString' in value:
-        raise JSTypeError('Cannot convert object to primitive value')
-    return math.nan
 
 
 def _same_value(a: float, b: float) -> bool:

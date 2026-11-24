@@ -1,4 +1,4 @@
-"""The job routes of every task kind and the compute services behind them (phase 2 slice 4): Node's
+"""The job routes of every task kind and the compute services behind them (phase 2 slices 4 and 5): Node's
 ``communityMiddleware`` (community-queue.mjs:489-551) for one local user.
 
 - ``POST /api/{kind}/lookup``: 200 with ``WorkspaceQueue.submit(kind, body, lookup_only=True)``: ``{hit: false}``,
@@ -9,22 +9,34 @@
 - ``GET /api/{kind}/jobs/<id>[?annotation_id=<64 hex>]``: 200 ``{job}``, the receipt's view with its result.
 - ``POST /api/{kind}/jobs/<id>/cancel``: 202 ``{job}``; no body is read.
 
+A coordinate evaluation (``design-evaluation``) may come as a ``design-submission/1`` envelope with 64 electrode
+names and source metadata: its request is the evaluated one, and the names become the receipt's electrode-name
+annotation (``W/annotations/electrode-names/<id>.json``, created once and referenced by the receipt's
+``annotation_refs``), which the answer carries as ``annotation_id`` and ``electrode_annotation``. A lookup miss
+creates none. ``?annotation_id=`` selects a variant the receipt references (else 404 ``Electrode name annotation
+not found.``).
+
 As in Node, a body must be JSON (415 ``JSON required``) of at most the kind's limit as received (``BODY_LIMITS``,
 413 ``配置过大``) and parse with JavaScript's rules (400 ``请求内容不是有效的JSON``); the view takes only one
 ``annotation_id`` (else 400 ``Unsupported task query.``) of 64 lowercase hex digits (else 400 ``Invalid electrode
 name annotation.``); an unknown receipt is 404 ``任务不存在或不属于当前浏览器``. Failures follow Node's
 ``publicFailure``: a refusal with a status keeps it (``QueueError``: 503 unavailable or cache-only, 429 queue full,
 409, 404, 413), a request the kind refuses (a ``ValueError`` of its normalizer or identity, or the radius search's
-``RadiusJobError``) is a 400 with its message, and anything else a 500 with the generic message, logged. The CSRF
-token of a write is checked before routing (``server.access``).
+``RadiusJobError``) is a 400 with its message, and anything else (a system error, or a ``TypeError`` such as Node's
+refusal of a path argument) a 500 with the generic message, logged. The CSRF token of a write is checked before
+routing (``server.access``).
 
-``ComputeHost`` holds the services of one process: the radius search (``jobs.radius.RadiusJobs``), the workspace
-queue (``jobs.queue.WorkspaceQueue`` in ``W/.eeglayoutlab``) over the kinds wired so far (``jobs.kinds``) and the
-execution slot both share, with the installation lock on ``R/results/v2``. The application's lifespan starts it (the
-queue's restart rules, ``recover()`` and its dispatcher) and closes it (Node's ``dispose``: no new dispatch, the
-running worker stopped with ``server_restart`` and awaited, the queue written once more). A kind without an adapter
-(the design evaluation, the editor and the signal simulation until slices 5 to 7), and every kind of an application
-whose lifespan never ran, is an unknown endpoint: 404 ``Unknown queue endpoint``, before any body is read.
+``ComputeHost`` holds the services of one process: the radius search (``jobs.radius.RadiusJobs``), the coordinate
+evaluation (``jobs.design.DesignJobs``, on the radius search's record store, as Node's ``DesignEvaluationService``
+uses its queue's), the workspace queue (``jobs.queue.WorkspaceQueue`` in ``W/.eeglayoutlab``) over the kinds wired
+so far (``jobs.kinds``) with the workspace's electrode-name annotations (``jobs.annotations.ElectrodeAnnotations
+.local``: written to ``W/annotations/electrode-names``, read from there, then from Node's
+``R/results/v2/design_evaluation_jobs/electrode_annotations``), and the execution slot the services share, with the
+installation lock on ``R/results/v2``. The application's lifespan starts it (the queue's restart rules,
+``recover()`` and its dispatcher) and closes it (Node's ``dispose``: no new dispatch, the running worker stopped
+with ``server_restart`` or ``restart`` and awaited, the queue written once more). A kind without an adapter (the
+editor and the signal simulation until slices 6 and 7), and every kind of an application whose lifespan never ran,
+is an unknown endpoint: 404 ``Unknown queue endpoint``, before any body is read.
 
 The modules of ``eeglayoutlab.jobs`` are imported when the services start, not when the application is built.
 """
@@ -45,6 +57,8 @@ from ..workspace import STATE
 from .health import KINDS
 
 if TYPE_CHECKING:
+    from ...jobs.annotations import ElectrodeAnnotations
+    from ...jobs.design import DesignJobs
     from ...jobs.queue import WorkspaceQueue
     from ...jobs.radius import RadiusJobs
     from ...jobs.runtime import RuntimeConfig
@@ -76,18 +90,22 @@ class ComputeHost:
     """The compute services of one service process, built and started by ``start`` and stopped by ``close``.
 
     ``runtime`` gives the root and interpreters (the library routes' ``RuntimeConfig``, so both read one
-    ``EEG_COMPUTE_PYTHON``). ``radius_options`` and ``queue_options`` are passed to ``RadiusJobs`` and
-    ``WorkspaceQueue`` (tests set a timeout, a clock or a bound there before the lifespan starts). ``failure`` is the
-    message of a start that failed, or of the queue's last write at shutdown when it failed; the command line reports
-    it and exits 1, as Node's host does when its ``dispose`` throws (start.mjs)."""
+    ``EEG_COMPUTE_PYTHON``). ``radius_options``, ``design_options`` and ``queue_options`` are passed to
+    ``RadiusJobs``, ``DesignJobs`` and ``WorkspaceQueue`` (tests set a timeout, a clock or a bound there before the
+    lifespan starts). ``failure`` is the message of a start that failed, or of the queue's last write at shutdown
+    when it failed; the command line reports it and exits 1, as Node's host does when its ``dispose`` throws
+    (start.mjs)."""
 
     def __init__(self, config: 'ServiceConfig', runtime: Optional[Callable[[], 'RuntimeConfig']] = None):
         self.config = config
         self.runtime = runtime
         self.radius_options: dict[str, Any] = {}
+        self.design_options: dict[str, Any] = {}
         self.queue_options: dict[str, Any] = {}
         self.slot: Optional[ExecutionSlot] = None
         self.radius: Optional[RadiusJobs] = None
+        self.design: Optional[DesignJobs] = None
+        self.annotations: Optional[ElectrodeAnnotations] = None
         self.queue: Optional[WorkspaceQueue] = None
         self.failure: Optional[str] = None
         self._loop: Optional[asyncio.AbstractEventLoop] = None
@@ -98,7 +116,9 @@ class ComputeHost:
         """The queue's directory, ``W/.eeglayoutlab``."""
         return nodepath.join(nodepath.resolve(self.config.user.workspace), STATE)
 
-    def _build(self) -> tuple['ExecutionSlot', 'RadiusJobs', 'WorkspaceQueue']:
+    def _build(self) -> tuple['ExecutionSlot', 'RadiusJobs', 'DesignJobs', 'ElectrodeAnnotations', 'WorkspaceQueue']:
+        from ...jobs.annotations import WORKSPACE_ANNOTATIONS, ElectrodeAnnotations
+        from ...jobs.design import DesignJobs
         from ...jobs.kinds import community_adapters
         from ...jobs.queue import WorkspaceQueue
         from ...jobs.radius import RadiusJobs
@@ -109,10 +129,16 @@ class ComputeHost:
         slot = ExecutionSlot(InstallationLock(runtime.repository_root))
         radius = RadiusJobs(runtime.repository_root, runtime.python, execution_slot=slot,
                             token=self.config.tokens.csrf, **self.radius_options)
-        queue = WorkspaceQueue(self.directory, community_adapters(radius), slot=slot,
+        # Node's DesignEvaluationService: the queue's root, record store and slot, and the native interpreter.
+        design = DesignJobs(runtime.repository_root, runtime.native_python, execution_slot=slot, store=radius.store,
+                            **self.design_options)
+        # The library reads the same two directories (routes.library).
+        annotations = ElectrodeAnnotations.local(
+            nodepath.join(self.config.user.workspace, *WORKSPACE_ANNOTATIONS), runtime.repository_root)
+        queue = WorkspaceQueue(self.directory, community_adapters(radius, design), slot=slot, annotations=annotations,
                                cache_only=self.config.cache_only, clear_interrupted=self.config.clear_interrupted,
                                **self.queue_options)
-        return slot, radius, queue
+        return slot, radius, design, annotations, queue
 
     async def start(self) -> None:
         """Builds the services (``queue.json`` is loaded or created and the restart rules applied, in a worker
@@ -126,7 +152,7 @@ class ComputeHost:
             return
         self._loop = asyncio.get_running_loop()
         try:
-            self.slot, self.radius, self.queue = await asyncio.to_thread(self._build)
+            self.slot, self.radius, self.design, self.annotations, self.queue = await asyncio.to_thread(self._build)
             if self._stop_requested:
                 self._stop_now()
                 return
@@ -147,8 +173,9 @@ class ComputeHost:
 
     def stop_soon(self) -> None:
         """Node's synchronous ``dispose`` from a signal handler: on the services' event loop, the queue stops
-        scheduling, the radius search refuses new work and stops its running worker (``server_restart``), and the queue
-        is written (a launch still in flight goes back to ``queued``). ``close`` then waits for the worker's records.
+        scheduling, the services refuse new work and stop their running worker (the radius search's with
+        ``server_restart``, the coordinate evaluation's with ``restart``), and the queue is written (a launch still in
+        flight goes back to ``queued``). ``close`` then waits for the worker's records.
         Before the services exist the request is kept, and ``start`` applies it; once the loop is closed it does
         nothing."""
         self._stop_requested = True
@@ -160,27 +187,34 @@ class ComputeHost:
         except RuntimeError:
             pass  # the loop is closed: the services have stopped
 
+    def _services(self) -> list[Any]:
+        return [service for service in (self.radius, self.design) if service is not None]
+
     def _stop_now(self) -> None:
-        queue, radius = self.queue, self.radius
+        queue = self.queue
         if queue is None:
             return
         queue.stop_scheduling()
-        if radius is not None:
-            radius.dispose()
+        for service in self._services():
+            service.dispose()
         queue.dispose()
 
     async def close(self) -> None:
-        """Node's ``dispose`` of the composed service: the queue stops scheduling, the radius search refuses new work
-        and stops its running worker (``server_restart``); once that job's records are written, the queue is written a
-        last time (unless ``stop_soon`` wrote it already) and its dispatcher has left. A receipt that was running stays
-        ``running`` on disk; the next start fails it with ``服务重启中断了计算，可重新提交`` (or promotes it when its
-        result was stored). When that last write failed, ``failure`` says so."""
-        queue, radius = self.queue, self.radius
+        """Node's ``dispose`` of the composed service: the queue stops scheduling, the services refuse new work and
+        stop their running worker; once that job's records are written, the queue is written a last time (unless
+        ``stop_soon`` wrote it already) and its dispatcher has left. A receipt that was running stays ``running`` on
+        disk; the next start fails it with ``服务重启中断了计算，可重新提交`` (or promotes it when its result was
+        stored). When that last write failed, ``failure`` says so."""
+        queue = self.queue
         if queue is None:
             return
         queue.stop_scheduling()
-        if radius is not None:
-            await radius.aclose()
+        services = self._services()
+        # Every service refuses new work before any is awaited, as Node disposes them one after another.
+        for service in services:
+            service.dispose()
+        for service in services:
+            await service.aclose()
         await queue.close()
         if queue.unsaved is not None and self.failure is None:
             reason = getattr(queue.unsaved, 'strerror', None) or str(queue.unsaved)
@@ -220,6 +254,7 @@ def _refusal(error: BaseException) -> bool:
         return True
     from ...jobs.radius import RadiusJobError
 
+    # The coordinate evaluation's plain Errors (jobs.design.DesignJobError) are RadiusJobErrors.
     return isinstance(error, RadiusJobError)
 
 

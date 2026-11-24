@@ -1,6 +1,6 @@
 # 0001, phase 2 — the Python service, in slices
 
-- **Status:** in progress; slices 1 to 4 done, slice 5 next. Decisions U1, U2, U3 and U6 were confirmed on 2026-11-23; U4, U5 and U7 are proposed defaults.
+- **Status:** in progress; slices 1 to 5 done, slice 6 next. Decisions U1, U2, U3 and U6 were confirmed on 2026-11-23; U4, U5 and U7 are proposed defaults.
 - **Date:** 2026-11-23
 - **Design:** [0001 — Local-first application with a Python service](0001-local-first-architecture.md), migration table, phase 2
 
@@ -176,6 +176,81 @@ Known differences from Node:
 
 Node 22 on Linux, CI's Node, was not run locally. The run path, the queue's adapter over it and the routes were not run on Linux: the Linux test host has no Pydantic, which the run path needs.
 
+### Slice 5 — design evaluation and electrode names
+
+Coordinate evaluations run on the Python service through the slice 4 queue: lookups, jobs, their progress, cancellation and cache replay, with Node's records under `R/results/v2/design_evaluation_jobs`. The electrode names and source declaration that a `design-submission/1` envelope carries become an electrode-name annotation of the workspace, `W/annotations/electrode-names/<id>.json`. The receipt references it, and job views, library records and bundles show it for `?annotation_id`. This serves the interface's coordinate import (JSON, CSV and BIDS files with their source declarations, the phase 1 formats) and the comparison ("test") tab, which read these jobs and the library routes of slice 3.
+
+- In `jobs/`:
+  - `design` holds `DesignJobs`, a port of `DesignEvaluationService` (`design-evaluation-server.mjs:256-472`). Its `heads()` is slice 3's `design_heads`, and its `handle()` is the routes.
+    - The worker is `<native interpreter> -u R/scripts/design_evaluation.py` with cwd R. It runs one thread for OMP, OpenBLAS, MKL and vecLib, as the identity's `threads: 1` says, and `PYTHONDONTWRITEBYTECODE=1`. It has a 600 s timeout and a 4 MiB output bound. The service remembers 20 jobs and never drops the active one.
+    - `request.json` (`{request, identity}`) is written before the spawn and `job.json` after the close.
+    - At the close, in Node's order: a stop, a non-zero exit, `validateDesignResult` with `validRobustness`, then the context computed again. A changed identity fails the job with `计算期间输入或代码发生变化`; an input that can no longer be read fails it with Node's system error, such as `ENOENT: no such file or directory, realpath '…'` (`jobs.nodefs` gives each file-system failure Node's code, syscall and path, the path as the system received it: a lone surrogate is U+FFFD).
+    - The validator converts a trial's `actual_max_mm` and `unchanged_fraction` as JavaScript's subtraction does (`identity.to_number`: numeric strings and arrays are numbers, another object is NaN or V8's `TypeError`), so a non-number gets Node's message.
+    - A completed result becomes `cache.json` (`{key, identity, result, result_sha256, finished_at}`) with Node's member order and bytes (B14), published once (B16).
+    - A lookup reads that file as Node's does. Its key must be the current context's key, its `result_sha256` the result's digest, and the validator must accept the result for the request, so a result stored for another request, or under another identity (another key), is a miss.
+    - `normalize`, `validate`, `worker_input`, `context`, `view` and `remember` can be overridden, as Node's `ElectrodeEditorService` overrides them (slice 6).
+  - `annotations` gains the write side of `annotations/electrode-names.mjs` (`:35-132`) and `designSubmission`.
+    - `design_submission` unwraps the envelope with Node's checks and messages.
+    - `identity` gives Node's `eeg-electrode-annotation/1` value. Its `owner` is the local owner, `sha256('eeglayoutlab-local-user/1')` (`server.workspace.LOCAL_OWNER`), and its `id` is the SHA-256 of the rest. `request_sha256`, `xyz_sha256` and `regions_sha256` are Node's.
+    - `create` writes `<id>.json` once, with Node's bytes. It writes a temporary `.<uuid>.tmp` opened `wx` with mode 0600, then fsync, rename and fsync of the directory. The directories have mode 0700 and are created one component at a time. An existing file is read, never rewritten.
+    - The bounds are Node's: 32,768 bytes per file (413), 2,000 files or 64 MiB (507), a foreign name or a file that is not plain (409), and 503 for any other failure. A temporary that disappears while the directory is read is skipped (a known difference, below).
+    - Reads look in W first, then in Node's `R/results/v2/design_evaluation_jobs/electrode_annotations/`, whatever the owner (slice 3).
+  - `kinds` gains `DesignAdapter`, the design-evaluation adapter of `community-adapters.mjs`: the envelope first, then the service's `normalize` and `context`. The names and the source declaration stay beside the request. They never enter it, the key or the worker's input.
+- In `server/`:
+  - `ComputeHost` builds the coordinate evaluation with the native interpreter and with the radius search's execution slot and record store, as Node shares `queue.executionSlot`.
+  - It also builds the annotation store, which the queue uses through its slice 4 `annotations` protocol. A receipt keeps its variants in `annotation_refs`, up to Node's 100 per receipt.
+  - At startup, `recover()` promotes an interrupted evaluation whose result was stored to a completed, cached receipt with that record's `finished_at`, as Node's reconciliation reads it from `cache.json`; the adapter's optional `finished_at` gives it (`DesignJobs.stored_finish`) after the reconciliation's record checks: the key and checksum, the lookup's result, and the identity and request the record names, if any. One whose result was never stored, or whose record fails a check, stays failed. The record is read as the lookup reads it (a known difference, below).
+  - The queue's health of a receipt whose annotation cannot be read answers as its job view does (404 `not_found`, 409 `compute_busy`), not 500.
+  - `stop_soon` and `close` stop every service before waiting for any.
+  - The design-evaluation routes (`lookup`, `jobs`, `jobs/<id>[?annotation_id=]`, `cancel`) are those of slice 4, with Node's body limit of 65,536 bytes. The OpenAPI document is unchanged.
+  - A configured input path with a NUL byte is Node's `ERR_INVALID_ARG_VALUE`, a `TypeError` (`nodefs.InvalidArgValueError`), so a lookup or submit answers 500 with the generic message, and a receipt that meets it at dispatch shows that message, as in Node, not the error's text with the installation's path. The radius search's routes take the same path.
+- In `webapp/` the interface is unchanged.
+  - `check-design-evaluation-live.mjs` signs in to the Python service through `openServiceSession` (`EEG_SERVICE_RUNTIME` or `EEG_SERVICE_TOKEN`). Otherwise it talks to the Node host at `EEG_TEST_URL` (default `http://127.0.0.1:3000`) and keeps Node's visitor cookie. It also polls while a job is queued.
+  - `check-coordinate-names-browser.mjs` and `check-coordinate-review-browser.mjs` read the root from `EEG_REPOSITORY_ROOT` and give the browser the service's session cookie. They keep the cookie and the CSRF token out of their reports.
+- Node references in `tests/service/parity/`:
+  - `design_run.mjs`: Node's `DesignEvaluationService` over a `LocalComputeQueue` of synthetic design roots, so the scientific context is real on both sides. It has an injected `spawnProcess`, a pinned `Date` and pinned job ids, and runs 20 cases on macOS and 19 on Linux, CI's system: the managed-runtime case runs on macOS only, since on Linux the identity probes the interpreter's fingerprint and the case's fake interpreter cannot run. They cover completed jobs (odd progress events and result lines, stderr tails), the options, a worker failure, a spawn throw, invalid results, a changed identity, inputs that cannot be read after the close (moved away, replaced by a directory, without read permission, and a source input that its manifest names with a lone surrogate), two timeouts, a cancel, an input error, the output bound, dispose, a store failure, publish once, an unreadable cache, busy, the job map and, on macOS, the managed runtime, whose missing conda records fail the listing (`scandir`). The invalid results are 42 refusals: every validator message, the perturbation corruptions, nine trial members that JavaScript's subtraction converts, and the eight robustness corruptions.
+  - `annotations.mjs`: Node's `designSubmission` on 2,879 envelopes, `ElectrodeAnnotations` on 1,840 identities (179 of them also passed to `create`: 132 write a file and 47 are refused; Node reads back the 130 with a string key, and both hosts list their 125 distinct files), and the production adapter's `prepare` on synthetic roots.
+  - `compute_routes.mjs` gains the 63 steps of `compute_support.DESIGN_STEPS`: the design routes of Node's composed service with the same stand-in worker, its session pinned to the local owner. It also runs a lookup and a submit on a root whose configured mesh path has a NUL byte.
+  - `fs.mjs` (slice 1) also lists and reads every path of its tree (`readdir`, `readFile`), and every failure is compared by its message as well as its code. So the messages of `realpath`, `lstat`, `stat`, `scandir`, `open` and `read` are checked on every system, CI's included, lone surrogates among them.
+- The slice's 14 Node test sites are ported (`test_design`, `test_annotations`, `test_key_parity`; the HTTP halves are in `test_compute_routes`).
+
+Result (2026-11-24):
+
+- **Parity.** Python's results equal Node's in every reference above, on Node 26.5.0 and Node 24.22.3.
+  - The run path's steps, clock and id counts, the child's arguments, environment, input and kills, and the bytes of `request.json`, `job.json` and `cache.json`.
+  - Every envelope's outcome, and every annotation's identity, refusal and file bytes. Each host reads the other's files back.
+  - The adapter's prepared request, key, identity, names, source declaration and worker input for every envelope.
+  - Every HTTP step's status, content type and masked body, the design record tree, and the six annotation files: Node's under R and the Python service's under W have the same bytes and modes.
+- **Checks.** The service tier passes on macOS (22,217 tests, with 1 strict xfail for a Node older than nodejs/node#65607), and so do the real-root tier (460), the native tier (900) and the interface's typecheck, lint, `test:fast` (681, 7 skipped) and build. The OpenAPI document regenerates byte for byte.
+- **Mutation checks.** All 54 mutants of `design.py` made before `stored_finish` was added were caught: 44 by the parity and 10 only by the Python tests. Those 10 were the permit after the write, the release in `finally`, the timeout's units both ways, the script name, the callbacks after the release, a pending stop, the shield, `aclose` and the queue's prepared submit. Mutants of the adapter's names, source declaration and worker input were caught by the envelope parity. Removing any one of `stored_finish`'s checks (the key and checksum, the result, the identity, the request), or all of them, fails a test; removing the identity check fails the restart route test too.
+- **Linux.** The annotation store passed twice on Linux (Ubuntu, Node 24.22.3) in a scratch directory. Python and Node created the same 13 files with the same bytes and modes, each read the other's, and both gave the same 507, 409 and 503 refusals. `test_nodefs`'s comparison with `fs.mjs` gave the same values and messages for all 116 calls there, `scandir` and a lone surrogate among them. The run path and the routes were not run there, since that host has no Pydantic.
+- **Live checks.** These ran with `eeglayoutlab serve` on scratch workspaces, against an APFS copy of the author's installation without `.git`, `.claude`, `artifacts`, `node_modules` and `.runtime`. The installation's managed interpreter ran the workers through `EEG_COMPUTE_PYTHON`.
+  - **Keys.** Python's current keys of the 2 Node-written design rows equal Node's, on the installation and on its copy. They differ between the two: the managed runtime's 200 files enter the identity only when the interpreter is the root's own `.runtime/simnibs-4.6.0/bin/python`, so the installation's identity has 230 digests and the copy's 30, in Node too. Neither row equals its key on the installation any more, so neither is compatible. Every stored key is derived again from its `request.json`.
+  - **`check-design-evaluation-live.mjs` passes.** Its default run (5 s) evaluates the reference layout on the stored fields (`cached_fem`, relative field 1.0000000000000004) and a perturbation, and replays the perturbation from the cache. With `--native` it solves the head model for new coordinates (`direct_fem`, 152 s, about 9.8 GB resident) and replays that from the cache.
+  - **The golden request.** The installation has no `artifacts/productization/2026-11-13/scientific-baseline/design-request.json`, which the browser checks read. The stored canonical request of Node's row `6a28cc…` (the native FEM integration fixture) stood in for it on the copy: queued with 202, `direct_fem` in 139 s, key `0e111629…`, the key computed for it beforehand.
+  - **After the runs**, Python's and Node's current keys agree for the 4 rows the service wrote. Node's own `lookup` on the copy hits those 4, `6a28cc…`'s request among them through its new row, and misses the request of `9e4c787…`, which was not computed again. The 2 Node rows kept their bytes.
+  - **`check-coordinate-names-browser.mjs`**, against `serve --cache-only`, passes its first check: the golden request's lookup is the cached row `0e111629…`, with `maintenance` and `drained` true. It stops at its second, the project form (slice 9: `POST /api/projects` answers 404), after a 404 of `GET /api/community/records` (slice 7). Its evaluation steps follow the form, so they wait for slice 9.
+  - **`check-coordinate-review-browser.mjs`** now finds its file fields by their label's text, since the file picker (`a35b76d`) put its own text inside the label, waits for an import to reset the review, expects the BIDS parser's current refusals and checks the project snapshot last (the names check finds its field the same way). Against `serve --cache-only` on the synthetic root of `compute_support.design_compute_root`, whose stand-in worker computed the golden request first, it passes its 11 checks before the project: the JSON import, the cached evaluation with names, the BIDS files and their import as a separate source annotation, both languages, the three refusals, the reopening with `?annotation_a` and the unchanged record. The project check, which checks the record and the browser's diagnostics again after its writes, stops at `POST /api/projects` 404 (slice 9).
+  - **`check-app-live.mjs`** passes the 11 pages, the library (402 supplied records) and a radius job with its cached replay, and stops at the first electrode-editor job, as in slice 4 (slice 6: 404 `Unknown queue endpoint`).
+  - **Shutdown.** SIGTERM stopped each service with exit 0, `runtime.json` was removed and no worker was left. Nothing under the installation changed, and the copy was deleted.
+
+Known differences from Node:
+
+- **Where names go.** New annotation files go to `W/annotations/electrode-names/` only, never under R; Node writes them to `R/results/v2/design_evaluation_jobs/electrode_annotations/`.
+  - Their identity names the local owner, so a set of names gets a different id than in a Node browser's session. The parity pins Node's session to the local owner to compare bytes.
+  - Reads ignore the owner, so the files Node wrote stay readable through the library, but a receipt shows only the variants it references.
+- **Publish once (B16).** A valid `cache.json` that another workspace published first is kept, and the job keeps its own result in `job.json`. Node replaces the file.
+- **Name variants.** Node's bound of 20 name variants per owner is dropped (R1), so the one local user's receipt takes Node's 100 per receipt. Node with a single visitor stops at 20.
+- **The lookup.** The plan also asked a lookup to check that the result's request hashes with the identity to the key. Node's design service does not check this (only the editor's records do, slice 6), and Python follows Node. For every record a writer produces the validator's request comparison and the current context's key cover the same cases, since each writes the identity its key was hashed from. Only a hand-edited `cache.json` whose `identity` contradicts its key differs: it is a hit in both hosts, and publish-once keeps it.
+- **A temporary that disappears while annotations are listed.** The library lists the annotations in a request thread while `create` renames its temporary on the event loop, so a `.<uuid>.tmp` can disappear between the directory listing and its `lstat`. Python skips it, in `list` and in `create`'s inspection. Node's single thread never lists during its own write. It meets this only when something outside removes a temporary inside that window, and then answers 409 (library) or 503 (create). An `<id>.json` that disappears there fails as in Node.
+- **Restart recovery reads the record as the lookup does.** Node's offline tool reads `cache.json` with `readStrictCache`, which retains the receipt when the file has a second link, the path holds a link (even one inside the root), the file is over 64 MiB or it changed while it was read. `recover()` reads it as both hosts' lookups do, checking only that its real path stays inside the root, so it promotes those receipts (R6). B16's crash window leaves exactly such a second link. The radius search has done the same since slice 4.
+- **The spawn and the records**, as for the radius search (slice 4): the spawn is awaited under `asyncio.shield`, and a cancel during it is applied once the worker exists. Records are read and written in worker threads. The context is computed in a worker thread, one identity at a time across kinds. Finalization runs from the completion callback.
+- **Not ported.** Node's per-network window of 60 new name sets per hour and the per-owner annotation reads (R1), and the resource gate before new names (R2).
+
+Two behaviours are shared with Node, not differences. A cached hit's receipt carries the time of the hit as `finished_at`, because Node's design lookup gives no finish time. A submission that arrives after `cache.json` is written, but before its receipt is finalized, gets a cached receipt of its own.
+
+Node 22 on Linux, CI's Node, was not run locally.
+
 ## Where key equality can break
 
 The request key is `sha256(utf8(JSON.stringify({request, identity})))`. Proof tiers: **A** CI on synthetic roots with the Node driver on the same root; **B** the opt-in real installation; **C** a live lookup comparison of both hosts.
@@ -229,6 +304,7 @@ The Node code stays until phase 4; none of this is ported:
 | --- | --- |
 | 2 | An opt-in development proxy to the Python service, and a session helper for scripts |
 | 4 | The status component reads `GET /api/community/status`; a host that counts visitors (Node) then gets the heartbeat as before; visitor counts only when present (works on both hosts) |
+| 5 | None in the interface; `check-design-evaluation-live.mjs` and the two coordinate browser checks sign in to the Python service |
 | 10 | A 401 answer shows "reopen from the `eeglayoutlab` command" |
 | 10 | Visitor counts, the visibility control and project credentials (keys, roles, sharing, fragment links, the vault) are removed; projects open from `GET /api/projects` |
 | 10 | The development proxy targets Python by default; live and browser scripts are retargeted |
@@ -237,7 +313,7 @@ Unchanged: the `X-EEG-Compute-Token` header (health still returns the token), ev
 
 ## Node tests
 
-The unit-test files in `webapp/scripts` contain 630 test sites. 184 are ported to Python (81 so far), 16 are mirrored by format parity, 332 stay in Node (19 of them adapted in slice 10), 88 are dropped with the public-service machinery, and 10 belong to the Node host's structure or the Node command line. `tests/service/node_tests.toml` maps every site to its disposition, and `tests/service/test_node_test_map.py` fails on an unmapped site, a missing Python target or a pending entry of a finished slice.
+The unit-test files in `webapp/scripts` contain 636 test sites. 184 are ported to Python (95 so far), 16 are mirrored by format parity, 338 stay in Node (19 of them adapted in slice 10), 88 are dropped with the public-service machinery, and 10 belong to the Node host's structure or the Node command line. `tests/service/node_tests.toml` maps every site to its disposition, and `tests/service/test_node_test_map.py` fails on an unmapped site, a missing Python target or a pending entry of a finished slice.
 
 ## Decisions
 

@@ -342,8 +342,9 @@ def test_exec_file_reports_signals_exits_and_spawn_failures(fakes):
         exec_file(fakes['missing'], [])
     with pytest.raises(PermissionError):
         exec_file(fakes['not-executable'], [])
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError) as raised:  # Node's ERR_INVALID_ARG_VALUE is a TypeError
         exec_file(fakes['echo'], ['a\u0000b'])
+    assert raised.value.code == 'ERR_INVALID_ARG_VALUE'
     with pytest.raises(TypeError):
         exec_file(5, [])
 

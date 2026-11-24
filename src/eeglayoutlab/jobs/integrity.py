@@ -12,7 +12,6 @@ from .identity import UNDEFINED, IdentityError, JSTypeError, _js_string, _member
 
 __all__ = ['InputIntegrity', 'BANK_POINTER', 'ADMISSION_POINTER']
 
-_CHUNK = 1 << 20
 BANK_POINTER = 'results/v2/current_multiregion_bank.json'
 ADMISSION_POINTER = 'results/v2/current_surface_admissibility.json'
 _SHA256 = re.compile('[a-f0-9]{64}')
@@ -30,7 +29,8 @@ class InputIntegrity:
     (``realpath(3)``: physically, and on macOS in the on-disk letter case and Unicode normalization). An input
     is digested only when that real path starts with ``root + '/'``, so on macOS a root spelled in another case
     or normalization than on disk refuses every input, and a link whose target spells the root differently is
-    still inside it. A missing file raises ``FileNotFoundError``, as Node rejects with ``ENOENT``. The memo never
+    still inside it. A missing file raises ``FileNotFoundError``, as Node rejects with ``ENOENT``; every system
+    error carries Node's syscall and path (``nodefs.system_error``), so its message is Node's. The memo never
     enters a key.
     """
 
@@ -52,9 +52,8 @@ class InputIntegrity:
     def _read(self, path: str, stamp: tuple[int, int, int, int, int]) -> str:
         """``createReadStream(path)`` read to the end, then the stamp again: a directory fails here (``EISDIR``)."""
         sha = hashlib.sha256()
-        with open(nodefs.encode(path), 'rb') as stream:
-            while chunk := stream.read(_CHUNK):
-                sha.update(chunk)
+        for chunk in nodefs.read_stream(path):
+            sha.update(chunk)
         if _stamp(nodefs.stat(path)) != stamp:
             raise IdentityError('输入文件正在变化')
         digest = sha.hexdigest()

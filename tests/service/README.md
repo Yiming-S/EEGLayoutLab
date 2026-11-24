@@ -35,9 +35,11 @@ The first phase 2 exit criterion is that, on the same installation, Python reque
   input in list order, then the identity checks one after another. The two-break roots pin that order, and
   `InputIntegrity.digest_all` reproduces it. With the default pool of 4, failures in different stages can come
   out either way (about 1-3% of runs for an unreadable file against a directory).
-- `test_nodefs.py` compares `nodefs.realpath_sync` and `nodefs.realpath` with Node's `fs.realpathSync` and
-  `fs.promises.realpath` (`parity/fs.mjs`) on a tree of links, loops and misspelled paths. On macOS the two
-  differ: the first keeps the spelling it is given, the second returns the on-disk case and normalization.
+- `test_nodefs.py` compares `nodefs.realpath_sync`, `nodefs.realpath`, `nodefs.readdir` and `nodefs.read_file`
+  with Node's `fs.realpathSync`, `fs.promises.realpath`, `readdir` and `readFile` (`parity/fs.mjs`) on a tree of
+  links, loops and misspelled paths, failures by code and by message (`records.node_message`: the syscall, and the
+  path as the system received it, a lone surrogate as U+FFFD). On macOS the two real paths differ: the first keeps
+  the spelling it is given, the second returns the on-disk case and normalization.
 
 On macOS the identities have no `runtime` member; on Linux they carry the interpreter fingerprint, so CI covers
 that branch.
@@ -262,6 +264,84 @@ The Node references need Node; the run path, the queue's adapter tests and the r
 routes FastAPI and httpx). Without them those tests skip, unless `EEG_REQUIRE_SCHEMA_PARITY=1`. The process tests
 (groups, signals, the lock) are written for macOS and Linux, and they wait on events with generous bounds so that
 they hold under load.
+
+## Coordinate evaluation and electrode names
+
+Slice 5 adds the coordinate evaluation's run path (`jobs.design`), the write side of the electrode-name annotations
+(`jobs.annotations`), the design adapter (`jobs.kinds.DesignAdapter`) and its routes. As in slice 4, everything that
+computes or writes runs on synthetic roots in `tmp_path`, and the Node references write only under their case roots
+and scratch directories.
+
+- `test_design.py` (`DesignJobs`):
+  - Ports: check-design-decision.mjs:201 and :330 and check-design-robustness.mjs:35 (all eight corruptions) on
+    the result validator. :265, :288 and :303 are driven through `radius_support.FakeChild` with that file's context
+    stub (`design_support.Fixture`).
+  - Then what Python adds:
+    - the permit and the installation lock held until the records are written;
+    - another workspace computing, a paused slot, a broken lock and a failed context;
+    - a pause or a failed write while the batch is created;
+    - a cancel during the spawn, the wall-clock limit and a cancelled caller;
+    - a valid cache published first by another workspace (B16), and `aclose`;
+    - the finish time a restart takes from `cache.json` (`stored_finish`) only after the record checks of Node's
+      reconciliation: the key and checksum, the result, and the identity and request the record names. The record
+      is read as the lookup reads it, so a second link (B16) or a link inside the root does not stop it (R6);
+    - the queue's prepared submit and the job map's bound;
+    - a subclass that overrides every member slice 6's editor overrides;
+    - a real worker process on a design root. `design_support.FAKE_WORKER` stands in for
+      `scripts/design_evaluation.py`.
+  - `parity/design_run.mjs` runs Node's `DesignEvaluationService` over a `LocalComputeQueue` of the design roots of
+    `key_parity_support.design_root`, so the scientific context is real on both sides. Spawn is injected, and
+    `Date` and the service's `randomUUID` are pinned. It runs the cases of `design_support.parity_cases`: 20 on
+    macOS, 19 on Linux (CI). The `managed` case runs on macOS only, since on Linux the identity probes the
+    interpreter's fingerprint and its fake interpreter cannot run; so CI does not compare the managed run path, and
+    the `scandir` message is compared there by `test_nodefs.py`. The `odd-bytes` case moves away a source input that
+    its manifest names with a lone surrogate. Unless the superuser runs them (it reads files of mode 000), the cases
+    also reach `EACCES`, and only then does the coverage test ask for it.
+  - For each case these must equal Node's: the steps' records, the clock and id counts, the spawn arguments,
+    environment, stdin and kills, and the `request.json`, `job.json` and `cache.json` trees. The one exception is
+    B16: Python keeps a valid `cache.json` published first, and the publish-once case asserts it.
+  - Usage: `node tests/service/parity/design_run.mjs <spec.json> <out.json>` (its header documents the steps).
+- `test_annotations.py` (`ElectrodeAnnotations`, `design_submission`):
+  - Ports of check-electrode-annotations.mjs:82, :100, :117, :135, :147 (below HTTP) and :212 (at the routes' body
+    reader). They run on that file's fixture: a stub design adapter with Node's prepare, the workspace queue and
+    `ElectrodeAnnotations.local` (W first, then Node's directory, owner `LOCAL_OWNER`). Owners are dropped (R1) and
+    so is the resource gate (R2). The per-owner part of :135 becomes the 32,768-byte file bound.
+  - Then the write side: an existing file is never rewritten, new files go to W only, and a directory that cannot
+    be written is 503. Also the identity's checks in Node's order and the envelope's checks.
+  - A temporary that disappears between the listing and its `lstat` is skipped by `list` and `create` (a known
+    difference: the library lists in a request thread); an `<id>.json` that disappears there is Node's 409 and 503.
+  - `test_twenty_variants_do_not_bound_a_receipt`: the per-owner bound of 20 is dropped (R1), so one user's receipt
+    takes Node's 100 per receipt; the :135 port asserts that the 101st is refused by the per-receipt bound.
+  - `parity/annotations.mjs` runs Node's `designSubmission` (2,879 envelopes) and `ElectrodeAnnotations` (1,840
+    identities, 179 of them passed to `create`, 132 created) on the same inputs and owners. Node reads back the 130
+    with a string key, and both hosts list their 125 distinct files; `test_parity_cases_reach_their_branches` pins
+    these counts.
+  - Values, ids, refusal messages and statuses, and file bytes must be equal. Each host must read the other's files
+    back: Node given the owner, Python with slice 3's reader.
+  - Usage: `node tests/service/parity/annotations.mjs <spec.json> <out.json>`.
+- `test_key_parity.py`, the envelope:
+  - Ports of check-electrode-annotations.mjs:73 and check-coordinate-review.mjs:122.
+  - `key_parity_support.EnvelopeCases` runs the production adapter (`kinds.design_evaluation_adapter` over a
+    `DesignJobs` of each root) over bare, named, sourced and refused submissions on the base and full synthetic
+    roots. The same driver runs Node's adapter (its `prepares` mode).
+  - The prepared request, key, identity, names, source declaration and worker input, or the refusal, must equal
+    Node's. Names and source declarations never change the request, the worker input or the key.
+- `test_compute_routes.py`, the design routes:
+  - The flow of check-design-evaluation-live.mjs on a design root whose worker is the stand-in
+    (`compute_support.design_compute_root`). It covers:
+    - an evaluation with names whose annotation lands in W and is referenced by its receipt;
+    - `?annotation_id` on job views, library records and bundles (the HTTP half of check-electrode-annotations.mjs:147),
+      and an R annotation Node wrote, which the library reads;
+    - a lookup miss that writes nothing, and the stored evaluation as one cached receipt;
+    - joins, cancels, a restart, `stop_soon` and `--cache-only`, and an identity that changed after the close;
+    - CSRF, 65,536 against 65,537 bytes, and a body sent one byte per ASGI message (`compute_support.chunked`).
+  - Node's 100 variants per receipt over HTTP; a restart that promotes an interrupted evaluation whose result was
+    stored, with that record's finish time, and keeps failed one whose record names another identity (Node's
+    reconciliation retains it); the health of a receipt whose annotation is gone or corrupted.
+  - `parity/compute_routes.mjs` runs the 63 steps of `compute_support.DESIGN_STEPS` on Node's composed service with
+    its session pinned to the local owner. The answers, the design record tree and the six annotation files must be
+    equal: Node writes them under R, the Python service under W. On a root whose configured mesh path has a NUL
+    byte, a lookup and a submit answer Node's 500 with the generic message.
 
 ## Node test map
 

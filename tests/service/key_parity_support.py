@@ -696,3 +696,89 @@ def radius_outcome(case: dict) -> dict:
         return outcome
     return {'id': case['id'], 'ok': True, 'config': outcome['config'], 'identity': jsjson.stringify(identity),
             'key': key}
+
+
+# --- The design submission envelope and electrode names (phase 2 slice 5) ----------------------------------------
+
+ANNOTATIONS_DRIVER = ROOT / 'tests/service/parity/annotations.mjs'
+
+
+def run_annotations_node(spec: dict, scratch: Path) -> dict:
+    """Runs ``parity/annotations.mjs`` once over ``spec`` (its header documents the members); the queue directory is
+    only resolved, never created."""
+    queue = scratch / 'node-queue'
+    spec_path, out_path = scratch / 'annotations-spec.json', scratch / 'annotations-node.json'
+    spec_path.write_text(jsjson.stringify({'queueDirectory': str(queue), **spec}), encoding='utf-8')
+    subprocess.run(['node', str(ANNOTATIONS_DRIVER), str(spec_path), str(out_path)], check=True, cwd=ROOT, env=NODE_ENV)
+    assert not queue.exists()
+    return json.loads(out_path.read_text(encoding='utf-8'))
+
+
+def coordinate_sources() -> dict[str, Any]:
+    """The valid coordinate sources of the phase 1 corpus (``SOURCES`` of tests/schema_parity/formats/
+    coordinate-source.mjs), by name."""
+    if CORPUS is None:
+        return {}
+    return {variant['name'][len('valid-'):]: jsjson.parse(variant['text'])
+            for variant in CORPUS['formats']['coordinate-source']['variants']
+            if variant['accepted'] and variant['name'].startswith('valid-')}
+
+
+def browser_submission(design: dict, action: str = 'evaluate', radius_mm: Any = 6, seed: Any = 42, **options: Any) -> Any:
+    """``designSubmission`` of webapp/lib/design-decision.ts (what the interface sends): the scientific design in the
+    request; names (E1..E64 when only a source is given) and the source in a ``design-submission/1`` envelope."""
+    scientific = {key: value for key, value in design.items() if key not in ('electrode_names', 'source_metadata')}
+    request = {'action': action, 'design': scientific, 'radius_mm': radius_mm, 'seed': seed, **options}
+    if not design.get('electrode_names') and not design.get('source_metadata'):
+        return request
+    return {'schema': 'design-submission/1', 'request': request,
+            'electrode_names': design.get('electrode_names') or [f'E{i + 1}' for i in range(64)],
+            **({'source_metadata': design['source_metadata']} if design.get('source_metadata') else {})}
+
+
+def failure(error: BaseException) -> dict:
+    """A Python failure in the driver's form, compared by message, status and ``annotationSafe``."""
+    status = getattr(error, 'status', None)
+    return {'ok': False, 'message': str(error), 'status': status if isinstance(status, int) else None,
+            'safe': bool(getattr(error, 'annotation_safe', False))}
+
+
+def node_failure(result: dict) -> dict:
+    """A driver failure in the compared form (``name`` and ``code`` are Node's own)."""
+    return {'ok': False, 'message': result['message'], 'status': result['status'], 'safe': result['safe']}
+
+
+class EnvelopeCases:
+    """The production design-evaluation adapter's ``prepare`` (community-adapters.mjs:18-21) over driver cases, as the
+    service wires it: ``jobs.kinds.design_evaluation_adapter`` over a ``jobs.design.DesignJobs`` of the case's root
+    and native interpreter (``design_submission``, the service's ``normalize`` and scientific ``context``).
+    ``worker_input`` is that service's ``worker_input`` of a job holding the prepared request, as the driver records
+    Node's ``workerInput({request})``."""
+
+    def __init__(self) -> None:
+        self._services: dict[tuple[str, str], Any] = {}
+
+    def run(self, case: dict) -> dict:
+        import asyncio
+
+        from eeglayoutlab.jobs.design import DesignJob, DesignJobs
+        from eeglayoutlab.jobs.kinds import design_evaluation_adapter
+
+        try:
+            config = runtime_config(case['root'], case.get('python'), env={})
+            service = self._services.setdefault((config.repository_root, config.native_python), DesignJobs(
+                config.repository_root, config.native_python, inputs=InputIntegrity(config.repository_root)))
+            prepared = asyncio.run(design_evaluation_adapter(service).prepare(case['raw']))
+        except Exception as error:  # noqa: BLE001 - every failure is compared with Node's
+            return failure(error)
+        job = DesignJob('envelope', prepared['key'], 'running', 0, '', request=prepared['request'], ctx=prepared['ctx'])
+        return {'ok': True, 'keys': list(prepared), 'request': jsjson.stringify(prepared['request']),
+                'key': prepared['key'], 'identity': jsjson.stringify(prepared['ctx']['identity']),
+                'electrode_names': jsjson.stringify(prepared['electrode_names']) if 'electrode_names' in prepared else None,
+                'source_metadata': jsjson.stringify(prepared['source_metadata']) if 'source_metadata' in prepared else None,
+                'worker_input': jsjson.stringify(service.worker_input(job))}
+
+
+def envelope_outcome(result: dict) -> dict:
+    """A driver prepare in the compared form."""
+    return result if result['ok'] else node_failure(result)

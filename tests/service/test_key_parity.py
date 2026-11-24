@@ -12,6 +12,12 @@ the same way through tests/service/parity/library.mjs, on design roots with the 
 which Node follows: plan B8) and every canonical request of the radius-search corpus. ``codeIdentity`` covers the
 top-level ``src/compact_eeg/*.py`` only (check-project-structure.mjs:30).
 
+The design-submission envelope (slice 5) is compared through tests/service/parity/annotations.mjs: Node's production
+design-evaluation adapter (``designSubmission``, ``normalizeDesignRequest`` and the real context on the synthetic
+base and full roots) and the same steps in Python give the same request text, key, names, source metadata and
+worker input for bare requests and envelopes, so electrode names and source declarations never enter a key
+(check-electrode-annotations.mjs:73, check-coordinate-review.mjs:122).
+
 With ``EEG_KEY_PARITY_ROOT=<checkout>`` the same comparisons also run on that real installation (marked
 ``data_bundle``; the radius identity also for every stored radius request), and every stored design and editor
 cache and every batch ``request.json`` must re-derive its key. Nothing is written under that root.
@@ -21,6 +27,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import re
+from typing import Any
 
 import pytest
 
@@ -29,12 +36,14 @@ from eeglayoutlab.jobs import nodepath
 from eeglayoutlab.jobs import runtime as py_runtime
 from eeglayoutlab.jobs.identity import request_key
 from eeglayoutlab.schemas import jsjson
+from eeglayoutlab.server.workspace import LOCAL_OWNER
 
 from .key_parity_support import (
-    BAD_UTF8_NAME, BANK, CONDA_META, CONFIGS, LINE_TERMINATOR_DIST_INFO, NATIVE, NATIVE_DIST_INFO, RADIUS_CODE_NAMES,
-    RADIUS_KEY_REQUESTS, RADIUS_ROOT_CONFIGS, RADIUS_ROOTS, REQUESTS, TABLE_DIR, Case, PythonCases, all_requests,
-    build_roots, canonical_requests, digest, needs_node, node_outcome, radius_cases, radius_corpus, radius_outcome,
-    radius_root, require, run_library_node, run_node, spec_case, synthetic_cases,
+    BAD_UTF8_NAME, BANK, CONDA_META, CONFIGS, LINE_TERMINATOR_DIST_INFO, NATIVE, NATIVE_DIST_INFO, PRIOR,
+    RADIUS_CODE_NAMES, RADIUS_KEY_REQUESTS, RADIUS_ROOT_CONFIGS, RADIUS_ROOTS, REQUESTS, ROOTS, SPATIAL, TABLE_DIR, Case,
+    EnvelopeCases, PythonCases, all_requests, browser_submission, build_roots, canonical_requests, coordinate_sources,
+    design_root, digest, envelope_outcome, needs_node, node_outcome, radius_cases, radius_corpus, radius_outcome,
+    radius_root, require, run_annotations_node, run_library_node, run_node, spec_case, synthetic_cases,
 )
 
 CASES = synthetic_cases()
@@ -444,3 +453,169 @@ def test_real_root_radius_key_parity(tmp_path):
         assert radius_outcome(case) == node_outcome(node[case['id']]), case['id']
     assert stored and all(node[f'real/default/stored-{key}']['ok'] for key in stored)
     assert node['real/default/whole']['ok']
+
+
+# --- The design submission envelope (slice 5) ---------------------------------------------------------------------
+
+def _grid(z: Any) -> list:
+    return [[(i % 8) * 6, (i // 8) * 6, z(i)] for i in range(64)]
+
+
+SHARED_DESIGN = {'schema': 'eeg-electrode-design/1', 'coordinate_system': 'ernie_native_mm', 'unit': 'mm',
+                 'name': 'Shared layout', 'xyz_mm': _grid(lambda i: 1e-14), 'region_indices': [i % 2 for i in range(64)]}
+# check-coordinate-review.mjs:24-27: a name with a comma and quotes, the others CJK.
+REVIEW_DESIGN = {'schema': 'eeg-electrode-design/1', 'coordinate_system': 'ernie_native_mm', 'unit': 'mm',
+                 'name': 'Original scientific design name',
+                 'xyz_mm': [[(i % 8) * 6 + 1.42e-14, (i // 8) * 6, -112.31415926535898] for i in range(64)],
+                 'region_indices': [i % 2 for i in range(64)],
+                 'electrode_names': [' Fp1, "left" ' if i == 0 else f'电极{i + 1}' for i in range(64)]}
+ENVELOPE_OWNERS = ('a' * 64, LOCAL_OWNER)
+
+
+def _names(prefix: str) -> list[str]:
+    return [f'{prefix}{i + 1}' for i in range(64)]
+
+
+def _envelope_raws() -> dict[str, tuple[str, Any]]:
+    """Raw bodies by case id, each with its root: the scientific variants bare and named, the coordinate-review
+    design bare, named and with every source declaration, and envelopes the adapter refuses."""
+    a, b = {**SHARED_DESIGN, 'electrode_names': _names('A')}, {**SHARED_DESIGN, 'electrode_names': _names('B')}
+    raws: dict[str, tuple[str, Any]] = {}
+    variants = {'evaluate': ('base', {}), 'perturb': ('base', {'action': 'perturb'}),
+                'robustness': ('base', {'robustness': 'standard/1'}), 'noise': ('base', {'noise_model': SPATIAL}),
+                'prior': ('base', {'data_prior': PRIOR}), 'scenario': ('full', {'conductivity_scenario': 'skull_x2'}),
+                'head': ('full', {'head_id': 'ixi002'})}
+    for name, (root, options) in variants.items():
+        options = dict(options)
+        action = options.pop('action', 'evaluate')
+        raws[f'{name}/bare'] = (root, browser_submission(SHARED_DESIGN, action, **options))
+        raws[f'{name}/names-a'] = (root, browser_submission(a, action, **options))
+        raws[f'{name}/names-b'] = (root, browser_submission(b, action, **options))
+    raws['review/bare'] = ('base', browser_submission({k: v for k, v in REVIEW_DESIGN.items() if k != 'electrode_names'}))
+    raws['review/named'] = ('base', browser_submission(REVIEW_DESIGN))
+    for name, source in coordinate_sources().items():
+        raws[f'review/sourced-{name}'] = ('base', browser_submission({**REVIEW_DESIGN, 'source_metadata': source}))
+        unnamed = {k: v for k, v in REVIEW_DESIGN.items() if k != 'electrode_names'}
+        raws[f'review/source-only-{name}'] = ('base', browser_submission({**unnamed, 'source_metadata': source}))
+    v1 = coordinate_sources().get('v1', {})
+    for name, source in {'path': {**v1, 'electrodes_file': '/private/input.tsv'},
+                         'long-description': {**v1, 'coordinate_system_description': 'x' * 2049},
+                         'head-frame': {**v1, 'coordinate_system': 'head'}, 'null': None}.items():
+        envelope = browser_submission(REVIEW_DESIGN)
+        raws[f'refused/source-{name}'] = ('base', {**envelope, 'source_metadata': source})
+    named = browser_submission(a)
+    raws['refused/names-63'] = ('base', {**named, 'electrode_names': _names('A')[1:]})
+    raws['refused/extra-key'] = ('base', {**named, 'extra': 1})
+    raws['refused/request-null'] = ('base', {**named, 'request': None})
+    raws['refused/request-invalid'] = ('base', {**named, 'request': {**named['request'], 'seed': -1}})
+    raws['refused/scenario-on-base'] = ('base', browser_submission(a, conductivity_scenario='skull_x2'))
+    raws['refused/bare-invalid'] = ('base', {**named['request'], 'radius_mm': 4})
+    return raws
+
+
+ENVELOPE_RAWS = _envelope_raws()
+
+
+@pytest.fixture(scope='session')
+def envelope_synthetic(tmp_path_factory):
+    require('pydantic')
+    base = tmp_path_factory.mktemp('envelope-parity')
+    roots = {name: design_root(base / 'roots' / name, **ROOTS[name]) for name in ('base', 'full')}
+    cases = [{'id': case_id, 'root': roots[root], 'raw': raw} for case_id, (root, raw) in ENVELOPE_RAWS.items()]
+    # One service per root, as the driver keeps one adapter per root and interpreter.
+    adapters = EnvelopeCases()
+    python = {case['id']: adapters.run(case) for case in cases}
+    # Node's annotation identities of the same prepared values (the key and the canonical request from Python).
+    identities = []
+    for case_id, outcome in python.items():
+        if case_id.startswith('review/') and outcome['ok'] and outcome['electrode_names'] is not None:
+            prepared = _prepared(outcome)
+            identities += [{'id': f'{case_id}/{owner}', 'owner': owner, 'prepared': jsjson.stringify(prepared),
+                            'create': True} for owner in ENVELOPE_OWNERS]
+    (base / 'node-root').mkdir()
+    node = run_annotations_node({'root': str(base / 'node-root'), 'prepares': cases, 'identities': identities}, base)
+    return {'cases': cases, 'python': python, 'node': node, 'identities': identities}
+
+
+def _prepared(outcome: dict) -> dict:
+    """The adapter's prepared value from a compared outcome (without ``ctx``, which annotations do not read)."""
+    prepared = {'request': jsjson.parse(outcome['request']), 'key': outcome['key']}
+    for name in ('electrode_names', 'source_metadata'):
+        if outcome[name] is not None:
+            prepared[name] = jsjson.parse(outcome[name])
+    return prepared
+
+
+@needs_node
+@pytest.mark.parametrize('case_id', list(ENVELOPE_RAWS))
+def test_envelope_prepare_parity(case_id, envelope_synthetic):
+    """The production adapter's ``prepare`` of each body on the same root: request text, key, identity, names,
+    source metadata and worker input, or the same refusal (message and status)."""
+    assert envelope_synthetic['python'][case_id] == envelope_outcome(envelope_synthetic['node']['prepares'][case_id])
+
+
+@needs_node
+def test_envelope_names_never_enter_the_request_worker_input_or_key(envelope_synthetic):
+    """check-electrode-annotations.mjs:73 'production adapter normalization excludes A/B names from request, worker
+    input and scientific key', on synthetic roots with Node's real context: a bare request and two envelopes with
+    other names give one request text, one worker input and one key, in both hosts."""
+    groups = {case_id.split('/')[0] for case_id in ENVELOPE_RAWS if case_id.endswith('/names-a')}
+    assert groups == {'evaluate', 'perturb', 'robustness', 'noise', 'prior', 'scenario', 'head'}
+    node = {case_id: envelope_outcome(result) for case_id, result in envelope_synthetic['node']['prepares'].items()}
+    for host, outcomes in (('python', envelope_synthetic['python']), ('node', node)):
+        keys = set()
+        for group in groups:
+            bare, *named = (outcomes[f'{group}/{name}'] for name in ('bare', 'names-a', 'names-b'))
+            assert bare['ok'] and all(item['ok'] for item in named), (host, group)
+            for item in named:
+                assert (item['request'], item['key'], item['worker_input']) == (bare['request'], bare['key'],
+                                                                                bare['request']), (host, group)
+                assert item['keys'] == ['request', 'key', 'ctx', 'electrode_names'], (host, group)
+                assert 'electrode_names' not in item['request'] and 'A1' not in item['request'], (host, group)
+            assert bare['keys'] == ['request', 'key', 'ctx'] and bare['electrode_names'] is None, (host, group)
+            assert named[0]['electrode_names'] == jsjson.stringify(_names('A')), (host, group)
+            assert named[1]['electrode_names'] == jsjson.stringify(_names('B')), (host, group)
+            keys.add(bare['key'])
+        assert len(keys) == len(groups), host  # the scientific options do reach the key
+
+
+@needs_node
+def test_source_metadata_cannot_change_normalization_context_or_annotation_ids(envelope_synthetic, tmp_path):
+    """check-coordinate-review.mjs:122 'source metadata remains bounded and cannot change scientific normalization,
+    context identity or legacy annotation IDs': every source declaration leaves the request and key of the bare
+    request; the annotation of the named submission keeps its id (no source_metadata), the sourced one gets another
+    and reads back with its declaration; ids equal Node's for the same owner; invalid declarations are refused."""
+    from eeglayoutlab.jobs.annotations import (
+        SOURCE, WORKSPACE_ANNOTATIONS, ElectrodeAnnotations, validate_electrode_annotation,
+    )
+
+    python, node = envelope_synthetic['python'], envelope_synthetic['node']
+    sources = coordinate_sources()
+    assert set(sources) == {'v1', 'v2Mni', 'v2Labels', 'v3Native', 'v3Mni', 'v3BidsHead', 'v3Labels', 'v3Elc', 'v3Sfp',
+                            'v3SfpNative'}
+    bare, named = python['review/bare'], python['review/named']
+    for name, source in sources.items():
+        for case_id in (f'review/sourced-{name}', f'review/source-only-{name}'):
+            sourced = python[case_id]
+            assert (sourced['request'], sourced['key']) == (bare['request'], bare['key']), case_id
+            assert 'source_metadata' not in sourced['request'] and 'coordinate_system_description' not in sourced['request']
+            assert sourced['source_metadata'] == jsjson.stringify(source)
+        assert python[f'review/source-only-{name}']['electrode_names'] == jsjson.stringify([f'E{i + 1}' for i in range(64)])
+    for name in ('path', 'long-description', 'head-frame', 'null'):
+        assert python[f'refused/source-{name}'] == {'ok': False, 'message': SOURCE, 'status': None, 'safe': False}
+
+    workspace = tmp_path / 'W'
+    workspace.mkdir()
+    for owner in ENVELOPE_OWNERS:
+        annotations = ElectrodeAnnotations([(str(workspace), WORKSPACE_ANNOTATIONS)], owner=owner, writable=True)
+        old = annotations.create(_prepared(named))
+        for name, source in sources.items():
+            current = annotations.create(_prepared(python[f'review/sourced-{name}']))
+            assert 'source_metadata' not in old and current['source_metadata'] == source and current['id'] != old['id']
+            assert validate_electrode_annotation(current, bare['key']) is current
+            reread = ElectrodeAnnotations([(str(workspace), WORKSPACE_ANNOTATIONS)]).read(current['id'], bare['key'])
+            assert reread == current
+            assert node['identities'][f'review/sourced-{name}/{owner}']['create']['value'] == jsjson.stringify(current)
+        assert annotations.create(_prepared(named))['id'] == old['id']
+        assert validate_electrode_annotation(old, bare['key']) is old
+        assert node['identities'][f'review/named/{owner}']['create']['value'] == jsjson.stringify(old)

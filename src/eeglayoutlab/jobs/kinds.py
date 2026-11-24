@@ -17,6 +17,9 @@ hook:
 - ``on_finish(callback)``: register ``callback(id, view)``, which the service calls once a job is terminal and
   durable (its records written, its active slot cleared and the permit released). The queue finalizes receipts
   from it, never from a poll of the service's bounded job map (jobs.md section 5.6, pitfall).
+- ``await finished_at(prepared, job)`` (optional): the finish time of the stored result a lookup ``job`` came from,
+  for a kind whose views have none (the coordinate evaluation: Node's reconciliation reads it from ``cache.json``).
+  The queue's startup ``recover()`` uses it in place of the view's ``finished_at``.
 
 ``ServiceAdapter`` is Node's ``adapter(service, normalize, context)``. It expects Node's service surface in
 snake_case: ``lookup(request, ctx)``, ``submit(prepared)``, ``jobs`` (id -> job), ``view(job)``, ``active``,
@@ -24,7 +27,8 @@ snake_case: ``lookup(request, ctx)``, ``submit(prepared)``, ``jobs`` (id -> job)
 job once it is terminal and durable). ``context`` and ``lookup`` may be coroutine functions; synchronous ones run in
 a worker thread, one identity computation at a time across all kinds (as Node's ``serial()``), so the event loop
 keeps answering health and polling. ``local_compute_adapter`` builds the radius search's adapter
-(``normalize_request`` and ``identity_for``).
+(``normalize_request`` and ``identity_for``), ``design_evaluation_adapter`` the coordinate evaluation's
+(``DesignAdapter``: the service's own ``normalize`` and ``context``, after the ``design-submission/1`` envelope).
 """
 from __future__ import annotations
 
@@ -33,9 +37,13 @@ import inspect
 import threading
 from typing import Any, Awaitable, Callable, Optional, Protocol, Union
 
-__all__ = ['KINDS', 'Adapter', 'ServiceAdapter', 'local_compute_adapter', 'community_adapters', 'call', 'resolve']
+from .identity import UNDEFINED, js_truthy
 
-# The kinds the routes accept (community-queue.mjs:494); slice 4 wires 'local-compute', slices 5 to 7 the others.
+__all__ = ['KINDS', 'Adapter', 'ServiceAdapter', 'DesignAdapter', 'local_compute_adapter', 'design_evaluation_adapter',
+           'community_adapters', 'call', 'resolve']
+
+# The kinds the routes accept (community-queue.mjs:494); slice 4 wires 'local-compute', slice 5 'design-evaluation',
+# slices 6 and 7 the others.
 KINDS = ('local-compute', 'source-reception', 'design-evaluation', 'electrode-editor')
 
 FinishCallback = Callable[[str, dict], None]
@@ -144,6 +152,36 @@ class ServiceAdapter:
         self.service.finish_callbacks.append(finished)
 
 
+class DesignAdapter(ServiceAdapter):
+    """The coordinate evaluation's adapter (community-adapters.mjs:18-21): ``prepare`` unwraps a
+    ``design-submission/1`` envelope (``jobs.annotations.design_submission``: its checks and messages come first),
+    normalizes the request with the service's ``normalize`` and computes its ``context``. The electrode names and
+    the source metadata an envelope carries are kept beside the request, as ``electrode_names`` and
+    ``source_metadata`` when present, never in it: they enter neither the key nor the worker's input, only the
+    queue's annotation of the receipt. A bare request (the stored request at dispatch and in views among them)
+    prepares as with the plain adapter."""
+
+    async def prepare(self, raw: Any) -> dict:
+        from .annotations import design_submission
+
+        submitted = design_submission(raw)
+        request = self.normalize(submitted['request'])
+        ctx = _context(await call(self.context, request))
+        prepared = {'request': request, 'key': ctx['key'], 'ctx': ctx}
+        # Node spreads each member only when it is truthy.
+        for name in ('electrode_names', 'source_metadata'):
+            if js_truthy(submitted.get(name, UNDEFINED)):
+                prepared[name] = submitted[name]
+        return prepared
+
+    async def finished_at(self, prepared: dict, job: dict) -> Any:
+        """The stored record's ``finished_at`` (the service's ``stored_finish``): a hit's view has none, as
+        Node's design lookup gives none."""
+        identity = prepared['ctx'].get('identity', UNDEFINED)
+        return await self.service.stored_finish(prepared['key'], prepared['request'], identity,
+                                                job.get('result', UNDEFINED))
+
+
 def local_compute_adapter(service: Any) -> ServiceAdapter:
     """The radius search (``'local-compute'``): ``normalize_request`` and the service's ``identity_for``."""
     # Imported here: the radius-search format needs Pydantic, which the native runtime does not have.
@@ -151,6 +189,16 @@ def local_compute_adapter(service: Any) -> ServiceAdapter:
     return ServiceAdapter(service, normalize_request, service.identity_for)
 
 
-def community_adapters(radius: Any) -> dict[str, Adapter]:
-    """``communityAdapters(queue, normalizeRequest)`` for the kinds this slice wires."""
-    return {'local-compute': local_compute_adapter(radius)}
+def design_evaluation_adapter(service: Any) -> DesignAdapter:
+    """The coordinate evaluation (``'design-evaluation'``, ``jobs.design.DesignJobs``): the service's ``normalize``
+    and ``context``, which a subclass of the service may override."""
+    return DesignAdapter(service, service.normalize, service.context)
+
+
+def community_adapters(radius: Any, design: Any = None) -> dict[str, Adapter]:
+    """``communityAdapters(queue, normalizeRequest)`` for the kinds wired so far: the radius search and, when given,
+    the coordinate evaluation."""
+    adapters: dict[str, Adapter] = {'local-compute': local_compute_adapter(radius)}
+    if design is not None:
+        adapters['design-evaluation'] = design_evaluation_adapter(design)
+    return adapters

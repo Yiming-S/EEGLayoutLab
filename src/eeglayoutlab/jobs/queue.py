@@ -55,7 +55,8 @@ pending tasks stays (429). Deliberate differences:
   checked that no worker of an earlier run still computes: Node's operator repaired these receipts with its
   reconciliation tool.
 - ``recover()`` (startup) promotes a receipt the restart interrupted to ``completed``/``no_layout`` when the kind's
-  own lookup finds a valid stored result for its unchanged key: the startup form of Node's offline reconciliation
+  own lookup finds a valid stored result for its unchanged key, with the stored finish time (the adapter's
+  ``finished_at`` where its views have none): the startup form of Node's offline reconciliation
   (operations/reconciliation.mjs, check-reconciliation.mjs).
 - A submit whose write fails takes its new receipt back, so the refused request never runs later.
 - Leftover temporaries of an interrupted write (``queue.json.<uuid>.tmp``) are removed at startup.
@@ -119,7 +120,6 @@ QUEUE_FULL = '队列已满，请稍后提交；已有结果仍可读取'
 UNKNOWN_ENDPOINT = 'Unknown queue endpoint'
 ANNOTATIONS_UNAVAILABLE = 'Electrode name storage is unavailable.'
 ANNOTATION_NOT_FOUND = 'Electrode name annotation not found.'
-OWNER_VARIANTS = 'This task already has 20 electrode name variants.'
 TASK_VARIANTS = 'This task already has 100 electrode name variants.'
 NOT_JSON = '请求内容不是有效的JSON'
 INTERNAL_MESSAGE = '服务器内部错误，已记录；请稍后重试'
@@ -642,6 +642,9 @@ class WorkspaceQueue:
         if status not in DONE or (status == 'no_layout' and task['kind'] != 'local-compute'):
             return None
         finished = job.get('finished_at')
+        stored = getattr(adapter, 'finished_at', None)
+        if stored is not None:  # the kind's views have no finish time: the stored record's
+            finished = await resolve(stored(prepared, job))
         if _parse_date(finished) is None:
             return None
         return status, finished, receipt_catalog(task['kind'], prepared, job.get('result', UNDEFINED)), \
@@ -837,7 +840,7 @@ class WorkspaceQueue:
 
     async def _annotation_for(self, prepared: dict, task: Optional[dict], accept: Callable[[], None]) -> Any:
         """``annotationFor``: the electrode-name variant a design submission carries, created at most once per
-        receipt (20 per receipt; Node's per-network window is dropped)."""
+        receipt (100 per receipt; Node's per-owner bound of 20 and its per-network window are dropped, R1)."""
         if not js_truthy(prepared.get('electrode_names')):
             return None
         if self.annotations is None:
@@ -846,8 +849,6 @@ class WorkspaceQueue:
         refs = (task or {}).get('annotation_refs') or []
         if id in refs:
             return await resolve(self.annotations.read(id, prepared['key']))
-        if len(refs) >= ANNOTATION_LIMITS['referencesPerOwner']:
-            raise QueueError(OWNER_VARIANTS, 413)
         if len(refs) >= ANNOTATION_LIMITS['referencesPerTask']:
             raise QueueError(TASK_VARIANTS, 413)
         accept()

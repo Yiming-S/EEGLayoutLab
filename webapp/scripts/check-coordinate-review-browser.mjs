@@ -8,10 +8,16 @@ import { chromium } from 'playwright';
 import { translateText } from '../lib/i18n/core.ts';
 import { parseBIDSElectrodes } from '../lib/bids-electrodes.ts';
 import { designSubmission } from '../lib/design-decision.ts';
+import { openServiceSession, playwrightCookies } from './helpers/service-session.mjs';
 
-const root = resolve(import.meta.dirname, '../..'), artifactRoot = join(root, 'artifacts/research-workflow/2026-11-14');
-assert.ok(process.env.EEG_TEST_URL, 'Set EEG_TEST_URL to the isolated paused verification server.');
-const base = new URL(process.env.EEG_TEST_URL);
+// EEG_REPOSITORY_ROOT is the root the server serves (default this checkout). The server is the Node host at
+// EEG_TEST_URL, or the Python service (eeglayoutlab serve --cache-only): with EEG_SERVICE_RUNTIME (its
+// <workspace>/.eeglayoutlab/runtime.json) or EEG_SERVICE_TOKEN and EEG_TEST_URL, the browser holds its session cookie.
+const root = resolve(process.env.EEG_REPOSITORY_ROOT || resolve(import.meta.dirname, '../..')), artifactRoot = join(root, 'artifacts/research-workflow/2026-11-14');
+const service = process.env.EEG_SERVICE_RUNTIME || process.env.EEG_SERVICE_TOKEN
+  ? await openServiceSession({ base: process.env.EEG_TEST_URL }) : null;
+assert.ok(service || process.env.EEG_TEST_URL, 'Set EEG_TEST_URL to the isolated paused verification server.');
+const base = new URL(service?.base || process.env.EEG_TEST_URL);
 assert.ok(base.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(base.hostname) && base.port && base.port !== '3000');
 assert.ok(base.pathname === '/' && !base.search && !base.hash && !base.username && !base.password);
 assert.equal(process.argv.length, 2);
@@ -26,6 +32,8 @@ await mkdir(output, { recursive: true, mode: 0o700 });
 
 const names = Array.from({ length: 64 }, (_, index) => index === 0 ? 'Review-Fp1, left' : index === 1 ? 'Review-Cz "midline"' : index === 2 ? 'Review-电极03' : `Review-Channel${index + 1}`);
 const imported = { ...baseline.design, electrode_names: names }, observations = [], requests = [], artifacts = [], secrets = [];
+// The session cookie and the CSRF token never reach the report.
+if (service) secrets.push(service.cookie.slice(service.cookie.indexOf('=') + 1), service.csrf);
 const diagnostics = { pageErrors: [], consoleErrors: [], httpFailures: [], requestFailures: [], blockedWrites: [] };
 const requestOrder = new Map(), successfulReads = [], controlledAborts = [], consoleMessages = [];
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -34,6 +42,8 @@ const scrub = value => typeof value === 'string' ? secrets.reduce((text, secret)
 let browser, context, page, cached, originalRecord, jsonJob, bidsJob, bidsFiles, bidsDesign, failure, locale = 'en', phase = 'initialization', armedSubmission, admittedCachedJobs = 0, navigation;
 const t = source => translateText(source, locale);
 const button = (target, source) => target.getByRole('button', { name: t(source), exact: true });
+// A FilePicker's button and file-name texts sit inside its field's label: the input is found by the label's text.
+const fileInput = source => page.locator('label', { hasText: t(source).trim() }).locator('input[type=file]');
 const escape = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const keyOf = url => { const value = new URL(url, base); return value.pathname + value.search; };
 async function check(name, work) {
@@ -53,6 +63,18 @@ async function paused() {
   assert.equal(health.maintenance, true); assert.equal(health.drained, true);
   return health;
 }
+// The stored record, the two admitted submissions and the browser's diagnostics (a cancelled navigation counts only
+// when its directory reloaded): checked before the project snapshot and again after its writes.
+async function assertUnchanged() {
+  await page.waitForLoadState('networkidle'); await paused();
+  assert.deepEqual((await api('/api/local-compute/library/' + cached.key)).record, originalRecord); assert.equal(admittedCachedJobs, 2);
+  for (const aborted of controlledAborts) assert.ok(successfulReads.some(read => read.key === aborted.key && read.request_index > aborted.request_index), 'A cancelled navigation directory did not reload successfully.');
+  for (const message of consoleMessages.splice(0)) {
+    if (message.message.includes('net::ERR_ABORTED') && controlledAborts.some(aborted => aborted.key === message.key && aborted.phase === message.phase)) continue;
+    diagnostics.consoleErrors.push(message);
+  }
+  for (const issues of Object.values(diagnostics)) assert.deepEqual(issues, []);
+}
 async function navigate(path) {
   navigation = { phase, start_request_index: requests.length };
   try { await page.goto(new URL(path, base).href, { waitUntil: 'networkidle' }); }
@@ -69,6 +91,8 @@ async function reviewRows() {
   return section.locator('tbody tr').evaluateAll(rows => rows.map(row => ({ cells: [...row.querySelectorAll('td')].map(cell => cell.textContent), movement: row.querySelectorAll('td')[4]?.getAttribute('title') })));
 }
 async function assertReview(evaluated) {
+  // An import resets the review after it parses its files: wait for the last row's status.
+  if (!evaluated) await (await details('逐电极坐标检查')).locator('tbody tr').last().getByRole('cell', { name: t('未评价'), exact: true }).waitFor();
   const rows = await reviewRows(); assert.equal(rows.length, 64);
   for (const [index, row] of rows.entries()) {
     assert.equal(row.cells[0], names[index]); assert.equal(Number(row.cells[1]), baseline.design.region_indices[index]);
@@ -113,7 +137,8 @@ const filePayloads = files => files.map(file => ({ name: file.name, mimeType: fi
 try {
   browser = await chromium.launch({ executablePath, headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   context = await browser.newContext({ viewport: { width: 1512, height: 1100 }, serviceWorkers: 'block', acceptDownloads: true });
-  await context.addCookies([{ name: 'eeg-layout-language', value: 'en', url: base.origin }]);
+  await context.addCookies([{ name: 'eeg-layout-language', value: 'en', url: base.origin },
+    ...(service ? playwrightCookies(service) : [])]);
   await context.route('**/api/**', async route => {
     const request = route.request(), path = new URL(request.url()).pathname, method = request.method();
     if (['GET', 'HEAD'].includes(method) || method === 'POST' && path === '/api/community/heartbeat') return route.continue();
@@ -150,7 +175,7 @@ try {
   });
   await check('JSON import shows 64 unevaluated rows without fabricated projected positions', async () => {
     await navigate('/coordinates');
-    await page.getByLabel(t('导入CSV或JSON'), { exact: true }).setInputFiles({ name: 'coordinate-review.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(imported)) });
+    await fileInput('导入CSV或JSON').setInputFiles({ name: 'coordinate-review.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(imported)) });
     await assertReview(false); assert.equal(admittedCachedJobs, 0); await shot('01-json-not-evaluated-en.png');
     return { rows: 64, not_evaluated: 64, scientific_submissions: 0 };
   });
@@ -176,7 +201,7 @@ try {
     return { downloaded_files: bidsFiles.map(file => file.name), input_coordinates_preserved: true, explicit_frame_and_unit: true };
   });
   await check('Paired BIDS import resets review status and evaluates the same scientific cache with a separate source annotation', async () => {
-    await page.getByLabel(t('导入BIDS坐标文件'), { exact: true }).setInputFiles(filePayloads(bidsFiles));
+    await fileInput('导入BIDS坐标文件').setInputFiles(filePayloads(bidsFiles));
     await assertReview(false); bidsJob = await evaluate(bidsDesign); await assertReview(true);
     assert.notEqual(bidsJob.annotation_id, jsonJob.annotation_id); assert.equal(bidsJob.key, jsonJob.key);
     assert.deepEqual(bidsJob.electrode_annotation.source_metadata, bidsDesign.source_metadata);
@@ -195,26 +220,15 @@ try {
     await switchLanguage('en'); await assertReview(true);
     assert.equal(admittedCachedJobs, before); return { languages: ['en', 'zh-CN'], scientific_submissions_during_language_switch: 0 };
   });
-  await check('A real project snapshot retains the BIDS source declarations independently of scientific payload', async () => {
-    const health = await paused(), headers = { Origin: base.origin, 'X-EEG-Compute-Token': health.token };
-    const created = await api('/api/projects', { method: 'POST', headers, data: { title: 'Coordinate BIDS acceptance ' + Date.now(), owner_name: 'Browser verification' } });
-    assert.match(created.access_key, /^[a-f0-9]{64}$/); secrets.push(created.access_key);
-    const path = `/api/projects/${created.project.id}`, projectHeaders = { ...headers, 'X-EEG-Project-Key': created.access_key };
-    const attached = await api(path + '/entries', { method: 'POST', headers: projectHeaders, data: { revision: 1, kind: 'layout', record_id: cached.key, annotation_id: bidsJob.annotation_id } });
-    const copy = await api(path + '/entries/' + attached.entry.id, { headers: { 'X-EEG-Project-Key': created.access_key } });
-    assert.deepEqual(copy.snapshot.electrode_annotation.source_metadata, bidsDesign.source_metadata); assert.deepEqual(copy.snapshot.electrode_annotation.electrode_names, names);
-    assert.deepEqual(copy.snapshot.payload.original_record.result, cached.result); assert.deepEqual(copy.snapshot.payload.reproduction.request, baseline);
-    await writeFile(join(output, '06-bids-project-snapshot.json'), JSON.stringify(copy.snapshot, null, 2) + '\n', { mode: 0o600 }); artifacts.push('06-bids-project-snapshot.json');
-    return { project_id: created.project.id, entry_id: attached.entry.id, annotation_id: bidsJob.annotation_id, source_metadata_preserved: true, scientific_payload_sha256: hash(copy.snapshot.payload) };
-  });
   const invalidCases = [
     { name: 'Wrong units', error: 'BIDS坐标接口目前只接受明确的mm单位，不执行单位推断或换算。', change: files => { const value = JSON.parse(files[1].text); value.EEGCoordinateUnits = 'm'; files[1].text = JSON.stringify(value); } },
-    { name: 'Undeclared Ernie frame', error: '仅接受显式声明Ernie原生坐标系的文件；MNI、head及其他坐标须先在外部配准。', change: files => { const value = JSON.parse(files[1].text); delete value.EEGLayoutLabCoordinateSystem; files[1].text = JSON.stringify(value); } },
-    { name: 'Missing explicit regions', error: 'electrodes.tsv须包含name、x、y、z和明确分配的region列；不能自动分配区域。', change: files => { files[0].text = files[0].text.split('\n').map(line => line.split('\t').slice(0, 4).join('\t')).join('\n'); } },
+    // Without the extension and without NAS/LPA/RPA the 'Other' frame is neither Ernie-native nor a head frame.
+    { name: 'Undeclared Ernie frame', error: '仅接受显式声明Ernie原生坐标系、MNI模板空间（如MNI152NLin6Asym），或带NAS/LPA/RPA基准点的头坐标系（如CapTrak）的文件。', change: files => { const value = JSON.parse(files[1].text); delete value.EEGLayoutLabCoordinateSystem; delete value.AnatomicalLandmarkCoordinates; files[1].text = JSON.stringify(value); } },
+    { name: 'Missing explicit regions', error: 'electrodes.tsv须包含name、x、y、z和明确分配的region列；没有region列时请选择区域数，由软件按空间位置均衡分区。', change: files => { files[0].text = files[0].text.split('\n').map(line => line.split('\t').slice(0, 4).join('\t')).join('\n'); } },
   ];
   for (const [index, item] of invalidCases.entries()) await check(`Reject invalid BIDS input before scientific submission: ${item.name}`, async () => {
     await page.waitForLoadState('networkidle'); const before = admittedCachedJobs, files = bidsFiles.map(file => ({ ...file })); item.change(files);
-    await page.getByLabel(t('导入BIDS坐标文件'), { exact: true }).setInputFiles(filePayloads(files));
+    await fileInput('导入BIDS坐标文件').setInputFiles(filePayloads(files));
     await page.getByRole('alert').filter({ hasText: t(item.error) }).waitFor(); await page.waitForLoadState('networkidle');
     assert.equal(admittedCachedJobs, before); assert.equal(await button(page, '评价当前坐标').isDisabled(), true);
     await shot(`07-invalid-${index + 1}.png`); return { explicit_error: t(item.error), scientific_submissions: 0 };
@@ -229,15 +243,22 @@ try {
     return { annotation_id: bidsJob.annotation_id, original_coordinates_and_result_restored: true, scientific_submissions: 0 };
   });
   await check('Verify unchanged original science and classify any navigation cancellation against subsequent success', async () => {
-    await page.waitForLoadState('networkidle'); await paused();
-    assert.deepEqual((await api('/api/local-compute/library/' + cached.key)).record, originalRecord); assert.equal(admittedCachedJobs, 2);
-    for (const aborted of controlledAborts) assert.ok(successfulReads.some(read => read.key === aborted.key && read.request_index > aborted.request_index), 'A cancelled navigation directory did not reload successfully.');
-    for (const message of consoleMessages) {
-      if (message.message.includes('net::ERR_ABORTED') && controlledAborts.some(aborted => aborted.key === message.key && aborted.phase === message.phase)) continue;
-      diagnostics.consoleErrors.push(message);
-    }
-    for (const issues of Object.values(diagnostics)) assert.deepEqual(issues, []);
+    await assertUnchanged();
     return { cached_submissions: 2, new_fem_submissions: 0, original_record_sha256: hash(originalRecord), original_record_unchanged: true, controlled_navigation_aborts: controlledAborts.length, all_cancelled_directories_reloaded: true };
+  });
+  // Last: projects are slice 9 of the Python service, so the checks above run on it without them.
+  await check('A real project snapshot retains the BIDS source declarations independently of scientific payload', async () => {
+    const health = await paused(), headers = { Origin: base.origin, 'X-EEG-Compute-Token': health.token };
+    const created = await api('/api/projects', { method: 'POST', headers, data: { title: 'Coordinate BIDS acceptance ' + Date.now(), owner_name: 'Browser verification' } });
+    assert.match(created.access_key, /^[a-f0-9]{64}$/); secrets.push(created.access_key);
+    const path = `/api/projects/${created.project.id}`, projectHeaders = { ...headers, 'X-EEG-Project-Key': created.access_key };
+    const attached = await api(path + '/entries', { method: 'POST', headers: projectHeaders, data: { revision: 1, kind: 'layout', record_id: cached.key, annotation_id: bidsJob.annotation_id } });
+    const copy = await api(path + '/entries/' + attached.entry.id, { headers: { 'X-EEG-Project-Key': created.access_key } });
+    assert.deepEqual(copy.snapshot.electrode_annotation.source_metadata, bidsDesign.source_metadata); assert.deepEqual(copy.snapshot.electrode_annotation.electrode_names, names);
+    assert.deepEqual(copy.snapshot.payload.original_record.result, cached.result); assert.deepEqual(copy.snapshot.payload.reproduction.request, baseline);
+    await writeFile(join(output, '06-bids-project-snapshot.json'), JSON.stringify(copy.snapshot, null, 2) + '\n', { mode: 0o600 }); artifacts.push('06-bids-project-snapshot.json');
+    await assertUnchanged();
+    return { project_id: created.project.id, entry_id: attached.entry.id, annotation_id: bidsJob.annotation_id, source_metadata_preserved: true, scientific_payload_sha256: hash(copy.snapshot.payload), original_record_unchanged: true };
   });
 } catch (error) {
   failure = scrub(error.message); process.exitCode = 1;

@@ -7,10 +7,16 @@ import { isDeepStrictEqual } from 'node:util';
 import { chromium } from 'playwright';
 import { translateText } from '../lib/i18n/core.ts';
 import { parseDesign } from '../lib/design-decision.ts';
+import { openServiceSession, playwrightCookies } from './helpers/service-session.mjs';
 
-const root = resolve(import.meta.dirname, '../..');
-assert.ok(process.env.EEG_TEST_URL, 'Set EEG_TEST_URL to the isolated paused verification server.');
-const base = new URL(process.env.EEG_TEST_URL);
+// EEG_REPOSITORY_ROOT is the root the server serves (default this checkout). The server is the Node host at
+// EEG_TEST_URL, or the Python service (eeglayoutlab serve --cache-only): with EEG_SERVICE_RUNTIME (its
+// <workspace>/.eeglayoutlab/runtime.json) or EEG_SERVICE_TOKEN and EEG_TEST_URL, the browser holds its session cookie.
+const root = resolve(process.env.EEG_REPOSITORY_ROOT || resolve(import.meta.dirname, '../..'));
+const service = process.env.EEG_SERVICE_RUNTIME || process.env.EEG_SERVICE_TOKEN
+  ? await openServiceSession({ base: process.env.EEG_TEST_URL }) : null;
+assert.ok(service || process.env.EEG_TEST_URL, 'Set EEG_TEST_URL to the isolated paused verification server.');
+const base = new URL(service?.base || process.env.EEG_TEST_URL);
 assert.ok(base.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(base.hostname) && base.port && base.port !== '3000');
 assert.ok(base.pathname === '/' && !base.search && !base.hash && !base.username && !base.password);
 assert.equal(process.argv.length, 2);
@@ -26,6 +32,8 @@ assert.equal(baseline.design.name, 'Native FEM integration fixture'); assert.equ
 await mkdir(output, { recursive: true, mode: 0o700 });
 
 const observations = [], requests = [], secrets = [], saved = [], artifacts = [];
+// The session cookie and the CSRF token never reach the report.
+if (service) secrets.push(service.cookie.slice(service.cookie.indexOf('=') + 1), service.csrf);
 const diagnostics = { pageErrors: [], consoleErrors: [], httpFailures: [], requestFailures: [], blockedWrites: [] };
 const directoryPaths = new Set(['/api/local-compute/library', '/api/electrode-editor/records']);
 const requestOrder = new Map(), directorySuccesses = [], controlledAborts = [], projectTransitions = [];
@@ -36,6 +44,8 @@ const hash = value => createHash('sha256').update(JSON.stringify(value)).digest(
 const scrub = value => typeof value === 'string' ? secrets.reduce((text, secret) => text.replaceAll(secret, '[credential]'), value)
   : Array.isArray(value) ? value.map(scrub) : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).map(([key, item]) => [key, scrub(item)])) : value;
 const button = (target, source) => target.getByRole('button', { name: t(source), exact: true });
+// A FilePicker's button and file-name texts sit inside its field's label: the input is found by the label's text.
+const fileInput = source => page.locator('label', { hasText: t(source).trim() }).locator('input[type=file]');
 const namesFor = version => Array.from({ length: 64 }, (_, i) => i === 0 ? `${version}-Fp1, left` : i === 1 ? `${version}-Cz "midline"` : i === 2 ? `${version}-电极03` : `${version}-Channel${String(i + 1).padStart(2, '0')}`);
 const escape = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 async function check(name, work) {
@@ -96,7 +106,8 @@ async function shot(filename) { await page.screenshot({ path: join(output, filen
 try {
   browser = await chromium.launch({ executablePath, headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   context = await browser.newContext({ viewport: { width: 1440, height: 1100 }, serviceWorkers: 'block', acceptDownloads: true });
-  await context.addCookies([{ name: 'eeg-layout-language', value: 'en', url: base.origin }]);
+  await context.addCookies([{ name: 'eeg-layout-language', value: 'en', url: base.origin },
+    ...(service ? playwrightCookies(service) : [])]);
   await context.route('**/api/**', async route => {
     const request = route.request(), path = new URL(request.url()).pathname, method = request.method();
     if (['GET', 'HEAD'].includes(method)) return route.continue();
@@ -162,7 +173,7 @@ try {
       await navigate('/coordinates');
       const imported = { ...baseline.design, electrode_names: names }, inputFilename = `names-${version}-input.json`;
       await writeFile(join(output, inputFilename), JSON.stringify(imported, null, 2) + '\n'); artifacts.push(inputFilename);
-      await page.getByLabel(t('导入CSV或JSON'), { exact: true }).setInputFiles({ name: inputFilename, mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(imported)) });
+      await fileInput('导入CSV或JSON').setInputFiles({ name: inputFilename, mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(imported)) });
       await assertPreview(names);
       armedNames = names;
       const waiting = page.waitForResponse(response => new URL(response.url()).pathname === '/api/design-evaluation/jobs' && response.request().method() === 'POST');
