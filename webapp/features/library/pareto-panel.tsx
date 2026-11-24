@@ -63,7 +63,7 @@ export function ParetoPanel({ entries, title, onChoose }: { entries: CatalogEntr
       {!objectives.length ? <p className="mt-3 text-sm text-warning">{tx('请至少选择一个目标。')}</p> : analysis && <>
         <p className="mt-3 text-sm">{tx(`${analysis.rows.length}条记录参与比较，${front.length}条位于Pareto前沿。`)}
           {analysis.excluded.length > 0 && <span className="text-muted-foreground">{tx(`另有${analysis.excluded.length}条缺少所选目标（如面积只属于搜索记录，稳健性只属于加评稳健性的坐标评价），未参与。`)}</span>}</p>
-        <div className="mt-2 overflow-x-auto"><table className="w-full min-w-[560px] text-left text-sm">
+        <div className="relative mt-2 overflow-x-auto"><table className="w-full min-w-[560px] text-left text-sm">
           <thead><tr className="border-b text-muted-foreground"><th className="py-2">{tx('层')}</th><th>{tx('布局')}</th>{analysis.objectives.map(o => <th key={o.id}>{tx(o.label)}</th>)}<th><span className="sr-only">{tx('操作')}</span></th></tr></thead>
           <tbody>{analysis.rows.slice(0, 20).map(row => (
             <tr key={row.item.id} className="border-b last:border-0">

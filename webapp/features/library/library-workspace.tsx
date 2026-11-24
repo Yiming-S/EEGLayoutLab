@@ -100,7 +100,7 @@ export default function LibraryWorkspace() {
           <label className="lab-label">{tx('排序方式')}<select className="lab-select" value={view.sort} onChange={event => changeView({ sort: event.target.value })}><option value="newest">{tx('最近保存优先')}</option><option value="oldest">{tx('最早保存优先')}</option><option value="name">{tx('按方案名称')}</option><option value="electrodes">{tx('电极数从少到多')}</option></select></label>
         </div>
       </div>
-      <p className="mb-4 text-sm leading-6 text-muted-foreground">{tx('信号实验仅收录当前浏览器的已完成任务；服务器保留最近1000个计算回执，打开已有结果生成的回执另保留300个。筛选记录不会读取完整波形或启动计算。')}</p>
+      <p className="mb-4 text-sm leading-6 text-muted-foreground">{tx('信号实验只列出当前浏览器完成的任务，较早的任务可能已不在列表中。筛选记录不会读取完整波形或启动计算。')}</p>
       {data?.library_scope?.scope === 'owner' && <p className="mb-4 text-sm leading-6 text-muted-foreground">{tx(data.library_scope.review
         ? '本浏览器提交的计算默认只有本浏览器能在列表中看到。公开到共享库的记录经管理员审核后对所有访客列出；官方实验记录始终列出。清除浏览器数据后列表将找不到自己的记录，需要长期保留请加入研究项目。'
         : '本浏览器提交的计算默认只有本浏览器能在列表中看到。公开到共享库的记录对所有访客列出；官方实验记录始终列出。清除浏览器数据后列表将找不到自己的记录，需要长期保留请加入研究项目。')}</p>}

@@ -224,7 +224,7 @@ export default function DecisionPage({
             <DecisionRequirements thresholds={thresholds} onChange={setThresholds} />
             {tx(
               loaded && shown.length > 0 && (
-                <section className="lab-panel overflow-x-auto">
+                <section className="lab-panel relative overflow-x-auto">
                   <h2 className="text-lg font-semibold">{tx('原记录对照')}</h2>
                   <p className="mt-2 text-sm font-medium">{tx(decisionCriteriaSummary(thresholds))}</p>
                   {tx(
@@ -409,7 +409,7 @@ export default function DecisionPage({
         )}
         <section className="lab-panel">
           <h2 className="text-lg font-semibold">
-            {tx(mode === 'coordinates' ? '坐标导入与评价' : '位置偏移测试')}
+            {tx(mode === 'coordinates' ? '坐标文件与评价条件' : '位置偏移测试')}
           </h2>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
             {tx(
