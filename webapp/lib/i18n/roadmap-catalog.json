@@ -634,5 +634,45 @@
   "roadmap.d989ed8e93ac": {
     "source": "没有一份训练摘要包含全部{{0}}个共同通道，请去掉缺通道较多的摘要后重试",
     "en": "No training summary has all {{0}} shared channels. Remove the summaries that miss the most channels and try again."
+  },
+  "roadmap.ff71ab339f57": {
+    "source": "通道子集的重建误差",
+    "en": "Reconstruction error of channel subsets"
+  },
+  "roadmap.ca8c1bb814fd": {
+    "source": "留出摘要的平均误差",
+    "en": "Mean held-out error"
+  },
+  "roadmap.46d413ba4921": {
+    "source": "训练摘要上的误差",
+    "en": "Training error"
+  },
+  "roadmap.66658d7f35f7": {
+    "source": "子集通道数",
+    "en": "Channels in the subset"
+  },
+  "roadmap.5b9656e7513f": {
+    "source": "未解释方差（越低越好）",
+    "en": "Unexplained variance (lower is better)"
+  },
+  "roadmap.1e66f9446e56": {
+    "source": "随机子集中位数与P10–P90",
+    "en": "Random subsets, median and P10–P90"
+  },
+  "roadmap.edfadfaa638f": {
+    "source": "误差为全部共同通道平均参考信号的未解释方差比例。每个子集以自身的一个通道为参考，重建器由训练摘要拟合。",
+    "en": "Error is the unexplained variance fraction of the average-referenced shared channels. Each subset is recorded against one of its own channels; the reconstructor is fitted on the training summaries."
+  },
+  "roadmap.655608147d37": {
+    "source": "曲线为留出摘要的平均误差；阴影为随机子集平均留出误差在各次抽取间的P10–P90。按数据贪心选择的曲线包含与10-20系统相同通道数的点。",
+    "en": "Curves are the mean held-out error; the band is the P10–P90 of the random subsets' mean held-out error over draws. The data-greedy curve includes the size of the 10-20 subset."
+  },
+  "roadmap.b0e6a420acb7": {
+    "source": "未载入留出摘要，曲线为训练误差，按数据贪心选择的误差偏乐观；阴影为随机子集训练误差的P10–P90。",
+    "en": "Without held-out summaries the curves are training errors, optimistic for greedy selection on the data; the band is the P10–P90 of the random subsets' training error."
+  },
+  "roadmap.0c3017e6d993": {
+    "source": "通道子集重建误差随通道数变化的曲线图；数值见下表。",
+    "en": "Chart of channel-subset reconstruction error against the number of channels; the values are in the table below."
   }
 }

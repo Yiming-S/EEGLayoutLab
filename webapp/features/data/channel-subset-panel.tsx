@@ -4,6 +4,7 @@ import { useLanguage } from '@/components/language-provider';
 import { FilePicker } from '@/components/ui/file-picker';
 import { Button } from '@/components/ui/button';
 import { DEFAULT_COUNTS, channelSubsets, type Stats } from '@/lib/channel-subset';
+import { ChannelSubsetChart } from './channel-subset-chart';
 
 type Report = ReturnType<typeof channelSubsets>;
 type MethodRow = { count: number; channels: string[]; train_error: number; test_error: Stats | null };
@@ -57,7 +58,7 @@ export function ChannelSubsetPanel() {
       <p className="mt-2 text-sm leading-6 text-muted-foreground">
         {tx('载入由eeglayoutlab eeg-summary生成的协方差摘要。每个子集以自身的一个通道为参考记录，用训练摘要拟合的线性重建器重建全部共同通道的平均参考信号；误差为未解释方差比例。原始记录不需要上传，计算在浏览器内完成。')}
       </p>
-      <div className="mt-4 grid gap-4 md:grid-cols-2">
+      <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
         <label className="lab-label">{tx('训练摘要')}<FilePicker accept="application/json,.json" multiple onChange={(event) => { void pick(setTraining)(event.target.files); }} /></label>
         <label className="lab-label">{tx('留出检验摘要（可选）')}<FilePicker accept="application/json,.json" multiple onChange={(event) => { void pick(setTest)(event.target.files); }} /></label>
         <label className="lab-label">{tx('数据先验（可选）')}<FilePicker accept="application/json,.json" onChange={(event) => {
@@ -76,6 +77,7 @@ export function ChannelSubsetPanel() {
             {report.test_skipped.length > 0 && tx(`；${report.test_skipped.length}份留出摘要缺少共同通道，未计入`)}
             {report.channels_outside_prior.length > 0 && tx(`；${report.channels_outside_prior.length}个通道不在数据先验中，已排除`)}
           </p>
+          <ChannelSubsetChart report={report} />
           <table className="mt-2 w-full min-w-[640px] text-left text-sm">
             <thead>
               <tr>
