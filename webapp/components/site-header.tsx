@@ -16,6 +16,7 @@ import type { SavedRecord } from '@/lib/local-library';
 import {
   WORKSPACES,
   WORKSPACE_TABS,
+  type WorkspaceGroup,
   workspaceGroup,
   workingPage,
   workspaceLinks,
@@ -48,8 +49,11 @@ export function SiteHeader({
   arPercent,
   returnHref,
   selection: provided,
+  offline = false,
 }: {
   current: PageId;
+  /** A page that reads only local files (a delivery): no task polling or record reads. */
+  offline?: boolean;
   arPercent?: number;
   labHref?: string;
   returnHref?: string;
@@ -78,17 +82,7 @@ export function SiteHeader({
     };
   }, []);
   const [browserHref, setBrowserHref] = useState(
-    () =>
-      returnHref ??
-      (current === 'library'
-        ? '/library'
-        : current === 'projects'
-          ? '/projects'
-        : current === 'robustness'
-          ? '/robustness'
-        : current === 'coordinates'
-          ? '/coordinates'
-          : (PAGES.find((p) => p.id === current)?.path ?? '/')),
+    () => returnHref ?? (PAGES.find((p) => p.id === current)?.path ?? '/'),
   );
   useEffect(() => {
     const restore = () =>
@@ -128,7 +122,7 @@ export function SiteHeader({
   } | null>(null);
   const annotationId = recordAnnotationId(here, selection.id);
   useEffect(() => {
-    if (!selection.id) return;
+    if (!selection.id || offline) return;
     const id = selection.id,
       controller = new AbortController();
     fetch('/api/local-compute/library/' + id + (annotationId ? '?annotation_id=' + annotationId : ''), {
@@ -147,7 +141,7 @@ export function SiteHeader({
           setLoaded({ id, record: null, error: true });
       });
     return () => controller.abort();
-  }, [selection.id, annotationId]);
+  }, [selection.id, annotationId, offline]);
   const record = loaded?.id === selection.id ? loaded.record : null;
   const links = workspaceLinks(here, ar, record, selection);
   // Stay on the current working URL, including its draft and thresholds.
@@ -155,12 +149,12 @@ export function SiteHeader({
   const group = workspaceGroup(current);
   const workPage = workingPage(here),
     workGroup = workspaceGroup(workPage);
-  const destinations = {
-    results: workGroup === 'results' ? links[workPage] : links.compare,
-    design: workGroup === 'design' ? links[workPage] : links.design,
-    reception: links.reception,
-    docs: group === 'docs' ? here : links.guide,
-  };
+  // An area's main entry returns to the page last worked on in that area.
+  const firstTab = (area: WorkspaceGroup) => WORKSPACE_TABS[area][0][0] as PageId;
+  const destinations = Object.fromEntries(WORKSPACES.map(({ id: area }) => [area,
+    area === group ? (area === 'docs' ? here : links[current])
+      : workGroup === area ? links[workPage] : links[firstTab(area)]])) as Record<WorkspaceGroup, string>;
+  const areas = WORKSPACES.filter(area => !SHOWCASE || area.id !== 'workspace');
   const channels =
     selection.channels ??
     (selection.phase === 'saved' ? record?.layout?.xyzMm.length : undefined);
@@ -190,18 +184,7 @@ export function SiteHeader({
                 : '正在读取当前布局'
               : '尚未选择布局';
   useEffect(() => {
-    document.title =
-      tx(
-        current === 'coordinates'
-          ? '坐标导入'
-          : current === 'projects'
-            ? '研究项目'
-          : current === 'robustness'
-            ? '稳健性研究'
-          : current === 'library'
-            ? '布局记录'
-            : (PAGES.find((p) => p.id === current)?.label ?? '历史实验'),
-      ) + '｜EEG Layout Lab';
+    document.title = tx(PAGES.find((p) => p.id === current)?.label ?? '历史批次') + '｜EEG Layout Lab';
   }, [current, tx]);
   return (
     <header
@@ -210,8 +193,8 @@ export function SiteHeader({
     >
       <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-1.5 sm:px-6 sm:py-2 lg:px-8">
         <a
-          href={links.compare}
-          aria-label={tx('EEG Layout Lab · 返回已有结果')}
+          href={SHOWCASE ? links.findings : links.home}
+          aria-label={tx(SHOWCASE ? 'EEG Layout Lab · 返回已有结果' : 'EEG Layout Lab · 返回工作区')}
           className="flex shrink-0 items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           <span className="grid size-8 place-items-center rounded-xl bg-brand text-brand-foreground sm:size-9">
@@ -230,7 +213,7 @@ export function SiteHeader({
           aria-label={tx('主导航')}
           className="order-3 flex w-full gap-1 overflow-x-auto rounded-lg bg-card/85 p-0.5 sm:p-1 min-[1000px]:order-none min-[1000px]:ml-auto min-[1000px]:w-auto"
         >
-          {WORKSPACES.map((p) => (
+          {areas.map((p) => (
             <a
               key={p.id}
               href={
@@ -250,7 +233,7 @@ export function SiteHeader({
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-1 min-[1000px]:ml-0">
-          {!SHOWCASE && <CommunityStatus />}
+          {!SHOWCASE && !offline && <CommunityStatus />}
           <details ref={settings} className="relative">
             <summary aria-label={tx('界面设置')} className="flex size-9 cursor-pointer list-none items-center justify-center rounded-lg border bg-card text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
               <Settings2 className="size-4" />
@@ -286,14 +269,16 @@ export function SiteHeader({
             ))}
           </nav>
         )}
-        <div
+        {/* With nothing selected the bar would only say so; the layout list is one tab away. */}
+        {(selection.id || selection.phase !== 'saved') && <div
           aria-label={tx('当前布局')}
           className="flex min-w-0 shrink-0 items-center justify-end gap-x-3 gap-y-1 text-sm sm:flex-1"
         >
           <div className="hidden min-w-0 truncate sm:block" title={record && selection.phase === 'saved' ? `${localizedRecordTitle(record, locale)} · ${tx(stateLabel)}` : tx(stateLabel)}>
             <span className="font-semibold">{tx('当前布局')} · </span>
             {record && selection.phase === 'saved'
-              ? localizedRecordTitle(record, locale)
+              ? current === 'layout' ? localizedRecordTitle(record, locale)
+                : <a className="text-primary underline-offset-4 hover:underline" href={links.layout}>{localizedRecordTitle(record, locale)}</a>
               : tx(stateLabel)}
             {channels != null && (
               <span>
@@ -312,7 +297,7 @@ export function SiteHeader({
               {tx('更换布局')}
             </a>
           </div>
-        </div>
+        </div>}
       </div>
       <ProjectContext currentIsProjects={current === 'projects'} here={here} recordId={selection.phase === 'saved' && record?.status === 'completed' ? record.id : undefined} />
     </header>

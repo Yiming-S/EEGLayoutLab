@@ -13,6 +13,7 @@ import math
 from typing import Any, Optional
 
 from ..schemas import jsjson
+from ..schemas.layout_key import layout_key
 from . import nodefs, nodepath
 from .design_result import normalize_design_request, validate_design_result
 from .identity import UNDEFINED, _js_string, _member, _same, js_truthy, request_key
@@ -162,7 +163,7 @@ def received(value: Any) -> str:
 
 
 def design_reception_record(root: str, id: Any, store: Optional[RecordStore] = None, *,
-                            conditions: bool = False) -> Optional[dict]:
+                            conditions: bool = False, with_layout_key: bool = False) -> Optional[dict]:
     """``await designReceptionRecord(root, id, store, {conditions})``: a saved coordinate evaluation as a library
     record, or ``None`` (no such record, a perturbation trial, another action, or, without ``conditions``, an
     evaluation under another noise model, conductivity scenario, head or data prior).
@@ -255,6 +256,9 @@ def design_reception_record(root: str, id: Any, store: Optional[RecordStore] = N
         del provenance['forward_mode']
     provenance['design_result'] = {'path': path, 'sha256': _sha256(data)}
     record['provenance'] = provenance
+    if with_layout_key:
+        # Listing only: the key of the submitted design, not of the projected points.
+        record['layout_key'] = layout_key(design['xyz_mm'], design['region_indices'])
     return record
 
 

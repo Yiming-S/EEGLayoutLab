@@ -65,7 +65,8 @@ async function run(endpoint, request, validate) {
   return job;
 }
 
-for (const route of ['/', '/library', '/design', '/electrodes', '/coordinates', '/decision', '/reception', '/guide', '/method', '/results', '/pilot-results']) {
+const routes = ['/', '/findings', '/library', '/layout', '/design', '/electrodes', '/coordinates', '/decision', '/robustness', '/reception', '/channels', '/projects', '/guide', '/method', '/results', '/pilot-results'];
+for (const route of routes) {
   const response = await fetch(base + route, { headers: sessionHeaders });
   assert.equal(response.status, 200, route);
   await response.arrayBuffer();
@@ -76,7 +77,7 @@ assert.deepEqual(library.warnings, []);
 assert.equal(library.records.filter(r => r.dataset_id === 'strict_area').length, 30);
 assert.equal(library.records.filter(r => r.dataset_id === 'historical_area').length, 30);
 assert.equal(library.records.filter(r => r.dataset_id === 'offline_radius').length, 342);
-console.log(JSON.stringify({ check: 'routes-and-library', status: 'passed', pages: 11, supplied_records: 402 }));
+console.log(JSON.stringify({ check: 'routes-and-library', status: 'passed', pages: routes.length, supplied_records: 402 }));
 
 const layout = await run('/api/local-compute', { region_count: 2, radius_mm: 35, mode: 'preset', mask_codes: ['AL', 'AR'] }, validateWorkerResult);
 const { record } = await json('/api/local-compute/library/' + layout.key);

@@ -12,9 +12,18 @@ Protocol identifier: `dk40-six-roi-v1`.
 
 The six groups are research ROIs made by merging atlas parcels, not a claim that
 human cortex consists of six standard anatomical lobes. The complete label
-mapping is in `webapp/public/models/ernie/source-roi-definition.json` and the
-App's modeling page. The sensorimotor group contains precentral, postcentral and
+mapping is in `webapp/public/models/ernie/source-roi-definition.json` and in the
+table below. The sensorimotor group contains precentral, postcentral and
 paracentral labels; these are excluded from the frontal and parietal groups.
+
+| ROI | Hemispheres | Merged DK40 labels |
+| --- | --- | --- |
+| Frontal | both | caudalmiddlefrontal, rostralmiddlefrontal, superiorfrontal, lateralorbitofrontal, medialorbitofrontal, parsopercularis, parsorbitalis, parstriangularis, frontalpole |
+| Sensorimotor | both | precentral, postcentral, paracentral |
+| Parietal | both | inferiorparietal, superiorparietal, supramarginal, precuneus |
+| Occipital | both | cuneus, lateraloccipital, lingual, pericalcarine |
+| Left temporal | left | bankssts, entorhinal, fusiform, inferiortemporal, middletemporal, parahippocampal, superiortemporal, temporalpole, transversetemporal |
+| Right temporal | right | the same labels as left temporal |
 
 ## Native geometry and membership
 

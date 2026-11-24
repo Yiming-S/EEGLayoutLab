@@ -31,6 +31,14 @@ Historical radius studies, current local radius jobs, fixed-area results, import
 
 Independent-head validation remains incomplete. Neither additional noise repetitions nor new source locations within Ernie increase the number of independent heads. The IXI-derived head packages come from automatic charm segmentations of healthy adults. Their segmentation quality is not reviewed manually, and their scalp positions come from an MNI mapping of Ernie coordinates, not from measured electrode positions.
 
+## Open items
+
+This page replaces the validation plan written for the early protocol, which is kept as a record in [historical studies](historical-studies.md#early-validation-plan). Three items of that plan remain open:
+
+- **Population confidence bounds.** The plan required the lower 95% confidence bound of each relative metric to reach AR, with heads as the bootstrap unit and at least 100 independent locked test heads. Acceptance is still a point estimate on one head. The `heads` study describes the spread over 11 heads and is not such a bound.
+- **Certified radius–performance curves.** The plan asked for the smallest radius cap with a verified passing layout, with geometric infeasibility shown by packing bounds or a complete proof and performance infeasibility by an upper bound. Searches report the best layout found within their budget and certify neither.
+- **Anatomical review of placement regions.** Ear-adjacent, forehead, periorbital and low-hair regions are coordinate masks. Hair distribution and electrode attachment have not been reviewed.
+
 ## Single-layout readings
 
 The readings below are for one compact two-region layout (AL + AR, radius ≤ 35 mm). They are not population results.

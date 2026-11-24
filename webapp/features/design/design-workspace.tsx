@@ -8,20 +8,21 @@ import { lazy, Suspense, useRef } from 'react';
 import { SiteHeader } from '@/components/site-header';
 import { LocalComputePanel } from '@/components/local-compute-panel';
 import { PerformanceSummary, percent } from '@/components/performance-summary';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { layoutHref } from '@/lib/layout-page';
 import { methodLink, recordLink, METRICS } from '@/lib/lab-workflow';
 import { sourceExperimentLink } from '@/lib/source-reception';
 import { editorLink } from '@/lib/electrode-editor';
 import { DesignPlacementOptions } from '@/components/placement-options';
-import { SEARCH_NOISE_PRESETS, useDesignController } from './use-design-controller';
+import { useDesignController } from './use-design-controller';
 import { designViewState } from './design-state';
-import { DataPriorPicker } from '@/features/data/data-prior-picker';
+import { EvaluationConditions } from '@/features/conditions/evaluation-conditions';
 import { ThresholdSlider } from '@/components/threshold-slider';
 
 const Head = lazy(() => import('@/components/cluster-head-viewer').then((m) => ({ default: m.ClusterHeadViewer })));
 export default function DesignWorkspace() {
   const { tx, locale } = useLanguage();
-  const { error, ready, ar, comparison, here, receptionId, correlatedNoise, count, source, notice, settingsRef, editing, radius, regions, choices, choice, customSlots, selectChoice, selectSlot, changeRegions, startRadius, setRadius, noiseModelId, selectNoiseModel, dataPrior, dataPriorSource, selectDataPrior, setDraft, setAR, request, originId, setComputed, setStatus, metrics, layout, geometry, currentStatus } = useDesignController();
+  const { error, ready, ar, comparison, here, savedId, receptionId, count, source, notice, settingsRef, editing, radius, regions, choices, choice, customSlots, selectChoice, selectSlot, changeRegions, startRadius, setRadius, noiseModelId, selectNoiseModel, dataPrior, dataPriorSource, selectDataPrior, setDraft, setAR, request, originId, setComputed, setStatus, metrics, layout, geometry, currentStatus } = useDesignController();
   const computationRef = useRef<HTMLDivElement>(null);
   const state = designViewState({ ready, error, editing, hasLayout: !!layout, hasChoice: !!choice, currentStatus });
   const revealSettings = () => {
@@ -53,10 +54,11 @@ export default function DesignWorkspace() {
             </> : <>
               <p className="text-sm leading-6">{tx(choice?.label ?? '请先补全上方区域部位')}<br />{tx("各区电极数：")}{tx(Array.from({ length: regions }, (_, i) => Math.floor(64 / regions) + Number(i < 64 % regions)).join(' + '))}</p>
               <label className="lab-label">{tx("每区表面半径上限 · ")}{tx(radius)} mm<input className="mt-3 w-full accent-primary" type="range" aria-label={tx("每区半径上限")} min={15} max={80} step={5} value={radius} onChange={(e) => { setRadius(Number(e.target.value)); setDraft(true); }} /><span className="mt-1 block text-xs font-normal leading-5 text-muted-foreground">{tx("半径按头表面网格路径计算；实际半径同时受区域分离约束。")}</span></label>
-              <label className="lab-label">{tx('噪声模型')}<select className="lab-select mt-2" value={noiseModelId} disabled={Boolean(dataPrior)} onChange={(e) => selectNoiseModel(e.target.value)}>{SEARCH_NOISE_PRESETS.map((preset) => <option key={preset.id} value={preset.id}>{tx(preset.label)}</option>)}</select><span className="mt-1 block text-xs font-normal leading-5 text-muted-foreground">{tx(dataPrior ? '已载入数据先验，噪声结构由数据先验给出。' : '空间相关噪声使相邻电极共享部分噪声，搜索与评价同时使用；结果与独立噪声分开保存。')}</span></label>
-              <DataPriorPicker value={dataPrior} source={dataPriorSource} onChange={selectDataPrior} />
+              <EvaluationConditions action="search" values={{ noiseModelId, dataPrior, dataPriorSource }}
+                hints={{ noise: '空间相关噪声使相邻电极共享部分噪声，搜索与评价同时使用；结果与独立噪声分开保存。' }}
+                onChange={(patch) => { if (patch.noiseModelId !== undefined) selectNoiseModel(patch.noiseModelId); if ('dataPrior' in patch) selectDataPrior(patch.dataPrior ?? null, patch.dataPriorSource); }} />
             </>)}
-            <ThresholdSlider className="border-t pt-4" value={ar} onChange={setAR} ariaLabel="设计接受阈值AR" hint="只更新结果判断，不改变点位或运行计算。" />
+            <ThresholdSlider className="border-t pt-4" value={ar} onChange={setAR} ariaLabel="设计接受阈值AR" term="ar" hint="只更新结果判断，不改变点位或运行计算。" />
             <details className="border-t pt-4 text-sm"><summary className="cursor-pointer font-medium">{tx("计算设置与限制")}</summary><p className="mt-3 text-xs leading-6 text-muted-foreground">{tx("固定64电极 · 最小电极直线间距4 mm · 单Ernie头模 · 标准64导名义SNR＝20 dB。各布局使用相同物理噪声尺度。算法在有限候选网格内搜索，位置范围按模型坐标近似定义。")}</p><a href={methodLink(here, ar, '#local-compute')} className="mt-2 inline-block text-primary underline">{tx("完整方法")}</a></details>
             {/* The run button stays in view while the settings above scroll. */}
             <div ref={computationRef} className={editing && request ? 'sticky bottom-0 z-10 -mx-2 rounded-b-xl bg-card px-2 pb-2 pt-2 shadow-[0_-12px_14px_-14px_rgba(16,47,58,0.45)]' : undefined}>{tx(editing && request && <LocalComputePanel key={originId + ':editor'} request={request} arPercent={ar} onResult={setComputed} onStatus={setStatus} compact />)}</div>
@@ -75,7 +77,15 @@ export default function DesignWorkspace() {
           <div className="xl:sticky xl:top-[calc(var(--workspace-header-height,7rem)+1rem)]"><PerformanceSummary compact metrics={metrics} ar={ar} returnHref={here} basis={tx(editing ? '每区半径上限约束搜索；新结果自动保存为计算记录' : '总面积上限约束原实验；只读，不触发计算')} empty={tx('计算完成后，这里显示三项保留率与达标判断。')} emptyTitle={tx('尚无评价结果')} /></div>
           </div>
         </div>
-        <section className="lab-panel mt-5 flex flex-wrap items-center justify-between gap-4"><div><h2 className="font-semibold">{tx("用同一脑源测试这个布局")}</h2><p className="mt-1 text-sm text-muted-foreground">{tx("对照标准64的时间波形与重建，分别加入模拟心电和眼电。固定点位，不重新优化。")}</p></div>{tx(receptionId ? <a className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground" href={sourceExperimentLink(receptionId, ar, here)}>{tx("打开信号仿真 →")}</a> : <span className="text-sm text-muted-foreground">{tx(correlatedNoise ? "信号仿真使用独立噪声与面积先验；空间相关噪声或数据先验下搜索的布局不进入信号仿真" : "先计算出完整64点布局后可进入")}</span>)}</section>
+        <section aria-labelledby="design-next" className="lab-panel mt-5 flex flex-wrap items-center gap-3">
+          <h2 id="design-next" className="font-semibold">{tx('下一步')}</h2>
+          {savedId ? <>
+            <a className={buttonVariants({ size: 'sm' })} href={layoutHref({ id: savedId }, ar)}>{tx('打开布局详情')}</a>
+            {receptionId && <a className={buttonVariants({ size: 'sm', variant: 'outline' })} href={sourceExperimentLink(receptionId, ar, here)}>{tx('用同一脑源测试这个布局')}</a>}
+            <span className="text-sm text-muted-foreground">{tx(receptionId ? '布局详情汇总这个布局在各条件下的评价；信号仿真对照标准64的时间波形与重建，加入模拟心电和眼电。'
+              : '布局详情汇总这个布局在各条件下的评价。空间相关噪声或数据先验下搜索的布局不进入信号仿真。')}</span>
+          </> : <span className="text-sm text-muted-foreground">{tx('计算出完整64点布局后，可打开布局详情或用同一脑源测试。')}</span>}
+        </section>
         <p className="mt-5 text-sm text-muted-foreground"><a className="text-primary underline" href={comparison}>{tx(source?.dataset_id === 'strict_area' ? '返回来源比较' : '查看已有结果')}</a> {tx(" · 新半径方案不会加入固定面积曲线；在")}<a className="text-primary underline" href={'/library?ar=' + ar}>{tx("计算记录")}</a>{tx("中查看。")}</p>
       </>)}
     </div>

@@ -83,10 +83,11 @@ const HELP = `EEGLayoutLab command line
       toward the area prior when there are three or more.
 
   node webapp/scripts/eeglayoutlab.mjs channels SUMMARY.json|DIR... [--test FILE,...|DIR] [--prior PRIOR.json]
-      [--counts 8,16,24,32] [--draws 200] [--seed 1] --out SUBSET.json
+      [--counts 8,16,24,32] [--draws 200] [--seed 1] [--figure FIGURE.svg] --out SUBSET.json
       Choose channel subsets that best reconstruct all recorded channels: greedy on the data,
       greedy on the prior's model (with --prior), the 10-20 subset and random subsets,
-      scored on the training summaries and on held-out --test summaries.
+      scored on the training summaries and on held-out --test summaries. --figure also writes
+      the error against subset size as an SVG figure.
 
   node webapp/scripts/eeglayoutlab.mjs pareto RUN.result.json... [--objectives LIST] --out PARETO.json
       Rank evaluate and search results by Pareto dominance. LIST is comma-separated from
@@ -326,6 +327,22 @@ async function main(argv) {
       prior: options.prior ? readJson(options.prior) : undefined, counts: options.counts ? numbers(options.counts) : undefined,
       draws: options.draws === undefined ? undefined : Number(options.draws), seed: options.seed === undefined ? undefined : Number(options.seed) });
     writeJson(options.out, report);
+    if (options.figure) {
+      const { channelSubsetFigureSvg } = await import('../lib/channel-subset-figure.ts'), heldOut = report.test.length > 0, standard = report.standard_10_20;
+      mkdirSync(dirname(resolve(options.figure)), { recursive: true });
+      writeFileSync(options.figure, channelSubsetFigureSvg(report, {
+        title: 'Reconstruction error of channel subsets',
+        subtitle: [heldOut ? 'Mean held-out error' : 'Training error', `${report.universe.length} shared channels`, `${report.band_hz[0]}–${report.band_hz[1]} Hz`].join(' · '),
+        xLabel: 'Channels in the subset', yLabel: 'Unexplained variance (lower is better)',
+        names: { data: 'Greedy on the data', data_prior: 'Greedy on the data-prior model', area_prior: 'Greedy on the area-prior model',
+          random: 'Random subsets, median and P10–P90', standard: standard ? `10-20 system (${standard.count})` : '' },
+        channels: count => `${count} channels`,
+        caption: ['Error is the unexplained variance fraction of the average-referenced shared channels. Each subset is recorded against one of its own channels; the reconstructor is fitted on the training summaries.',
+          heldOut ? 'Curves are the mean held-out error; the band is the P10–P90 of the random subsets\' mean held-out error over draws. The data-greedy curve includes the size of the 10-20 subset.'
+            : 'Without held-out summaries the curves are training errors, optimistic for greedy selection on the data; the band is the P10–P90 of the random subsets\' training error.'],
+      }));
+      process.stderr.write(`wrote ${options.figure}\n`);
+    }
     const cell = row => `${row.train_error.toFixed(3)}${row.test_error ? `/${row.test_error.mean.toFixed(3)}` : ''}`;
     process.stdout.write(`count\t${Object.keys(report.methods).join('\t')}\trandom median\n`);
     report.counts.forEach((count, k) => process.stdout.write(`${count}\t${Object.values(report.methods).map(m => cell(m.counts[k])).join('\t')}\t` +

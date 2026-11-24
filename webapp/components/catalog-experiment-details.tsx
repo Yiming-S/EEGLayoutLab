@@ -10,6 +10,7 @@ import { CONDITION_LABELS } from '@/lib/source-reception';
 import { RecordVisibilityControl } from '@/components/record-visibility-control';
 import { editorRecordLink, savedSourceLink, type CatalogEntry, type ExperimentReceipt } from '@/lib/records-catalog';
 import type { SavedSummary } from '@/lib/local-library';
+import { layoutHref } from '@/lib/layout-page';
 
 export async function downloadExperimentReceipt(receipt: ExperimentReceipt) {
   const response = await fetch(`/api/community/records/${receipt.id}/result`, { cache: 'no-store', signal: AbortSignal.timeout(30000) });
@@ -44,7 +45,7 @@ export function CatalogExperimentDetails({ entry, parents, ar, returnHref, onVis
     </dl>
     <div className="flex flex-wrap gap-3">
       {href && <a className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground" href={href}>{tx(entry.kind === 'editor' ? '载入此编辑记录' : '打开信号实验')}</a>}
-      {parent && <a className="rounded-lg border px-4 py-2 text-sm" href={`/library?record=${parent.id}&ar=${ar}`}>{tx('查看原布局')}</a>}
+      {parent && <a className="rounded-lg border px-4 py-2 text-sm" href={layoutHref({ id: parent.id }, ar)}>{tx('查看原布局')}</a>}
       {entry.kind === 'source' && <Button variant="outline" disabled={downloading} onClick={() => void download()}>{tx(downloading ? '读取计算结果…' : '下载计算结果')}</Button>}
     </div>
     {entry.kind === 'editor' ? <>

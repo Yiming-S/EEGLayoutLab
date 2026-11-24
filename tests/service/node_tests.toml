@@ -115,7 +115,7 @@ disposition = "N"
 [sites."check-browse-controllers.mjs::design rejects an invalid draft without promoting it to a ready request"]
 disposition = "N"
 
-[sites."check-browse-controllers.mjs::library keeps an explicit record outside filters and retains overview URL context"]
+[sites."check-browse-controllers.mjs::library keeps an explicit record outside filters, retains overview URL context and opens a layout on its page"]
 disposition = "N"
 
 [sites."check-browse-controllers.mjs::library refresh aborts stale requests and does not replace newer records with late responses"]
@@ -727,6 +727,40 @@ disposition = "P"
 target = "tests/service/test_editor.py::test_editor_shares_capacity_caches_completed_results_and_retains_capacity_while_cancelling"
 note = "with Node's context stub and fake children; the slot shared with the coordinate evaluation and the radius search over HTTP in test_compute_routes.py::test_the_editor_shares_the_queue_and_the_slot_with_the_coordinate_evaluation_and_the_radius_search"
 
+# --- check-evaluation-conditions.mjs ----------------------------------------------------------------------------------
+
+[sites."check-evaluation-conditions.mjs::the condition form offers per action exactly what the contract accepts"]
+disposition = "N"
+
+[sites."check-evaluation-conditions.mjs::combinations the service rejects are not offered together"]
+disposition = "N"
+
+[sites."check-evaluation-conditions.mjs::study protocols offer the conditions of the requests they send"]
+disposition = "N"
+
+[sites."check-evaluation-conditions.mjs::a page offers only the conditions it manages, and builds no condition form of its own"]
+disposition = "N"
+
+# --- check-first-use.mjs ----------------------------------------------------------------------------------------------
+
+[sites."check-first-use.mjs::recent layouts list each layout once, newest first, with its nominal evaluation first"]
+disposition = "N"
+
+[sites."check-first-use.mjs::the example layout is the one evaluated under the most conditions, then the most recent"]
+disposition = "N"
+
+[sites."check-first-use.mjs::a coordinate evaluation whose label already names its regions or evaluation states each once"]
+disposition = "N"
+
+[sites."check-first-use.mjs::each term hint has both languages and opens an existing method chapter"]
+disposition = "N"
+
+[sites."check-first-use.mjs::the home page starts newcomers with the question, three goals and how to read a score"]
+disposition = "N"
+
+[sites."check-first-use.mjs::the header shows the current-layout bar only when a layout is selected or being drafted"]
+disposition = "N"
+
 # --- check-fixed64-results.mjs ----------------------------------------------------------------------------------------
 
 [sites."check-fixed64-results.mjs::export contains 28 configurations, 26 unique layouts and one head"]
@@ -869,19 +903,19 @@ disposition = "N"
 [sites."check-i18n.mjs::header renders both language choices and all navigation in the selected language"]
 disposition = "N"
 
-[sites."check-i18n.mjs::full method and retention guide server-render in English without untranslated system text"]
+[sites."check-i18n.mjs::the method index server-renders in English and links every chapter of the documentation"]
 disposition = "N"
 
 [sites."check-i18n.mjs::copyright footer and concise notice render the author, acknowledgments and third-party attribution"]
 disposition = "N"
 
-[sites."check-i18n.mjs::copyright links preserve design queries and method return context without triggering technical details"]
+[sites."check-i18n.mjs::copyright links preserve design queries and method return context"]
 disposition = "N"
 
 [sites."check-i18n.mjs::performance cards preserve numeric scores and their meaning in both languages"]
 disposition = "N"
 
-[sites."check-i18n.mjs::signal-generation guide renders bilingual content before metrics, with technical details locally collapsed"]
+[sites."check-i18n.mjs::old method anchors point to the documentation chapter that replaced them, and the chapters exist"]
 disposition = "N"
 
 [sites."check-i18n.mjs::signal-generation translations have complete unique sources and no shadowed main-catalog entries"]
@@ -890,7 +924,7 @@ disposition = "N"
 [sites."check-i18n.mjs::unknown diagnostic is summarized with raw detail access, not mislabeled as a result"]
 disposition = "N"
 
-[sites."check-i18n.mjs::all twelve route entry points render English system text"]
+[sites."check-i18n.mjs::every route entry point renders English system text"]
 disposition = "N"
 
 [sites."check-i18n.mjs::project snapshot layout and edited metrics render bilingual values directly from saved data"]
@@ -899,7 +933,7 @@ disposition = "N"
 [sites."check-i18n.mjs::project delivery controls are bilingual and never render access credentials"]
 disposition = "N"
 
-[sites."check-i18n.mjs::coordinate import is separate from comparison and the four workspaces remain bilingual"]
+[sites."check-i18n.mjs::coordinate import is separate from comparison and the five areas remain bilingual"]
 disposition = "N"
 
 [sites."check-i18n.mjs::all nine placement choices and 3D controls render without Chinese system text in English"]
@@ -960,19 +994,16 @@ disposition = "N"
 [sites."check-lab-workflow.mjs::editor rejects incompatible region presets and area entry stays read-only by construction"]
 disposition = "N"
 
-[sites."check-lab-workflow.mjs::retention teaching example matches its frozen metric excerpt, including absolute and relative values"]
+[sites."check-lab-workflow.mjs::the worked example in the documentation matches its frozen metric excerpt, including absolute and relative values"]
 disposition = "N"
 
-[sites."check-lab-workflow.mjs::complete retention guide is visible outside historical details and its directory anchors resolve"]
-disposition = "N"
-
-[sites."check-lab-workflow.mjs::retention guide separates model scores, fixed examples, protocols, and live computation"]
+[sites."check-lab-workflow.mjs::the method page is an index into the documentation and carries no method text of its own"]
 disposition = "N"
 
 [sites."check-lab-workflow.mjs::performance cards link to the guide with the current draft, record, and AR preserved"]
 disposition = "N"
 
-[sites."check-lab-workflow.mjs::navigation groups existing destinations into four workspaces with visible tool tabs"]
+[sites."check-lab-workflow.mjs::navigation groups every destination into five areas with visible tool tabs"]
 disposition = "N"
 
 [sites."check-lab-workflow.mjs::library URLs preserve filters, Unicode search, page, record and AR with legacy history compatibility"]
@@ -990,7 +1021,7 @@ disposition = "N"
 [sites."check-lab-workflow.mjs::historical pages disclose their scope and preserve settings in method links"]
 disposition = "N"
 
-[sites."check-lab-workflow.mjs::method page separates current calculation, historical experiments and unimplemented plans"]
+[sites."check-lab-workflow.mjs::the documentation separates current calculation, historical experiments and unimplemented plans"]
 disposition = "N"
 
 [sites."check-lab-workflow.mjs::all supported preset shortcuts are exposed without inventing subdivided masks or scores"]
@@ -1779,6 +1810,9 @@ disposition = "N"
 disposition = "N"
 
 [sites."check-records-catalog.mjs::condition variants of one coordinate design fold into one row at its first position"]
+disposition = "N"
+
+[sites."check-records-catalog.mjs::evaluations sharing a layout key fold into one row, whatever their protocol or condition"]
 disposition = "N"
 
 # --- check-research-delivery-reader.mjs -------------------------------------------------------------------------------
@@ -2632,7 +2666,7 @@ note = "skipped on win32"
 
 # --- check-workspace-navigation.mjs -----------------------------------------------------------------------------------
 
-[sites."check-workspace-navigation.mjs::all primary and secondary pages have one workspace"]
+[sites."check-workspace-navigation.mjs::all primary and secondary pages have one area"]
 disposition = "N"
 
 [sites."check-workspace-navigation.mjs::saved layouts retain their exact identity across eligible tools"]
@@ -2666,6 +2700,9 @@ disposition = "N"
 disposition = "N"
 
 [sites."check-workspace-navigation.mjs::invalid IDs, counts and external returns cannot become active layout references"]
+disposition = "N"
+
+[sites."check-workspace-navigation.mjs::the layout list link keeps editor and signal records, whose details stay on the list"]
 disposition = "N"
 
 # --- Opt-in scripts ---------------------------------------------------------------------------------------------------

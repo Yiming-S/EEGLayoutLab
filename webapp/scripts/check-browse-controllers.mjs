@@ -6,6 +6,7 @@ import { apiJson } from '../client/task-client.ts';
 import * as workflow from '../lib/lab-workflow.ts';
 import * as placements from '../lib/placement-options.ts';
 import * as catalog from '../lib/records-catalog.ts';
+import * as layoutPages from '../lib/layout-page.ts';
 import * as recordLabels from '../lib/i18n/records.ts';
 import { preserveResultsContext } from '../lib/results-library.ts';
 import { requestKey } from '../lib/local-compute.ts';
@@ -33,7 +34,7 @@ async function controller(t, feature, search, fetchSource) {
   const harness = await createHookHarness({
     filename: new URL(`../features/${feature}/use-${feature}-controller.ts`, import.meta.url),
     exportName: `use${feature[0].toUpperCase() + feature.slice(1)}Controller`, maxTimerMs: Infinity,
-    imports: { apiJson, NOISE_MODEL_PRESETS, presetIdFor: noiseModelId, ...workflow, ...placements, ...catalog, ...recordLabels, preserveResultsContext, requestKey,
+    imports: { apiJson, NOISE_MODEL_PRESETS, presetIdFor: noiseModelId, ...workflow, ...placements, ...catalog, ...layoutPages, ...recordLabels, preserveResultsContext, requestKey,
       MASK_NAMES, protocolName, SOURCE_REGIONS, useLanguage: () => ({ tx, locale: 'en' }) },
     globals: { window, document: { getElementById: () => null }, fetch: (url, options) => {
       calls.push({ url, options }); return fetchSource(url, options, calls.length);
@@ -87,7 +88,7 @@ void test('design rejects an invalid draft without promoting it to a ready reque
   assert.equal(f.writes.length, 0);
 });
 
-void test('library keeps an explicit record outside filters and retains overview URL context', async t => {
+void test('library keeps an explicit record outside filters, retains overview URL context and opens a layout on its page', async t => {
   const a = saved('a'), b = saved('b', { region_count: 3 });
   const f = await controller(t, 'library', `?record=${a.id}&regions=3&ar=32&area=180&domain=low_hair_free`, url => {
     if (url.endsWith('/library')) return json(library([a, b]));
@@ -100,9 +101,11 @@ void test('library keeps an explicit record outside filters and retains overview
   assert.deepEqual(f.harness.current.catalogWarnings, ['editor offline']);
   assert.equal(f.harness.current.error, '');
   assert.equal(new URL(f.harness.current.here, 'http://localhost').searchParams.get('area'), '180');
+  assert.ok(f.writes.includes(`/layout?id=${a.id}&ar=32`));
   await f.navigate(`?record=${b.id}&regions=2&ar=58&sort=oldest`);
   assert.equal(f.harness.current.selected.id, b.id);
   assert.equal(f.harness.current.ar, 58);
+  assert.ok(f.writes.includes(`/layout?id=${b.id}&ar=58`));
   assert.equal(f.calls.length, 3);
 });
 

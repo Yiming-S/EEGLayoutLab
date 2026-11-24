@@ -79,35 +79,38 @@ try {
   const otherArea = records.find(r => r.dataset_id === 'strict_area' && r.mode === area.mode && r.area_cap_cm2 === area.area_cap_cm2 && r.region_count === 4);
   assert.ok(area && otherArea);
 
-  await check('English overview → records → overview preserves selection, filters and AR without computation', async () => {
+  await check('English findings → layout list → layout page keeps the filters and AR without computation', async () => {
     const before = submitCount();
-    await go('/?domain=whole_scalp_free&area=120&r=2&ar=43'); await layoutId(area.id);
-    await page.getByRole('link', { name: t('布局记录'), exact: true }).click();
-    await page.waitForURL(url => url.pathname === '/library');
+    await go('/findings?domain=whole_scalp_free&area=120&r=2&ar=43');
+    // Details open in a sheet from the region row (index 1 is two regions).
+    await page.getByRole('button', { name: t('查看布局与指标'), exact: true }).nth(1).click(); await layoutId(area.id);
+    await page.getByRole('button', { name: t('关闭方案详情'), exact: true }).click();
+    await page.getByRole('link', { name: t('布局'), exact: true }).click();
+    await page.waitForURL(url => url.pathname === '/library' && url.searchParams.get('ar') === '43');
     await label('布局实验协议').selectOption('cache');
-    await page.getByRole('button', { name: t('查看结果'), exact: true }).first().click();
+    await page.getByRole('link', { name: t('查看布局'), exact: true }).first().click();
+    await page.waitForURL(url => url.pathname === '/layout');
     await layoutId(radius.id);
-    await range(page.getByRole('slider', { name: t('记录接受阈值AR'), exact: true }), 47);
-    await page.waitForURL(url => url.searchParams.get('ar') === '47' && url.searchParams.get('record') === radius.id);
-    await page.getByRole('link', { name: t('实验总览'), exact: true }).click();
-    await page.waitForURL(url => url.pathname === '/' && url.searchParams.get('ar') === '47');
-    assert.equal(new URL(page.url()).searchParams.get('filter'), 'cache');
-    await page.getByRole('link', { name: t('布局记录'), exact: true }).click();
+    await range(page.getByRole('slider', { name: t('布局接受阈值AR'), exact: true }), 47);
+    await page.waitForURL(url => url.searchParams.get('ar') === '47' && url.searchParams.get('id') === radius.id);
+    await page.goBack({ waitUntil: 'networkidle' });
     await page.waitForURL(url => url.pathname === '/library');
     assert.equal(await label('布局实验协议').inputValue(), 'cache');
+    await page.getByRole('link', { name: t('研究结果'), exact: true }).click();
+    await page.waitForURL(url => url.pathname === '/findings');
     assert.equal(submitCount(), before);
     await page.screenshot({ path: join(output, '01-english-records.png'), fullPage: true });
     return { selectedRecord: radius.id, ar: 47 };
   });
 
-  await check('Chinese overview, records and draft controls retain their localized labels and AR', async () => {
+  await check('Chinese findings, layout list and draft controls retain their localized labels and AR', async () => {
     const zh = await browser.newContext({ viewport: { width: 1440, height: 1050 } });
     await zh.addCookies([{ name: 'eeg-layout-language', value: 'zh-CN', url: origin.origin }]);
     const target = await zh.newPage(); observe(target);
     try {
-      await target.goto(base + '/?ar=39&r=2&area=120', { waitUntil: 'networkidle' });
-      await target.getByRole('heading', { name: t('实验总览', 'zh-CN'), exact: true }).waitFor();
-      await target.getByRole('link', { name: t('布局记录', 'zh-CN'), exact: true }).click();
+      await target.goto(base + '/findings?ar=39&r=2&area=120', { waitUntil: 'networkidle' });
+      await target.getByRole('heading', { name: t('总面积研究', 'zh-CN'), exact: true }).waitFor();
+      await target.getByRole('link', { name: t('布局', 'zh-CN'), exact: true }).click();
       await target.getByRole('button', { name: t('刷新记录', 'zh-CN'), exact: true }).waitFor();
       await target.getByLabel(regex(t('布局实验协议', 'zh-CN'))).selectOption('cache');
       assert.equal(await target.getByRole('slider', { name: t('记录接受阈值AR', 'zh-CN'), exact: true }).inputValue(), '39');
@@ -175,7 +178,8 @@ try {
     const before = submitCount();
     await go(`/decision?a=${area.id}&b=${otherArea.id}&ar=46&thresholdMode=joint`);
     const selection = page.getByRole('region', { name: t('选择对比方案'), exact: true });
-    const a = selection.getByLabel(regex(t('方案A'))), b = selection.getByLabel(regex(t('方案B')));
+    // Exact names: each side also has a filter box and, for layouts with several evaluations, a condition select.
+    const a = selection.getByLabel(t('方案A'), { exact: true }), b = selection.getByLabel(t('方案B'), { exact: true });
     await a.waitFor();
     await page.waitForFunction(({ a, b }) => [...document.querySelectorAll('select')].some(select => select.value === a) && [...document.querySelectorAll('select')].some(select => select.value === b), { a: area.id, b: otherArea.id });
     assert.equal(await a.inputValue(), area.id); assert.equal(await b.inputValue(), otherArea.id);
@@ -189,7 +193,7 @@ try {
     await label('冻结生成源').selectOption('3');
     await page.waitForURL(url => url.searchParams.get('source') === '3');
     await label('冻结生成源').selectOption('2');
-    const run = page.getByRole('button', { name: new RegExp(`${t('3 · 开始信号仿真')}|${t('读取已保存结果')}`) });
+    const run = page.getByRole('button', { name: new RegExp(`${t('4 · 开始信号仿真')}|${t('读取已保存结果')}`) });
     await run.waitFor(); await page.waitForFunction(() => [...document.querySelectorAll('button')].some(button => /Run signal simulation|Load saved result/.test(button.textContent) && !button.disabled));
     assert.equal(submitCount(), before);
     const job = await terminal('/api/source-reception', await submit(run, '/api/source-reception'));
@@ -221,7 +225,7 @@ try {
 
   await check('An explicitly submitted uncached signal task can be cancelled without a completed result', async () => {
     await go(`/reception?record=${radius.id}&sourceMode=single_source&source=3&seed=${Date.now() % 10000}&ar=46`);
-    const run = button('3 · 开始信号仿真'); await run.waitFor();
+    const run = button('4 · 开始信号仿真'); await run.waitFor();
     const job = await submit(run, '/api/source-reception');
     assert.ok(['queued', 'running'].includes(job.status), 'Cancellation fixture unexpectedly hit a completed cache.');
     await button('停止计算').click();

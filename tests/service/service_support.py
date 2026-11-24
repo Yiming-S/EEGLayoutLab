@@ -23,8 +23,8 @@ PORT = 47321
 TOKENS = Tokens(*(hashlib.sha256(name.encode()).hexdigest() for name in ('launch', 'session', 'csrf')))
 HOST = f'127.0.0.1:{PORT}'
 # The pages of the static export (design 0001, phase 0): app/page.tsx and app/<name>/page.tsx.
-PAGES = ('coordinates', 'decision', 'deliveries', 'design', 'electrodes', 'guide', 'library', 'method',
-         'pilot-results', 'projects', 'reception', 'results', 'robustness')
+PAGES = ('channels', 'coordinates', 'decision', 'deliveries', 'design', 'electrodes', 'findings', 'guide', 'layout',
+         'library', 'method', 'pilot-results', 'projects', 'reception', 'results', 'robustness')
 PAGE_NAMES = frozenset({'index', *PAGES})
 
 
@@ -73,14 +73,32 @@ def static_export(path: Path) -> Path:
 
 
 def service_config(root: Path, static: Optional[Path] = None, workspace: Optional[Path] = None,
-                   port: int = PORT) -> ServiceConfig:
+                   port: int = PORT, docs: Optional[Path] = None) -> ServiceConfig:
     user = UserContext.local(str(workspace or root), str(root))
     return ServiceConfig(root=str(root), port=port, tokens=TOKENS, user=user,
-                         static_dir=str(static) if static is not None else None)
+                         static_dir=str(static) if static is not None else None,
+                         docs_dir=str(docs) if docs is not None else None)
 
 
-def make_app(root: Path, static: Optional[Path] = None, port: int = PORT) -> Service:
-    return create_app(service_config(root, static, port=port))
+def make_app(root: Path, static: Optional[Path] = None, port: int = PORT, docs: Optional[Path] = None) -> Service:
+    return create_app(service_config(root, static, port=port, docs=docs))
+
+
+def docs_site(path: Path) -> Path:
+    """A small built documentation site in the shape ``mkdocs build`` writes (directory URLs)."""
+    files = {
+        'index.html': '<!doctype html><title>EEGLayoutLab</title>',
+        '404.html': '<!doctype html><title>docs not found</title>',
+        'method-details/index.html': '<!doctype html><h2 id="signal-model">Signal model</h2>',
+        'assets/javascripts/bundle.1a2b.min.js': 'console.log(1)',
+        'search/search_index.json': '{"docs":[]}',
+        'sitemap.xml.gz': b'\x1f\x8b\x08\x00',
+    }
+    for name, content in files.items():
+        target = path / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(content if isinstance(content, bytes) else content.encode('utf-8'))
+    return path
 
 
 def loopback_client(app: Service, port: int = PORT, authenticate: bool = True, csrf: bool = False,

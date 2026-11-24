@@ -7,15 +7,23 @@ export const metricPercent = (value: number | null | undefined, missing = '尚�
 export const metricDistance = (value: number | null | undefined) =>
   value === undefined ? '尚未计算' : value === null || !Number.isFinite(value) ? '指标无法计算' : `${value.toFixed(2)} mm`;
 export const PAGES = [
-  { id: 'compare', path: '/', label: '结果库' },
-  { id: 'design', path: '/design', label: '布局设计' },
+  { id: 'home', path: '/', label: '工作区' },
+  { id: 'findings', path: '/findings', label: '总面积研究' },
+  { id: 'library', path: '/library', label: '布局列表' },
+  { id: 'layout', path: '/layout', label: '布局详情' },
+  { id: 'design', path: '/design', label: '区域设计' },
+  { id: 'coordinates', path: '/coordinates', label: '坐标导入' },
   { id: 'electrodes', path: '/electrodes', label: '电极编辑' },
   { id: 'decision', path: '/decision', label: '方案对比' },
+  { id: 'robustness', path: '/robustness', label: '稳健性研究' },
   { id: 'reception', path: '/reception', label: '信号仿真' },
+  { id: 'channels', path: '/channels', label: '通道子集' },
+  { id: 'projects', path: '/projects', label: '研究项目' },
+  { id: 'results', path: '/results', label: '历史批次' },
   { id: 'guide', path: '/guide', label: '使用指南' },
   { id: 'method', path: '/method', label: '建模与原理' },
 ] as const;
-export type PageId = (typeof PAGES)[number]['id'] | 'library' | 'results' | 'coordinates' | 'projects' | 'robustness';
+export type PageId = (typeof PAGES)[number]['id'];
 export const MASK_NAMES: Record<string, string> = {
   PL: '左耳后邻近区', PR: '右耳后邻近区', AL: '左耳周扩展区', AR: '右耳周扩展区',
   FL: '左前额', FM: '中部前额', FR: '右前额', OL: '左眶周上外侧', OR: '右眶周上外侧',
@@ -26,9 +34,20 @@ export function protocolName(id: string) {
   if (id === 'historical_area') return '历史面积实验（原坐标范围）';
   return id === 'strict_area' ? '总面积上限约束实验' : id === 'cache' ? '每区半径约束计算' : '历史半径实验（区域可相交）';
 }
+/**
+ * A coordinate evaluation's label is often an earlier title: it starts with its region
+ * count ("2区 · …") or ends with "已评价坐标". The title then states neither twice.
+ */
+export function labelNamesRegions(label: string, count: number) {
+  return new RegExp(`^\\s*${count}\\s*(区|个区域|regions?\\b)`, 'i').test(label);
+}
+export function labelNamesEvaluation(label: string) {
+  return /(已评价坐标|evaluated coordinates)\s*$/i.test(label);
+}
 /** Title without the noise-model suffix, so each part matches its own translation. */
 export function recordBaseTitle(record: SavedSummary) {
-  if (record.dataset_id === 'design_evaluation') return `${record.region_count}个区域 · ${record.label} · 已评价坐标`;
+  if (record.dataset_id === 'design_evaluation') return [...(labelNamesRegions(record.label, record.region_count) ? [] : [`${record.region_count}个区域`]),
+    record.label, ...(labelNamesEvaluation(record.label) ? [] : ['已评价坐标'])].join(' · ');
   if (record.dataset_id === 'offline_radius') return record.label;
   const masks = record.request?.mask_codes;
   const location = masks?.length ? masks.map((m) => MASK_NAMES[m] ?? m).join(' + ')
@@ -63,7 +82,7 @@ export function safeReturnHref(value: string | null | undefined, fallback: strin
   if (!value?.startsWith('/') || value.startsWith('//')) return fallback;
   try {
     const url = new URL(value, 'http://localhost');
-    const allowed = ['/', '/design', '/electrodes', '/decision', '/coordinates', '/library', '/reception', '/results', '/pilot-results', '/projects'];
+    const allowed = ['/', '/findings', '/layout', '/design', '/electrodes', '/decision', '/coordinates', '/library', '/reception', '/channels', '/robustness', '/results', '/pilot-results', '/projects'];
     if (url.origin !== 'http://localhost' || !allowed.includes(url.pathname)) return fallback;
     // A project sharing credential is consumed by its page, never forwarded as
     // navigation context or encoded into a documentation return query.

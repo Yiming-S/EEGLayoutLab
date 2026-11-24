@@ -32,13 +32,13 @@ export function useOverviewController() {
     return () => controller.abort();
   }, [retry]);
   const rows = areaRows(data?.records ?? [], domain, area), selected = rows.find((row) => row?.region_count === r);
-  useEffect(() => { if (ready) window.history.replaceState(null, '', preserveResultsContext(`/?domain=${domain}&area=${area}&r=${r}&ar=${ar}&metric=${metric}`, viewContext)); }, [ready, domain, area, r, ar, metric, viewContext]);
+  useEffect(() => { if (ready) window.history.replaceState(null, '', preserveResultsContext(`/findings?domain=${domain}&area=${area}&r=${r}&ar=${ar}&metric=${metric}`, viewContext)); }, [ready, domain, area, r, ar, metric, viewContext]);
   const curve = useMemo(() => AREA_CAPS.map((a) => {
     const point: Record<string, number | null> = { area: a };
     areaRows(data?.records ?? [], domain, a).forEach((row, i) => { const value = row?.metrics?.[metric]; point[`r${REGION_COUNTS[i]}`] = value == null ? null : value * 100; });
     return point;
   }), [data, domain, metric]);
   const inspect = (count: number) => setR(count);
-  const here = preserveResultsContext(`/?domain=${domain}&area=${area}&r=${r}&ar=${ar}&metric=${metric}`, viewContext);
+  const here = preserveResultsContext(`/findings?domain=${domain}&area=${area}&r=${r}&ar=${ar}&metric=${metric}`, viewContext);
   return { data, domain, setDomain, area, setArea, r, setR, ar, setAR, metric, setMetric, error, setRetry, rows, selected, curve, inspect, here };
 }

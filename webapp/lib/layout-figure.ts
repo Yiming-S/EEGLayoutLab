@@ -26,12 +26,12 @@ export type FigureText = {
 const sub = (a: Point, b: Point): Point => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const dot = (a: Point, b: Point) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const unit = (a: Point): Point => { const n = Math.hypot(...a); return [a[0] / n, a[1] / n, a[2] / n]; };
-const escape = (text: string) => text.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+export const escape = (text: string) => text.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 const fixed = (value: number) => Number(value.toFixed(2));
 // SVG text does not wrap. Approximate advance widths (em): CJK and full-width 1, Latin about 0.56.
 const graphemes = (text: string) => Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text), part => part.segment);
-const advance = (text: string) => graphemes(text).reduce((sum, c) => sum + (/[\u2e80-\uffef]/.test(c) ? 1 : /[A-Z]/.test(c) ? 0.66 : 0.54), 0);
-function wrap(text: string, size: number, width: number) {
+export const advance = (text: string) => graphemes(text).reduce((sum, c) => sum + (/[\u2e80-\uffef]/.test(c) ? 1 : /[A-Z]/.test(c) ? 0.66 : 0.54), 0);
+export function wrap(text: string, size: number, width: number) {
   const lines: string[] = [];
   let line = '';
   for (const token of text.match(/[\u2e80-\uffef]|[^\s\u2e80-\uffef]+\s*|\s+/g) ?? []) {

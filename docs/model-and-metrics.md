@@ -19,15 +19,54 @@ The model assumes a fixed conductivity distribution. The application does not ac
 
 The current production bank contains 5,387 sensor candidates, a 4,096-source dictionary, and 256 separate generation sources for the associated localization evaluations. Layout reconstruction uses the prescribed source covariance and noise covariance to calculate expected error. It is not scored from the short waveform preview shown by the reception workspace.
 
+Both layouts are compared under the same source specification and the same physical noise scale, in the reference-free space. The same source produces a different potential distribution at different electrode positions, so the spatial information depends on the number of electrodes and their distribution. The FEM solution, source sampling, waveforms, noise calibration and default parameters are described in [method details](method-details.md).
+
 ## Layout constraints
 
 The standard layout-design comparison holds the physical measurement count at 64. Reference and ground/bias electrodes do not count toward those 64 points. Supported region counts are 1, 2, 3, 4, and 6, with balanced allocations of 64; 32+32; 22+21+21; 16+16+16+16; and 11+11+11+11+10+10.
 
 The local radius search uses ROI-constrained paths on the surface edge graph, checks region separation, and enforces a 4 mm minimum straight-line sensor spacing. This graph radius approximates continuous surface distance. Area uses the original surface's vertex-area weights. A finite search that returns no layout has not proved mathematical infeasibility.
 
+Geometric construction and performance evaluation are separate steps. A layout is geometrically feasible when it has 64 distinct electrodes with the required allocation per region, keeps the minimum spacing, lies inside the allowed regions and radius, and its regions meet the separation rule. It is accepted when the required metrics reach AR. When a search finds no layout, the record keeps the state of that search; whether the configuration is feasible remains open. Read the radius and area definitions and the search budget together with each result.
+
 The production fixed-area collection has 30 conditions: five region counts, two placement domains, and three total-area caps (60, 120, and 180 cm²). An area cap and a radius cap define different design problems. Their scores and search results should retain the protocol attached to each record.
 
 Electrode-editor evaluations that change the active sensor count form a separate comparison. They do not inherit the fixed-64 scope merely because they started from a 64-point parent layout.
+
+## Placement sites and terms
+
+A **placement region** is an area of the scalp where electrodes may go; a **source position** is a cortical location of simulated activity. A **layout** is a set of electrode coordinates: 64 for automatic layouts, fewer after electrode removal in the editor. A **configuration** gives the region count, the placement constraints and the size. A **record** is a saved result or search state.
+
+The placement range is chosen directly. Besides the whole-scalp and low-hair candidate areas, 19 preset combinations come from the anatomical preset matrix of the [retained protocol file](validation.md#retained-protocol-file), with mirror variants listed separately. In layout design, each region can take any of nine sites, beyond the presets:
+
+| Code | Site |
+| --- | --- |
+| PL, PR | Left, right near-postauricular region |
+| AL, AR | Left, right expanded periauricular region |
+| FL, FM, FR | Left, middle, right forehead |
+| OL, OR | Left, right superolateral periorbital region |
+
+The order of the sites follows the electrode allocation of the regions. A site may be chosen more than once, as long as the layout is complete and its regions stay separate. Choosing a site does not start a computation unless automatic computation is on.
+
+These sites and the low-hair area are coordinate masks on the model surface; hair distribution has not been reviewed anatomically. The near-postauricular region covers the outer area close behind the ear, the expanded periauricular region a larger area around the ear, and the superolateral periorbital region approximates the area above and lateral to the orbit.
+
+**Exposure screen.** The candidate surface passes a geometric line-of-sight screen with three fixed direction sets: 128 directions, 256 directions and 128 rotated directions. A scalp vertex is admitted when it has at least one unobstructed ray in each set. The screen applies to region centres, electrodes, surface paths and area patches, and removes inner points hidden by the outer surface. It admits 40,041 of the 52,410 scalp vertices and 4,847 of the 5,387 bank candidates. It is not an anatomical annotation or a check of electrode attachment.
+
+**Patches and area.** The coloured 3D patches are the native vertex sets saved by the computation. Each vertex carries one third of the area of every adjacent triangle, which is the same area integral as the reported area. Results on the original coordinate domain, before the exposure screen, stay in the historical area experiments; new searches do not reuse their scores.
+
+**Metric names.** The interface calls the three metrics field reconstruction retention, amplitude retention (worst 10%) and relative localization utility. G is their minimum and is compared with the minimum required retention, AR.
+
+## Three relative metrics
+
+Each metric compares a layout with the standard whole-head 64-electrode layout and answers its own question:
+
+| Metric | Question |
+| --- | --- |
+| [Field reconstruction retention](#noise-and-reconstruction), `R_field` | From this layout's observations, how well can the field that standard64 would record be reconstructed? |
+| [Amplitude retention in the lower 10% tail](#amplitude-retention-in-the-lower-10-tail), `R_sens` | For the sources that lose the most, how large a potential difference can the layout still record? |
+| [Relative localization score](#relative-localization-score), `R_loc` | After localization errors are scored by the prescribed rule, how does the layout compare with standard64? |
+
+Standard64 is the reference. Its relative scores are 100% by normalization; its own noise, reconstruction error and localization error are reported as absolute values. Read each metric by its own definition. A [worked example](#worked-example) follows the three definitions.
 
 ## Noise and reconstruction
 
@@ -209,6 +248,8 @@ Selection is greedy: first the best pair, then the channel that explains the mos
 
 The training and test inputs cannot share a recording. The check uses the full recording hash when both summaries have it and the entry file hash when either summary is older. Use a subject-level split when testing on new participants, since different recordings of the same participant can have different hashes. The universe and the left-out summaries follow the same 90% presence rule as the prior fit. Requested sizes must be smaller than the universe. Default sizes that do not fit are dropped. The data-greedy order is also evaluated at the size of the 10-20 subset, so the two can be compared at equal channel counts. The tests check the error against an explicit projection, its independence from the reference channel, and each greedy step against exhaustive search.
 
+The coordinates page and `channels --figure` draw the error against subset size ([`lib/channel-subset-figure.ts`](../webapp/lib/channel-subset-figure.ts)). With held-out summaries the curves are the mean held-out error; without them, the training error, which is optimistic for greedy selection on the data. Each selection method is a line. The random subsets are their median with the P10–P90 band over draws, and the 10-20 subset is a single labelled point. The data-greedy curve includes the 10-20 size. Each method keeps its colour and marker shape whether or not a prior is loaded. The page offers the figure as SVG and as a PNG at three times the resolution.
+
 **Validation.** Each dataset (1–40 Hz) was split by subject into two halves of its sorted summaries. Selection, the reconstructor and the prior were fitted on the first half; the table gives the mean error on the second:
 
 | Dataset | Channels | Summaries, training / held-out | 16 channels: data | data-prior model | area-prior model | random, median (P10–P90) | 10-20 subset (size) | data greedy at that size |
@@ -234,7 +275,11 @@ r(q) = A_X(q) / A_64(q)
 R_sens = cortical-area-weighted mean of the lowest 10% mass of r(q)
 ```
 
-The final boundary source contributes only the weight required to reach exactly 10%. This is a tail average, not a guarantee for every source. Numerical handling excludes near-zero reference denominators and renormalizes the valid weights; the score is unavailable when the exclusion exceeds the allowed area budget.
+The sources are sorted by `r(q)`, and the cortical-area-weighted mean is taken over the worst sources that together hold 10% of the area weight. The final boundary source contributes only the weight required to reach exactly 10%. This is a tail average, not a guarantee for every source: sources inside the tail differ, and a single source can lie below the mean. Per-source results show the whole distribution.
+
+Numerical handling excludes near-zero reference denominators. A source is excluded when its standard64 bipolar amplitude is at most 2 × 10⁻⁸ times the largest absolute standard64 potential, average referenced, over all electrodes and sources. The valid sources' weights are renormalized. When the excluded sources hold more than 0.1% of the source area weight, the score is unavailable. This tolerance is a numerical rule of the study, not a bound on the forward-solution error ([`layout_search_metrics.py`](../src/compact_eeg/layout_search_metrics.py)).
+
+Field retention and amplitude retention can differ widely for the same layout: the first measures the expected reconstruction error over the whole field, the second the tail of sources with the largest relative loss.
 
 ## Relative localization score
 
@@ -246,7 +291,14 @@ Each localization error d in millimetres is mapped to a utility:
 u(d) = max(0, 1 - d / 50 mm)
 ```
 
-First average utility over noise repetitions for each source. Then, separately for each layout, take the cortical-area-weighted lower 10% mean, U. Finally compute `R_loc = U_X / U_64`. The two lower tails need not contain the same sources. A zero or invalid reference utility cannot support a valid ratio. Report median and upper-quantile errors in millimetres alongside the relative score.
+First average utility over noise repetitions for each source. Then, separately for each layout, take the cortical-area-weighted lower 10% mean, U. Finally compute `R_loc = U_X / U_64`. The two lower tails need not contain the same sources. A zero or invalid reference utility cannot support a valid ratio. Report median and upper-quantile errors in millimetres alongside the relative score. The error quantiles are taken over all simulated trials; the lower-tail utility is weighted by cortical area.
+
+| Localization error | Utility |
+| --- | --- |
+| 0 mm | 1.0 |
+| 10 mm | 0.8 |
+| 25 mm | 0.5 |
+| 50 mm or more | 0 |
 
 The 50 mm scale is a scoring choice, not a physiological constant. See [`prototype_localization.py`](../src/compact_eeg/prototype_localization.py) and [`inverse_pilot.py`](../src/compact_eeg/inverse_pilot.py).
 
@@ -259,15 +311,69 @@ G = min(R_field, R_sens, R_loc)
 accepted at AR <=> each required metric >= AR
 ```
 
-AR is a user-selected relative acceptance threshold. Changing AR reinterprets existing scores and does not change the head model, sensors, or computation. The current search objective uses reconstruction and amplitude sensitivity; localization is evaluated on the resulting fixed layouts. This does not establish a joint global optimum.
+AR is a user-selected relative acceptance threshold; an interface value of 90% is 0.90 in the formula. Each required metric must reach AR, and G is shorthand for that rule. Decisions use unrounded values; displayed decimals are for reading only.
 
-Acceptance in the application uses model-conditional point estimates. It does not establish a population confidence bound, BCI task accuracy, or measured human performance.
+Changing AR reinterprets existing scores and does not change the head model, sensors, or computation, so existing results are reused. Changing the regions, the radius or the layout requires the result of that configuration, or a new computation when none matches. The current search objective uses reconstruction and amplitude sensitivity; localization is evaluated on the resulting fixed layouts. This does not establish a joint global optimum.
+
+Acceptance in the application uses model-conditional point estimates. It applies to the aggregated metrics; individual sources can fall below AR. It does not establish a population confidence bound, BCI task accuracy, or measured human performance.
+
+## Worked example
+
+This example uses one fixed record, independent of the current configuration: record `d474e3b2006437767104367a8860d792e0b942963d08594ced8c82d96a2d722d`, saved on 2026-09-08 by `strict-radius-local/2`, an earlier version of the radius search than the current `strict-radius-local/3-external-exposure`. It is a bilateral near-postauricular layout with 32 electrodes per side, a 25 mm radius cap per region and a 4 mm minimum straight-line spacing. It was scored on the single Ernie head at a nominal standard64 SNR of 20 dB. The numbers are excerpted in [`retention-example.json`](../webapp/public/data/retention-example.json).
+
+| Quantity | Standard64 | Example layout |
+| --- | --- | --- |
+| Field explained energy `E` | 99.31% | 56.76% |
+| Lower-tail localization utility `U` | 0.52111 | 0.09663 |
+| Median localization error | 10.92 mm | 21.98 mm |
+| P90 localization error | 20.59 mm | 58.83 mm |
+
+```text
+R_field = 56.76% / 99.31% ≈ 57.15%
+R_sens  = 12.50%
+R_loc   = 0.09663 / 0.52111 ≈ 18.54%
+G       = min(57.15%, 12.50%, 18.54%) = 12.50%
+```
+
+- Field: with this prior, noise and linear reconstruction, the layout explains about 57% as much of the target field energy as standard64 does.
+- Amplitude: for the worst 10% of source area, the layout's largest bipolar amplitude is on average 12.50% of the standard64 amplitude. No source was excluded by the numerical rule.
+- Localization: under the 50 mm utility and the lower-tail rule, the layout scores 18.54% of standard64. The millimetre errors describe the same comparison directly.
+- Acceptance: G = 12.50% is the lowest of the three. The layout fails at AR = 90%; it fails at AR = 50% although its field retention exceeds 50%; it passes the model's point-estimate rule at AR = 10%.
+
+Other protocols and signal-simulation scenarios are read with their own records.
+
+## Reading order
+
+1. To judge how close acquisition comes to whole-head 64 electrodes, read field retention first, with the absolute explained energy of the layout and of standard64.
+2. To judge whether some sources are missed, read amplitude retention in the lower 10% tail.
+3. To judge how well source positions can be estimated, read the localization errors in millimetres and the relative localization score.
+4. When several requirements must hold together, compare G with AR and note which metric limits the decision.
+
+The results depend jointly on the head model, the source prior, the noise, the estimator and the scoring rules. Field, amplitude and localization performance are reported separately.
 
 ## Source reception
 
 The reception workspace holds a layout fixed and selects source locations, waveforms, noise, and interference settings. It propagates those source moments through the matching forward field. ECG and EOG components use explicitly assumed spatial fields; these are scenario controls rather than validated physiological propagation models.
 
-Reception outputs and layout-search scores have different inputs and evaluation scopes. A waveform demonstration is not an independent validation of all cortical sources. The [validation document](validation.md) separates production evaluation, independent source controls, mesh convergence, and independent-head evidence.
+Reception outputs and layout-search scores have different inputs and evaluation scopes. A waveform demonstration is not an independent validation of all cortical sources. The [validation document](validation.md) separates production evaluation, independent source controls, mesh convergence, and independent-head evidence. The waveforms, interference fields and display rules are described in [method details](method-details.md#reception-simulation).
+
+## Scope of the scores
+
+The layout scores, including the [worked example](#worked-example), hold for:
+
+- the single Ernie head model, with the prescribed cortical-normal sources and source weights;
+- the prescribed forward model, noise, reconstruction and localization methods;
+- a finite set of candidate positions and a bounded layout search;
+- ear-adjacent and low-hair regions defined by coordinates, as model approximations.
+
+Skin and hair distribution have not been reviewed anatomically. Generation and inversion share the head and the forward method, so off-dictionary sources still carry a shared-model bias. The source space contains the cortical-normal sources of this model; deep sources are not modelled. The search is bounded on a finite grid, and global optimality has not been verified.
+
+| Workspace | Purpose |
+| --- | --- |
+| Layout design | Search for and evaluate electrode layouts under the prescribed source prior and measurement noise. |
+| Signal simulation | Hold a layout fixed and observe reception and reconstruction for specified sources, waveforms and interference. |
+
+ECG and EOG are set only in signal simulation, with assumed spatial fields. MI and P300 classification and human performance have not been validated. The total-area results, the [historical studies](historical-studies.md) and the reevaluation of frozen layouts with new sources each have their own protocol; each record names its generation sources, localization dictionary and other parameters. Earlier experiments that chose subsets of the BioSemi64 positions follow a different study definition from the fixed-64 spatial layouts and are archived separately. See [validation](validation.md#established-limits) for what the released evidence supports.
 
 ## Method references
 
@@ -276,3 +382,9 @@ The references below document the external modeling methods. They do not validat
 - Nielsen JD, Puonti O, Xue R, Thielscher A, Madsen KH (2023). [Evaluating the influence of anatomical accuracy and electrode positions on EEG forward solutions](https://doi.org/10.1016/j.neuroimage.2023.120259). *NeuroImage*, 277, 120259.
 - Saturnino GB, Madsen KH, Thielscher A (2019). [Electric field simulations for transcranial brain stimulation using FEM: an efficient implementation and error analysis](https://doi.org/10.1088/1741-2552/ab41ba). *Journal of Neural Engineering*, 16, 066032.
 - [SimNIBS coordinate conventions](https://simnibs.github.io/simnibs/build/html/documentation/coordinates.html) and [example dataset release](https://github.com/simnibs/example-dataset/releases/tag/v4.1).
+
+Related studies of electrode coverage and ear-centred arrays. Each answers a narrower or different question than this application:
+
+- Meiser A, Tadel F, Debener S, Bleichner MG (2020). [The sensitivity of ear-EEG: evaluating the source-sensor relationship using forward modeling](https://doi.org/10.1007/s10548-020-00793-2). *Brain Topography*, 33, 665–676. It studies how sensitive arrays around the ear are to source position and orientation. This project also examines fixed 64-electrode layouts, region size and field reconstruction.
+- Song J, Davey C, Poulsen C, Luu P, Turovets S, Anderson E, Li K, Tucker D (2015). [EEG source localization: sensor density and head surface coverage](https://doi.org/10.1016/j.jneumeth.2015.08.015). *Journal of Neuroscience Methods*, 256, 9–21. It studies how electrode density and head-surface coverage affect localization, which supports comparing layouts by coverage.
+- Meiser A, Knoll AL, Bleichner MG (2024). [High-density ear-EEG for understanding ear-centered EEG](https://doi.org/10.1088/1741-2552/ad1783). *Journal of Neural Engineering*, 21, 016001. It studies two-dimensional high-density sampling with 31 electrodes around one ear and shows the additional information that several contacts provide. Its array covers the area around the ear.

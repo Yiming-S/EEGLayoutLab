@@ -92,6 +92,9 @@ class ServiceConfig:
     static_dir: Optional[str] = None
     """The static export (``webapp/dist/client``); until it is built (its ``index.html`` is there), pages answer
     503."""
+    docs_dir: Optional[str] = None
+    """The built documentation site (``mkdocs build`` writes ``R/site``), served under ``/docs/``; until it is built
+    those paths answer 503."""
     runtime: Optional['RuntimeConfig'] = None
     """The root and interpreters (``jobs.runtime.runtime_config``); by default ``runtime_config(root)`` on first
     use, with ``EEG_COMPUTE_PYTHON`` as Node reads it."""
@@ -247,17 +250,21 @@ class Service:
     def __init__(self, config: ServiceConfig):
         from .access import AccessControl
         from .routes.compute import ComputeHost
-        from .static import StaticExport
+        from .static import DocsSite, StaticExport
 
         self.config = config
         self.compute = ComputeHost(config)
         self.api = _api(config, self.compute)
         self.static = StaticExport(config.static_dir)
+        self.docs = DocsSite(config.docs_dir)
         self.access = AccessControl(self._route, config.tokens, config.port)
 
     async def _route(self, scope: Any, receive: Any, send: Any) -> None:
-        if raw_path(scope).startswith('/api/'):
+        path = raw_path(scope)
+        if path.startswith('/api/'):
             await self.api(scope, receive, send)
+        elif path == '/docs' or path.startswith('/docs/'):
+            await self.docs(scope, receive, send)
         else:
             await self.static(scope, receive, send)
 

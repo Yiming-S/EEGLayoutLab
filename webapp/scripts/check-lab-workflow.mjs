@@ -6,12 +6,15 @@ import { LocalComputeQueue, MASK_CODES, normalizeRequest } from './local-compute
 import { parseAR, areaRows, areaConclusion, minimumTestedArea, assessment, comparisonLink, radiusDesignLink, recordLink, methodLink, AREA_CAPS, REGION_COUNTS, MANUAL_COMPUTE_DEFAULT } from '../lib/lab-workflow.ts';
 import { designLink } from '../lib/local-library.ts';
 import { displayJob, matchingResult } from '../lib/local-compute.ts';
-import { RETENTION_EXAMPLE, RETENTION_SECTIONS, isRetentionGuideHash, guidePercent } from '../lib/retention-guide.ts';
 import { PAGES, MASK_NAMES, recordTitle, protocolName, metricPercent, metricDistance, safeReturnHref, parseLibraryView, libraryViewLink } from '../lib/ui-language.ts';
 import { WORKSPACES, WORKSPACE_TABS } from '../lib/workspace-navigation.ts';
 import { METRICS } from '../lib/lab-workflow.ts';
+import { METHOD_GROUPS } from '../lib/method-index.ts';
 import { CRITERIA } from '../lib/single-head-results.ts';
 import { placementChoices, choiceFromSlots, placementDesignLink } from '../lib/placement-options.ts';
+
+const EXAMPLE_RECORD = 'd474e3b2006437767104367a8860d792e0b942963d08594ced8c82d96a2d722d';
+const percent = (value) => (value * 100).toFixed(2) + '%';
 
 void test('AR query parsing is bounded, includes equality, and does not turn missing metrics into zero', () => {
   assert.equal(parseAR('50'), 50); assert.equal(parseAR('90'), 90);
@@ -81,7 +84,7 @@ void test('record links preserve exact IDs and AR; historical radius constraints
   const row = { id: 'a'.repeat(64), dataset_id: 'cache', compatible: true, request: { region_count: 2, mode: 'whole_surface', radius_mm: 35 } };
   assert.equal(designLink(row, 50), `/design?saved=${row.id}&ar=50`);
   assert.equal(radiusDesignLink(row, 50), designLink(row, 50));
-  assert.equal(recordLink(row, 50), `/library?record=${row.id}&ar=50`);
+  assert.equal(recordLink(row, 50), `/layout?id=${row.id}&ar=50`);
   assert.equal(radiusDesignLink({ ...row, compatible: false }, 50), `/design?saved=${row.id}&ar=50`);
   assert.equal(designLink({ ...row, compatible: false }, 50), `/design?saved=${row.id}&ar=50`);
   assert.equal(designLink({ ...row, compatible: false, request: null }, 50), null);
@@ -113,68 +116,46 @@ void test('editor rejects incompatible region presets and area entry stays read-
   assert.ok(!home.includes('/api/local-compute/jobs'));
 });
 
-void test('retention teaching example matches its frozen metric excerpt, including absolute and relative values', async () => {
-  const e = RETENTION_EXAMPLE;
+void test('the worked example in the documentation matches its frozen metric excerpt, including absolute and relative values', async () => {
   const fixture = JSON.parse(await readFile(new URL('../public/data/retention-example.json', import.meta.url), 'utf8'));
-  assert.equal(fixture.source_record_id, e.recordId);
+  const docs = await readFile(new URL('../../docs/model-and-metrics.md', import.meta.url), 'utf8');
   const m = fixture.metrics;
-  const mapping = {
-    fieldAbsolute: 'field_absolute', referenceFieldAbsolute: 'reference_field_absolute',
-    fieldRelative: 'field_relative', sensitivity: 'sensitivity_tail', localizationRelative: 'localization_relative',
-    utility: 'localization_utility', referenceUtility: 'reference_localization_utility',
-    medianMm: 'median_mm', referenceMedianMm: 'reference_median_mm',
-    p90Mm: 'p90_mm', referenceP90Mm: 'reference_p90_mm', global: 'conditional_global',
-  };
-  for (const [key, stored] of Object.entries(mapping)) assert.equal(e[key], m[stored], key);
-  assert.ok(Math.abs(e.fieldRelative - e.fieldAbsolute / e.referenceFieldAbsolute) < 1e-12);
-  assert.ok(Math.abs(e.localizationRelative - e.utility / e.referenceUtility) < 1e-12);
-  assert.equal(e.global, Math.min(e.fieldRelative, e.sensitivity, e.localizationRelative));
-  assert.deepEqual([e.fieldRelative, e.sensitivity, e.localizationRelative, e.global].map(guidePercent), ['57.15%', '12.50%', '18.54%', '12.50%']);
+  assert.equal(fixture.source_record_id, EXAMPLE_RECORD);
+  assert.ok(docs.includes('record `' + EXAMPLE_RECORD + '`'));
+  assert.ok(Math.abs(m.field_relative - m.field_absolute / m.reference_field_absolute) < 1e-12);
+  assert.ok(Math.abs(m.localization_relative - m.localization_utility / m.reference_localization_utility) < 1e-12);
+  assert.equal(m.conditional_global, Math.min(m.field_relative, m.sensitivity_tail, m.localization_relative));
+  assert.deepEqual([m.field_relative, m.sensitivity_tail, m.localization_relative, m.conditional_global].map(percent), ['57.15%', '12.50%', '18.54%', '12.50%']);
+  for (const text of ['R_field = 56.76% / 99.31% ≈ 57.15%', 'R_sens  = 12.50%', 'R_loc   = 0.09663 / 0.52111 ≈ 18.54%', 'G       = min(57.15%, 12.50%, 18.54%) = 12.50%',
+    '| Median localization error | 10.92 mm | 21.98 mm |', '| P90 localization error | 20.59 mm | 58.83 mm |']) assert.ok(docs.includes(text), text);
   assert.equal(assessment(m, 90).state, 'fail');
   assert.equal(assessment(m, 50).state, 'fail');
   assert.equal(assessment(m, 10).state, 'pass');
 });
 
-void test('complete retention guide is visible outside historical details and its directory anchors resolve', async () => {
+void test('the method page is an index into the documentation and carries no method text of its own', async () => {
   const page = await readFile('app/method/page.tsx', 'utf8');
-  const guide = await readFile('components/retention-explainer.tsx', 'utf8');
-  const context = await readFile('components/method-context.tsx', 'utf8');
-  assert.ok(page.indexOf('<RetentionExplainer />') > 0);
-  assert.ok(page.indexOf('<RetentionExplainer />') < page.indexOf('<TechnicalDetails>'));
-  assert.ok(guide.includes('id="retention-guide"'));
-  assert.equal(RETENTION_SECTIONS.length, 8);
-  assert.equal(new Set(RETENTION_SECTIONS.map(([id]) => id)).size, 8);
-  for (const [id] of RETENTION_SECTIONS) {
-    assert.equal(guide.split(`id="${id}"`).length - 1, 1);
-    assert.equal(isRetentionGuideHash('#' + id), true);
+  assert.ok(page.includes('METHOD_GROUPS.map'));
+  assert.ok(page.includes('docsHref('));
+  for (const removed of ['RetentionExplainer', 'SimulationExplainer', 'TechnicalDetails', 'fetch(']) assert.ok(!page.includes(removed), removed);
+  for (const file of ['components/retention-explainer.tsx', 'components/simulation-explainer.tsx', 'lib/retention-guide.ts', 'lib/simulation-guide.ts']) {
+    await assert.rejects(readFile(file, 'utf8'), { code: 'ENOENT' }, file);
   }
-  assert.equal(isRetentionGuideHash('#retention-guide'), true);
-  for (const hash of ['', '#local-compute', '#source-reception', '#retention-guide-unknown']) assert.equal(isRetentionGuideHash(hash), false);
-  assert.ok(context.includes('!isRetentionGuideHash(window.location.hash)'));
-});
-
-void test('retention guide separates model scores, fixed examples, protocols, and live computation', async () => {
-  const guide = await readFile('components/retention-explainer.tsx', 'utf8');
-  for (const text of [
-    '固定示例 · 独立于当前配置', '自身的噪声、重建误差和定位误差仍按绝对数值报告', '三项相对指标分别衡量',
-    '256个', '16次噪声重复', '4,096点', '通过离散源定位仿真计算误差', 'd / (50 mm)', '10%皮层面积权重',
-    '两套布局的最差10%不一定包含同一组脑源', '定位在冻结布局后评价', 'ECG/EOG干扰另在信号仿真页设置',
-    'AR只改变通过判断', 'MI、P300任务分类和人体表现尚待验证',
-  ]) assert.ok(guide.includes(text), text);
-  for (const text of ['fetch(', '/api/local-compute/jobs', '/Users/', String.raw`\[`, String.raw`\(`]) assert.ok(!guide.includes(text), text);
+  assert.deepEqual(METHOD_GROUPS.map(group => group.page), ['model-and-metrics', 'method-details', 'historical-studies']);
+  assert.ok(METHOD_GROUPS.flatMap(group => group.entries).some(entry => entry.ids.includes('retention-guide')));
 });
 
 void test('performance cards link to the guide with the current draft, record, and AR preserved', async () => {
   const card = await readFile('components/performance-summary.tsx', 'utf8');
   assert.ok(card.includes("methodLink(returnHref ?? '/?ar=' + ar, ar, '#retention-guide')"));
-  for (const file of ['features/overview/overview-workspace.tsx', 'features/design/design-workspace.tsx', 'features/library/library-workspace.tsx']) {
-    const source = await readFile(file, 'utf8');
-    assert.match(source, file === 'features/design/design-workspace.tsx' ? /<PerformanceSummary[^>]*returnHref=\{here\}/ : /<SavedLayoutDetails[^>]*returnHref=\{here\}/, file);
+  for (const [file, pattern] of [['features/overview/overview-workspace.tsx', /<SavedLayoutDetails[^>]*returnHref=\{here\}/], ['features/design/design-workspace.tsx', /<PerformanceSummary[^>]*returnHref=\{here\}/],
+    ['features/layout/layout-workspace.tsx', /<SavedLayoutContent[^>]*returnHref=\{here\}/]]) {
+    assert.match(await readFile(file, 'utf8'), pattern, file);
   }
   assert.match(await readFile('components/saved-layout-details.tsx', 'utf8'), /<PerformanceSummary[^>]*returnHref=\{returnHref\}/);
   for (const back of [
     '/design?draft=1&r=2&radius=25&mode=preset&masks=PL%2CPR&ar=50',
-    '/library?record=' + RETENTION_EXAMPLE.recordId + '&ar=50',
+    '/layout?id=' + EXAMPLE_RECORD + '&ar=50',
   ]) {
     const url = new URL(methodLink(back, 50, '#retention-guide'), 'http://localhost');
     assert.equal(url.hash, '#retention-guide');
@@ -183,28 +164,32 @@ void test('performance cards link to the guide with the current draft, record, a
   }
 });
 
-void test('navigation groups existing destinations into four workspaces with visible tool tabs', async () => {
+void test('navigation groups every destination into five areas with visible tool tabs', async () => {
   assert.deepEqual(PAGES.map((p) => [p.path, p.label]), [
-    ['/', '结果库'], ['/design', '布局设计'], ['/electrodes', '电极编辑'], ['/decision', '方案对比'], ['/reception', '信号仿真'], ['/guide', '使用指南'], ['/method', '建模与原理'],
+    ['/', '工作区'], ['/findings', '总面积研究'], ['/library', '布局列表'], ['/layout', '布局详情'], ['/design', '区域设计'], ['/coordinates', '坐标导入'],
+    ['/electrodes', '电极编辑'], ['/decision', '方案对比'], ['/robustness', '稳健性研究'], ['/reception', '信号仿真'], ['/channels', '通道子集'],
+    ['/projects', '研究项目'], ['/results', '历史批次'], ['/guide', '使用指南'], ['/method', '建模与原理'],
   ]);
   const header = await readFile('components/site-header.tsx', 'utf8');
-  assert.deepEqual(WORKSPACES.map(p => p.label), ['结果库', '布局设计', '信号仿真', '文档']);
-  assert.deepEqual(WORKSPACE_TABS.design.map(p => p[0]), ['design', 'electrodes', 'coordinates']);
-  assert.deepEqual(WORKSPACE_TABS.results.map(p => p[0]), ['compare', 'library', 'decision', 'projects', 'robustness']);
+  assert.deepEqual(WORKSPACES.map(p => p.label), ['工作区', '布局', '分析', '研究结果', '文档']);
+  assert.deepEqual(WORKSPACE_TABS.layouts.map(p => p[0]), ['library', 'design', 'coordinates', 'electrodes']);
+  assert.deepEqual(WORKSPACE_TABS.analysis.map(p => p[0]), ['decision', 'robustness', 'reception', 'channels']);
+  assert.deepEqual(WORKSPACE_TABS.findings.map(p => p[0]), ['findings', 'results']);
   assert.ok(header.includes('WORKSPACES.map'));
   assert.ok(header.includes('WORKSPACE_TABS[group].map'));
-  for (const [file, current] of [['features/overview/overview-workspace.tsx', 'compare'], ['features/design/design-workspace.tsx', 'design'], ['features/reception/reception-workspace.tsx', 'reception']]) {
+  for (const [file, current] of [['features/workspace/home-workspace.tsx', 'home'], ['features/overview/overview-workspace.tsx', 'findings'], ['features/layout/layout-workspace.tsx', 'layout'],
+    ['features/design/design-workspace.tsx', 'design'], ['features/reception/reception-workspace.tsx', 'reception']]) {
     const source = await readFile(file, 'utf8');
-    assert.ok(source.includes(`current="${current}"`));
+    assert.ok(source.includes(`current="${current}"`), file);
     assert.ok(!source.includes('<LabNavigation'));
   }
 });
 
 void test('library URLs preserve filters, Unicode search, page, record and AR with legacy history compatibility', () => {
   const state = { filter: 'cache', region: 2, search: '左耳后 & 前额', page: 2 };
-  const url = new URL(libraryViewLink(50, RETENTION_EXAMPLE.recordId, state), 'http://localhost');
+  const url = new URL(libraryViewLink(50, EXAMPLE_RECORD, state), 'http://localhost');
   assert.deepEqual(parseLibraryView(url.searchParams), state);
-  assert.equal(url.searchParams.get('record'), RETENTION_EXAMPLE.recordId);
+  assert.equal(url.searchParams.get('record'), EXAMPLE_RECORD);
   assert.equal(url.searchParams.get('ar'), '50');
   assert.equal(parseLibraryView(new URLSearchParams('history=1')).filter, 'offline_radius');
   assert.deepEqual(parseLibraryView(new URLSearchParams('filter=unknown&regions=5&page=-9')), { filter: 'all', region: 0, search: '', page: 0 });
@@ -258,16 +243,15 @@ void test('historical pages disclose their scope and preserve settings in method
   }
 });
 
-void test('method page separates current calculation, historical experiments and unimplemented plans', async () => {
-  const source = await readFile('app/method/page.tsx', 'utf8');
-  assert.ok(source.indexOf('id="local-compute"') < source.indexOf('id="single-head-optimization"'));
-  assert.ok(source.includes('后续验证计划 · 尚未全部实施'));
-  assert.ok(source.includes('样本量与具体执行方案尚待确定'));
-  assert.ok(source.includes('G取三者最低值，用于与接受阈值AR比较'));
-  assert.ok(source.includes('得到下尾评分U；相对定位评分Rloc为候选布局U除以标准64导U'));
+void test('the documentation separates current calculation, historical experiments and unimplemented plans', async () => {
   const historical = await readFile('features/results/radius-results-workspace.tsx', 'utf8');
   assert.ok(historical.includes('下尾定位评分 U（0—1）'));
   assert.ok(!historical.includes('尾部相对定位评分 U'));
+  const studies = await readFile(new URL('../../docs/historical-studies.md', import.meta.url), 'utf8');
+  for (const heading of ['## Radius batch', '## Two-region pilot', '## Early validation plan']) assert.ok(studies.includes(heading), heading);
+  const metrics = await readFile(new URL('../../docs/model-and-metrics.md', import.meta.url), 'utf8');
+  assert.ok(metrics.includes('G = min(R_field, R_sens, R_loc)'));
+  assert.ok(metrics.includes('`R_loc = U_X / U_64`'));
 });
 
 void test('all supported preset shortcuts are exposed without inventing subdivided masks or scores', async () => {
@@ -336,17 +320,16 @@ void test('display states distinguish pending values from invalid metrics and pr
 });
 
 void test('public copy uses factual scope and correct AR, metric and reference terminology', async () => {
-  const files = ['features/overview/overview-workspace.tsx', 'features/design/design-workspace.tsx', 'features/library/library-workspace.tsx', 'app/method/page.tsx',
+  const files = ['features/overview/overview-workspace.tsx', 'features/design/design-workspace.tsx', 'features/library/library-workspace.tsx', 'features/layout/layout-workspace.tsx', 'app/method/page.tsx',
     'features/overview/use-overview-controller.ts', 'features/design/use-design-controller.ts', 'features/library/use-library-controller.ts',
     'features/results/radius-results-workspace.tsx', 'features/results/pilot-results-workspace.tsx', 'features/reception/reception-workspace.tsx', 'features/reception/experiment-result.tsx', 'features/reception/receiver-comparison.tsx', 'features/reception/result-view-model.ts',
-    'components/retention-explainer.tsx', 'components/performance-summary.tsx', 'components/local-compute-panel.tsx'];
+    'features/decision/comparison-conclusion.tsx', 'components/performance-summary.tsx', 'components/local-compute-panel.tsx'];
   for (const file of files) {
     const text = await readFile(file, 'utf8');
     assert.doesNotMatch(text, /不得声称|不得把|不得用|禁止外推|不显示虚构|不伪造|尚未声称|背书|解释能量|严格固定面积|20 dB独立噪声|AR未定义|三指标通过率/, file);
   }
-  const method = await readFile('app/method/page.tsx', 'utf8');
-  assert.ok(method.includes('在AR＝10%时通过模型内判据'));
-  assert.ok(method.includes('根据源先验、前向模型和噪声协方差构造LMMSE估计器'));
+  const metrics = await readFile(new URL('../../docs/model-and-metrics.md', import.meta.url), 'utf8');
+  assert.ok(metrics.includes("it passes the model's point-estimate rule at AR = 10%"));
   const reception = (await Promise.all(['features/reception/experiment-result.tsx', 'features/reception/reception-workspace.tsx', 'features/reception/receiver-comparison.tsx', 'features/reception/result-view-model.ts'].map(p => readFile(p, 'utf8')))).join('\n');
   assert.ok(reception.includes('相对指标无法计算，无法判断是否达到AR'));
   assert.ok(reception.includes('方法背景参考：'));

@@ -8,9 +8,11 @@ import { useLanguage } from "@/components/language-provider";
 import type { EmpiricalSummary, StudyProtocol } from "@/contracts/robustness-study";
 import { useRobustnessController } from "./use-robustness-controller";
 import { listHeadPackages, type HeadPackageEntry } from "@/client/robustness";
-import { CONDUCTIVITY_SCENARIOS, NOISE_MODEL_PRESETS, conductivityScenarioLabel, noiseModelLabel } from "../../contracts/scientific-options.mjs";
+import { NOISE_MODEL_PRESETS, conductivityScenarioLabel, noiseModelLabel } from "../../contracts/scientific-options.mjs";
+import { EvaluationConditions } from "@/features/conditions/evaluation-conditions";
 import type { NoiseModel } from "@/lib/design-decision";
 import { useStudyDesignDraft } from "./use-study-design-draft";
+import { RecordDesignPicker } from "./record-design-picker";
 import { useStudyExport } from "./use-study-export";
 import { coordinateSourceFiles } from "@/contracts/coordinate-source.mjs";
 import {
@@ -217,6 +219,8 @@ export default function RobustnessWorkspace() {
         {!study && !controller.loading && (
           <section className="lab-panel space-y-4" aria-label={tx("创建稳健性研究草稿")}>
             <h2 className="text-lg font-semibold">{tx("创建研究草稿")}</h2>
+            <div className="grid gap-4 md:grid-cols-2">
+            <RecordDesignPicker disabled={disabled} onChoose={(chosen) => { setFormError(""); input.chooseDesign(chosen); }} />
             <label className="lab-label">
               {tx("导入64电极CSV或JSON")}
               <FilePicker
@@ -230,6 +234,7 @@ export default function RobustnessWorkspace() {
                 }}
               />
             </label>
+            </div>
             {design && (
               <div className="rounded-lg border p-3 text-sm" data-study-design>
                 <p>
@@ -300,38 +305,12 @@ export default function RobustnessWorkspace() {
                   ))}
                 </select>
               </label>
-              <label className="lab-label">
-                {tx("噪声模型")}
-                <select
-                  className="lab-select"
-                  aria-label={tx("噪声模型")}
-                  value={noiseModelId}
-                  onChange={(event) => setNoiseModelId(event.target.value)}
-                >
-                  {NOISE_MODEL_PRESETS.map((preset) => (
-                    <option key={preset.id} value={preset.id}>
-                      {tx(preset.label)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              {protocol === "noise_seeds" && (
-                <label className="lab-label">
-                  {tx("数据生成头模电导率")}
-                  <select
-                    className="lab-select"
-                    aria-label={tx("数据生成头模电导率")}
-                    value={scenarioId}
-                    onChange={(event) => setScenarioId(event.target.value)}
-                  >
-                    {CONDUCTIVITY_SCENARIOS.map((scenario) => (
-                      <option key={scenario.id} value={scenario.id}>
-                        {tx(scenario.label)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
+              <EvaluationConditions className="md:col-span-2 md:grid-cols-2" action="study" protocol={protocol}
+                values={{ noiseModelId, scenarioId }}
+                onChange={(patch) => {
+                  if (patch.noiseModelId !== undefined) setNoiseModelId(patch.noiseModelId);
+                  if (patch.scenarioId !== undefined) setScenarioId(patch.scenarioId);
+                }} />
             </div>
             <p className="text-sm text-muted-foreground">
               {tx(

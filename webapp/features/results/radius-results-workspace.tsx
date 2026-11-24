@@ -162,7 +162,7 @@ export default function ResultsPage() {
     <main className="min-h-screen bg-background text-foreground">
       <SiteHeader current="results" arPercent={ar} returnHref={here} />
       <div className="mx-auto max-w-[1500px] space-y-6 px-4 py-7 sm:px-6 lg:px-8">
-        <a className="inline-block text-sm font-semibold text-primary underline" href={'/?ar=' + ar}>{tx("← 返回当前已有结果")}</a>
+        <a className="inline-block text-sm font-semibold text-primary underline" href={'/findings?ar=' + ar}>{tx("← 返回当前已有结果")}</a>
         <header className="flex flex-wrap items-end justify-between gap-5">
           <div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-[.16em] text-primary">

@@ -148,6 +148,7 @@ export function useDesignController() {
   // Signal simulation and the electrode editor keep independent noise and the area prior.
   const shown = editing ? request : source?.request;
   const correlatedNoise = Boolean(shown?.noise_model || shown?.data_prior);
-  const receptionId = layout && !correlatedNoise ? editing ? currentStatus?.status === 'completed' ? currentStatus.key : null : source?.id : null;
-  return { error, ready, ar, comparison, here, receptionId, correlatedNoise, count, source, notice, settingsRef, editing, radius, regions, choices, choice, customSlots, selectChoice, selectSlot, changeRegions, startRadius, setRadius, noiseModelId, selectNoiseModel, dataPrior, dataPriorSource, selectDataPrior, setDraft, setAR, request, originId, setComputed, setStatus, metrics, layout, geometry, pendingText, currentStatus };
+  const savedId = layout ? editing ? currentStatus?.status === 'completed' ? currentStatus.key : null : source?.id ?? null : null;
+  const receptionId = correlatedNoise ? null : savedId;
+  return { error, ready, ar, comparison, here, savedId, receptionId, correlatedNoise, count, source, notice, settingsRef, editing, radius, regions, choices, choice, customSlots, selectChoice, selectSlot, changeRegions, startRadius, setRadius, noiseModelId, selectNoiseModel, dataPrior, dataPriorSource, selectDataPrior, setDraft, setAR, request, originId, setComputed, setStatus, metrics, layout, geometry, pendingText, currentStatus };
 }

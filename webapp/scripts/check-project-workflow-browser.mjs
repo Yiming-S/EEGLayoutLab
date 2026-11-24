@@ -127,7 +127,7 @@ try {
   const savedLayouts = [];
   await check('Save two actual completed layouts through their shared header actions', async () => {
     for (const recordId of layoutIds) {
-      await ownerPage.goto(`${base}/library?record=${recordId}&ar=87`, { waitUntil: 'domcontentloaded' });
+      await ownerPage.goto(`${base}/layout?id=${recordId}&ar=87`, { waitUntil: 'domcontentloaded' });
       const result = await mutation(ownerPage, `/api/projects/${project.id}/entries`, 'POST', () => button(ownerPage, '保存当前布局到项目').click());
       assert.equal(result.entry.record_id, recordId); assert.equal(result.entry.kind, 'layout');
       savedLayouts.push(result.entry); project = result.project;

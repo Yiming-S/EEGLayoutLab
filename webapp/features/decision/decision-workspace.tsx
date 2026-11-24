@@ -1,6 +1,6 @@
 'use client';
 
-import { CONDUCTIVITY_SCENARIOS, NOISE_MODEL_PRESETS, conductivityScenarioLabel, dataPriorLabel, noiseModelLabel } from '../../contracts/scientific-options.mjs';
+import { NOISE_MODEL_PRESETS, conductivityScenarioLabel, dataPriorLabel, noiseModelLabel } from '../../contracts/scientific-options.mjs';
 import { RuntimeMessage } from '@/components/runtime-message';
 
 /* oxlint-disable next/no-html-link-for-pages -- preserve established vinext navigation */
@@ -27,12 +27,13 @@ import {
 } from '@/lib/design-decision';
 import { useDecisionController } from './use-decision-controller';
 import { RecordPicker } from './record-picker';
+import { ComparisonConclusion } from './comparison-conclusion';
+import { layoutHref } from '@/lib/layout-page';
 import { SaveToProject } from '@/features/projects/project-context';
 import { DecisionRequirements } from './decision-requirements';
 import { CoordinateReviewPanel } from './coordinate-review-panel';
 import { RobustnessPanel } from './robustness-panel';
-import { DataPriorPicker } from '@/features/data/data-prior-picker';
-import { ChannelSubsetPanel } from '@/features/data/channel-subset-panel';
+import { EvaluationConditions } from '@/features/conditions/evaluation-conditions';
 import { bidsNeedsMniSurface, parseBIDSElectrodes, parseElectrodeLabels } from '@/lib/bids-electrodes';
 import { loadErnieMniSurface } from '@/lib/ernie-mni';
 import { parseBrowserMontageFile, type RegionCount } from '@/lib/head-frame-import';
@@ -213,7 +214,8 @@ export default function DecisionPage({
         {mode === 'compare' && (
           <>
             <section
-              className="lab-panel grid gap-4 lg:grid-cols-2"
+              id="compare-pick"
+              className="lab-panel grid scroll-mt-32 gap-4 lg:grid-cols-2"
               aria-label={tx('选择对比方案')}
             >
               {['方案A', '方案B'].map((label, i) => (
@@ -222,6 +224,7 @@ export default function DecisionPage({
               ))}
             </section>
             <DecisionRequirements thresholds={thresholds} onChange={setThresholds} />
+            {loaded && <ComparisonConclusion a={recordA} b={recordB} thresholds={thresholds} />}
             {tx(
               loaded && shown.length > 0 && (
                 <section className="lab-panel relative overflow-x-auto">
@@ -576,45 +579,20 @@ export default function DecisionPage({
                     </select>
                   </label>
                 )}
-                <label className="lab-label col-span-2">
-                  {tx('噪声模型')}
-                  <select
-                    className="lab-select mt-2"
-                    value={noiseModelId}
-                    disabled={Boolean(dataPrior)}
-                    onChange={(e) => setNoiseModelId(e.target.value)}
-                  >
-                    {NOISE_MODEL_PRESETS.map((preset) => (
-                      <option key={preset.id} value={preset.id}>
-                        {tx(preset.label)}
-                      </option>
-                    ))}
-                  </select>
-                  {dataPrior && <span className="mt-1 block text-xs font-normal leading-5 text-muted-foreground">{tx('已载入数据先验，噪声结构由数据先验给出。')}</span>}
-                </label>
-                {mode === 'coordinates' && <DataPriorPicker value={dataPrior} source={dataPriorSource} onChange={setDataPrior} disabled={computing} />}
-                <label className="lab-label col-span-2">
-                  {tx('数据生成头模电导率')}
-                  <select
-                    className="lab-select mt-2"
-                    value={scenarioId}
-                    onChange={(e) => { const value = e.target.value; if (value === '' || isConductivityScenario(value)) setScenarioId(value); }}
-                  >
-                    {CONDUCTIVITY_SCENARIOS.map((scenario) => (
-                      <option key={scenario.id} value={scenario.id}>
-                        {tx(scenario.label)}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="mt-1 block text-xs font-normal leading-5 text-muted-foreground">{tx('只用于“评价当前坐标”。数据由改变颅骨电导率的头模生成，重建与定位仍使用名义模型。')}</span>
-                </label>
-                <label className="col-span-2 flex items-start gap-2 text-sm">
-                  <input type="checkbox" className="mt-1" checked={robustness && !scenarioId} disabled={Boolean(scenarioId)}
-                    onChange={(e) => setRobustness(e.target.checked)} />
-                  <span>{tx('同时评价跨会话稳健性（电极脱落、电极噪声不均、重新佩戴）')}
-                    <span className="mt-1 block text-xs leading-5 text-muted-foreground">{tx(scenarioId ? '稳健性只在名义电导率下评价；请先把数据生成头模电导率设为默认。' : '只用于“评价当前坐标”；名义分数不变，另加约数秒计算。重新佩戴需要预计算头皮节点表。')}</span>
-                  </span>
-                </label>
+                {/* One condition form for both buttons: the offset test ignores the scenario and robustness. */}
+                <EvaluationConditions className="col-span-2" action="evaluate" disabled={computing}
+                  values={{ noiseModelId, scenarioId, robustness, ...(mode === 'coordinates' ? { dataPrior, dataPriorSource } : {}) }}
+                  hints={{
+                    scenario: '只用于“评价当前坐标”。数据由改变颅骨电导率的头模生成，重建与定位仍使用名义模型。',
+                    robustness: '只用于“评价当前坐标”；名义分数不变，另加约数秒计算。重新佩戴需要预计算头皮节点表。',
+                    robustnessBlocked: '稳健性只在名义电导率下评价；请先把数据生成头模电导率设为默认。',
+                  }}
+                  onChange={(patch) => {
+                    if (patch.noiseModelId !== undefined) setNoiseModelId(patch.noiseModelId);
+                    if (patch.scenarioId !== undefined && (patch.scenarioId === '' || isConductivityScenario(patch.scenarioId))) setScenarioId(patch.scenarioId);
+                    if (patch.robustness !== undefined) setRobustness(patch.robustness);
+                    if ('dataPrior' in patch) setDataPrior(patch.dataPrior ?? null, patch.dataPriorSource);
+                  }} />
                 <label className="lab-label">
                   {tx('随机种子')}
                   <input
@@ -767,7 +745,7 @@ export default function DecisionPage({
                 {action === 'evaluate' && job?.key && <div className="mt-3 flex flex-wrap items-center gap-3">
                   {savedEvaluation && <>
                     <SaveToProject kind="layout" recordId={job.key} annotationId={job.annotation_id} />
-                    <a className="text-sm text-primary underline" href={'/coordinates?a=' + job.key + (job.annotation_id ? '&annotation_a=' + job.annotation_id : '')}>{tx('打开保存的坐标评价')}</a>
+                    <a className="text-sm text-primary underline" href={layoutHref({ id: job.key }, thresholds.field) + (job.annotation_id ? '&annotation_id=' + job.annotation_id : '')}>{tx('打开布局详情')}</a>
                   </>}
                   <Button variant="outline" size="sm" onClick={() => design && download('eeg-evaluated-coordinates.csv', designCSV({ ...design, xyz_mm: result.evaluated_xyz_mm }), 'text/csv;charset=utf-8')}>{tx('导出实际评价坐标')}</Button>
                 </div>}
@@ -904,7 +882,6 @@ export default function DecisionPage({
         </section>
         {/* Import comes first; the requirements only re-judge the result above. */}
         {mode === 'coordinates' && <DecisionRequirements thresholds={thresholds} onChange={setThresholds} />}
-        {mode === 'coordinates' && <ChannelSubsetPanel />}
         <section className="lab-panel">
           <h2 className="text-lg font-semibold">{tx('验证阶段')}</h2>
           <p className="mt-2 text-sm leading-7">

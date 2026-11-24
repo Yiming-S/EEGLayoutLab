@@ -7,9 +7,11 @@ import { cn } from '@/lib/utils';
 
 export type Outcome = 'pass' | 'fail' | 'undefined';
 
+// A requirement not met is a reading, not an alarm: neutral, with the gap in words.
+// Orange stays for states the visitor can act on (stale inputs, a failed task).
 const OUTCOME_STYLE: Record<Outcome, string> = {
   pass: 'bg-success-surface text-success',
-  fail: 'bg-warning-surface text-warning',
+  fail: 'bg-secondary text-foreground ring-1 ring-inset ring-border',
   undefined: 'bg-secondary text-muted-foreground',
 };
 
@@ -42,7 +44,7 @@ export function RetentionBar({ value, threshold, showBadge = false, className }:
       {showBadge && threshold != null && <OutcomeBadge outcome={outcome}>{tx(outcome === 'pass' ? '达标' : '未达标')}</OutcomeBadge>}
     </span>
     <span aria-hidden className="relative mt-1.5 block h-1.5 w-full max-w-36 rounded-full bg-muted">
-      <span className={cn('absolute inset-y-0 left-0 rounded-full', outcome === 'pass' ? 'bg-success' : outcome === 'fail' ? 'bg-warning' : 'bg-primary/60')}
+      <span className={cn('absolute inset-y-0 left-0 rounded-full', outcome === 'pass' ? 'bg-success' : outcome === 'fail' ? 'bg-foreground/45' : 'bg-primary/60')}
         style={{ width: `${Math.max(0, Math.min(1, value)) * 100}%` }} />
       {threshold != null && <span className="absolute -inset-y-0.5 w-0.5 rounded-full bg-foreground/70" style={{ left: `calc(${Math.max(0, Math.min(1, threshold)) * 100}% - 1px)` }} />}
     </span>

@@ -140,9 +140,11 @@ void test('the channels command writes the report from summary files and directo
     writeFileSync(join(directory, 'held', 'b.json'), JSON.stringify(summary('b', covariance(12))));
     writeFileSync(join(directory, 'held', 'notes.json'), JSON.stringify({ schema: 'other' }));
     const out = join(directory, 'subset.json');
-    const run = spawnSync(process.execPath, [cli, 'channels', join(directory, 'a.json'), '--test', join(directory, 'held'), '--counts', '3,5', '--draws', '20', '--out', out], { encoding: 'utf8' });
+    const figure = join(directory, 'figures', 'subset.svg');
+    const run = spawnSync(process.execPath, [cli, 'channels', join(directory, 'a.json'), '--test', join(directory, 'held'), '--counts', '3,5', '--draws', '20', '--figure', figure, '--out', out], { encoding: 'utf8' });
     assert.equal(run.status, 0, run.stderr);
     const report = JSON.parse(readFileSync(out, 'utf8'));
+    assert.match(readFileSync(figure, 'utf8'), /^<svg[^]*>Mean held-out error · 12 shared channels · 1–40 Hz<[^]*>Greedy on the data</);
     assert.deepEqual([report.counts, report.test.map((s) => s.label), report.random.draws], [[3, 5], ['b'], 20]);
     assert.match(run.stdout, /^count\tdata\trandom median/);
     assert.match(spawnSync(process.execPath, [cli, 'channels', join(directory, 'a.json'), '--counts', '40', '--out', out], { encoding: 'utf8' }).stderr, /通道数/);
