@@ -21,8 +21,10 @@ The request formats are being moved to one definition in the Python package
 decision 4). Every format in `eeglayoutlab.schemas.registry` reproduces the Node
 normalizer exactly; the tests in [`tests/schema_parity`](../tests/schema_parity/README.md)
 compare them on generated variants and, for design evaluation and the radius search,
-also on the shared fixtures. The radius search (`radius-search`) also reproduces
-Node's rejection messages (`eeglayoutlab.schemas.radius_search.normalize_request`).
+also on the shared fixtures. The radius search (`radius-search`) and the electrode
+editor (`electrode-editor`) also reproduce Node's rejection messages
+(`eeglayoutlab.schemas.radius_search.normalize_request` and
+`eeglayoutlab.schemas.electrode_editor.normalize_editor_request`).
 The Node host remains in service until phase 4.
 
 [`generated/openapi.json`](generated/openapi.json) is written from those schemas, and

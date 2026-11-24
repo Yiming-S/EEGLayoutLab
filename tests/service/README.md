@@ -67,7 +67,9 @@ In `test_key_parity.py` they are:
   queue per configuration (hashing every input again for each case is slow), for the design and the radius
   identity;
 - every stored cache under `results/v2/*_jobs` re-derives `result_sha256` and round-trips byte for byte through
-  `jsjson`; every design and editor cache, and every batch `request.json` with an identity, re-derives its key.
+  `jsjson`; every design and editor cache, and every batch `request.json` with an identity, re-derives its key;
+- the electrode editor's context for every parent it offers and every stored editor request (see "Electrode
+  editor" below).
 
 The library modules add theirs (next section). All of them read the root only; Node runs with a scratch queue
 directory that is never created. The stored-record check needs neither Node nor Pydantic.
@@ -342,6 +344,89 @@ and scratch directories.
     its session pinned to the local owner. The answers, the design record tree and the six annotation files must be
     equal: Node writes them under R, the Python service under W. On a root whose configured mesh path has a NUL
     byte, a lookup and a submit answer Node's 500 with the generic message.
+
+## Electrode editor
+
+Slice 6 adds the electrode editor: its request format (`schemas.electrode_editor`), its run path
+(`jobs.editor.EditorJobs`, a subclass of slice 5's `DesignJobs`, as Node's `ElectrodeEditorService` extends
+`DesignEvaluationService`), its adapter (`jobs.kinds.electrode_editor_adapter`) and its routes. As in slices 4 and 5,
+everything that computes or writes runs on synthetic roots in `tmp_path`, and the Node references write only under
+their case roots and scratch directories.
+
+- `test_editor_request.py`: `schemas.electrode_editor.normalize_editor_request` gives Node's canonical text or
+  Node's exact message for every variant of the `electrode-editor` corpus
+  (`tests/schema_parity/formats/electrode-editor.mjs`, 1,185 variants, among them the requests of
+  check-electrode-editor.mjs's protocol test), and the variants reach all 5 messages. Python values follow
+  JavaScript's (a bool is not a number, a tuple is an array), and the input is never changed. Acceptance and
+  canonical bytes through the registry and the `/api/normalize/electrode-editor` route are in the schema parity
+  tests.
+- `editor_support.py` builds editor roots (`editor_root`): a design root of `key_parity_support.design_root`, so the
+  design context the editor's builds on is the scientific one, with the radius code files, the editor's worker and
+  workflow, and a parent of each kind the library offers. These are strict-area layouts of a current report whose
+  identity names its region geometry, a historical strict-area layout, an early radius experiment, a saved
+  coordinate evaluation, and radius caches with or without region patches (an empty list, no layout), under a noise
+  model or a data prior, with another region geometry or surface admission, or under another code identity.
+  `FAKE_WORKER` stands in for `scripts/electrode_editor.py`; `R/editor-mode.txt` makes it fail, hold or answer for
+  another request.
+- `test_editor.py` (`EditorJobs`):
+  - Ports: check-electrode-editor.mjs:48 (the result validator, through `validate_editor_result` and the service's
+    `validate`) and :68 (shared capacity, cached results and the permit kept while cancelling, driven through
+    `radius_support.FakeChild` with that file's context stub; Python also checks the permit from the coordinate
+    evaluation's side).
+  - Then what Python adds:
+    - each refusal of the context, in Node's order of checks;
+    - the B17 identity (the design identity, `schema` overwritten in its first position, then `parent_digest`,
+      `editor_sha256` and `editor_implementation_sha256` appended), the key and the worker input
+      `{request, parent}`;
+    - a library given as a factory, or whose `get` answers asynchronously;
+    - a report rewritten with the same size and its times given back: the library keeps the layout it read, the
+      report's digest is computed again, so the strict-area parent is refused;
+    - `editor_jobs` for a runtime, the view's `parent_digest` (the context's, else the digest of the result's
+      parent, else the result request's), and the catalogs of slice 3;
+    - a real worker process: a preparation, an evaluation, a worker error, a stale result and a cancel.
+  - `parity/editor_run.mjs`, mode `runs`, runs Node's `ElectrodeEditorService` over a `LocalComputeQueue` of editor
+    roots, so the library, the design context and the digests are real on both sides. Spawn is injected, and `Date`
+    and the job identifiers are pinned, as in `design_run.mjs`. Its 12 cases cover:
+    - preparations and evaluations that complete, and every parent refusal;
+    - a worker failure, a spawn throw, and every `validateEditorResult` message (V8's `TypeError` among them);
+    - the editor's code, the parent or the report changed before the close. The `tamper` step rewrites a file with
+      as many bytes and gives back its times; Node sets times in milliseconds, so the report's are whole seconds;
+    - a timeout, a cancel, the output bound, publish once, and lookups that hit and miss.
+  - The views, refusals, spawn arguments and stdin, and the record tree under `R/results/v2/electrode_editor_jobs`
+    must equal Node's, except B16 in the publish-once case.
+  - Usage: `node tests/service/parity/editor_run.mjs <spec.json> <out.json>` (its header documents both modes).
+- `test_key_parity.py`, the editor context:
+  - The same driver, mode `contexts`, against `key_parity_support.EditorCases` on 325 cases. There are 11 editor
+    roots: the base root, a nominal table, a managed SimNIBS runtime, a linked root, a report without region
+    geometry, another surface admission, no editor script, no editor code, a code path that is a directory, a broken
+    bank and no library datasets. The base and SimNIBS roots take each interpreter configuration. Each case is a
+    preparation or an evaluation of a parent (every parent on the base root, seven elsewhere), an evaluation with a
+    stale digest, or, on the base root, a value the routes never pass.
+  - The identity, admission, parent and worker-input texts, the parent digest, the key and the context's member
+    order, or the refusal, must equal Node's. `test_editor_variants_reach_their_branches` pins what each variant
+    reaches.
+  - With `EEG_KEY_PARITY_ROOT`, the installation: a preparation of every parent the editor offers and of the
+    reference parent of the same-day reference keys, and every stored editor request. Python and Node must agree
+    on each, and an offered parent must be prepared or refused for its region geometry or surface admission, which
+    `parents()` does not check (as in Node). The test prints which offered parents are refused and which stored
+    keys and reference values still hold, since inputs move on.
+- `test_compute_routes.py`, the editor routes:
+  - On an editor root whose three workers are stand-ins (`compute_support.editor_compute_root`; the editor's plays
+    `editor-plan.json` per request: hold, fail, stale, change or reparent), it covers:
+    - the flow of check-electrode-editor-live.mjs: a lookup miss that writes nothing, a preparation, an evaluation
+      with the view's parent digest, the cached replay and `GET /api/electrode-editor/records`;
+    - a stored edit as one cached receipt, and the catalogs;
+    - the queue and the slot shared with the coordinate evaluation and the radius search;
+    - each parent refusal as a 400 with Node's message, with nothing queued;
+    - a restart that fails an interrupted edit and promotes one whose result was stored, with that record's
+      finish time;
+    - a stored edit whose code or parent changed after the close;
+    - `stop_soon`, `--cache-only`, the CSRF token, 32,768 against 32,769 bytes, and the library routes' library,
+      which the editor reads its parents through;
+    - an edit whose parent changes while it waits, refused at dispatch with Node's message
+      (`parent_change_steps`, also on Node's composed service).
+  - `parity/compute_routes.mjs` runs the 79 steps of `compute_support.editor_steps` on Node's composed service. The
+    answers and the record trees under `electrode_editor_jobs` and `design_evaluation_jobs` must be equal.
 
 ## Node test map
 

@@ -180,8 +180,9 @@ Editor requests keep 64 stable slots. Each slot contains only `bank_index` and
 boolean `enabled`; the HTTP index bound is integer 0–1,000,000. At least two
 slots must be enabled. The Python workflow additionally validates membership in
 the parent region, distinct active positions and minimum spacing against the
-verified parent data. The editor has no standalone Python envelope normalizer;
-its slot/domain regressions remain in `tests/test_electrode_editor.py`.
+verified parent data. The HTTP rules are the `electrode-editor` format of
+`eeglayoutlab.schemas`, which also gives Node's rejection messages; the
+workflow's slot/domain regressions remain in `tests/test_electrode_editor.py`.
 
 ## Results and task state
 

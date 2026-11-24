@@ -782,3 +782,153 @@ class EnvelopeCases:
 def envelope_outcome(result: dict) -> dict:
     """A driver prepare in the compared form."""
     return result if result['ok'] else node_failure(result)
+
+
+# --- The electrode editor's context (phase 2 slice 6) ------------------------------------------------------------
+
+EDITOR_DRIVER = ROOT / 'tests/service/parity/editor_run.mjs'
+# The parents of an editor root (tests/service/editor_support.py ``editor_root``) by name: strict-area conditions of
+# the current report (n of ``area_report``), the other library records, the radius caches, and an id of no record.
+EDITOR_STRICT = {'strict': 0, 'strict-2': 1, 'strict-null-localization': 3, 'strict-no-layout': 29}
+EDITOR_CACHES = ('cache', 'cache-prior', 'cache-spatial', 'cache-unpatched', 'cache-zero-patches', 'cache-no-layout',
+                 'cache-geometry', 'cache-admission', 'cache-other-code')
+EDITOR_PARENTS = (*EDITOR_STRICT, 'historical', 'offline', 'design', *EDITOR_CACHES, 'missing')
+# What the editor starts from on the base root: completed layouts with region patches, searched under independent
+# noise, whose region geometry and surface admission are the design context's (compatible or not).
+EDITOR_ACCEPTED = ('strict', 'strict-2', 'strict-null-localization', 'cache', 'cache-prior', 'cache-other-code')
+EDITOR_ROOTS: dict[str, dict] = {
+    'editor-base': {},
+    'editor-table': {'table': True},
+    'editor-simnibs': {'runtime': 'simnibs'},
+    'editor-symlinked': {'runtime': 'simnibs', 'symlinked': True},
+    'editor-no-geometry': {'editor': 'no_geometry'},
+    'editor-other-admission': {'editor': 'other_admission'},
+    'editor-no-script': {'editor': 'no_script'},
+    'editor-no-code': {'editor': 'no_code'},
+    'editor-code-dir': {'editor': 'code_dir'},
+    'editor-broken-bank': {'broken': 'bank_sha'},
+    'editor-no-library': {'editor': 'no_library'},
+}
+EDITOR_ROOT_CONFIGS: dict[str, tuple[str, ...]] = {
+    'editor-base': ('default', 'explicit', 'env', 'env-empty'),
+    'editor-simnibs': ('default', 'explicit', 'env'),
+}
+# Every parent on the base root's configurations, these elsewhere.
+EDITOR_SOME = ('strict', 'strict-2', 'cache', 'cache-other-code', 'cache-spatial', 'design', 'missing')
+# Values the routes never pass (the context takes the request as it is): its members are read as in V8.
+EDITOR_ODD_REQUESTS = ('null', 'empty', 'no-action', 'no-digest', 'index-keys')
+
+
+def editor_case_ids() -> list[str]:
+    """The ids of ``editor_context_cases``, without building a root: ``<root>/<config>/<request>-<parent>``."""
+    ids = []
+    for root in EDITOR_ROOTS:
+        for config in EDITOR_ROOT_CONFIGS.get(root, ('default',)):
+            for parent in (EDITOR_PARENTS if root == 'editor-base' else EDITOR_SOME):
+                ids += [f'{root}/{config}/prepare-{parent}', f'{root}/{config}/evaluate-{parent}']
+            ids.append(f'{root}/{config}/stale-cache')
+    ids += [f'editor-base/default/odd-{name}' for name in EDITOR_ODD_REQUESTS]
+    return ids
+
+
+def _editor_request(kind: str, parent_id: str, parent_digest: Optional[str]) -> dict:
+    if kind == 'prepare':
+        return {'action': 'prepare', 'parent_id': parent_id}
+    return {'action': 'evaluate', 'parent_id': parent_id, 'parent_digest': parent_digest or 'd' * 64, 'seed': 2026,
+            'slots': [{'bank_index': i, 'enabled': i != 7} for i in range(64)]}
+
+
+def editor_context_cases(roots: dict[str, dict]) -> list[dict]:
+    """The driver's ``contexts`` cases ``{id, root, python?, env?, request}`` over built editor roots (``roots``:
+    ``editor_support.build_editor_roots``): a preparation and an evaluation of each parent, the evaluation with the
+    digest of the parent as Python's library gives it on that configuration (a stale one where there is no record),
+    an evaluation with a stale digest, and odd values on the base root."""
+    from .editor_support import parent_digests  # Pydantic: the library imports the radius-search schema
+
+    cases = []
+    for name in EDITOR_ROOTS:
+        built = roots[name]
+        for config in EDITOR_ROOT_CONFIGS.get(name, ('default',)):
+            options = CONFIGS[config]
+            digests = parent_digests(built['root'], built['ids'], options.get('python'), options.get('env'))
+            for parent in (EDITOR_PARENTS if name == 'editor-base' else EDITOR_SOME):
+                for kind in ('prepare', 'evaluate'):
+                    cases.append({'id': f'{name}/{config}/{kind}-{parent}', 'root': built['root'], **options,
+                                  'request': _editor_request(kind, built['ids'][parent], digests[parent])})
+            cases.append({'id': f'{name}/{config}/stale-cache', 'root': built['root'], **options,
+                          'request': _editor_request('evaluate', built['ids']['cache'], None)})
+    base, cache = roots['editor-base']['root'], roots['editor-base']['ids']['cache']
+    odd = {'null': None, 'empty': {}, 'no-action': {'parent_id': cache},
+           'no-digest': {'action': 'evaluate', 'parent_id': cache},
+           'index-keys': {'parent_id': cache, '2': 'b', 'action': 'prepare', '1': ['a', {'2': 'b', '1': 'a'}]}}
+    assert tuple(odd) == EDITOR_ODD_REQUESTS
+    cases += [{'id': f'editor-base/default/odd-{name}', 'root': base, 'request': request}
+              for name, request in odd.items()]
+    return cases
+
+
+def run_editor_node(cases: list[dict], scratch: Path, reuse: bool = False) -> dict:
+    """Runs ``parity/editor_run.mjs`` in mode ``contexts`` once over ``cases``; returns the results by id. The queue
+    directory is only resolved, never created."""
+    queue = scratch / 'node-queue'
+    spec_path, out_path = scratch / 'editor-contexts-spec.json', scratch / 'editor-contexts-node.json'
+    spec_path.write_text(jsjson.stringify({'mode': 'contexts', 'queueDirectory': str(queue), 'reuse': reuse,
+                                           'cases': cases}), encoding='utf-8')
+    subprocess.run(['node', str(EDITOR_DRIVER), str(spec_path), str(out_path)], check=True, cwd=ROOT, env=NODE_ENV,
+                   timeout=1200)
+    assert not queue.exists()
+    output = json.loads(out_path.read_text(encoding='utf-8'))
+    output['by_id'] = {case['id']: case for case in output['cases']}
+    return output
+
+
+class EditorCases:
+    """``EditorJobs.context`` (``eeglayoutlab.jobs.editor``) over driver cases: the root's ``LocalComputeQueue``
+    configuration, a library of the root and the editor service of the native interpreter, fresh per case or, with
+    ``reuse``, one per root and configuration (as the driver shares Node's). The service's permit never takes the
+    installation lock: its lock file would be ``scratch``'s."""
+
+    def __init__(self, scratch: Path, reuse: bool = False):
+        self.scratch = scratch
+        self.reuse = reuse
+        self._services: dict[str, Any] = {}
+
+    def _service(self, case: dict) -> tuple[Any, dict]:
+        from eeglayoutlab.jobs.editor import EditorJobs
+        from eeglayoutlab.jobs.library import Library
+        from eeglayoutlab.jobs.slot import ExecutionSlot, InstallationLock
+
+        id = jsjson.stringify([case['root'], case.get('python'), case.get('env')])
+        config = runtime_config(case['root'], case.get('python'), env=case.get('env', {}))
+        described = {'repositoryRoot': config.repository_root, 'python': config.python,
+                     'nativePython': config.native_python}
+        if self.reuse and id in self._services:
+            return self._services[id], described
+        slot = ExecutionSlot(InstallationLock(config.repository_root, str(self.scratch / 'execution.lock')))
+        service = EditorJobs(config.repository_root, config.native_python, Library(config.repository_root, config),
+                             execution_slot=slot)
+        if self.reuse:
+            self._services[id] = service
+        return service, described
+
+    def run(self, case: dict) -> dict:
+        import asyncio
+
+        from eeglayoutlab.jobs.design import DesignJob
+        from eeglayoutlab.jobs.editor import EditorContextError
+
+        outcome: dict[str, Any] = {'id': case['id'], 'ok': False}
+        try:
+            service, outcome['config'] = self._service(case)
+            context = asyncio.run(service.context(case['request']))
+        except EditorContextError as error:  # Node's plain Error
+            outcome['message'] = str(error)
+            return outcome
+        except Exception as error:  # noqa: BLE001 - every failure is compared with Node's
+            outcome.update(_error(error))
+            return outcome
+        job = DesignJob('editor', context['key'], 'running', 0, '', request=case['request'], ctx=context)
+        return {'id': case['id'], 'ok': True, 'config': outcome['config'], 'keys': list(context),
+                'identity': jsjson.stringify(context['identity']), 'admission': jsjson.stringify(context['admission']),
+                'parent': jsjson.stringify(context['parent']), 'parent_digest': context['parent_digest'],
+                'key': context['key'], 'worker_input': jsjson.stringify(service.worker_input(job))}

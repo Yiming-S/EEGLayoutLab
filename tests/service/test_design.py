@@ -40,7 +40,7 @@ from .design_support import (  # noqa: E402
 )
 from .key_parity_support import needs_node  # noqa: E402
 from .library_support import robustness_block  # noqa: E402
-from .radius_support import Spawner, until  # noqa: E402
+from .radius_support import SETTLE, Spawner, until  # noqa: E402
 
 
 def run(coroutine):
@@ -602,59 +602,63 @@ def test_a_real_worker_process_completes_fails_and_stops_through_the_transport(t
 
     async def scenario():
         service = DesignJobs(str(root), sys.executable, timeout_ms=60000)
-        assert service.python == sys.executable
-        first = await service.submit(REQUEST)
-        pid = service.active_pid()
-        assert isinstance(pid, int)
-        await done(service)
-        job = service.jobs[first['job']['id']]
-        assert (job.status, job.message, job.progress, job.stderr) == (
-            'completed', '设计评价已完成并保存', 1, 'worker stderr\n')
-        assert job.result['request'] == canonical(REQUEST)
-        assert job.result['provenance'] == {'candidate_count': 64, **ADMISSION}
-        with pytest.raises(ProcessLookupError):
-            os.killpg(pid, 0)
-        context = design_context(str(root), sys.executable, InputIntegrity(str(root)), canonical(REQUEST))
-        assert job.key == context.key
-        cache = _parse(_cache_file(root, job.key))
-        assert list(cache) == ['key', 'identity', 'result', 'result_sha256', 'finished_at']
-        assert (cache['key'], cache['identity'], cache['result']) == (job.key, context.identity, job.result)
-        assert cache['result_sha256'] == jsjson.sha256_hex(job.result)
-        assert _parse(Path(job.batch) / 'request.json') == {'request': canonical(REQUEST),
-                                                            'identity': context.identity}
-        assert _parse(Path(job.batch) / 'job.json') == {**service.view(job), 'stderr': 'worker stderr\n'}
-        assert (await service.lookup(REQUEST))['hit'] is True
+        try:
+            assert service.python == sys.executable
+            first = await service.submit(REQUEST)
+            pid = service.active_pid()
+            assert isinstance(pid, int)
+            await done(service)
+            job = service.jobs[first['job']['id']]
+            assert (job.status, job.message, job.progress, job.stderr) == (
+                'completed', '设计评价已完成并保存', 1, 'worker stderr\n')
+            assert job.result['request'] == canonical(REQUEST)
+            assert job.result['provenance'] == {'candidate_count': 64, **ADMISSION}
+            with pytest.raises(ProcessLookupError):
+                os.killpg(pid, 0)
+            context = design_context(str(root), sys.executable, InputIntegrity(str(root)), canonical(REQUEST))
+            assert job.key == context.key
+            cache = _parse(_cache_file(root, job.key))
+            assert list(cache) == ['key', 'identity', 'result', 'result_sha256', 'finished_at']
+            assert (cache['key'], cache['identity'], cache['result']) == (job.key, context.identity, job.result)
+            assert cache['result_sha256'] == jsjson.sha256_hex(job.result)
+            assert _parse(Path(job.batch) / 'request.json') == {'request': canonical(REQUEST),
+                                                                'identity': context.identity}
+            assert _parse(Path(job.batch) / 'job.json') == {**service.view(job), 'stderr': 'worker stderr\n'}
+            assert (await service.lookup(REQUEST))['hit'] is True
 
-        perturbed = await service.submit(PERTURB)
-        await done(service)
-        job = service.jobs[perturbed['job']['id']]
-        assert job.status == 'completed' and len(job.result['trials']) == 4
-        robust = await service.submit(ROBUST)
-        await done(service)
-        assert service.jobs[robust['job']['id']].result['robustness'] == robustness_block()
+            perturbed = await service.submit(PERTURB)
+            await done(service)
+            job = service.jobs[perturbed['job']['id']]
+            assert job.status == 'completed' and len(job.result['trials']) == 4
+            robust = await service.submit(ROBUST)
+            await done(service)
+            assert service.jobs[robust['job']['id']].result['robustness'] == robustness_block()
 
-        failing = await service.submit({**REQUEST, 'design': {**DESIGN, 'name': 'fail'}})
-        await done(service)
-        job = service.jobs[failing['job']['id']]
-        assert (job.status, job.message, job.result) == ('failed', '评价失败', None)
-        assert 'Traceback: boom' in job.stderr and not _cache_file(root, job.key).exists()
+            failing = await service.submit({**REQUEST, 'design': {**DESIGN, 'name': 'fail'}})
+            await done(service)
+            job = service.jobs[failing['job']['id']]
+            assert (job.status, job.message, job.result) == ('failed', '评价失败', None)
+            assert 'Traceback: boom' in job.stderr and not _cache_file(root, job.key).exists()
 
-        stale = await service.submit({**REQUEST, 'design': {**DESIGN, 'name': 'stale'}})
-        await done(service)
-        job = service.jobs[stale['job']['id']]
-        assert (job.status, job.message) == ('failed', '设计评价结果身份错误')
+            stale = await service.submit({**REQUEST, 'design': {**DESIGN, 'name': 'stale'}})
+            await done(service)
+            job = service.jobs[stale['job']['id']]
+            assert (job.status, job.message) == ('failed', '设计评价结果身份错误')
 
-        held = await service.submit({**REQUEST, 'design': {**DESIGN, 'name': 'hold'}})
-        job = service.jobs[held['job']['id']]
-        pid = service.active_pid()
-        await until(lambda: job.progress == 0.25)
-        assert job.message == '评价名义坐标'
-        service.cancel(job.id)
-        await done(service)
-        assert (job.status, job.message) == ('cancelled', '计算已停止')
-        with pytest.raises(ProcessLookupError):
-            os.killpg(pid, 0)
-        assert not service.execution_slot.busy and not service.execution_slot.lock.held
+            held = await service.submit({**REQUEST, 'design': {**DESIGN, 'name': 'hold'}})
+            job = service.jobs[held['job']['id']]
+            pid = service.active_pid()
+            await until(lambda: job.progress == 0.25)
+            assert job.message == '评价名义坐标'
+            service.cancel(job.id)
+            await done(service)
+            assert (job.status, job.message) == ('cancelled', '计算已停止')
+            with pytest.raises(ProcessLookupError):
+                os.killpg(pid, 0)
+            assert not service.execution_slot.busy and not service.execution_slot.lock.held
+        finally:
+            # A failed step must not leave the held worker behind: dispose stops it before the loop closes.
+            await asyncio.wait_for(service.aclose(), SETTLE)
     run(scenario())
 
 

@@ -699,8 +699,7 @@ disposition = "N"
 disposition = "C"
 mirror = "tests/test_schema_parity.py::test_variant_parity"
 formats = ["electrode-editor"]
-slice = 6
-note = "normalizeEditorRequest"
+note = "normalizeEditorRequest; the site's patches are node-test-* variants of the electrode-editor corpus, whose Node messages test_editor_request.py::test_normalize_editor_request_gives_node_canonical_or_node_message checks"
 
 [sites."check-electrode-editor.mjs::deactivation preserves all stable identities and undo/redo restores exact state"]
 disposition = "N"
@@ -712,10 +711,9 @@ disposition = "N"
 disposition = "N"
 
 [sites."check-electrode-editor.mjs::result schema rejects stale requests, malformed geometry and fabricated combined score"]
-disposition = "pending"
-slice = 6
-module = "tests/service/test_editor.py"
-note = "its checks already run, with Node's messages, in test_catalogs.py::test_validate_editor_result_messages"
+disposition = "P"
+target = "tests/service/test_editor.py::test_result_schema_rejects_stale_requests_malformed_geometry_and_fabricated_combined_score"
+note = "through validate_editor_result and EditorJobs.validate; every message against Node's in test_catalogs.py::test_validate_editor_result_messages, and on the run path in test_editor.py::test_run_path_writes_the_bytes_and_reports_the_states_of_node"
 
 [sites."check-electrode-editor.mjs::new local endpoint retains loopback and session-token protection"]
 disposition = "P"
@@ -725,9 +723,9 @@ target = "tests/service/test_access.py::test_editor_endpoint_retains_loopback_an
 disposition = "N"
 
 [sites."check-electrode-editor.mjs::editor shares capacity, caches completed results and retains capacity while cancelling"]
-disposition = "pending"
-slice = 6
-module = "tests/service/test_editor.py"
+disposition = "P"
+target = "tests/service/test_editor.py::test_editor_shares_capacity_caches_completed_results_and_retains_capacity_while_cancelling"
+note = "with Node's context stub and fake children; the slot shared with the coordinate evaluation and the radius search over HTTP in test_compute_routes.py::test_the_editor_shares_the_queue_and_the_slot_with_the_coordinate_evaluation_and_the_radius_search"
 
 # --- check-fixed64-results.mjs ----------------------------------------------------------------------------------------
 
@@ -2690,6 +2688,7 @@ note = "retargeted in slice 5: the Python service through EEG_SERVICE_RUNTIME or
 [scripts."check-electrode-editor-live.mjs"]
 kind = "live"
 slice = 6
+note = "retargeted in slice 6: the Python service through EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN, Node at EEG_TEST_URL otherwise; it computes, so run it on a copy of the installation. It edits the first two-region PL/PR radius parent that /api/electrode-editor/parents lists, whose region geometry and surface admission must be the current ones; its code identity need not be current (a stale radius row is accepted, as in Node). check-local-compute-live.mjs computes such a layout"
 
 [scripts."check-local-compute-live.mjs"]
 kind = "live"

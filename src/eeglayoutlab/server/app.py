@@ -221,8 +221,10 @@ def _api(config: ServiceConfig, compute: 'ComputeHost') -> FastAPI:
 
     health.add_routes(app, config, compute)
     library_routes = library.add_routes(app, config, radius=lambda: compute.radius)
-    # The job services read the root and interpreters the library reads.
+    # The job services read the root and interpreters the library reads, and the editor reads its parents through
+    # the library routes' library, as Node's editor and library routes share queue.library.
     compute.runtime = library_routes.runtime
+    compute.library = library_routes.library
     compute_routes.add_routes(app, config, compute)
     community.add_routes(app, config, compute)
     for format in REQUEST_FORMATS.values():

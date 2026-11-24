@@ -25,6 +25,16 @@ the library's inputs (the radius code tree and the offline datasets), so that th
 bundles. ``cache_digests`` names each ``cache.json`` digest in an answer by its path: the file holds a finish time.
 ``names``, ``SOURCE`` and ``envelope`` build ``design-submission/1`` bodies, ``DESIGN_STEPS`` are the HTTP steps both
 hosts run, and ``design_tree`` / ``annotation_tree`` read what they wrote.
+
+The electrode editor (slice 6): ``editor_compute_root`` builds an editor root (``editor_support.editor_root``: parents
+of every kind on a design root) whose ``scripts/electrode_editor.py`` is ``EDITOR_WORKER`` and whose
+``scripts/design_evaluation.py`` is ``DESIGN_WORKER``, so that both kinds share one queue and one slot.
+``EDITOR_WORKER`` is editor_support's stand-in, which plays the behaviour ``R/editor-plan.json`` names for a request
+(keyed ``<action>/<parent_id>/<disabled slots>``, ``editor_plan_key``): ``hold``, ``fail``, ``stale``, ``change`` (it
+alters the editor's workflow file, an input of every editor identity, before it answers) or ``reparent`` (it rewrites
+the finish time of its parent's radius record, so the parent's digest changes). The root also holds two stored edits
+neither host computed (``stored_edit``), whose hits are cached receipts. ``editor_steps`` gives the HTTP steps both
+hosts run on it, and ``editor_tree`` reads the records they wrote.
 """
 from __future__ import annotations
 
@@ -45,6 +55,10 @@ from eeglayoutlab.schemas import jsjson
 from eeglayoutlab.server.app import Service, create_app
 
 from .design_support import ADMISSION_POINTER, DESIGN, FAKE_WORKER as DESIGN_FAKE_WORKER, run_result
+from .editor_support import (
+    EDITOR_CODE, EDITOR_JOBS, FAKE_WORKER as EDITOR_FAKE_WORKER, MISSING, REGIONS, STALE, editor_root, evaluate,
+    evaluate_result, parent_digests, prepare, prepare_result,
+)
 from .key_parity_support import NODE_ENV, design_root
 from .library_support import code_tree, forward_inputs, offline_datasets, radius_result, write
 from .service_support import TOKENS, loopback_client, service_config
@@ -316,6 +330,111 @@ def design_view(client: Any, id: str, annotation: Optional[str] = None) -> Any:
     return client.get(f'/api/design-evaluation/jobs/{id}{query}')
 
 
+# --- The electrode editor ---------------------------------------------------------------------------------------------
+
+EDITOR_PLAN = 'editor-plan.json'
+_PROGRESS = "print(json.dumps({'type': 'progress', 'progress': 0.25, 'message': '读取父布局'}), flush=True)\n"
+assert EDITOR_FAKE_WORKER.count(_PROGRESS) == 1
+EDITOR_WORKER = EDITOR_FAKE_WORKER.replace(_PROGRESS, (
+    f"if os.path.exists({EDITOR_PLAN!r}):\n"
+    f"    with open({EDITOR_PLAN!r}, encoding='utf-8') as handle:\n"
+    "        plan = json.load(handle)\n"
+    "    disabled = ','.join(str(i) for i, slot in enumerate(request.get('slots', [])) if not slot['enabled'])\n"
+    "    mode = plan.get('%s/%s/%s' % (request['action'], request['parent_id'], disabled), mode)\n"
+    "if mode == 'change':\n"
+    f"    with open({EDITOR_CODE!r}, 'a', encoding='utf-8') as handle:\n"
+    "        handle.write('# changed during the run\\n')\n"
+    "if mode == 'reparent':\n"
+    "    path = parent['provenance']['file']\n"
+    "    with open(path, encoding='utf-8') as handle:\n"
+    "        text = handle.read()\n"
+    "    with open(path + '.tmp', 'w', encoding='utf-8') as handle:\n"
+    "        handle.write(text.replace('T08:00:00Z\"', 'T08:00:00.000Z\"'))\n"
+    "    os.replace(path + '.tmp', path)\n") + _PROGRESS)
+# The slot an evaluation switches off to pick a behaviour of the plan (``editor_compute_root``).
+EDITOR_MODES = {'hold': 63, 'fail': 62, 'stale': 61, 'change': 60}
+# The finish time of the stored edits.
+STORED_AT = '2026-01-01T00:00:00.000Z'
+
+
+def editor_plan_key(request: dict) -> str:
+    """The plan's key of an editor request: ``<action>/<parent_id>/<the disabled slots, comma-separated>``."""
+    disabled = ','.join(str(i) for i, slot in enumerate(request.get('slots', [])) if not slot['enabled'])
+    return f"{request['action']}/{request['parent_id']}/{disabled}"
+
+
+def editor_requests(ids: dict[str, str], digests: dict[str, Optional[str]]) -> dict[str, dict]:
+    """The editor requests of the routes' tests, by name: the ``cache`` parent prepared (``prepare``) and evaluated
+    with slot 5 switched off (``done``), slots 5 and 6 (``pair``) or the slot of a behaviour (``EDITOR_MODES``); a
+    strict-area parent prepared (``strict``); the two stored edits (``stored-prepare``, ``stored-evaluate``) and an
+    evaluation of the latter's parent that rewrites that parent (``reparent``)."""
+    cache = (ids['cache'], digests['cache'])
+    return {
+        'prepare': prepare(ids['cache']), 'done': evaluate(*cache, (5,)), 'pair': evaluate(*cache, (5, 6)),
+        **{mode: evaluate(*cache, (slot,)) for mode, slot in EDITOR_MODES.items()},
+        'strict': prepare(ids['strict']), 'stored-prepare': prepare(ids['strict-2']),
+        'stored-evaluate': evaluate(ids['cache-prior'], digests['cache-prior'], (11,)),
+        'reparent': evaluate(ids['cache-prior'], digests['cache-prior'], (9,)),
+    }
+
+
+def editor_context(root: Any, request: dict) -> dict:
+    """The editor's context of ``request`` on ``root`` as the service computes it (``sys.executable``, no
+    ``EEG_COMPUTE_PYTHON``): ``{identity, admission, key, parent, parent_digest}``."""
+    import asyncio
+
+    from eeglayoutlab.jobs.editor import EditorJobs
+    from eeglayoutlab.jobs.library import Library
+
+    runtime = runtime_config(str(root), sys.executable, env={})
+    jobs = EditorJobs(runtime.repository_root, runtime.native_python, Library(runtime.repository_root, runtime))
+    return asyncio.run(jobs.context(request))
+
+
+def editor_key(root: Any, request: dict) -> str:
+    return editor_context(root, request)['key']
+
+
+def stored_edit(root: Any, request: dict, result: dict, identity: Optional[dict] = None) -> str:
+    """Writes the ``cache.json`` an editor run would publish for ``request`` (its context computed here, as both
+    hosts compute it; ``identity`` replaces the context's) with a fixed finish time; returns the key."""
+    context = editor_context(root, request)
+    write(Path(root), f"{EDITOR_JOBS}/{context['key']}/cache.json", {
+        'key': context['key'], 'identity': context['identity'] if identity is None else identity, 'result': result,
+        'result_sha256': jsjson.sha256_hex(result), 'finished_at': STORED_AT})
+    return context['key']
+
+
+def editor_compute_root(directory: Path) -> dict:
+    """An editor root (``editor_support.editor_root``) with ``EDITOR_WORKER``, ``DESIGN_WORKER``, the plan of
+    ``editor_requests`` and the two stored edits. Returns ``{root, ids, digests, requests, stored}``: the root string
+    (its real path), the parents' ids and digests (as the service's library gives them to ``sys.executable``), the
+    requests by name and the stored edits' keys by name."""
+    from eeglayoutlab.jobs.editor import WORKER_SCRIPT as EDITOR_SCRIPT
+
+    built = editor_root(directory)
+    root, ids = built['tree'], built['ids']
+    write(Path(root), EDITOR_SCRIPT, EDITOR_WORKER)
+    write(Path(root), 'scripts/design_evaluation.py', DESIGN_WORKER)
+    digests = parent_digests(root, ids, sys.executable, {})
+    requests = editor_requests(ids, digests)
+    plan = {editor_plan_key(requests[mode]): mode for mode in EDITOR_MODES}
+    plan[editor_plan_key(requests['reparent'])] = 'reparent'
+    write(Path(root), EDITOR_PLAN, plan)
+    stored = {
+        'stored-prepare': stored_edit(root, requests['stored-prepare'],
+                                      prepare_result(requests['stored-prepare'], REGIONS['strict-2'])),
+        'stored-evaluate': stored_edit(root, requests['stored-evaluate'], evaluate_result(requests['stored-evaluate'])),
+    }
+    assert parent_digests(root, ids, sys.executable, {}) == digests  # the stored edits are no library records
+    return {'root': root, 'ids': ids, 'digests': digests, 'requests': requests, 'stored': stored}
+
+
+def editor_tree(root: Path) -> dict[str, str]:
+    """``R/results/v2/electrode_editor_jobs``."""
+    return tree(Path(root) / EDITOR_JOBS)
+
+
 # --- Parity with Node's composed service --------------------------------------------------------------------------
 
 # The steps both hosts run (parity/compute_routes.mjs documents them). {N} in a path is the id of the N-th receipt
@@ -438,6 +557,109 @@ DESIGN_STEPS: list[dict] = [
     {'method': 'POST', 'path': f'{_D}/lookup', 'body': _R['done']},
     {'method': 'GET', 'path': '/api/community/status'},
 ]
+_E = '/api/electrode-editor'
+
+
+def editor_steps(built: dict) -> list[dict]:
+    """The electrode editor on ``editor_compute_root``'s root ``built``. Receipts: {0} the ``cache`` parent prepared,
+    {1} evaluated, {2} the pair (its body sent one byte per chunk), {3} the strict parent prepared, {4} and {5} the
+    stored preparation and evaluation (cached), {6} hold (cancelled), {7} a coordinate evaluation queued behind it,
+    {8} fail (cancelled while queued), {9} fail, {10} stale, {11} reparent, {12} change."""
+    ids, r = built['ids'], built['requests']
+    p, done = r['prepare'], r['done']
+    stale_digest = evaluate(ids['cache'], STALE, (5,))
+    return [
+        {'method': 'GET', 'path': f'{_E}/health'},
+        {'method': 'GET', 'path': f'{_E}/parents'},
+        {'method': 'GET', 'path': f'{_E}/records'},
+        # A lookup miss creates no receipt; a preparation runs, then is the stored receipt.
+        {'method': 'POST', 'path': f'{_E}/lookup', 'body': p},
+        {'method': 'POST', 'path': f'{_E}/jobs', 'body': p},
+        {'method': 'GET', 'path': f'{_E}/jobs/{{0}}', 'until': TERMINAL},
+        {'method': 'GET', 'path': f'{_E}/jobs/{{0}}?annotation_id=' + 'a' * 64},
+        {'method': 'POST', 'path': f'{_E}/jobs', 'body': p},
+        {'method': 'POST', 'path': f'{_E}/lookup', 'body': p},
+        # Evaluations with the parent's digest; the pair's body arrives one byte per chunk.
+        {'method': 'POST', 'path': f'{_E}/jobs', 'body': done},
+        {'method': 'GET', 'path': f'{_E}/jobs/{{1}}', 'until': TERMINAL},
+        {'method': 'POST', 'path': f'{_E}/jobs', 'body': done},
+        {'method': 'POST', 'path': f'{_E}/jobs', 'body': r['pair'], 'chunks': True},
+        {'method': 'GET', 'path': f'{_E}/jobs/{{2}}', 'until': TERMINAL},
+        {'method': 'POST', 'path': f'{_E}/jobs', 'body': r['strict']},
+        {'method': 'GET', 'path': f'{_E}/jobs/{{3}}', 'until': TERMINAL},
+        # Stored edits neither host computed: one cached receipt each.
+        {'method': 'POST', 'path': f'{_E}/jobs', 'body': r['stored-prepare']},
+        {'method': 'POST', 'path': f'{_E}/lookup', 'body': r['stored-prepare']},
+        {'method': 'POST', 'path': f'{_E}/jobs', 'body': r['stored-evaluate']},
+        {'method': 'GET', 'path': f'{_E}/records'},
+        # A running worker: joins, the health's active job, a coordinate evaluation and an edit queued behind it,
+        # cancellations; the evaluation runs once the slot is free.
+        {'method': 'POST', 'path': f'{_E}/jobs', 'body': r['hold']},
+        {'method': 'GET', 'path': f'{_E}/jobs/{{6}}', 'until': ('running',), 'progress': True},
+        {'method': 'GET', 'path': f'{_E}/health'},
+        {'method': 'POST', 'path': f'{_E}/jobs', 'body': r['hold']},
+        {'method': 'POST', 'path': f'{_E}/lookup', 'body': r['hold']},
+        {'method': 'POST', 'path': '/api/design-evaluation/jobs', 'body': DESIGN_REQUESTS['done']},
+        {'method': 'POST', 'path': f'{_E}/jobs', 'body': r['fail']},
+        {'method': 'GET', 'path': '/api/community/status'},
+        {'method': 'GET', 'path': '/api/design-evaluation/health'},
+        {'method': 'POST', 'path': f'{_E}/jobs/{{8}}/cancel'},
+        {'method': 'POST', 'path': f'{_E}/jobs/{{6}}/cancel'},
+        {'method': 'GET', 'path': f'{_E}/jobs/{{6}}', 'until': TERMINAL},
+        {'method': 'POST', 'path': f'{_E}/jobs/{{6}}/cancel'},
+        {'method': 'GET', 'path': '/api/design-evaluation/jobs/{7}', 'until': TERMINAL},
+        {'method': 'POST', 'path': f'{_E}/jobs', 'body': r['fail']},
+        {'method': 'GET', 'path': f'{_E}/jobs/{{9}}', 'until': TERMINAL},
+        {'method': 'POST', 'path': f'{_E}/jobs', 'body': r['stale']},
+        {'method': 'GET', 'path': f'{_E}/jobs/{{10}}', 'until': TERMINAL},
+        # Refusals: the parent's checks in Node's order, the request format, the body rules, the token, the routes.
+        {'method': 'POST', 'path': f'{_E}/jobs', 'body': stale_digest},
+        {'method': 'POST', 'path': f'{_E}/lookup', 'body': stale_digest},
+        {'method': 'POST', 'path': f'{_E}/jobs', 'body': prepare(ids['cache-spatial'])},
+        {'method': 'POST', 'path': f'{_E}/jobs', 'body': evaluate(ids['cache-spatial'], STALE)},
+        {'method': 'POST', 'path': f'{_E}/jobs', 'body': prepare(MISSING)},
+        {'method': 'POST', 'path': f'{_E}/jobs', 'body': prepare(ids['design'])},
+        {'method': 'POST', 'path': f'{_E}/jobs', 'body': prepare(ids['cache-unpatched'])},
+        {'method': 'POST', 'path': f'{_E}/lookup', 'body': prepare(ids['cache-geometry'])},
+        {'method': 'POST', 'path': f'{_E}/jobs', 'body': {'action': 'prepare'}},
+        {'method': 'POST', 'path': f'{_E}/jobs', 'body': {**p, 'seed': 2026}},
+        {'method': 'POST', 'path': f'{_E}/jobs', 'body': {**done, 'seed': 2027}},
+        {'method': 'POST', 'path': f'{_E}/jobs', 'body': {**done, 'slots': done['slots'][1:]}},
+        {'method': 'POST', 'path': f'{_E}/jobs', 'body': evaluate(ids['cache'], built['digests']['cache'],
+                                                                   tuple(range(63)))},
+        {'method': 'POST', 'path': f'{_E}/jobs', 'body': None},
+        {'method': 'POST', 'path': f'{_E}/jobs', 'raw': padded(p, 32768)},
+        {'method': 'POST', 'path': f'{_E}/lookup', 'raw': padded(p, 32769)},
+        {'method': 'POST', 'path': f'{_E}/jobs', 'raw': '{}', 'type': 'text/plain'},
+        {'method': 'POST', 'path': f'{_E}/jobs', 'raw': '{"action":'},
+        {'method': 'POST', 'path': f'{_E}/jobs', 'body': p, 'token': False},
+        {'method': 'POST', 'path': f'{_E}/jobs/{{0}}/cancel', 'token': False},
+        {'method': 'POST', 'path': f'{_E}/jobs/{{0}}/cancel'},
+        {'method': 'GET', 'path': f'{_E}/jobs/{_UNKNOWN}'},
+        {'method': 'POST', 'path': f'{_E}/jobs/{_UNKNOWN}/cancel'},
+        {'method': 'GET', 'path': f'{_E}/jobs/not-a-receipt'},
+        {'method': 'GET', 'path': f'{_E}/other'},
+        {'method': 'GET', 'path': f'{_E}/jobs'},
+        {'method': 'POST', 'path': f'{_E}/jobs/{{0}}'},
+        {'method': 'GET', 'path': '/api/design-evaluation/jobs/{0}'},
+        {'method': 'GET', 'path': f'{_E}/jobs/{{7}}'},
+        # The worker rewrites its parent: the run fails, and the stored evaluation of that parent is refused.
+        {'method': 'POST', 'path': f'{_E}/jobs', 'body': r['reparent']},
+        {'method': 'GET', 'path': f'{_E}/jobs/{{11}}', 'until': TERMINAL},
+        {'method': 'GET', 'path': f'{_E}/jobs/{{5}}'},
+        {'method': 'GET', 'path': f'{_E}/jobs/{{4}}'},
+        {'method': 'GET', 'path': f'{_E}/parents'},
+        # The worker changes the editor's code: the run fails, and the stored receipts' keys are stale.
+        {'method': 'POST', 'path': f'{_E}/jobs', 'body': r['change']},
+        {'method': 'GET', 'path': f'{_E}/jobs/{{12}}', 'until': TERMINAL},
+        {'method': 'GET', 'path': f'{_E}/jobs/{{4}}'},
+        {'method': 'GET', 'path': f'{_E}/jobs/{{0}}'},
+        {'method': 'POST', 'path': f'{_E}/lookup', 'body': p},
+        {'method': 'GET', 'path': f'{_E}/records'},
+        {'method': 'GET', 'path': '/api/community/status'},
+    ]
+
+
 _ID = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
 _TIME = re.compile(r'\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z')
 # The members only Node has, its public-service machinery: the visitor count of the status, and the public library's
@@ -590,4 +812,5 @@ def run_python(root: Path, workspace: Path, steps: list[dict] = STEPS) -> dict:
             answers.append({'method': step['method'], 'path': step['path'], 'status': status, 'type': kind,
                             'body': body})
     return {'answers': answers, 'token': TOKENS.csrf, 'tree': jobs_tree(root), 'queue': queue_file(workspace),
-            'design_tree': design_tree(root), 'annotations': annotation_tree(workspace / WORKSPACE_ANNOTATIONS)}
+            'design_tree': design_tree(root), 'editor_tree': editor_tree(root),
+            'annotations': annotation_tree(workspace / WORKSPACE_ANNOTATIONS)}

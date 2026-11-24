@@ -1,6 +1,6 @@
-"""The job routes (``eeglayoutlab.server.routes.compute`` and ``.community``, phase 2 slices 4 and 5) end to end:
-the application with its lifespan, the workspace queue, the radius search and the coordinate evaluation on synthetic
-roots whose workers are fakes (tests/service/compute_support.py), over HTTP.
+"""The job routes (``eeglayoutlab.server.routes.compute`` and ``.community``, phase 2 slices 4 to 6) end to end:
+the application with its lifespan, the workspace queue, the radius search, the coordinate evaluation and the
+electrode editor on synthetic roots whose workers are fakes (tests/service/compute_support.py), over HTTP.
 
 - A submission is queued (202), dispatched, run by the worker and polled to its result; asked again it is the
   stored result's receipt (Node's ``{hit: true, job}``), and the library lists the new record.
@@ -31,11 +31,25 @@ roots whose workers are fakes (tests/service/compute_support.py), over HTTP.
   dropped), the 65,536-byte envelope, CSRF and a body sent one byte per chunk. Parity: ``DESIGN_STEPS`` on Node's
   composed service and here give the same answers, design records and annotation bytes (Node's under R, ours under
   W), and a configured path with a NUL byte answers Node's 500.
+- The electrode editor (``/api/electrode-editor``, check-electrode-editor-live.mjs's flow on a stand-in worker): a
+  parent is prepared, then evaluated with its digest; the evaluation is an editor record; asked again each is the
+  stored receipt, and a stored edit neither host computed is one cached receipt. A lookup never writes. Every parent
+  refusal is a 400 with Node's message, before anything is queued. The editor shares the queue and the execution slot
+  with the coordinate evaluation and the radius search: their tasks wait behind a running edit and run once it is
+  cancelled. A restart fails the interrupted edit and promotes one whose result was stored, with the stored finish
+  time and the parent's catalog; a code change after close turns a stored receipt's view failed, and a parent that
+  changed after close refuses its evaluation's view. ``stop_soon`` and ``--cache-only`` reach the editor; its body
+  limit is 32,768 bytes; CSRF; Node's 404s. The editor reads its parents through the library routes' library, as
+  Node's shares ``queue.library``. Parity: ``editor_steps`` on Node's composed service and here give the same answers
+  and the same records under ``R/results/v2/electrode_editor_jobs`` and ``design_evaluation_jobs``, and an edit whose
+  parent changed while it waited fails at dispatch with Node's message.
 """
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
+import re
 import shutil
 import sys
 import time
@@ -54,11 +68,14 @@ from eeglayoutlab.jobs.radius import WORKER_SCRIPT  # noqa: E402
 from eeglayoutlab.schemas import jsjson  # noqa: E402
 
 from .compute_support import (  # noqa: E402
-    CHANGED_INPUT, DESIGN_JOBS, DESIGN_REQUESTS, DESIGN_STEPS, NODE_ANNOTATIONS, REQUESTS, SOURCE, TERMINAL,
-    WORKSPACE_ANNOTATIONS, annotation_tree, cache_digests, chunked, compute_root, design_compute_root, design_key,
-    design_tree, design_view, envelope, json_body, jobs_tree, key_of, masked, masked_tree, names, padded, poll, post,
-    queue_file, run_node, run_python, serving, wait_for, write_queue,
+    CHANGED_INPUT, DESIGN_JOBS, DESIGN_REQUESTS, DESIGN_STEPS, NODE_ANNOTATIONS, REQUESTS, SOURCE, STORED_AT,
+    TERMINAL, WORKSPACE_ANNOTATIONS, annotation_tree, cache_digests, chunked, compute_root, design_compute_root,
+    design_key, design_tree, design_view, editor_compute_root, editor_context, editor_key, editor_steps, editor_tree,
+    envelope, json_body, jobs_tree, key_of, masked, masked_tree, names, padded, poll, post, queue_file, run_node,
+    run_python, serving, stored_edit, wait_for, write_queue,
 )
+from .editor_support import EDITOR_CODE, EDITOR_JOBS, REPORT, STALE, evaluate, prepare, tampered_report  # noqa: E402
+from .key_parity_support import EDITOR_ACCEPTED  # noqa: E402
 from .library_support import radius_result, write, write_cache  # noqa: E402
 
 LOOKUP = '/api/local-compute/lookup'
@@ -523,15 +540,16 @@ def test_unknown_receipts_queries_and_unwired_kinds(site):
         assert error(client.get(f'{JOBS}/not-an-id'))[1:] == ('未知计算接口', 'not_found')
         assert error(client.get(JOBS))[1] == 'Unknown queue endpoint'
         assert error(client.post(f'{JOBS}/{id}'))[1] == 'Unknown queue endpoint'
-        # Kinds without an adapter (slices 6 and 7) are unknown endpoints before any body is read.
-        for kind in ('electrode-editor', 'source-reception'):
-            assert error(post(client, f'/api/{kind}/jobs', 'x' * 100000)) == (404, 'Unknown queue endpoint', 'not_found')
-            assert error(client.get(f'/api/{kind}/jobs/{id}'))[1] == 'Unknown queue endpoint'
-        # The coordinate evaluation reads its body (65,536 bytes at most) and sees only its own receipts.
-        assert error(post(client, '/api/design-evaluation/jobs', 'x' * 100000)) == (
-            413, '配置过大', 'request_too_large')
-        assert error(client.get(f'/api/design-evaluation/jobs/{id}')) == (404, NOT_FOUND, 'not_found')
-        assert error(post(client, f'/api/design-evaluation/jobs/{id}/cancel')) == (404, NOT_FOUND, 'not_found')
+        # A kind without an adapter (slice 7) is an unknown endpoint before any body is read.
+        assert error(post(client, '/api/source-reception/jobs', 'x' * 100000)) == (
+            404, 'Unknown queue endpoint', 'not_found')
+        assert error(client.get(f'/api/source-reception/jobs/{id}'))[1] == 'Unknown queue endpoint'
+        # The coordinate evaluation and the editor read their bodies (65,536 and 32,768 bytes at most) and see only
+        # their own receipts.
+        for kind in ('design-evaluation', 'electrode-editor'):
+            assert error(post(client, f'/api/{kind}/jobs', 'x' * 100000)) == (413, '配置过大', 'request_too_large')
+            assert error(client.get(f'/api/{kind}/jobs/{id}')) == (404, NOT_FOUND, 'not_found')
+            assert error(post(client, f'/api/{kind}/jobs/{id}/cancel')) == (404, NOT_FOUND, 'not_found')
         assert error(client.get('/api/community/heartbeat'))[1] == 'Unknown community endpoint'
         assert error(post(client, '/api/community/heartbeat', {}))[1] == 'Unknown community endpoint'
 
@@ -1013,3 +1031,474 @@ def test_a_context_path_with_a_nul_byte_is_an_internal_fault_as_in_node(tmp_path
     with pytest.raises(nodefs.InvalidArgValueError) as raised:
         nodefs.check_path(str(root / 'data/head.msh\0'))
     assert isinstance(raised.value, TypeError) and public_message(raised.value) == INTERNAL_MESSAGE
+
+
+# --- The electrode editor ---------------------------------------------------------------------------------------------
+
+EDITOR = '/api/electrode-editor'
+EDITOR_JOBS_PATH = f'{EDITOR}/jobs'
+EDITOR_LOOKUP = f'{EDITOR}/lookup'
+
+
+@pytest.fixture
+def editor_site(tmp_path):
+    """An editor root (``editor_compute_root``: parents of every kind, the stand-in workers of the editor and the
+    coordinate evaluation, the plan and two stored edits), its real path and a workspace."""
+    built = editor_compute_root(tmp_path / 'editor')
+    workspace = tmp_path / 'workspace'
+    workspace.mkdir()
+    return built, Path(built['root']), workspace
+
+
+def submit_edit(client: Any, body: Any) -> dict:
+    answer = post(client, EDITOR_JOBS_PATH, body)
+    assert answer.status_code == 202, answer.text
+    return json_body(answer)
+
+
+def poll_edit(client: Any, id: str, statuses: tuple[str, ...] = TERMINAL) -> dict:
+    return poll(client, id, statuses, kind='electrode-editor')
+
+
+def parent_catalog(client: Any, parent_id: str) -> dict:
+    """``receiptCatalog``'s members taken from the parent's library record (a strict-area record has no request)."""
+    record = json_body(client.get(f'/api/local-compute/library/{parent_id}'))['record']
+    return {'parent_label': record['label'], 'region_count': record['region_count'],
+            'mask_codes': (record.get('request') or {}).get('mask_codes') or [], 'location_mode': record['mode'],
+            'electrode_count': len(record['layout']['xyzMm'])}
+
+
+def rewrite_parent(root: Path, parent_id: str) -> None:
+    """Changes the finish time of a radius parent's record, so its library record, and its digest, change."""
+    path = root / 'results/v2/local_app_jobs' / parent_id / 'cache.json'
+    text = path.read_text(encoding='utf-8')
+    assert text.count('T08:00:00Z"') == 1
+    path.write_text(text.replace('T08:00:00Z"', 'T08:00:00.000Z"'), encoding='utf-8')
+
+
+def test_an_edit_is_prepared_then_evaluated_and_its_evaluation_is_an_editor_record(editor_site):
+    """check-electrode-editor-live.mjs's flow on the stand-in worker: a lookup miss writes nothing; the parent is
+    prepared (the view carries its digest and the receipt the parent's catalog), then evaluated with that digest;
+    the records are Node's under ``R/results/v2/electrode_editor_jobs`` (B17 identity), the evaluation is listed by
+    ``GET /api/electrode-editor/records``, and asked again each is the stored receipt."""
+    from eeglayoutlab.jobs.editor import EDITOR_CACHE_SCHEMA
+
+    built, root, workspace = editor_site
+    r, ids, digests, stored_keys = built['requests'], built['ids'], built['digests'], built['stored']
+    before = snapshot(root)
+    with serving(root, workspace) as (app, client):
+        assert json_body(post(client, EDITOR_LOOKUP, r['prepare'])) == {'hit': False}
+        assert queue_file(workspace)['tasks'] == [] and snapshot(root) == before
+
+        def records() -> dict:
+            return {row['key']: row for row in json_body(client.get(f'{EDITOR}/records'))['records']}
+        assert list(records()) == [stored_keys['stored-evaluate']]
+
+        job = submit_edit(client, r['prepare'])['job']
+        assert (job['status'], job['message'], job['key']) == ('queued', '已加入计算队列', editor_key(root, r['prepare']))
+        prepared = poll_edit(client, job['id'])
+        assert (prepared['status'], prepared['message'], prepared['progress'], prepared['cached']) == (
+            'completed', '设计评价已完成并保存', 1, False)
+        assert prepared['parent_digest'] == digests['cache']
+        assert prepared['result']['parent']['id'] == ids['cache'] and len(prepared['result']['regions']) == 2
+        catalog = parent_catalog(client, ids['cache'])
+        assert prepared['catalog'] == {**catalog, 'parent_id': ids['cache'], 'protocol': 'electrode-editor/1'}
+
+        body = {'action': 'evaluate', 'parent_id': ids['cache'], 'parent_digest': prepared['parent_digest'],
+                'seed': 2026, 'slots': [{'bank_index': i, 'enabled': i != 5} for i in prepared['result']
+                                        ['original_indices']]}
+        assert body == r['done']
+        evaluated = poll_edit(client, submit_edit(client, body)['job']['id'])
+        assert (evaluated['status'], evaluated['result']['electrode_count']) == ('completed', 63)
+        assert evaluated['catalog'] == {**catalog, 'electrode_count': 63, 'parent_id': ids['cache'],
+                                        'protocol': 'electrode-editor/1'}
+        key = evaluated['key']
+        files = sorted(re.sub('/[0-9a-f-]{36}/', '/<batch>/', path) for path in editor_tree(root)
+                       if path.startswith(key))
+        assert files == [f'{key}/<batch>/job.json', f'{key}/<batch>/request.json', f'{key}/cache.json']
+        stored = jsjson.parse((root / EDITOR_JOBS / key / 'cache.json').read_text(encoding='utf-8'))
+        assert list(stored) == ['key', 'identity', 'result', 'result_sha256', 'finished_at']
+        identity = stored['identity']
+        assert list(identity)[0] == 'schema' and list(identity)[-3:] == [
+            'parent_digest', 'editor_sha256', 'editor_implementation_sha256']
+        assert (identity['schema'], identity['parent_digest']) == (EDITOR_CACHE_SCHEMA, digests['cache'])
+        listed = records()
+        assert set(listed) == {key, stored_keys['stored-evaluate']}
+        record = listed[key]
+        assert (record['parent_id'], record['electrode_count'], record['restored_as']) == (
+            ids['cache'], 63, 'draft_requires_current_evaluation')
+
+        for receipt, request in ((prepared, r['prepare']), (evaluated, r['done'])):
+            again = submit_edit(client, request)
+            assert again['hit'] is True and again['job']['id'] == receipt['id']
+            assert (again['job']['cached'], again['job']['source']) == (True, 'local_compute')
+            assert json_body(post(client, EDITOR_LOOKUP, request))['job']['id'] == receipt['id']
+        assert len(queue_file(workspace)['tasks']) == 2
+        assert json_body(client.get(f'{EDITOR}/health'))['active_job'] is None
+    assert not (root / LOCK).exists() or app.compute.slot.available()
+
+
+def test_a_stored_edit_is_one_cached_receipt_and_the_catalogs_list_parents_and_evaluations(editor_site):
+    """Stored edits neither host computed: each is a hit, one cached receipt (``local_cache``) with the parent's
+    digest and catalog, reused by later submits and lookups; the parents route lists the layouts the editor offers
+    and the records route the stored evaluation. Nothing is written under R."""
+    built, root, workspace = editor_site
+    r, ids, digests, stored = built['requests'], built['ids'], built['digests'], built['stored']
+    before = snapshot(root)
+    with serving(root, workspace) as (app, client):
+        listed = {row['id'] for row in json_body(client.get(f'{EDITOR}/parents'))['records']}
+        assert {ids[name] for name in EDITOR_ACCEPTED} <= listed
+        assert not listed & {ids[name] for name in ('strict-no-layout', 'historical', 'offline', 'design',
+                                                    'cache-spatial', 'cache-unpatched', 'cache-no-layout')}
+        records = json_body(client.get(f'{EDITOR}/records'))['records']
+        assert [(row['key'], row['finished_at']) for row in records] == [(stored['stored-evaluate'], STORED_AT)]
+        receipts = []
+        for name, parent in (('stored-prepare', 'strict-2'), ('stored-evaluate', 'cache-prior')):
+            answer = submit_edit(client, r[name])
+            job = answer['job']
+            assert answer['hit'] is True
+            assert (job['status'], job['message'], job['cached'], job['source'], job['key']) == (
+                'completed', '设计评价已完成', True, 'local_cache', stored[name])
+            # Node's design lookup, the editor's, gives no finish time: the receipt's is the time of the hit.
+            assert job['parent_digest'] == digests[parent] and job['finished_at'] != STORED_AT
+            catalog = {**parent_catalog(client, ids[parent]), 'parent_id': ids[parent],
+                       'protocol': 'electrode-editor/1'}
+            if name == 'stored-evaluate':
+                catalog['electrode_count'] = 63
+            assert job['catalog'] == catalog
+            assert submit_edit(client, r[name])['job']['id'] == job['id']
+            assert json_body(post(client, EDITOR_LOOKUP, r[name]))['job']['id'] == job['id']
+            receipts.append(job['id'])
+        tasks = queue_file(workspace)['tasks']
+        assert [(task['id'], task['kind'], task['cached']) for task in tasks] == [
+            (id, 'electrode-editor', True) for id in receipts]
+    assert snapshot(root) == before and not (root / LOCK).exists()
+
+
+def test_the_editor_shares_the_queue_and_the_slot_with_the_coordinate_evaluation_and_the_radius_search(editor_site):
+    """check-electrode-editor.mjs:68 over HTTP: the editor runs under the slot and into the record store of the
+    other kinds, reading its parents from a library on the radius search; while an edit runs, an identical edit joins
+    it and a coordinate evaluation and a radius search wait in the queue, in order; once the edit is cancelled
+    (``计算已停止``, nothing stored) the evaluation runs, then the search."""
+    from eeglayoutlab.jobs.library import Library
+    from eeglayoutlab.jobs.queue import group_alive
+
+    built, root, workspace = editor_site
+    r = built['requests']
+    with serving(root, workspace) as (app, client):
+        compute = app.compute
+        assert compute.editor.execution_slot is compute.slot and compute.design.execution_slot is compute.slot
+        assert compute.editor.store is compute.radius.store
+        held = submit_edit(client, r['hold'])['job']
+        wait_for(lambda: poll_edit(client, held['id'], ('running',))['progress'] == 0.25)
+        library = compute.editor.library
+        assert isinstance(library, Library) and library.radius is compute.radius
+        joined = submit_edit(client, r['hold'])
+        assert joined['hit'] is True and joined['job']['id'] == held['id']
+        design = submit_design(client, DESIGN_REQUESTS['done'])['job']
+        radius = json_body(post(client, JOBS, REQUESTS['crash']))['job']
+        assert [(job['status'], job['queue_position']) for job in (design, radius)] == [('queued', 1), ('queued', 2)]
+        assert json_body(client.get(f'{EDITOR}/health'))['active_job']['id'] == held['id']
+        assert json_body(client.get('/api/design-evaluation/health'))['active_job']['id'] == design['id']
+        status = json_body(client.get('/api/community/status'))
+        assert (status['queued_tasks'], status['running_tasks']) == (2, 1)
+        pid = compute.editor.active_pid()
+        assert pid and group_alive(pid) and compute.slot.busy
+        time.sleep(0.3)
+        assert poll(client, design['id'], ('queued',), kind='design-evaluation')['status'] == 'queued'
+        cancelled = json_body(post(client, f'{EDITOR_JOBS_PATH}/{held["id"]}/cancel'))['job']
+        assert cancelled['status'] in ('cancelling', 'cancelled')
+        stopped = poll_edit(client, held['id'], ('cancelled',))
+        assert stopped['message'] == '计算已停止'
+        wait_for(lambda: not group_alive(pid))
+        assert poll(client, design['id'], kind='design-evaluation')['status'] == 'completed'
+        assert poll(client, radius['id'])['status'] == 'failed'
+    assert not (root / EDITOR_JOBS / editor_key(root, r['hold']) / 'cache.json').exists()
+
+
+def test_a_parent_the_editor_refuses_is_a_400_with_nodes_message_and_nothing_is_queued(editor_site):
+    """Each parent check in Node's order (no saved region boundaries, a noise model, a changed digest, a changed
+    strict-area report, another geometry or surface admission) and the request format's refusals: a 400 with Node's
+    message from the lookup and the submit alike; nothing is queued or written."""
+    from eeglayoutlab.jobs.editor import GEOMETRY_DIFFERS, NOT_A_PARENT, NOT_INDEPENDENT, PARENT_CHANGED, \
+        REPORT_MISMATCH
+
+    built, root, workspace = editor_site
+    ids, digests, r = built['ids'], built['digests'], built['requests']
+    done = r['done']
+    cases = [
+        *((prepare(ids[name]), NOT_A_PARENT) for name in (
+            'missing', 'design', 'historical', 'offline', 'strict-no-layout', 'cache-unpatched', 'cache-zero-patches',
+            'cache-no-layout')),
+        (evaluate(ids['missing'], STALE), NOT_A_PARENT),
+        (prepare(ids['cache-spatial']), NOT_INDEPENDENT), (evaluate(ids['cache-spatial'], STALE), NOT_INDEPENDENT),
+        (evaluate(ids['cache'], STALE), PARENT_CHANGED), (evaluate(ids['strict'], digests['cache']), PARENT_CHANGED),
+        (evaluate(ids['cache-geometry'], STALE), PARENT_CHANGED),
+        (prepare(ids['cache-geometry']), GEOMETRY_DIFFERS), (prepare(ids['cache-admission']), GEOMETRY_DIFFERS),
+        (evaluate(ids['cache-geometry'], digests['cache-geometry']), GEOMETRY_DIFFERS),
+        ({'action': 'prepare'}, 'Invalid editor request'), ('null', 'Invalid editor request'),
+        ([r['prepare']], 'Invalid editor request'),
+        ({**r['prepare'], 'seed': 2026}, 'Invalid preparation fields'),
+        ({**done, 'seed': 2027}, 'Invalid editor protocol'),
+        ({**done, 'slots': done['slots'][1:]}, 'Invalid stable electrode slots'),
+        (evaluate(ids['cache'], digests['cache'], tuple(range(63))), 'At least two active electrodes are required'),
+    ]
+    before = snapshot(root)
+    with serving(root, workspace) as (app, client):
+        for body, message in cases:
+            for path in (EDITOR_LOOKUP, EDITOR_JOBS_PATH):
+                assert error(post(client, path, body)) == (400, message, 'invalid_request'), (path, body)
+        # The strict-area report rewritten in place (same size and times) after the library read it.
+        assert json_body(post(client, EDITOR_LOOKUP, r['strict'])) == {'hit': False}
+        report = root / REPORT
+        times = report.stat()
+        report.write_text(tampered_report(), encoding='utf-8')
+        os.utime(report, ns=(times.st_atime_ns, times.st_mtime_ns))
+        for path in (EDITOR_LOOKUP, EDITOR_JOBS_PATH):
+            assert error(post(client, path, r['strict'])) == (400, REPORT_MISMATCH, 'invalid_request')
+        assert queue_file(workspace)['tasks'] == []
+    assert {path: state for path, state in snapshot(root).items() if path != str(report)} == {
+        path: state for path, state in before.items() if path != str(report)}
+
+
+def test_a_restart_fails_an_interrupted_edit_and_promotes_one_whose_result_was_stored(editor_site):
+    """Closing the service stops a running edit; the next instance fails its receipt with the interrupted message.
+    A receipt left running although its result was stored comes back completed and cached, with the finish time
+    Node's reconciliation takes from ``cache.json`` (the editor's lookup, the coordinate evaluation's, gives none)
+    and the parent's catalog; one whose result was never stored stays failed, and so does one whose record is a
+    lookup hit but names another identity than its key's (Node's reconciliation retains it)."""
+    from eeglayoutlab.jobs.queue import group_alive
+
+    from .editor_support import evaluate_result
+
+    built, root, workspace = editor_site
+    r, ids, digests, stored = built['requests'], built['ids'], built['digests'], built['stored']
+    with serving(root, workspace) as (app, client):
+        held = submit_edit(client, r['hold'])['job']
+        wait_for(lambda: poll_edit(client, held['id'], ('running',))['progress'] == 0.25)
+        pid = app.compute.editor.active_pid()
+        assert pid and group_alive(pid)
+    wait_for(lambda: not group_alive(pid))
+    state = queue_file(workspace)
+    assert [(task['id'], task['status']) for task in state['tasks']] == [(held['id'], 'running')]
+    context = editor_context(root, r['fail'])
+    altered = stored_edit(root, r['fail'], evaluate_result(r['fail']), {**context['identity'], 'threads': 2})
+
+    def running(id: str, request: dict, key: str, sequence: int) -> dict:
+        return {'id': id, 'sequence': sequence, 'kind': 'electrode-editor', 'key': key, 'request': request,
+                'status': 'running', 'created_at': '2026-11-24T08:00:00.000Z', 'progress': 0.75, 'cached': False,
+                'catalog': {}, 'backend_id': f'{sequence}' * 8 + '-0000-4000-8000-000000000000'}
+
+    promoted_task = running('22222222-2222-4222-8222-222222222222', r['stored-evaluate'], stored['stored-evaluate'], 2)
+    lost = running('33333333-3333-4333-8333-333333333333', r['done'], editor_key(root, r['done']), 3)
+    kept = running('44444444-4444-4444-8444-444444444444', r['fail'], altered, 4)
+    state['tasks'] += [promoted_task, lost, kept]
+    state['sequence'] = 4
+    write_queue(workspace, state)
+    with serving(root, workspace) as (app, client):
+        for id in (held['id'], lost['id'], kept['id']):
+            failed = poll_edit(client, id)
+            assert (failed['status'], failed['message']) == ('failed', INTERRUPTED_MESSAGE)
+        promoted = poll_edit(client, promoted_task['id'])
+        assert (promoted['status'], promoted['cached'], promoted['progress'], promoted['finished_at']) == (
+            'completed', True, 1, STORED_AT)
+        assert promoted['result']['request'] == r['stored-evaluate']
+        assert promoted['parent_digest'] == digests['cache-prior']
+        assert promoted['catalog'] == {**parent_catalog(client, ids['cache-prior']), 'electrode_count': 63,
+                                       'parent_id': ids['cache-prior'], 'protocol': 'electrode-editor/1'}
+        # The altered record is still a lookup hit: only the reconciliation checks the identity it names.
+        assert json_body(post(client, EDITOR_LOOKUP, r['fail']))['hit'] is True
+        again = submit_edit(client, r['hold'])['job']
+        assert again['id'] != held['id'] and again['status'] in ('queued', 'running')
+    tasks = {task['id']: task for task in queue_file(workspace)['tasks']}
+    assert 'backend_id' not in tasks[promoted_task['id']] and tasks[promoted_task['id']]['status'] == 'completed'
+
+
+def test_a_stored_edit_whose_code_or_parent_changed_after_close_is_not_served(editor_site):
+    """A receipt's view prepares its request again once the service no longer holds the job: after the parent of a
+    stored evaluation changed, its view and its lookup answer Node's refusal (400 ``Parent changed``); after the
+    editor's code changed, a stored preparation's view asks for a new submission and the lookup misses."""
+    from eeglayoutlab.jobs.editor import PARENT_CHANGED
+    from eeglayoutlab.jobs.queue import VIEW_KEY_CHANGED
+
+    built, root, workspace = editor_site
+    r, ids = built['requests'], built['ids']
+    with serving(root, workspace) as (app, client):
+        prepared = poll_edit(client, submit_edit(client, r['prepare'])['job']['id'])
+        evaluation = submit_edit(client, r['stored-evaluate'])['job']
+        assert (prepared['status'], evaluation['status']) == ('completed', 'completed')
+    rewrite_parent(root, ids['cache-prior'])
+    with serving(root, workspace) as (app, client):
+        assert error(client.get(f'{EDITOR_JOBS_PATH}/{evaluation["id"]}')) == (400, PARENT_CHANGED, 'invalid_request')
+        assert error(post(client, EDITOR_LOOKUP, r['stored-evaluate'])) == (400, PARENT_CHANGED, 'invalid_request')
+        # Read again from its record: the lookup's view, so cached.
+        view = json_body(client.get(f'{EDITOR_JOBS_PATH}/{prepared["id"]}'))['job']
+        assert (view['status'], view['cached'], view['result']) == ('completed', True, prepared['result'])
+    with open(root / EDITOR_CODE, 'a', encoding='utf-8') as handle:
+        handle.write('# changed after the run\n')
+    with serving(root, workspace) as (app, client):
+        view = json_body(client.get(f'{EDITOR_JOBS_PATH}/{prepared["id"]}'))['job']
+        assert (view['status'], view['message'], view['result']) == ('failed', VIEW_KEY_CHANGED, None)
+        assert json_body(post(client, EDITOR_LOOKUP, r['prepare'])) == {'hit': False}
+
+
+def test_stop_soon_and_cache_only_reach_the_editor(editor_site):
+    """``ComputeHost.stop_soon`` stops a running edit's worker while the service answers, and nothing is stored for
+    it; under ``--cache-only`` a stored edit is served and new edits are refused."""
+    from eeglayoutlab.jobs.queue import group_alive
+
+    built, root, workspace = editor_site
+    r = built['requests']
+    with serving(root, workspace) as (app, client):
+        held = submit_edit(client, r['hold'])['job']
+        wait_for(lambda: poll_edit(client, held['id'], ('running',))['progress'] == 0.25)
+        pid = app.compute.editor.active_pid()
+        assert pid and group_alive(pid)
+        app.compute.stop_soon()
+        wait_for(lambda: not group_alive(pid))
+        assert app.compute.editor.disposed
+        assert json_body(client.get('/api/community/status'))['available'] is False
+    assert not (root / EDITOR_JOBS / editor_key(root, r['hold']) / 'cache.json').exists()
+    with serving(root, workspace, cache_only=True) as (app, client):
+        health = json_body(client.get(f'{EDITOR}/health'))
+        assert (health['maintenance'], health['drained']) == (True, True)
+        assert submit_edit(client, r['stored-prepare'])['hit'] is True
+        assert error(post(client, EDITOR_JOBS_PATH, r['prepare'])) == (503, MAINTENANCE, 'service_unavailable')
+
+
+def test_editor_writes_need_the_csrf_token_and_fit_the_kind_limit(editor_site):
+    """The editor's writes carry the CSRF token; its body may take 32,768 bytes, not one more, and may arrive one
+    byte per chunk; Node's 404s under ``/api/electrode-editor``."""
+    built, root, workspace = editor_site
+    r = built['requests']
+    with serving(root, workspace, csrf=False) as (app, client):
+        for path in (EDITOR_LOOKUP, EDITOR_JOBS_PATH, f'{EDITOR_JOBS_PATH}/{UNKNOWN_ID}/cancel'):
+            assert error(post(client, path, r['prepare'])) == (403, CSRF_REFUSAL, 'request_forbidden')
+    assert queue_file(workspace)['tasks'] == []
+    with serving(root, workspace) as (app, client):
+        assert json_body(post(client, EDITOR_LOOKUP, padded(r['prepare'], 32768))) == {'hit': False}
+        assert error(post(client, EDITOR_LOOKUP, padded(r['prepare'], 32769))) == (413, '配置过大', 'request_too_large')
+        assert error(post(client, EDITOR_JOBS_PATH, '{}', **{'content-type': 'text/plain'})) == (
+            415, 'JSON required', 'unsupported_media_type')
+        assert error(post(client, EDITOR_JOBS_PATH, '{"action":')) == (400, '请求内容不是有效的JSON', 'invalid_request')
+        token = json_body(client.get(f'{EDITOR}/health'))['token']
+        data = jsjson.stringify(r['pair']).encode('utf-8')
+        status, headers, text = chunked(app, client, 'POST', EDITOR_JOBS_PATH, data,
+                                        {'content-type': 'application/json', 'x-eeg-compute-token': token})
+        assert status == 202, text
+        id = jsjson.parse(text)['job']['id']
+        assert poll_edit(client, id)['result']['request'] == r['pair']
+        assert error(client.get(f'{EDITOR_JOBS_PATH}/{UNKNOWN_ID}')) == (404, NOT_FOUND, 'not_found')
+        assert error(client.get(f'/api/design-evaluation/jobs/{id}')) == (404, NOT_FOUND, 'not_found')
+        for path in (f'{EDITOR_JOBS_PATH}/not-a-receipt', f'{EDITOR}/other', f'{EDITOR}/jobs/{id}/'):
+            assert error(client.get(path)) == (404, 'Unknown editor endpoint', 'not_found')
+        assert error(client.get(EDITOR_JOBS_PATH))[1] == 'Unknown queue endpoint'
+        assert error(client.post(f'{EDITOR_JOBS_PATH}/{id}'))[1] == 'Unknown queue endpoint'
+        assert error(client.get(f'{EDITOR_JOBS_PATH}/{id}/cancel'))[1] == 'Unknown queue endpoint'
+
+
+def test_the_editor_reads_its_parents_through_the_library_routes_library(editor_site):
+    """``create_app`` gives the editor the library routes' library, as Node's editor and library routes share
+    ``queue.library``: once the parents route has read the strict-area report, the report rewritten in place (same
+    size and times) is Node's report mismatch, not the refusal of a library that reads the new bytes first."""
+    from eeglayoutlab.jobs.editor import REPORT_MISMATCH
+
+    built, root, workspace = editor_site
+    r = built['requests']
+    with serving(root, workspace) as (app, client):
+        listed = {row['id'] for row in json_body(client.get(f'{EDITOR}/parents'))['records']}
+        assert built['ids']['strict'] in listed
+        report = root / REPORT
+        times = report.stat()
+        report.write_text(tampered_report(), encoding='utf-8')
+        os.utime(report, ns=(times.st_atime_ns, times.st_mtime_ns))
+        for path in (EDITOR_LOOKUP, EDITOR_JOBS_PATH):
+            assert error(post(client, path, r['strict'])) == (400, REPORT_MISMATCH, 'invalid_request')
+        assert poll_edit(client, submit_edit(client, r['prepare'])['job']['id'])['status'] == 'completed'
+        assert app.compute.editor.library is app.compute.runtime.__self__.library()
+
+
+def parent_change_steps(built: dict) -> list[dict]:
+    """While an edit runs, the ``reparent`` evaluation of ``cache-prior`` and another evaluation of that parent wait;
+    the first rewrites the parent, so the second is refused when it is dispatched. Receipts: {0} hold (cancelled),
+    {1} reparent, {2} the waiting evaluation."""
+    r, ids, digests = built['requests'], built['ids'], built['digests']
+    return [
+        {'method': 'POST', 'path': EDITOR_JOBS_PATH, 'body': r['hold']},
+        {'method': 'GET', 'path': f'{EDITOR_JOBS_PATH}/{{0}}', 'until': ('running',), 'progress': True},
+        {'method': 'POST', 'path': EDITOR_JOBS_PATH, 'body': r['reparent']},
+        {'method': 'POST', 'path': EDITOR_JOBS_PATH,
+         'body': evaluate(ids['cache-prior'], digests['cache-prior'], (12,))},
+        {'method': 'POST', 'path': f'{EDITOR_JOBS_PATH}/{{0}}/cancel'},
+        {'method': 'GET', 'path': f'{EDITOR_JOBS_PATH}/{{1}}', 'until': TERMINAL},
+        {'method': 'GET', 'path': f'{EDITOR_JOBS_PATH}/{{2}}', 'until': TERMINAL},
+        {'method': 'GET', 'path': '/api/community/status'},
+    ]
+
+
+@needs_node
+def test_an_edit_whose_parent_changed_while_it_waited_fails_at_dispatch_with_nodes_message(tmp_path, caplog):
+    """A queued edit is prepared again when it is dispatched. Once its parent changed, the receipt keeps the
+    refusal's message, as Node's tick stores ``publicMessage`` of a plain ``Error``, and nothing is logged as an
+    internal error; ``parent_change_steps`` on Node's composed service give the same answers."""
+    from eeglayoutlab.jobs.editor import PARENT_CHANGED
+
+    directory = tmp_path / 'editor'
+    built = editor_compute_root(directory)
+    root = Path(built['root'])
+    steps = parent_change_steps(built)
+    scratch = tmp_path / 'node'
+    scratch.mkdir()
+    theirs = run_node(root, scratch, steps)
+    directory.rename(tmp_path / 'editor.node')
+    assert editor_compute_root(directory)['digests'] == built['digests']
+    workspace = tmp_path / 'workspace'
+    workspace.mkdir()
+    with caplog.at_level(logging.ERROR, logger='eeglayoutlab'):
+        ours = run_python(root, workspace, steps)
+    actual = masked(ours['answers'], ours['token'])
+    assert actual == masked(theirs['answers'], theirs['token'])
+    views = [jsjson.parse(answer['body'])['job'] for answer in actual[-3:-1]]
+    assert [(job['status'], job['message']) for job in views] == [('failed', PARENT_CHANGED)] * 2
+    assert [record.getMessage() for record in caplog.records if record.levelno >= logging.ERROR] == []
+
+
+@needs_node
+def test_the_editor_routes_answer_and_write_as_node_does(tmp_path):
+    """compute_support.editor_steps against Node's composed service and the Python application on the same editor
+    root (built again at the same path for Python), with the same stand-in workers: every answer, and the records
+    under ``R/results/v2/electrode_editor_jobs`` and ``design_evaluation_jobs``."""
+    directory = tmp_path / 'editor'
+    built = editor_compute_root(directory)
+    root = Path(built['root'])
+    steps = editor_steps(built)
+    scratch = tmp_path / 'node'
+    scratch.mkdir()
+    theirs = run_node(root, scratch, steps)
+    node_editor, node_design = editor_tree(root), design_tree(root)
+    directory.rename(tmp_path / 'editor.node')
+    again = editor_compute_root(directory)
+    assert (again['root'], again['digests'], again['stored']) == (built['root'], built['digests'], built['stored'])
+    workspace = tmp_path / 'workspace'
+    workspace.mkdir()
+    ours = run_python(root, workspace, steps)
+    expected = masked(cache_digests(theirs['answers'], node_design), theirs['token'])
+    actual = masked(cache_digests(ours['answers'], ours['design_tree']), ours['token'])
+    for step, (node, python) in enumerate(zip(expected, actual)):
+        assert python == node, f'step {step}: {python} != {node}'
+    assert len(actual) == len(expected)
+    assert masked_tree(ours['editor_tree']) == masked_tree(node_editor)
+    assert masked_tree(ours['design_tree']) == masked_tree(node_design)
+    # What the steps reached: every outcome of an edit, the refusals, and the records of both kinds.
+    outcomes = {}
+    for answer in actual:
+        body = jsjson.parse(answer['body'])
+        job = body.get('job') if isinstance(body, dict) else None
+        if isinstance(job, dict) and job.get('kind') == 'electrode-editor':
+            outcomes.setdefault(job['status'], set()).add(job['message'])
+    assert {'completed', 'cancelled', 'failed', 'queued', 'running'} <= set(outcomes)
+    assert {'编辑评价失败', 'Editor result identity mismatch', 'Parent changed; reload the layout before editing',
+            '计算期间输入或代码发生变化', '模型或代码已更新，请重新提交'} <= outcomes['failed']
+    statuses = [answer['status'] for answer in actual]
+    assert {200, 202, 400, 403, 404, 413, 415} <= set(statuses)
+    assert sum(path.endswith('/cache.json') for path in node_editor) == 6

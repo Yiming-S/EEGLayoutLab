@@ -18,9 +18,17 @@ base and full roots) and the same steps in Python give the same request text, ke
 worker input for bare requests and envelopes, so electrode names and source declarations never enter a key
 (check-electrode-annotations.mjs:73, check-coordinate-review.mjs:122).
 
+The electrode editor's context (slice 6: ``ElectrodeEditorService.context``, the key of every editor record) is
+compared through tests/service/parity/editor_run.mjs (mode ``contexts``) on editor roots (tests/service/
+editor_support.py ``editor_root``): a preparation and an evaluation of each kind of parent the library holds, on each
+interpreter configuration of the base root and on variants where the parent's report, the surface admission, the
+editor's code or the design inputs differ; the configuration, context members, identity, admission, parent record,
+parent digest, key and worker input, or the refusal by Node's message.
+
 With ``EEG_KEY_PARITY_ROOT=<checkout>`` the same comparisons also run on that real installation (marked
-``data_bundle``; the radius identity also for every stored radius request), and every stored design and editor
-cache and every batch ``request.json`` must re-derive its key. Nothing is written under that root.
+``data_bundle``; the radius identity also for every stored radius request, the editor's context for every parent the
+editor offers and every stored editor request), and every stored design and editor cache and every batch
+``request.json`` must re-derive its key. Nothing is written under that root.
 """
 from __future__ import annotations
 
@@ -39,11 +47,13 @@ from eeglayoutlab.schemas import jsjson
 from eeglayoutlab.server.workspace import LOCAL_OWNER
 
 from .key_parity_support import (
-    BAD_UTF8_NAME, BANK, CONDA_META, CONFIGS, LINE_TERMINATOR_DIST_INFO, NATIVE, NATIVE_DIST_INFO, PRIOR,
-    RADIUS_CODE_NAMES, RADIUS_KEY_REQUESTS, RADIUS_ROOT_CONFIGS, RADIUS_ROOTS, REQUESTS, ROOTS, SPATIAL, TABLE_DIR, Case,
-    EnvelopeCases, PythonCases, all_requests, browser_submission, build_roots, canonical_requests, coordinate_sources,
-    design_root, digest, envelope_outcome, needs_node, node_outcome, radius_cases, radius_corpus, radius_outcome,
-    radius_root, require, run_annotations_node, run_library_node, run_node, spec_case, synthetic_cases,
+    BAD_UTF8_NAME, BANK, CONDA_META, CONFIGS, EDITOR_ACCEPTED, EDITOR_PARENTS, EDITOR_ROOT_CONFIGS, EDITOR_SOME,
+    LINE_TERMINATOR_DIST_INFO, NATIVE, NATIVE_DIST_INFO, PRIOR, RADIUS_CODE_NAMES, RADIUS_KEY_REQUESTS,
+    RADIUS_ROOT_CONFIGS, RADIUS_ROOTS, REQUESTS, ROOTS, SPATIAL, TABLE_DIR, Case, EditorCases, EnvelopeCases,
+    PythonCases, all_requests, browser_submission, build_roots, canonical_requests, coordinate_sources, design_root,
+    digest, editor_case_ids, editor_context_cases, envelope_outcome, needs_node, node_outcome, radius_cases,
+    radius_corpus, radius_outcome, radius_root, require, run_annotations_node, run_editor_node, run_library_node,
+    run_node, spec_case, synthetic_cases,
 )
 
 CASES = synthetic_cases()
@@ -619,3 +629,176 @@ def test_source_metadata_cannot_change_normalization_context_or_annotation_ids(e
         assert annotations.create(_prepared(named))['id'] == old['id']
         assert validate_electrode_annotation(old, bare['key']) is old
         assert node['identities'][f'review/named/{owner}']['create']['value'] == jsjson.stringify(old)
+
+
+# --- The electrode editor's context (slice 6) ----------------------------------------------------------------------
+
+EDITOR_CASE_IDS = editor_case_ids()
+EDITOR_MESSAGES = {
+    'record': 'Choose a completed layout with saved region boundaries',
+    'noise': 'The electrode editor scores with independent noise; choose a layout searched under independent noise',
+    'digest': 'Parent changed; reload the layout before editing',
+    'geometry': 'Parent region geometry or surface-admission identity differs',
+}
+
+
+@pytest.fixture(scope='session')
+def editor_synthetic(tmp_path_factory):
+    require('pydantic')  # the library and the design context
+    from .editor_support import build_editor_roots
+
+    base = tmp_path_factory.mktemp('editor-parity')
+    roots = build_editor_roots(base / 'roots')
+    cases = editor_context_cases(roots)
+    node = run_editor_node(cases, base)
+    return roots, {case['id']: case for case in cases}, node, base
+
+
+@needs_node
+@pytest.mark.parametrize('case_id', EDITOR_CASE_IDS)
+def test_editor_context_parity(case_id, editor_synthetic):
+    _, cases, node, base = editor_synthetic
+    assert EditorCases(base).run(cases[case_id]) == node_outcome(node['by_id'][case_id])
+
+
+@needs_node
+def test_editor_variants_reach_their_branches(editor_synthetic):
+    # Parity alone would also pass if a fixture missed its branch; these pin what each variant exercises.
+    from eeglayoutlab.jobs.integrity import InputIntegrity
+
+    from .editor_support import EDITOR_CODE
+
+    roots, cases, node, _ = editor_synthetic
+    result = node['by_id']
+    ok = lambda case_id: result[case_id]['ok'] and result[case_id]  # noqa: E731
+    message = lambda case_id: node_outcome(result[case_id]).get('message')  # noqa: E731
+    code = lambda case_id: node_outcome(result[case_id]).get('code')  # noqa: E731
+
+    # Every kind of parent on the base root, in Node's order of checks.
+    for config in EDITOR_ROOT_CONFIGS['editor-base']:
+        for parent in EDITOR_ACCEPTED:
+            assert ok(f'editor-base/{config}/prepare-{parent}') and ok(f'editor-base/{config}/evaluate-{parent}')
+        for parent in ('historical', 'offline', 'design', 'strict-no-layout', 'cache-unpatched', 'cache-zero-patches',
+                       'cache-no-layout', 'missing'):
+            for kind in ('prepare', 'evaluate'):
+                assert message(f'editor-base/{config}/{kind}-{parent}') == EDITOR_MESSAGES['record'], parent
+        assert message(f'editor-base/{config}/evaluate-cache-spatial') == EDITOR_MESSAGES['noise']
+        for parent in ('cache-geometry', 'cache-admission'):
+            assert message(f'editor-base/{config}/evaluate-{parent}') == EDITOR_MESSAGES['geometry']
+        assert message(f'editor-base/{config}/stale-cache') == EDITOR_MESSAGES['digest']
+    assert set(EDITOR_PARENTS) == {*EDITOR_ACCEPTED, 'historical', 'offline', 'design', 'strict-no-layout',
+                                   'cache-unpatched', 'cache-zero-patches', 'cache-no-layout', 'missing',
+                                   'cache-spatial', 'cache-geometry', 'cache-admission'}
+
+    # B17: the design identity, ``schema`` overwritten in place, three members appended; the context's members.
+    prepared = ok('editor-base/default/prepare-cache')
+    evaluated = ok('editor-base/default/evaluate-cache')
+    assert prepared['keys'] == ['identity', 'admission', 'key', 'parent', 'parent_digest']
+    identity = jsjson.parse(prepared['identity'])
+    base = roots['editor-base']
+    request = cases['editor-base/default/prepare-cache']['request']
+    design = py_identity.design_context(base['root'], prepared['config']['nativePython'],
+                                        InputIntegrity(base['root']), request)
+    assert list(identity) == [*design.identity, 'parent_digest', 'editor_sha256', 'editor_implementation_sha256']
+    assert identity == {**design.identity, 'schema': 'electrode-editor-cache/1',
+                        'parent_digest': digest(prepared['parent']), 'editor_sha256': digest('editor worker'),
+                        'editor_implementation_sha256': {EDITOR_CODE: digest('editor code')}}
+    assert prepared['key'] == request_key(request, identity)
+    assert prepared['parent_digest'] == evaluated['parent_digest'] == digest(prepared['parent'])
+    assert evaluated['identity'] == prepared['identity'] and evaluated['key'] != prepared['key']
+    assert prepared['worker_input'] == f'{{"request":{jsjson.stringify(request)},"parent":{prepared["parent"]}}}'
+    # The strict-area parent's geometry is its report's, a radius cache's its provenance's.
+    assert 'geometry_sha256' not in jsjson.parse(ok('editor-base/default/prepare-strict')['parent'])['provenance']
+    assert jsjson.parse(prepared['parent'])['provenance']['geometry_sha256'] == digest('candidates')
+
+    # The interpreter enters the design identity; the library's compatibility enters the parent's digest.
+    keys = {config: ok(f'editor-base/{config}/prepare-strict')['key'] for config in EDITOR_ROOT_CONFIGS['editor-base']}
+    assert len(set(keys.values())) == 3 and keys['default'] == keys['env-empty']
+    assert ok('editor-simnibs/default/prepare-cache')['config']['nativePython'].endswith(f'/{NATIVE}/bin/python')
+    # A linked root keeps its spelling: the report's real path is not under it, so the library refuses the
+    # strict-area dataset (Node's 报告路径或身份无效) and the editor its layouts; the radius caches stay parents.
+    link = roots['editor-symlinked']['root']
+    linked = ok('editor-symlinked/default/prepare-cache')['config']['repositoryRoot']
+    assert linked == link != roots['editor-symlinked']['tree']
+    assert message('editor-symlinked/default/prepare-strict') == EDITOR_MESSAGES['record']
+    assert ok('editor-table/default/prepare-cache')['identity'] != prepared['identity']
+
+    # Variants: the report's geometry, the admission, the editor's code, the design inputs, no library.
+    assert message('editor-no-geometry/default/prepare-strict') == EDITOR_MESSAGES['geometry']
+    assert ok('editor-no-geometry/default/prepare-cache')
+    for parent in ('strict', 'cache', 'cache-other-code'):
+        assert message(f'editor-other-admission/default/prepare-{parent}') == EDITOR_MESSAGES['geometry']
+    for name, error in (('no-script', 'ENOENT'), ('no-code', 'ENOENT'), ('code-dir', 'EISDIR')):
+        assert code(f'editor-{name}/default/prepare-cache') == error, name
+        assert message(f'editor-{name}/default/prepare-missing') == EDITOR_MESSAGES['record'], name
+    broken = node_outcome(result['editor-broken-bank/default/prepare-cache'])
+    assert not broken['ok'] and broken.get('message') not in EDITOR_MESSAGES.values()
+    assert message('editor-broken-bank/default/prepare-missing') == EDITOR_MESSAGES['record']
+    assert message('editor-broken-bank/default/evaluate-cache-spatial') == EDITOR_MESSAGES['noise']
+    for parent in EDITOR_SOME:
+        assert message(f'editor-no-library/default/prepare-{parent}') == EDITOR_MESSAGES['record'], parent
+
+    # Values the routes never pass: read as V8 reads them.
+    assert message('editor-base/default/odd-null') == "Cannot read properties of null (reading 'parent_id')"
+    assert message('editor-base/default/odd-empty') == EDITOR_MESSAGES['record']
+    assert message('editor-base/default/odd-no-digest') == EDITOR_MESSAGES['digest']
+    assert ok('editor-base/default/odd-no-action')['identity'] == prepared['identity']
+    odd = ok('editor-base/default/odd-index-keys')
+    assert odd['worker_input'].startswith('{"request":{"1":["a",{"1":"a","2":"b"}],"2":"b","parent_id":')
+    assert len({ok(f'editor-base/default/{name}')['key'] for name in ('odd-no-action', 'odd-index-keys',
+                                                                       'prepare-cache')}) == 3
+
+
+# The reference of 2026-11-23 (Node, the installation's default configuration): a preparation of this parent.
+REFERENCE_PARENT = 'bb0d29ac477c29511e3d40985e5f6c9cc0d80c58a12716894fd677caa2752cf3'
+REFERENCE = {'key': '57dabe43c3cc58137d5a296d665f125495db66eab760f3019a6ed5755758ea12',
+             'parent_digest': '6485c7150479644ad536a5e3414c88c6a41811a502bcee20852697d04a978685',
+             'identity_sha256': 'add0ef2a4af4e2557fe319810a4713260c207a32b25e98f846bedfa93cd6d1d7'}
+
+
+@pytest.mark.data_bundle
+@real_root
+@needs_node
+def test_real_root_editor_context_parity(tmp_path):
+    """The editor's context on the installation (its default configuration, one queue and service as the server
+    has): a preparation of every parent the editor offers and of the reference parent, and every stored editor
+    request as stored. Python and Node agree on each. An offered parent is prepared or, once the region geometry or
+    surface admission moved on, refused for that alone (``parents()`` does not check them, as in Node); which
+    parents are refused, and which stored keys and reference values still hold today, is printed (inputs move on;
+    an evaluation whose parent changed is refused)."""
+    require('pydantic')
+    from eeglayoutlab.jobs.editor_records import parents
+    from eeglayoutlab.jobs.library import Library
+
+    config = py_runtime.runtime_config(REAL_ROOT, env={})
+    offered = [row['id'] for row in parents(Library(config.repository_root, config))]
+    stored = {}
+    directory = Path(REAL_ROOT) / 'results/v2/electrode_editor_jobs'
+    for entry in sorted(directory.iterdir()) if directory.is_dir() else ():
+        cache = entry / 'cache.json'
+        if KEY.fullmatch(entry.name) and cache.is_file():
+            stored[entry.name] = jsjson.parse(cache.read_bytes().decode('utf-8', errors='replace'))['result']['request']
+    cases = [{'id': f'real/prepare-{id}', 'root': REAL_ROOT, 'request': {'action': 'prepare', 'parent_id': id}}
+             for id in dict.fromkeys([REFERENCE_PARENT, *offered])]
+    cases += [{'id': f'real/stored-{key}', 'root': REAL_ROOT, 'request': request} for key, request in stored.items()]
+    node = run_editor_node(cases, tmp_path, reuse=True)['by_id']
+    python = EditorCases(tmp_path, reuse=True)
+    outcomes = {case['id']: python.run(case) for case in cases}
+    for case in cases:
+        assert outcomes[case['id']] == node_outcome(node[case['id']]), case['id']
+    refused = [id for id in offered if not outcomes[f'real/prepare-{id}']['ok']]
+    assert offered and all(outcomes[f'real/prepare-{id}'].get('message') == EDITOR_MESSAGES['geometry']
+                           for id in refused)
+    reference = outcomes[f'real/prepare-{REFERENCE_PARENT}']
+    today = ({'key': reference['key'], 'parent_digest': reference['parent_digest'],
+              'identity_sha256': digest(reference['identity'])} if reference['ok'] else reference)
+    print(f'\neditor reference {REFERENCE_PARENT[:12]}: ' + ', '.join(
+        f'{name} {"matches" if today.get(name) == value else "differs"}' for name, value in REFERENCE.items()))
+    for key in stored:
+        outcome = outcomes[f'real/stored-{key}']
+        refusal = outcome.get('message') or outcome.get('code')
+        state = ('key matches' if outcome['ok'] and outcome['key'] == key else
+                 f'key differs ({outcome["key"][:12]})' if outcome['ok'] else f'refused: {refusal}')
+        print(f'editor cache {key[:12]} {stored[key]["action"]}: {state}')
+    print(f'editor parents prepared: {len(offered) - len(refused)} of {len(offered)}; refused for their geometry or '
+          f'admission: {", ".join(id[:12] for id in refused) or "none"}')

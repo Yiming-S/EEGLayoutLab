@@ -235,10 +235,16 @@ def boot_id() -> Optional[str]:
 
 
 def internal_fault(error: BaseException) -> bool:
-    """``internalFault``: a system error or a programming error, rather than a refused request."""
+    """``internalFault``: a system error or a programming error, rather than a refused request. The services'
+    refusals (``jobs.radius.RadiusJobError``, Node's plain ``Error``: the editor's parent checks at dispatch among
+    them) are refused requests, as in ``routes.compute``."""
     code = getattr(error, 'code', None)
     if isinstance(code, str) and re.fullmatch('E[A-Z]+', code):
         return True
+    # Not imported: the radius search needs Pydantic and the queue does not; its errors exist once it is loaded.
+    radius = sys.modules.get(f'{__package__}.radius')
+    if radius is not None and isinstance(error, radius.RadiusJobError):
+        return False
     return isinstance(error, (OSError, TypeError, NameError, AttributeError, LookupError, ArithmeticError,
                               AssertionError, RuntimeError))
 

@@ -15,9 +15,10 @@
 // - with `until` (statuses) the GET is repeated every 20 ms until body.job.status is one of them (and, with
 //   `progress`, body.job.progress > 0), for at most settle_ms.
 // Each answer is recorded as {method, path, status, type, body} (the body as text). The token is recorded too.
-// The root's worker is the fake of tests/service/compute_support.py; the records it writes stay under the root,
-// which must be a synthetic root. The scheduler's state goes to <queueDirectory>, a scratch directory, never
-// R/results/web-service of a real installation.
+// The root's workers are the fakes of tests/service/compute_support.py (the radius search's, and on an editor root
+// the coordinate evaluation's and the electrode editor's, all three kinds sharing the one queue and slot); the
+// records they write stay under the root, which must be a synthetic root. The scheduler's state goes to
+// <queueDirectory>, a scratch directory, never R/results/web-service of a real installation.
 import { createServer } from 'node:http';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { isAbsolute } from 'node:path';

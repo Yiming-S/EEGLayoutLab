@@ -12,6 +12,8 @@ export type DesignEvaluationRequest = Schemas['DesignEvaluationRequest'];
 export type DesignEvaluationBody = Schemas['DesignEvaluationBody'];
 /** The body of POST /api/local-compute/jobs and /lookup (a radius search), in its canonical form. */
 export type RadiusSearchRequest = Schemas['RadiusSearchRequest'];
+/** The body of POST /api/electrode-editor/jobs: a preparation or an evaluation of 64 stable slots. */
+export type ElectrodeEditorRequest = Schemas['ElectrodeEditorRequest'];
 // The coordinate-source types are in webapp/contracts/coordinate-source.ts, next to their validator.
 
 export type PerturbationRadius = DesignEvaluationRequest['radius_mm'];

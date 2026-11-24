@@ -124,6 +124,65 @@
         }
       }
     },
+    "/api/normalize/electrode-editor": {
+      "post": {
+        "operationId": "normalize_electrode_editor",
+        "summary": "Validate a electrode-editor request and return its canonical form",
+        "description": "Diagnostic endpoint. Reproduces normalizeEditorRequest (webapp/server/electrode-editor-server.mjs).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ElectrodeEditorRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The canonical request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NormalizedRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not valid JSON or not a valid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The body is larger than 65,536 bytes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not application/json.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/normalize/radius-search": {
       "post": {
         "operationId": "normalize_radius_search",
@@ -863,6 +922,123 @@
           "region_indices"
         ],
         "title": "ElectrodeDesign",
+        "type": "object"
+      },
+      "ElectrodeEditorEvaluation": {
+        "additionalProperties": false,
+        "description": "Score the edited layout: ``parent_digest`` is the SHA-256 of the parent record's ``JSON.stringify`` text,\nand the slots keep the parent's electrode order.",
+        "properties": {
+          "action": {
+            "const": "evaluate",
+            "title": "Action",
+            "type": "string"
+          },
+          "parent_id": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "parent_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Parent Digest",
+            "type": "string"
+          },
+          "seed": {
+            "const": 2026,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "slots": {
+            "contains": {
+              "properties": {
+                "enabled": {
+                  "const": true
+                }
+              },
+              "required": [
+                "enabled"
+              ],
+              "type": "object"
+            },
+            "items": {
+              "$ref": "#/components/schemas/ElectrodeEditorSlot"
+            },
+            "maxItems": 64,
+            "minContains": 2,
+            "minItems": 64,
+            "title": "Slots",
+            "type": "array"
+          }
+        },
+        "required": [
+          "action",
+          "parent_id",
+          "parent_digest",
+          "seed",
+          "slots"
+        ],
+        "title": "ElectrodeEditorEvaluation",
+        "type": "object"
+      },
+      "ElectrodeEditorPreparation": {
+        "additionalProperties": false,
+        "description": "Load the parent layout's region data for editing.",
+        "properties": {
+          "action": {
+            "const": "prepare",
+            "title": "Action",
+            "type": "string"
+          },
+          "parent_id": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Parent Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "parent_id"
+        ],
+        "title": "ElectrodeEditorPreparation",
+        "type": "object"
+      },
+      "ElectrodeEditorRequest": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ElectrodeEditorPreparation"
+          },
+          {
+            "$ref": "#/components/schemas/ElectrodeEditorEvaluation"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "action",
+          "mapping": {
+            "prepare": "#/components/schemas/ElectrodeEditorPreparation",
+            "evaluate": "#/components/schemas/ElectrodeEditorEvaluation"
+          }
+        }
+      },
+      "ElectrodeEditorSlot": {
+        "additionalProperties": false,
+        "description": "One of the parent's 64 electrodes: the bank index of its position, which the worker checks against the\nslot's region, and whether it is active.",
+        "properties": {
+          "bank_index": {
+            "maximum": 1000000,
+            "minimum": 0,
+            "title": "Bank Index",
+            "type": "integer"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "bank_index",
+          "enabled"
+        ],
+        "title": "ElectrodeEditorSlot",
         "type": "object"
       },
       "ErrorResponse": {

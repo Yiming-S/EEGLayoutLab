@@ -1,6 +1,6 @@
 # 0001, phase 2 — the Python service, in slices
 
-- **Status:** in progress; slices 1 to 5 done, slice 6 next. Decisions U1, U2, U3 and U6 were confirmed on 2026-11-23; U4, U5 and U7 are proposed defaults.
+- **Status:** in progress; slices 1 to 6 done, slice 7 next. Decisions U1, U2, U3 and U6 were confirmed on 2026-11-23; U4, U5 and U7 are proposed defaults.
 - **Date:** 2026-11-23
 - **Design:** [0001 — Local-first application with a Python service](0001-local-first-architecture.md), migration table, phase 2
 
@@ -251,6 +251,61 @@ Two behaviours are shared with Node, not differences. A cached hit's receipt car
 
 Node 22 on Linux, CI's Node, was not run locally.
 
+### Slice 6 — electrode editor
+
+Electrode edits run on the Python service through the slice 4 queue: a preparation of a library layout (its regions and their bank candidates) and an evaluation of its 64 stable slots, with lookups, progress, cancellation and cache replay, and Node's records under `R/results/v2/electrode_editor_jobs`. This serves the interface's electrode editor (`/electrodes`), whose parents and saved evaluations came with slice 3.
+
+- `schemas/electrode_editor.py`: the `electrode-editor` format, Node's `normalizeEditorRequest` (`electrode-editor-server.mjs:10-21`). Its 5 messages are verbatim and checked in Node's order. It comes with its registry entry, a generator over 1,185 variants (`tests/schema_parity/formats/electrode-editor.mjs`), `/api/normalize/electrode-editor` and `ElectrodeEditorRequest` in the generated types.
+- In `jobs/`:
+  - `editor` holds `EditorJobs`, a port of `ElectrodeEditorService` (`:41-108`) as a subclass of slice 5's `DesignJobs`, as Node's class extends `DesignEvaluationService`. It overrides `normalize`, `validate` (slice 3's `validateEditorResult`; the admission is ignored, as Node drops the argument), `context`, `worker_input` and `view`. Its `records()` and `parents()` are slice 3's catalogs, and its `handle()` is the routes. Everything else is `DesignJobs`'s: lookup, submit, the close, cancel, dispose, `stored_finish` and the Python additions.
+    - The context reads the parent's full library record (`Library.get`, B13). It refuses the parent with Node's messages, in Node's order: no saved region boundaries, a noise model, a parent digest that changed, a strict-area report that changed, another region geometry or surface admission. Then it extends the design context of the same request (slice 1).
+    - The identity is the design identity with `schema` overwritten in its first position by `electrode-editor-cache/1`, then `parent_digest` (`sha256(JSON.stringify(parent))`), `editor_sha256` (`scripts/electrode_editor.py`) and `editor_implementation_sha256` (`EDITOR_WORKFLOW`) appended (B17). The key is `sha256(JSON.stringify({request, identity}))`.
+    - The context runs in three steps in worker threads (the parent, the design context, then the geometry and the editor's digests), one identity at a time across kinds, so a request that fails several checks fails with Node's message.
+    - The worker is `<native interpreter> -u R/scripts/electrode_editor.py` with `{request, parent}` on stdin, one thread, 600 s and 4 MiB of output. The records are `request.json`, `job.json` (the view, with `parent_digest`) and `cache.json`, published once (B16).
+    - The view adds `parent_digest`: the context's, else the digest of the result's `parent` (a preparation echoes it; a cached job has no context), else the result request's.
+  - `kinds` gains `StoredResultAdapter`, which now holds `DesignAdapter`'s `finished_at`, and `electrode_editor_adapter`, Node's plain adapter over the service's `normalize` and `context` (`community-adapters.mjs:22`). `community_adapters` takes the editor.
+- In `server/`:
+  - `ComputeHost` builds the editor with the native interpreter and with the radius search's execution slot and record store, as Node's editor shares its queue's. It reads its parents through the library routes' `Library` (`ComputeHost.library`, which `create_app` sets), as Node's editor and library routes share `queue.library`.
+  - The editor routes (`lookup`, `jobs`, `jobs/<id>`, `cancel`) are those of slice 4, with Node's body limit of 32,768 bytes. A parent the editor refuses is a 400 with Node's message (`EditorContextError`), as Node's `publicFailure` answers it, and nothing is queued. An edit whose parent changed while it waited is refused when it is dispatched, and its receipt keeps that message, as Node's tick stores `publicMessage` of a plain `Error`: the queue counts the services' refusals (`RadiusJobError`, which `EditorContextError` is) as refused requests, not internal faults. A receipt's view prepares its request again, so once a stored evaluation's parent has changed its view answers that refusal, as Node's does. Other paths under `/api/electrode-editor` are 404 `Unknown editor endpoint`.
+  - At startup, `recover()` promotes an interrupted edit whose result was stored, with that record's `finished_at`, as for the coordinate evaluation; one whose result was never stored, or whose record names another identity, stays failed.
+  - Health's `active_job` and `stop_soon` cover the editor. The OpenAPI document gains the format only.
+- In `webapp/` the interface is unchanged. `check-electrode-editor-live.mjs` signs in to the Python service through `openServiceSession` (`EEG_SERVICE_RUNTIME` or `EEG_SERVICE_TOKEN`). Otherwise it talks to the Node host at `EEG_TEST_URL` (default `http://127.0.0.1:3000`) and keeps Node's visitor cookie. It polls while an edit is queued, and its page requests carry the session cookie.
+- Node references in `tests/service/parity/`:
+  - `editor_run.mjs`: Node's `ElectrodeEditorService` over a `LocalComputeQueue` of synthetic editor roots (`editor_support.editor_root`: a design root with a parent of every kind the library offers), so the library, the design context and the digests are real on both sides.
+    - Mode `contexts`: 325 cases on 11 roots (the base root, a nominal table, a managed runtime, a linked root, a report without region geometry, another surface admission, no editor script, no editor code, a code path that is a directory, a broken bank, no library datasets), under each interpreter configuration of the base and managed roots. Each case prepares or evaluates a parent, evaluates with a stale digest, or passes a value the routes never pass.
+    - Mode `runs`: 12 run-path cases with an injected `spawnProcess`, a pinned `Date` and pinned job ids: preparations and evaluations that complete, every parent refusal, a worker failure, a spawn throw, every `validateEditorResult` message (V8's `TypeError` among them), the editor's code, the parent or the report changed before the close, a timeout, a cancel, the output bound, publish once, and lookups that hit and miss.
+  - `compute_routes.mjs` gains the 79 steps of `compute_support.editor_steps`: the editor routes of Node's composed service, on an editor root whose three workers are stand-ins, sharing the queue and the slot with the coordinate evaluation and the radius search. It also runs the 8 steps of `parent_change_steps` (`test_compute_routes.py`): an edit whose parent changes while it waits, refused at dispatch.
+- The slice's 2 Node test sites are ported (`test_editor`), and the mirrored protocol site of check-electrode-editor.mjs has its generator.
+
+Result (2026-11-24):
+
+- **Parity.** Python's results equal Node's in every reference above, on Node 26.5.0 and Node 24.22.3.
+  - Every variant's outcome, canonical bytes and message (341 accepted, 7 that fail JSON parsing, and 182, 118, 247, 231 and 59 for the five messages). The corpus's editor part is identical under both Nodes.
+  - Each context's identity, admission, parent and worker-input texts, parent digest, key and member order, or its refusal.
+  - The run path's views, refusals, spawn arguments and stdin, and the bytes of `request.json`, `job.json` and `cache.json`.
+  - Every HTTP step's status, content type and masked body, and the editor and design record trees.
+- **Real root.** On the author's installation, Python's and Node's contexts agree for every parent the editor offers (35), the reference parent and the 5 stored editor requests. The same-day reference keys of 2026-11-23 still hold for the reference parent `bb0d29ac…`: key `57dabe43…`, parent digest `6485c715…`, identity `add0ef2a…`. None of the 5 stored editor caches is current. The 4 preparations' keys differ through the design identity's `digests` (since they were written 4 hashed scientific code files changed and 5 more entered the hashed list, 225 digests then and 230 now; 2 of their parents' records changed too), and the evaluation `da5928c1…` is refused with `Parent changed; reload the layout before editing`.
+- **Checks.** The service tier passes on macOS (28,484 tests, 1 skipped, 1 strict xfail for a Node older than nodejs/node#65607), and so do the slice's test files on Node 24.22.3 (26,450, `test_design` and `test_queue` among them), the real-root tier (461), the native tier (900) and the interface's typecheck, lint, `test:fast` (681, 7 skipped) and build. The OpenAPI document regenerates byte for byte.
+- **Mutation checks.** All 19 mutants of `editor.py` were caught: each check of the context (the parent's status and region boundaries, the noise model, the digest, the report, the provenance geometry, the admission), the order of the checks (the digest before the noise model, the design context first), `schema` appended instead of overwritten in place, a missing implementation digest, the wrong script digest, the design key kept, a worker input of the request alone, both fallbacks of the view, validation skipped, the record kind `design`, and the context's member order.
+- **Linux.** Not run: the format, the editor and its routes need Pydantic, which the Linux test host lacks.
+- **Live checks.** These ran with `eeglayoutlab serve` on a scratch workspace, against an APFS copy of the author's installation without `.git`, `.claude`, `artifacts`, `node_modules` and `.runtime`. The installation's managed interpreter ran the workers through `EEG_COMPUTE_PYTHON`.
+  - **Keys.** On the copy the native interpreter is the same path as on the installation, but the managed runtime's 200 files enter the identity only when the interpreter is the root's own `.runtime/simnibs-4.6.0/bin/python`, so the copy's design identity has 30 digests and the installation's 230. The library records are equal, so the reference parent's digest is `6485c715…` on both, and its preparation key is `2f3a7ef2…` on the copy against `57dabe43…` on the installation. On the copy Python's contexts equal Node's for every parent offered (35 before the runs, 36 after), the reference parent and every stored editor request, before and after the runs.
+  - **`check-electrode-editor-live.mjs` passes** in 12 s. Its parent is `388bdd11…` (two regions, PR + PL, 35 mm), a radius row whose code identity is no longer current, which the editor offers and accepts as Node's does. It prepares the parent (key `737ad72d…`, the key computed beforehand), evaluates the original 64 electrodes (their metrics equal the parent's), one deletion (63), its cached replay, a move with the deletion, and the two-electrode edge (localization `null`). It finds the saved evaluation in `GET /api/electrode-editor/records` and loads `/electrodes` in both languages.
+  - **`check-app-live.mjs`** passes the 11 pages, the library (402 supplied records), a radius job with its cached replay, record and bundle, a preparation and an evaluation (63 electrodes) of that new layout with their cached replays, and the coordinate evaluation of the layout with its replay. It stops at its first signal-simulation job (slice 7: `POST /api/source-reception/jobs` 404 `Unknown queue endpoint`).
+  - **After the runs**, Node's own `ElectrodeEditorService.lookup` on the copy hits each of the 7 editor rows the service wrote (2 preparations, 5 evaluations), with the row's key. It misses the 4 Node-written preparations and refuses the evaluation `da5928c1…` with `Parent changed`. The 5 Node-written editor rows, and every design and radius row, kept their bytes.
+  - **Shutdown.** SIGTERM stopped the service with exit 0, `runtime.json` was removed and no worker was left. Nothing under the installation changed, and the copy was deleted.
+
+Known differences from Node:
+
+- **Publish once (B16).** A valid `cache.json` that another workspace published first is kept, and the job keeps its own result in `job.json`. Node replaces the file.
+- **Restart recovery reads the record as the lookup does**, as for the coordinate evaluation (slice 5, R6).
+- **The spawn, the records and the context**, as for the coordinate evaluation (slice 5): the spawn is awaited under `asyncio.shield`, records are read and written in worker threads, the context is computed in worker threads one identity at a time across kinds, and finalization runs from the completion callback.
+- **Not ported.** `ElectrodeEditorService.handle`, with its own 413 `Editor request too large` and 404 `Job expired; submit again to read the saved result`: in Node's composed service the queue's routes answer first, so neither host gives these answers. The per-browser view of `parents(visible)` (R1, R4): every parent is listed (slice 3).
+
+Three behaviours are shared with Node, not differences. A job that the service's `submit` finds stored (a queued edit whose result another host or workspace published before its dispatch) has no context, so while the service holds that job its view's `parent_digest` is the digest of the parent its preparation echoes (or its evaluation's request digest); a lookup hit's cached receipt, and every view that prepares the request again, gives the library's current record's digest. With the real worker, which echoes the whole parent and whose key includes `parent_digest`, the two are equal. On a root reached through a link, the root keeps its spelling and the strict-area report's real path is not under it, so the library refuses the strict-area dataset and the editor refuses those layouts; radius layouts stay parents. `parents()` lists layouts the context then refuses (another region geometry or surface admission) and radius layouts whose code identity is no longer current, which the context accepts.
+
+Node 22 on Linux, CI's Node, was not run locally.
+
 ## Where key equality can break
 
 The request key is `sha256(utf8(JSON.stringify({request, identity})))`. Proof tiers: **A** CI on synthetic roots with the Node driver on the same root; **B** the opt-in real installation; **C** a live lookup comparison of both hosts.
@@ -305,6 +360,7 @@ The Node code stays until phase 4; none of this is ported:
 | 2 | An opt-in development proxy to the Python service, and a session helper for scripts |
 | 4 | The status component reads `GET /api/community/status`; a host that counts visitors (Node) then gets the heartbeat as before; visitor counts only when present (works on both hosts) |
 | 5 | None in the interface; `check-design-evaluation-live.mjs` and the two coordinate browser checks sign in to the Python service |
+| 6 | None in the interface; `check-electrode-editor-live.mjs` signs in to the Python service |
 | 10 | A 401 answer shows "reopen from the `eeglayoutlab` command" |
 | 10 | Visitor counts, the visibility control and project credentials (keys, roles, sharing, fragment links, the vault) are removed; projects open from `GET /api/projects` |
 | 10 | The development proxy targets Python by default; live and browser scripts are retargeted |
@@ -313,7 +369,7 @@ Unchanged: the `X-EEG-Compute-Token` header (health still returns the token), ev
 
 ## Node tests
 
-The unit-test files in `webapp/scripts` contain 636 test sites. 184 are ported to Python (95 so far), 16 are mirrored by format parity, 338 stay in Node (19 of them adapted in slice 10), 88 are dropped with the public-service machinery, and 10 belong to the Node host's structure or the Node command line. `tests/service/node_tests.toml` maps every site to its disposition, and `tests/service/test_node_test_map.py` fails on an unmapped site, a missing Python target or a pending entry of a finished slice.
+The unit-test files in `webapp/scripts` contain 636 test sites. 184 are ported to Python (97 so far), 16 are mirrored by format parity, 338 stay in Node (19 of them adapted in slice 10), 88 are dropped with the public-service machinery, and 10 belong to the Node host's structure or the Node command line. `tests/service/node_tests.toml` maps every site to its disposition, and `tests/service/test_node_test_map.py` fails on an unmapped site, a missing Python target or a pending entry of a finished slice.
 
 ## Decisions
 

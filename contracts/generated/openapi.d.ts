@@ -44,6 +44,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/normalize/electrode-editor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validate a electrode-editor request and return its canonical form
+         * @description Diagnostic endpoint. Reproduces normalizeEditorRequest (webapp/server/electrode-editor-server.mjs).
+         */
+        post: operations["normalize_electrode_editor"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/normalize/radius-search": {
         parameters: {
             query?: never;
@@ -326,6 +346,54 @@ export interface components {
             /** Region Indices */
             region_indices: number[];
         };
+        /**
+         * ElectrodeEditorEvaluation
+         * @description Score the edited layout: ``parent_digest`` is the SHA-256 of the parent record's ``JSON.stringify`` text,
+         *     and the slots keep the parent's electrode order.
+         */
+        ElectrodeEditorEvaluation: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            action: "evaluate";
+            /** Parent Id */
+            parent_id: string;
+            /** Parent Digest */
+            parent_digest: string;
+            /**
+             * Seed
+             * @constant
+             */
+            seed: 2026;
+            /** Slots */
+            slots: components["schemas"]["ElectrodeEditorSlot"][];
+        };
+        /**
+         * ElectrodeEditorPreparation
+         * @description Load the parent layout's region data for editing.
+         */
+        ElectrodeEditorPreparation: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            action: "prepare";
+            /** Parent Id */
+            parent_id: string;
+        };
+        ElectrodeEditorRequest: components["schemas"]["ElectrodeEditorPreparation"] | components["schemas"]["ElectrodeEditorEvaluation"];
+        /**
+         * ElectrodeEditorSlot
+         * @description One of the parent's 64 electrodes: the bank index of its position, which the worker checks against the
+         *     slot's region, and whether it is active.
+         */
+        ElectrodeEditorSlot: {
+            /** Bank Index */
+            bank_index: number;
+            /** Enabled */
+            enabled: boolean;
+        };
         /** ErrorResponse */
         ErrorResponse: {
             /** @description Message for people; not stable. */
@@ -559,6 +627,57 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["DesignEvaluationBody"];
+            };
+        };
+        responses: {
+            /** @description The canonical request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NormalizedRequest"];
+                };
+            };
+            /** @description The body is not valid JSON or not a valid request. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The body is larger than 65,536 bytes. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The content type is not application/json. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    normalize_electrode_editor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ElectrodeEditorRequest"];
             };
         };
         responses: {
