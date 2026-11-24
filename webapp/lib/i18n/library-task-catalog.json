@@ -14,7 +14,7 @@
   "library.location": { "source": "电极所在部位", "en": "Electrode location" },
   "library.allLocations": { "source": "全部部位", "en": "All locations" },
   "library.countSort": { "source": "电极数从少到多", "en": "Electrode count, low to high" },
-  "library.scope": { "source": "信号实验仅收录当前浏览器的已完成任务；服务器保留最近1000个计算回执，打开已有结果生成的回执另保留300个。筛选记录不会读取完整波形或启动计算。", "en": "Signal experiments include completed tasks from this browser. The server keeps the latest 1000 computation receipts and, separately, 300 receipts created by opening an existing result. Filtering neither loads full waveforms nor starts computation." },
+  "library.scope": { "source": "信号实验只列出当前浏览器完成的任务，较早的任务可能已不在列表中。筛选记录不会读取完整波形或启动计算。", "en": "Signal experiments list only tasks completed in this browser; older tasks may no longer be listed. Filtering neither loads full waveforms nor starts computation." },
   "library.recordProtocol": { "source": "记录与协议", "en": "Record and protocol" },
   "library.counts": { "source": "电极 / 区域", "en": "Electrodes / regions" },
   "library.noTime": { "source": "保存时间未记录", "en": "Save time not recorded" },

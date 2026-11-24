@@ -181,5 +181,9 @@
   "workspace35": {
     "source": "已有电极坐标时，可直接进入坐标导入，上传CSV或JSON并评价；不必先运行区域布局搜索。",
     "en": "If you already have electrode coordinates, open Coordinate Import, upload CSV or JSON and evaluate them directly, without first running a region-layout search."
+  },
+  "workspace36": {
+    "source": "坐标文件与评价条件",
+    "en": "Coordinate file and evaluation conditions"
   }
 }
