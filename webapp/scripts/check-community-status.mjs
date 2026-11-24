@@ -175,9 +175,12 @@ void test('the component refreshes through the model with the page visibility an
   const source = readFileSync(new URL('../components/community-status.tsx', import.meta.url), 'utf8');
   assert.doesNotMatch(source, /\/api\/community\/|x-eeg-visible/);
   assert.match(source, /refreshCommunityStatus\(document\.visibilityState === 'visible'\)/);
-  const start = source.indexOf('{hasVisitorCounts(status) && <>');
+  // The notices live in VisitorNotice, which renders nothing before its guard passes.
+  const start = source.indexOf('export function VisitorNotice(');
   assert.ok(start > 0);
-  const guarded = source.slice(start, source.indexOf('</>}', start));
+  const guarded = source.slice(start, source.indexOf('\n}\n', start));
+  const guard = guarded.indexOf('if (!hasVisitorCounts(status)) return null;');
+  assert.ok(guard > 0 && guarded.indexOf('<details') > guard);
   for (const notice of ['在线访客', '在线访客按最近90秒活跃的浏览器估算', '后台记录IP用于访问日志和限流']) {
     assert.ok(guarded.includes(notice), notice);
     assert.equal(source.split(notice).length - 1, notice === '在线访客' ? 2 : 1, notice);

@@ -183,9 +183,11 @@ def test_committed_openapi_document_is_current():
 def test_interactive_documentation_pages_are_not_served(tmp_path):
     for path in ('/api/docs', '/api/redoc', '/api/openapi.json/'):
         assert_error(client.get(path), 404, 'not_found')
-    # Outside /api/ they are not pages of the interface either: the static export's 404 page.
+    # Outside /api/ they are not pages of the interface either: the static export's 404 page. /docs/ is the
+    # documentation site (mkdocs, design 0004), which answers 503 until it is built, never the interactive pages.
     pages = loopback_client(make_app(ROOT, static_export(tmp_path / 'static')))
     for path in ('/docs', '/redoc', '/openapi.json'):
         response = pages.get(path)
-        assert response.status_code == 404 and response.headers['content-type'] == 'text/html; charset=utf-8'
+        expected = 503 if path == '/docs' else 404
+        assert response.status_code == expected and response.headers['content-type'] == 'text/html; charset=utf-8'
         assert 'swagger' not in response.text.lower() and 'redoc' not in response.text.lower()

@@ -127,6 +127,17 @@ disposition = "N"
 [sites."check-browse-controllers.mjs::unmount aborts overview and design loads before their late replies can update state"]
 disposition = "N"
 
+# --- check-channel-subset-figure.mjs ----------------------------------------------------------------------------------
+
+[sites."check-channel-subset-figure.mjs::the curves take held-out means when there are held-out summaries, and training errors otherwise"]
+disposition = "N"
+
+[sites."check-channel-subset-figure.mjs::the figure draws every method, the random band and the 10-20 point, each with a tooltip"]
+disposition = "N"
+
+[sites."check-channel-subset-figure.mjs::one subset size draws the random spread as a range, and the axis steps stay round"]
+disposition = "N"
+
 # --- check-channel-subset.mjs -----------------------------------------------------------------------------------------
 
 [sites."check-channel-subset.mjs::the error is the projection on the subset differences, whichever subset channel is the reference"]
