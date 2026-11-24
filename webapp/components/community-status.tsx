@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useLanguage } from './language-provider';
 import { RuntimeMessage } from './runtime-message';
-import { useDismissibleDetails } from './use-dismissible-details';
 import { activeTaskLink, completedTaskLink, type ExperimentReceipt } from '@/lib/records-catalog';
 import { downloadExperimentReceipt } from './catalog-experiment-details';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -14,9 +13,8 @@ const labels: Record<string, string> = {
   'local-compute': '区域设计', 'design-evaluation': '坐标评价', 'electrode-editor': '电极编辑', 'source-reception': '信号仿真',
   queued: '排队中', running: '计算中', cancelling: '正在停止', completed: '已完成', no_layout: '未构造出布局', failed: '未完成', cancelled: '已取消', timeout: '已超时',
 };
-export function CommunityStatus() {
-  const { tx, date } = useLanguage();
-  const menu = useDismissibleDetails();
+/** The tasks this browser submitted, refreshed every 15 s; shared by the header indicator and the workspace home. */
+export function useTaskStatus() {
   const [status, setStatus] = useState<Status | null>(null);
   const [failure, setFailure] = useState('');
   useEffect(() => {
@@ -62,12 +60,12 @@ export function CommunityStatus() {
       }
     } catch (e) { setFailure(e instanceof Error ? e.message : '无法读取任务'); }
   };
-  return <details ref={menu} className="relative text-sm">
-    <summary className="cursor-pointer rounded-lg px-2 py-2 text-xs text-ink-soft" aria-label={tx('查看任务与计算队列')}>
-      {tx('任务 / 队列')}{status ? <> {status.queued_tasks}{status.running_tasks > 0 && <> · {tx('计算中')} {status.running_tasks}</>}</> : <span className="hidden sm:inline"> · {tx('服务未连接')}</span>}
-    </summary>
-    <div className="absolute right-0 z-50 mt-2 max-h-[70vh] w-[min(360px,90vw)] overflow-y-auto rounded-xl border bg-popover p-4 shadow-lg">
-      <h2 className="font-semibold">{tx('当前浏览器的任务')}</h2>
+  return { status, failure, act };
+}
+
+export function TaskList({ status, failure, act }: ReturnType<typeof useTaskStatus>) {
+  const { tx, date } = useLanguage();
+  return <>
       {status && <p className="mt-2 text-sm">{tx(`运行中：${status.running_tasks}项 · 等待中：${status.queued_tasks}项`)}</p>}
       {status && <p className="mt-2 text-xs text-muted-foreground">{tx('在线访客')}：{status.online_visitors}</p>}
       <p className="mt-2 text-xs text-muted-foreground">{tx('在线访客按最近90秒活跃的浏览器估算，同一浏览器多个标签页计为一个。')}</p>
@@ -89,6 +87,14 @@ export function CommunityStatus() {
           </div> : <details className="mt-2 text-xs"><summary className="cursor-pointer">{tx('查看任务详情')}</summary><p className="mt-2 break-words"><RuntimeMessage message={task.message} /></p><p className="mt-1 break-all text-muted-foreground">{task.id}</p></details>}
       </div>)}
       {failure && <p role="alert" className="mt-3 text-danger">{tx(failure)}</p>}
-    </div>
-  </details>;
+  </>;
+}
+
+/** Header indicator: the queue at a glance; the list itself lives on the workspace home. */
+export function CommunityStatus() {
+  const { tx } = useLanguage();
+  const { status } = useTaskStatus();
+  return <a href="/#tasks" className="rounded-lg px-2 py-2 text-xs text-ink-soft hover:bg-secondary" aria-label={tx('查看任务与计算队列')}>
+    {tx('任务 / 队列')}{status ? <> {status.queued_tasks}{status.running_tasks > 0 && <> · {tx('计算中')} {status.running_tasks}</>}</> : <span className="hidden sm:inline"> · {tx('服务未连接')}</span>}
+  </a>;
 }

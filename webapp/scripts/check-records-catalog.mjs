@@ -62,8 +62,8 @@ void test('completed tasks reopen exact editor records and coordinate evaluation
   const url = new URL(completedTaskLink(editor), 'http://localhost');
   assert.equal(url.searchParams.get('editorRecord'), edited.key); assert.equal(url.searchParams.get('parent'), parent.id);
   assert.equal(editorRecordLink(edited, 90, '/library'), completedTaskLink(editor));
-  assert.equal(completedTaskLink({ ...receipt, kind: 'local-compute' }), `/library?record=${receipt.key}&ar=90`);
-  assert.equal(completedTaskLink({ ...receipt, kind: 'design-evaluation', request: { action: 'evaluate' } }), `/library?record=${receipt.key}&ar=90`);
+  assert.equal(completedTaskLink({ ...receipt, kind: 'local-compute' }), `/layout?id=${receipt.key}&ar=90`);
+  assert.equal(completedTaskLink({ ...receipt, kind: 'design-evaluation', request: { action: 'evaluate' } }), `/layout?id=${receipt.key}&ar=90`);
   assert.equal(completedTaskLink({ ...receipt, kind: 'design-evaluation', request: { action: 'perturb' } }), null);
   assert.equal(completedTaskLink({ ...receipt, status: 'failed' }), null);
 });
@@ -81,4 +81,17 @@ void test('condition variants of one coordinate design fold into one row at its 
   assert.deepEqual(rows[1].entries.map(entry => entry.id), heads.map(entry => entry.id));
   assert.equal(rows[3].entry.id, lone.id);
   assert.deepEqual(latestPerCondition(rows[1].entries).map(entry => entry.id).sort((a, b) => a.localeCompare(b)), [heads[0].id, heads[1].id].sort((a, b) => a.localeCompare(b)));
+});
+
+void test('evaluations sharing a layout key fold into one row, whatever their protocol or condition', () => {
+  const evaluation = (id, extra) => ({ ...parent, id: id.repeat(64), layout_key: 'k'.repeat(64), ...extra });
+  const nominal = evaluation('1', { dataset_id: 'strict_area', finished_at: '2026-11-20T00:00:00Z' });
+  const imported = evaluation('2', { dataset_id: 'design_evaluation', request: null, finished_at: '2026-11-22T00:00:00Z' });
+  const skull = evaluation('3', { dataset_id: 'design_evaluation', request: null, evaluation_condition: { conductivity_scenario: 'skull_x2' }, finished_at: '2026-11-23T00:00:00Z' });
+  const other = { ...parent, id: '4'.repeat(64), layout_key: 'm'.repeat(64) };
+  const rows = groupConditionVariants(buildRecordCatalog([skull, other, nominal, imported], [], []));
+  assert.deepEqual(rows.map(row => row.kind), ['group', 'entry']);
+  assert.deepEqual(rows[0].entries.map(entry => entry.id), [skull.id, nominal.id, imported.id]);
+  // Each protocol and condition counts once.
+  assert.equal(latestPerCondition(rows[0].entries).length, 3);
 });

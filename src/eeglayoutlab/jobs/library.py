@@ -34,6 +34,7 @@ import threading
 from typing import Any, Callable, Optional
 
 from ..schemas import jsjson
+from ..schemas.layout_key import layout_key as _key_of
 from . import jssort, nodefs, nodepath
 from .annotations import ElectrodeAnnotations
 from .design_result import _distinct
@@ -83,6 +84,13 @@ _OBJECT_PROTOTYPE['constructor'] = 'function Object() { [native code] }'
 _SCORES = ('field_relative', 'sensitivity_tail', 'localization_relative')
 _SHA256 = re.compile('[a-f0-9]{64}')
 
+
+
+def _layout_key(layout: Any) -> Optional[str]:
+    """``layoutKey(layout)``: the key of a search layout, or ``None`` without coordinates and region indices."""
+    if not isinstance(layout, dict) or not js_truthy(layout.get('xyzMm')) or not js_truthy(layout.get('regionIndices')):
+        return None
+    return _key_of(layout['xyzMm'], layout['regionIndices'])
 
 class LibraryError(ValueError):
     """A library record or report Node refuses; the message is Node's, verbatim."""
@@ -447,6 +455,8 @@ class Library:
         self.warnings: list[str] = []
         self.annotations = ElectrodeAnnotations.local(workspace_annotations_dir, self.root)
         self._lock = threading.RLock()
+        # Layout keys of resident full records, by id: (the layout they were computed from, the key).
+        self._layout_keys: dict[str, tuple] = {}
 
     # Node: offline(datasetId, file, convert, digest)
     def _offline(self, dataset_id: str, file: str, convert: Callable[[Any, dict], list], digest: Any = None) -> None:
@@ -510,7 +520,11 @@ class Library:
                     if not cache:
                         raise LibraryError('缓存完整性校验未通过')
                     row = self.cache_record(cache, False)
-                    self.records[key] = summary(row)
+                    keyed = summary(row)
+                    key_of_layout = _layout_key(row.get('layout'))
+                    if key_of_layout:
+                        keyed['layout_key'] = key_of_layout
+                    self.records[key] = keyed
                     self.loaded[key] = stamp
                 row = self.records[key]
                 # The radius cache owns the key formula (code identity, threads and, off macOS, the runtime).
@@ -539,7 +553,7 @@ class Library:
                 stamp = (info.st_mtime_ns, info.st_size)
                 if self.loaded.get('coordinates:' + key) == stamp and key in self.records:
                     continue
-                record = design_reception_record(self.root, key, self.store, conditions=True)
+                record = design_reception_record(self.root, key, self.store, conditions=True, with_layout_key=True)
                 if record:
                     self.records[key] = summary(record)
                 else:
@@ -575,6 +589,20 @@ class Library:
                                 'file': f"results/v2/local_app_jobs/{cache['key']}/cache.json"}
         return validate_saved_record(record)
 
+    def _listed(self, row: dict) -> dict:
+        """``listed(row)``: the summary with the layout key last; a resident full record is keyed once."""
+        layout = row.get('layout')
+        if 'layout_key' in row or layout is None:
+            return summary(row)
+        cached = self._layout_keys.get(row['id'])
+        if cached is None or cached[0] is not layout:
+            cached = (layout, _layout_key(layout))
+            self._layout_keys[row['id']] = cached
+        listed = summary(row)
+        if cached[1]:
+            listed['layout_key'] = cached[1]
+        return listed
+
     def list(self) -> dict:
         """``await list()``: ``{schema, local_only, records, warnings, datasets, retention}``, records without
         their layout and provenance, newest first (``finished_at``, then the label in code-unit order), sorted by
@@ -582,7 +610,7 @@ class Library:
         listing."""
         with self._lock:
             self.refresh()
-            records = jssort.array_sort([summary(row) for row in self.records.values()], _newest_first)
+            records = jssort.array_sort([self._listed(row) for row in self.records.values()], _newest_first)
             return {
                 'schema': LIBRARY_SCHEMA, 'local_only': True, 'records': records,
                 'warnings': list(dict.fromkeys(self.warnings)),

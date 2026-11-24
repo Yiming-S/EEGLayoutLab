@@ -1,7 +1,7 @@
 'use client';
 /* oxlint-disable next/no-html-link-for-pages -- retain static local-file navigation */
 import { lazy, Suspense } from 'react';
-import { LanguageSwitch } from '@/components/language-switch';
+import { SiteHeader } from '@/components/site-header';
 import { useLanguage } from '@/components/language-provider';
 import { Button } from '@/components/ui/button';
 import { RuntimeMessage } from '@/components/runtime-message';
@@ -17,7 +17,7 @@ export default function DeliveryReaderWorkspace() {
   const { tx, date } = useLanguage(), reader = useDeliveryReader();
   const { opened, selected, status, error, notice } = reader;
   return <main className="lab-page">
-    <header className="border-b bg-white"><div className="lab-container flex flex-wrap items-center justify-between gap-4 py-4"><span className="font-semibold">EEG Layout Lab · {tx('交付包阅读')}</span><LanguageSwitch /></div></header>
+    <SiteHeader current="projects" offline selection={{ id: null, phase: 'saved' }} />
     <div className="lab-container space-y-5 py-6">
       <header><h1 className="text-2xl font-semibold">{tx('打开本地交付包')}</h1><p className="mt-2 max-w-3xl text-muted-foreground">{tx('在当前浏览器读取项目交付包，查看说明、指标、坐标与波形。')}</p></header>
       <section className="lab-panel space-y-3" aria-label={tx('选择交付包文件')}>

@@ -1,5 +1,6 @@
 import type { SavedSummary } from './local-library';
 import type { ComputeResult } from './local-compute';
+import { layoutHref } from './layout-page.ts';
 export const REGION_COUNTS = [1, 2, 3, 4, 6];
 export const AREA_CAPS = [60, 120, 180];
 export const MANUAL_COMPUTE_DEFAULT = false;
@@ -36,9 +37,10 @@ export function methodLink(returnHref: string, ar: number, hash = '') {
   return `/method?ar=${ar}&returnTo=${encodeURIComponent(returnHref)}${hash}`;
 }
 export function comparisonLink(record?: SavedSummary | null, ar = 90) {
-  return record?.dataset_id === 'strict_area' ? `/?domain=${record.mode}&area=${record.area_cap_cm2}&r=${record.region_count}&ar=${ar}` : `/?ar=${ar}`;
+  return record?.dataset_id === 'strict_area' ? `/findings?domain=${record.mode}&area=${record.area_cap_cm2}&r=${record.region_count}&ar=${ar}` : `/findings?ar=${ar}`;
 }
-export function recordLink(record: SavedSummary, ar: number) { return `/library?record=${record.id}&ar=${ar}`; }
+/** A saved layout record opens on its layout's page. */
+export function recordLink(record: SavedSummary, ar: number) { return layoutHref({ id: record.id }, ar); }
 export function radiusDesignLink(record: SavedSummary, ar: number) {
   if (record.dataset_id === 'cache') return record.request ? `/design?saved=${record.id}&ar=${ar}` : null;
   // Area record opens read-only; creating a radius configuration requires a separate explicit action.

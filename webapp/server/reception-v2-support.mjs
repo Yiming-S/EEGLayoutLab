@@ -8,6 +8,7 @@ export { normalizeReceptionRequest, validateReceptionResult } from './contracts/
 import { normalizeDesignRequest, validateDesignResult } from './design-evaluation-server.mjs';
 import { robustnessSummary } from '../contracts/scientific-options.mjs';
 import { RecordStore } from './storage/records.mjs';
+import { layoutKeyText } from '../contracts/layout-key.mjs';
 import { createRuntimeIdentityCache } from './runtime/identity-cache.mjs';
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const run = promisify(execFile);
@@ -17,7 +18,7 @@ const runtimeReaders = new WeakMap();
  * conductivity scenario or head are returned only with `conditions` (the library), carrying
  * `evaluation_condition`; signal simulation keeps the default protocol.
  */
-export async function designReceptionRecord(root, id, store = new RecordStore(root), { conditions = false } = {}) {
+export async function designReceptionRecord(root, id, store = new RecordStore(root), { conditions = false, layoutKey = false } = {}) {
   if (!/^[a-f0-9]{64}$/.test(id)) return null;
   const path = `results/v2/design_evaluation_jobs/${id}/cache.json`;
   let bytes;
@@ -97,6 +98,8 @@ export async function designReceptionRecord(root, id, store = new RecordStore(ro
       forward_mode: r.forward_mode,
       design_result: { path, sha256: digest(bytes) },
     },
+    // Listing only: the key of the submitted design, not of the projected points.
+    ...(layoutKey ? { layout_key: digest(layoutKeyText(r.request.design.xyz_mm, r.request.design.region_indices)) } : {}),
   };
 }
 export async function receptionLayouts(queue) {

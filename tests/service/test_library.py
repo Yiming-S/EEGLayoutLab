@@ -34,10 +34,11 @@ from eeglayoutlab.jobs.library import (  # noqa: E402
 from eeglayoutlab.jobs.radius import RadiusCache, normalize_request  # noqa: E402
 from eeglayoutlab.jobs.runtime import runtime_config  # noqa: E402
 from eeglayoutlab.schemas import jsjson  # noqa: E402
+from eeglayoutlab.schemas.layout_key import layout_key  # noqa: E402
 
 from .key_parity_support import needs_node  # noqa: E402
 from .library_support import (  # noqa: E402
-    BROKEN, NODE_ANNOTATIONS, RADIUS_REQUESTS, annotation, annotations, broken_offline, code_tree, finished_order,
+    BROKEN, GRID, NODE_ANNOTATIONS, RADIUS_REQUESTS, annotation, annotations, broken_offline, code_tree, finished_order,
     forward_inputs, library_root, node_failure, python_entry, records_by_text, run_node, sha, write_annotation,
     write_cache,
 )
@@ -384,6 +385,26 @@ def test_library_parity_covers_each_record_kind(parity):
     assert node['bare']['list']['code'] == 'ENOENT'
     broken = [w for kind in BROKEN for w in jsjson.parse(node[f'broken-{kind}']['list']['value'])['warnings']]
     assert len(broken) == 3 * len(BROKEN)
+
+
+@needs_node
+def test_listed_records_carry_their_layout_key(parity):
+    """Design 0004: a listed record with a layout carries ``layout_key`` last (Node's listing; Python's is equal by
+    ``test_library_parity``). A coordinate evaluation is keyed by its submitted design, not by the projected points,
+    so the evaluations of one design under every condition share one key."""
+    _, node, _ = parity
+    listed = jsjson.parse(node['base']['list']['value'])
+    regions = [float(i >= 32) for i in range(64)]
+    designs = {row['layout_key'] for row in listed['records'] if row['dataset_id'] == 'design_evaluation'}
+    assert designs == {layout_key(GRID, regions)}
+    assert layout_key([[x, y, 1] for x, y, _ in GRID], regions) not in designs
+    keyed = [row for row in listed['records'] if 'layout_key' in row]
+    assert {row['dataset_id'] for row in keyed} == {'design_evaluation', 'cache', 'strict_area', 'historical_area',
+                                                    'offline_radius'}
+    for row in listed['records']:
+        assert ('layout_key' in row) == (row['status'] == 'completed'), row['label']
+        if 'layout_key' in row:
+            assert list(row)[-1] == 'layout_key' and len(row['layout_key']) == 64
 
 
 # --- The real installation (EEG_KEY_PARITY_ROOT) ----------------------------------------------------------------

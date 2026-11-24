@@ -1,4 +1,4 @@
-"""``eeglayoutlab serve [WORKSPACE] [--root R] [--port N] [--static DIR] [--no-browser]``, and ``eeglayoutlab data``
+"""``eeglayoutlab serve [WORKSPACE] [--root R] [--port N] [--static DIR] [--docs DIR] [--no-browser]``, and ``eeglayoutlab data``
 (data packages, ``eeglayoutlab.data.cli``).
 
 Starts the local service for one workspace (design 0001, decision 6):
@@ -7,7 +7,8 @@ Starts the local service for one workspace (design 0001, decision 6):
   when it is a workspace, when it is empty, or when the person confirms on a terminal. Without a terminal a new
   workspace needs an explicit path.
 - **Root**: ``--root``, else ``EEG_REPOSITORY_ROOT``, else this checkout, spelled as Node spells it
-  (``jobs.runtime.repository_root``). The static interface defaults to ``R/webapp/dist/client``.
+  (``jobs.runtime.repository_root``). The static interface defaults to ``R/webapp/dist/client`` and the
+  documentation site, served under ``/docs/``, to ``R/site`` (what ``mkdocs build`` writes).
 - **Port and token** (decision U6): a new loopback port (``--port``, default a free one) and new tokens at every
   start. The socket is bound before ``runtime.json`` is written, so the file never names a port in use by
   someone else.
@@ -70,6 +71,7 @@ def _parser() -> argparse.ArgumentParser:
     serve.add_argument('--root', metavar='R', help='scientific root (default: EEG_REPOSITORY_ROOT, else this checkout)')
     serve.add_argument('--port', type=_port, default=0, metavar='N', help='loopback port (default: a free port)')
     serve.add_argument('--static', metavar='DIR', help='static interface (default: R/webapp/dist/client)')
+    serve.add_argument('--docs', metavar='DIR', help='built documentation site served under /docs/ (default: R/site)')
     serve.add_argument('--no-browser', action='store_true', help='print the address instead of opening a browser')
     data_cli.add_commands(commands)
     return parser
@@ -168,7 +170,7 @@ def _bind(port: int) -> socket.socket:
     return sock
 
 
-def _run(workspace: Workspace, root: str, static: str, port: int, browser: bool) -> int:
+def _run(workspace: Workspace, root: str, static: str, port: int, browser: bool, docs: Optional[str] = None) -> int:
     import uvicorn
 
     from ..server.access import Tokens
@@ -196,7 +198,7 @@ def _run(workspace: Workspace, root: str, static: str, port: int, browser: bool)
         except OSError as error:
             return _fail(f'cannot write {workspace.runtime_path}: {error.strerror}')
         config = ServiceConfig(root=root, port=bound, tokens=tokens, user=workspace.user_context(root),
-                               static_dir=static)
+                               static_dir=static, docs_dir=docs)
         server = Server(uvicorn.Config(
             create_app(config), host='127.0.0.1', port=bound, timeout_keep_alive=5, timeout_graceful_shutdown=5,
             access_log=False, log_level='warning', proxy_headers=False, server_header=False, ws='none',
@@ -236,6 +238,7 @@ def serve(args: argparse.Namespace) -> int:
     except ValueError as error:
         return _fail(str(error), 2)
     static = os.path.abspath(args.static) if args.static else nodepath.join(root, 'webapp/dist/client')
+    docs = os.path.abspath(args.docs) if args.docs else nodepath.join(root, 'site')
     interactive = sys.stdin is not None and sys.stdin.isatty()
     try:
         path = choose_workspace(args.workspace, os.getcwd(), interactive, input)
@@ -259,7 +262,7 @@ def serve(args: argparse.Namespace) -> int:
     except WorkspaceError as error:
         return _fail(str(error))
     try:
-        return _run(workspace, root, static, args.port, not args.no_browser)
+        return _run(workspace, root, static, args.port, not args.no_browser, docs)
     finally:
         workspace.close()
 

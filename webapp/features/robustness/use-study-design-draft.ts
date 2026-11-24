@@ -21,6 +21,11 @@ export function useStudyDesignDraft(handoff: ElectrodeDesign | null, selectedStu
     } catch (caught) { if (!controller.signal.aborted && current.current === controller) setError(caught instanceof Error ? caught.message : '坐标文件无法读取'); }
     finally { if (current.current === controller) { current.current = null; setLoading(false); } }
   };
+  /** A saved layout's coordinates replace the draft like a file would. */
+  const chooseDesign = (chosen: ElectrodeDesign) => {
+    current.current?.abort(); current.current = null;
+    setFileDraft({ chosen: true, design: chosen }); setTitleOverride(chosen.name); setError(''); setLoading(false);
+  };
   const design = fileDraft.chosen ? fileDraft.design : handoff;
-  return { design, title: titleOverride ?? design?.name ?? '', setTitle: setTitleOverride, error, loading, readFile };
+  return { design, title: titleOverride ?? design?.name ?? '', setTitle: setTitleOverride, error, loading, readFile, chooseDesign };
 }

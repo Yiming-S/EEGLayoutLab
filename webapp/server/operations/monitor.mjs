@@ -35,7 +35,7 @@ export function operationRoute(url) {
   if (path.startsWith('/api/')) return 'api.other';
   if (path.startsWith('/models/')) return 'asset.model';
   if (path.startsWith('/_next/') || path.startsWith('/assets/') || path.startsWith('/favicon.')) return 'asset.web';
-  if (['/', '/projects', '/deliveries', '/robustness', '/design', '/coordinates', '/electrodes', '/decision', '/reception', '/library', '/results', '/pilot-results', '/guide', '/method'].includes(path)) return 'page';
+  if (['/', '/findings', '/layout', '/channels', '/projects', '/deliveries', '/robustness', '/design', '/coordinates', '/electrodes', '/decision', '/reception', '/library', '/results', '/pilot-results', '/guide', '/method'].includes(path)) return 'page';
   return 'other';
 }
 export function directOperatorRequest(req) {

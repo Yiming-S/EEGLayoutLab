@@ -7,7 +7,8 @@ import { preserveResultsContext } from '@/lib/results-library';
 import { comparisonLink, parseAR, radiusDesignLink } from '@/lib/lab-workflow';
 import type { LocalLibrary } from '@/lib/local-library';
 import type { EditorRecord } from '@/lib/electrode-editor';
-import { protocolName, recordConditionLabels } from '@/lib/ui-language';
+import { protocolName } from '@/lib/ui-language';
+import { evaluationLabels, layoutHref, primaryRecord } from '@/lib/layout-page';
 import { SOURCE_REGIONS } from '@/lib/source-regions';
 import { buildRecordCatalog, catalogViewLink, groupConditionVariants, latestPerCondition, matchesCatalogFilters, parseCatalogView, locationName,
   type CatalogEntry, type CatalogRow, type CatalogView, type ExperimentReceipt } from '@/lib/records-catalog';
@@ -73,9 +74,13 @@ export function useLibraryController() {
       : tx(SOURCE_REGIONS.find(region => region.id === entry.request.brain_region)?.label ?? entry.request.brain_region ?? '历史源定义');
     return `${tx('信号实验')} · ${source} · ${tx(entry.request.waveform === 'burst' ? '短时爆发' : '持续节律')}`;
   }, [locale, tx, data]);
-  /** A study group is named by its design; each member by its own evaluation condition. */
+  /** A layout row is named by its nominal evaluation; each member by its own evaluation condition. */
+  const groupPrimary = (entries: CatalogEntry[]) => {
+    const primary = primaryRecord(entries.flatMap(entry => 'summary' in entry ? [entry.summary] : []));
+    return entries.find(entry => entry.id === primary?.id) ?? entries[0];
+  };
   const groupTitle = (entry: CatalogEntry) => 'summary' in entry ? localizedRecordTitle({ ...entry.summary, evaluation_condition: undefined }, locale) : title(entry);
-  const conditionTitle = (entry: CatalogEntry) => 'summary' in entry ? recordConditionLabels(entry.summary).map(label => tx(label)).join(' · ') : title(entry);
+  const conditionTitle = (entry: CatalogEntry) => 'summary' in entry ? evaluationLabels(entry.summary).map(label => tx(label)).join(' · ') : title(entry);
   const matched = useMemo(() => catalog.filter(entry => {
     if (!matchesCatalogFilters(entry, view)) return false;
     const parent = data?.records.find(record => record.id === entry.parent_id);
@@ -98,7 +103,20 @@ export function useLibraryController() {
   const isExpanded = (row: Extract<CatalogRow, { kind: 'group' }>) => expanded.includes(row.key) || row.entries.some(entry => entry.id === id);
   const here = preserveResultsContext(catalogViewLink(ar, id ?? (explicitSelection ? selectedId : ''), { ...view, page: displayPage }), viewContext);
   useEffect(() => { if (ready && !loading) window.history.replaceState(null, '', here); }, [ready, loading, here]);
+  // A layout or coordinate evaluation opens on its layout's page; editor copies and
+  // signal experiments keep their details here.
+  const layoutPage = (value: string) => {
+    const q = new URLSearchParams(viewContext), next = new URL(layoutHref({ id: value }, ar), 'http://localhost');
+    const annotation = q.get('record') === value ? q.get('annotation_id') : null;
+    if (annotation) next.searchParams.set('annotation_id', annotation);
+    return next.pathname + next.search;
+  };
+  const isLayout = (value: string) => catalog.some(entry => entry.id === value && 'summary' in entry);
+  useEffect(() => {
+    if (ready && !loading && explicitSelection && isLayout(selectedId)) window.location.replace(layoutPage(selectedId));
+  });
   const choose = (value: string) => {
+    if (isLayout(value)) { window.location.assign(layoutPage(value)); return; }
     // A new history entry, so Back returns to the list rather than leaving the page.
     window.history.pushState(null, '', preserveResultsContext(catalogViewLink(ar, value, { ...view, page: displayPage }), viewContext));
     setSelectedId(value); setExplicitSelection(true);
@@ -107,7 +125,7 @@ export function useLibraryController() {
   const changeView = (patch: Partial<CatalogView>) => { setView(value => ({ ...value, ...patch, page: 0 })); setSelectedId(''); setExplicitSelection(false); };
   const layout = selected && 'summary' in selected ? selected.summary : data?.records.find(record => record.id === selected?.parent_id);
   const editHref = layout ? radiusDesignLink(layout, ar) : null;
-  const labHref = layout?.dataset_id === 'strict_area' ? comparisonLink(layout, ar) : editHref ?? '/?ar=' + ar;
+  const labHref = layout?.dataset_id === 'strict_area' ? comparisonLink(layout, ar) : editHref ?? '/findings?ar=' + ar;
   const rootId = selected?.parent_id ?? selected?.id;
   const related = catalog.filter(entry => entry.parent_id === rootId && entry.id !== id);
   const score = (entry: CatalogEntry) => 'summary' in entry ? entry.summary.metrics?.field_relative : entry.kind === 'editor' ? entry.editor.metrics.field_relative
@@ -117,5 +135,5 @@ export function useLibraryController() {
   const electrodeCounts = [...new Set(catalog.flatMap(entry => entry.electrode_count === null ? [] : [entry.electrode_count]))].sort((a, b) => a - b);
   const locations = [...new Set(catalog.flatMap(entry => entry.locations))];
   const regionCounts = [...new Set(catalog.flatMap(entry => entry.region_count === null ? [] : [entry.region_count]))].sort((a, b) => a - b);
-  return { rows, isExpanded, toggleGroup, groupTitle, conditionTitle, latestPerCondition, showSuperseded, setShowSuperseded, foldedCount, ar, setAR, labHref, here, layout, selected, loading, setLoading, retry, setRetry, error, view, changeView, electrodeCounts, locations, regionCounts, data, catalogWarnings, catalog, listed, id, title, protocol, score, choose, choices, displayPage, setView, pages, explicitSelection, related };
+  return { rows, isExpanded, toggleGroup, groupPrimary, groupTitle, conditionTitle, latestPerCondition, showSuperseded, setShowSuperseded, foldedCount, ar, setAR, labHref, here, layout, selected, loading, setLoading, retry, setRetry, error, view, changeView, electrodeCounts, locations, regionCounts, data, catalogWarnings, catalog, listed, id, title, protocol, score, choose, choices, displayPage, setView, pages, explicitSelection, related };
 }

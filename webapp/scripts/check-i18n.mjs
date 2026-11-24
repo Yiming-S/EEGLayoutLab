@@ -14,7 +14,7 @@ import { sourceKey } from '../lib/source-reception.ts';
 import catalog from '../lib/i18n/catalog.json' with { type: 'json' };
 import simulationCatalog from '../lib/i18n/simulation-catalog.json' with { type: 'json' };
 import researchWorkflowCatalog from '../lib/i18n/research-workflow-catalog.json' with { type: 'json' };
-import { SIMULATION_SECTIONS, SIMULATION_DETAIL_IDS, isSimulationGuideHash } from '../lib/simulation-guide.ts';
+import { METHOD_ENTRIES, METHOD_GROUPS, docsHref, movedSection } from '../lib/method-index.ts';
 import { COPYRIGHT_NOTICE, copyrightHref, isCopyrightHash } from '../lib/copyright.ts';
 import { documentationHref, METHOD_CONTENTS } from '../lib/documentation.ts';
 import { USAGE_EXPLANATIONS } from '../lib/usage-guide.ts';
@@ -62,7 +62,7 @@ void test('usage and methods are separate bilingual pages with preserved content
     }
     assert.ok(!guide.includes('id="retention-guide"'));
     assert.ok(!method.includes('id="usage-purpose"'));
-    assert.ok(method.indexOf('id="simulation-model"') < method.indexOf('id="model-terms"'));
+    for (const id of METHOD_ENTRIES.flatMap(entry => entry.ids)) assert.equal((method.match(new RegExp('id="' + id + '"', 'g')) ?? []).length, 1, id);
     for (const [id] of METHOD_CONTENTS) assert.equal((method.match(new RegExp('id="' + id + '"', 'g')) ?? []).length, 1, id);
     for (const match of guide.matchAll(/href="\/method#([^"&]+)"/g)) assert.ok(method.includes('id="' + match[1] + '"'), match[1]);
   }
@@ -168,7 +168,7 @@ void test('shared saved-layout details separate evaluation from qualification an
     assert.doesNotMatch(empty, /href="\/reception\?/); assert.doesNotMatch(empty, /href="\/electrodes\?/);
     assert.match(empty, /href="\/design\?saved=/);
     assert.equal((menu.match(/aria-current="page"/g) ?? []).length, 2); // primary group and its visible tool tab
-    assert.ok(menu.includes(locale === 'en' ? 'Results Library' : '结果库'));
+    assert.ok(menu.includes(locale === 'en' ? 'Layout List' : '布局列表'));
     assert.ok(views.includes(locale === 'en' ? 'Experiment Overview' : '实验总览'));
     assert.ok(views.includes(locale === 'en' ? 'All Records' : '全部记录'));
     for (const dataset_id of ['historical_area', 'offline_radius']) {
@@ -182,11 +182,15 @@ void test('shared saved-layout details separate evaluation from qualification an
   assert.equal(savedLayoutActions({ ...fixture, dataset_id: 'offline_radius' }, 32, '/').reception, null);
   assert.equal(savedLayoutActions({ ...fixture, dataset_id: 'historical_area' }, 32, '/').edit, null);
   assert.equal(savedLayoutActions({ ...fixture, layout: { ...fixture.layout, regionPatchVertexIndices: undefined } }, 32, '/').edit, null);
-  for (const file of ['features/overview/overview-workspace.tsx', 'features/library/library-workspace.tsx']) {
+  // The findings page shows a record's details in place; the layout list opens the layout's page, which shows them.
+  for (const [file, details] of [['features/overview/overview-workspace.tsx', /<SavedLayoutDetails/], ['features/layout/layout-workspace.tsx', /<SavedLayoutContent[^>]*returnHref=\{here\}/]]) {
     const source = fs.readFileSync(path.join(root, file), 'utf8');
-    assert.match(source, /<SavedLayoutDetails/);
-    assert.doesNotMatch(source, /<Head\b|<PerformanceSummary\b|createObjectURL/);
+    assert.match(source, details, file);
+    assert.doesNotMatch(source, /<Head\b|<PerformanceSummary\b|createObjectURL/, file);
   }
+  const library = fs.readFileSync(path.join(root, 'features/library/library-workspace.tsx'), 'utf8');
+  assert.doesNotMatch(library, /<SavedLayoutDetails|<SavedLayoutContent/);
+  assert.match(library, /layoutHref\(\{ id: row\.id \}, ar\)/);
 });
 void test('historical names are localized while custom names and search results remain stable', () => {
   assert.doesNotMatch(localizedRecordTitle(record, 'en'), /[\u3400-\u9fff]/);
@@ -261,19 +265,19 @@ void test('localized reports preserve negative values and byte-identical raw JSO
 void test('header renders both language choices and all navigation in the selected language', () => {
   const { SiteHeader } = loadUI('components/site-header.tsx');
   const en = render(SiteHeader, { current: 'design', arPercent: 32 }, 'en');
-  assert.match(en, /English/); assert.match(en, /简体中文/); assert.match(en, /Layout Design/);
+  assert.match(en, /English/); assert.match(en, /简体中文/); assert.match(en, /Region Design/);
   assert.doesNotMatch(visibleText(en), /[\u3400-\u9fff]/);
-  assert.match(render(SiteHeader, { current: 'design' }, 'zh-CN'), /布局设计/);
+  assert.match(render(SiteHeader, { current: 'design' }, 'zh-CN'), /区域设计/);
 });
 
-void test('full method and retention guide server-render in English without untranslated system text', () => {
+void test('the method index server-renders in English and links every chapter of the documentation', () => {
   const Method = loadUI('app/method/page.tsx').default;
   const html = render(Method, {}, 'en');
   const leaked = visibleText(html).match(/.{0,60}[\u3400-\u9fff].{0,100}/g);
   assert.deepEqual(leaked, null);
-  assert.match(html, /Minimum Required Retention/i);
-  assert.match(html, /τ/);
-  assert.doesNotMatch(visibleText(html), /\bAR\b/);
+  // Before the local service answers, chapters open on GitHub with the same anchors.
+  for (const entry of METHOD_ENTRIES) assert.ok(html.includes('href="' + docsHref(entry.doc, 'github') + '"'), entry.doc);
+  for (const group of METHOD_GROUPS) assert.ok(html.includes('href="' + docsHref(group.page + '/', 'github') + '"'), group.page);
 });
 
 void test('copyright footer and concise notice render the author, acknowledgments and third-party attribution', () => {
@@ -293,7 +297,6 @@ void test('copyright footer and concise notice render the author, acknowledgment
     if (locale === 'en') assert.doesNotMatch(visibleText(footer), /[\u3400-\u9fff]/);
     assert.equal((method.match(/id="about-copyright"/g) ?? []).length, 1);
     assert.equal((method.match(/id="third-party-licenses"/g) ?? []).length, 1);
-    assert.ok(method.indexOf('id="about-copyright"') > method.indexOf('</details>'));
     assert.match(notice, /© 2026 Yiming Shen(?! &amp;)/);
     assert.equal((notice.match(/Yiming Shen, PhD/g) ?? []).length, 1);
     assert.equal((notice.match(/Yi Wang, PhD/g) ?? []).length, 1);
@@ -328,7 +331,7 @@ void test('copyright footer and concise notice render the author, acknowledgment
   for (const file of ['README.md', 'manifest.json']) assert.ok(fs.existsSync(path.join(root, 'public/models/ernie', file)));
 });
 
-void test('copyright links preserve design queries and method return context without triggering technical details', () => {
+void test('copyright links preserve design queries and method return context', () => {
   const search = '?ar=32&draft=1&r=4&radius=35&mode=low_hair';
   const link = new URL(copyrightHref('/design', search, 'about-copyright'), 'http://localhost');
   assert.equal(link.pathname, '/method');
@@ -342,8 +345,6 @@ void test('copyright links preserve design queries and method return context wit
   assert.ok(isCopyrightHash('#about-copyright'));
   assert.ok(isCopyrightHash('#third-party-licenses'));
   assert.equal(isCopyrightHash('#anatomical-display'), false);
-  const details = fs.readFileSync(path.join(root, 'components/method-context.tsx'), 'utf8');
-  assert.match(details, /!isCopyrightHash\(window\.location\.hash\)/);
 });
 
 void test('performance cards preserve numeric scores and their meaning in both languages', () => {
@@ -356,38 +357,24 @@ void test('performance cards preserve numeric scores and their meaning in both l
   }
 });
 
-void test('signal-generation guide renders bilingual content before metrics, with technical details locally collapsed', () => {
-  const { SimulationExplainer } = loadUI('components/simulation-explainer.tsx');
-  const Method = loadUI('app/method/page.tsx').default;
-  const anchors = ['simulation-model', ...SIMULATION_SECTIONS.map(([id]) => id), ...SIMULATION_DETAIL_IDS];
-  for (const locale of ['zh-CN', 'en']) {
-    const html = render(SimulationExplainer, {}, locale);
-    const page = render(Method, {}, locale);
-    for (const id of anchors) {
-      assert.equal((html.match(new RegExp('id="' + id + '"', 'g')) ?? []).length, 1, id);
-      assert.ok(isSimulationGuideHash('#' + id));
-    }
-    for (const [id] of SIMULATION_SECTIONS) assert.ok(html.includes('href="#' + id + '"'));
-    const details = html.match(/<details\b[^>]*>/g) ?? [];
-    assert.equal(details.length, 4); // three existing explanations plus the DK label mapping
-    for (const tag of details) assert.doesNotMatch(tag, /\bopen(?:=|\s|>)/);
-    assert.ok(page.indexOf('id="simulation-model"') < page.indexOf('id="retention-guide"'));
-    assert.ok(page.indexOf('id="retention-guide"') < page.indexOf('id="electrode-editor"'));
-    assert.match(html, /4096/); assert.match(html, /256/); assert.match(html, /5387×4352/);
-    assert.match(html, /4000/); assert.match(html, /10 nA·m/); assert.match(html, /0\.65/);
-    assert.match(html, /href="#source-field-interaction"/);
-    assert.doesNotMatch(html, /\/Users\/|localhost|\[object Object\]|\{\{\d/);
-    if (locale === 'en') {
-      assert.doesNotMatch(visibleText(html), /[\u3400-\u9fff]/);
-      assert.match(html, /How Simulated EEG Is Generated/);
-      assert.match(html, /not calculated from the waveform/);
-      assert.match(html, /not an independent head model/);
-    } else assert.match(html, /模拟脑电信号如何生成/);
+void test('old method anchors point to the documentation chapter that replaced them, and the chapters exist', () => {
+  const old = ['simulation-model', 'simulation-overview', 'simulation-forward', 'simulation-fem-details', 'simulation-sources', 'simulation-source-regions',
+    'simulation-prior-details', 'simulation-waveform-details', 'simulation-comparison', 'simulation-artifacts', 'simulation-parameters', 'retention-guide',
+    'retention-comparison', 'retention-field', 'retention-sensitivity', 'retention-localization', 'retention-ar', 'retention-geometry', 'retention-scope',
+    'retention-reading', 'model-terms', 'electrode-editor', 'design-decision', 'source-field-interaction', 'local-compute', 'single-head-optimization',
+    'first-batch', 'planned-validation', 'anatomical-display', 'method-references'];
+  for (const id of old) assert.ok(movedSection('#' + id), id);
+  assert.equal(movedSection('#about-copyright'), undefined);
+  assert.equal(docsHref('method-details/#signal-model', 'local'), '/docs/method-details/#signal-model');
+  assert.equal(docsHref('validation/', 'local'), '/docs/validation/');
+  assert.equal(docsHref('method-details/#signal-model', 'github'), 'https://github.com/Yiming-S/EEGLayoutLab/blob/main/docs/method-details.md#signal-model');
+  // GitHub-style heading slugs, which the documentation site's slugify produces too.
+  const slug = heading => heading.trim().toLowerCase().replace(/[^\p{L}\p{N}\s-]/gu, '').replace(/\s/g, '-');
+  for (const entry of METHOD_ENTRIES) {
+    const [page, anchor] = entry.doc.split('/#');
+    const markdown = fs.readFileSync(path.join(root, '..', 'docs', page.replace(/\/$/, '') + '.md'), 'utf8');
+    if (anchor) assert.ok(markdown.split('\n').some(line => /^#{1,4} /.test(line) && slug(line.replace(/^#+ /, '')) === anchor), entry.doc);
   }
-  for (const hash of ['', '#simulation-unknown', '#single-head-optimization', '#anatomical-display']) assert.equal(isSimulationGuideHash(hash), false);
-  const context = fs.readFileSync(path.join(root, 'components/method-context.tsx'), 'utf8');
-  assert.match(context, /!isSimulationGuideHash\(window\.location\.hash\)/);
-  assert.match(context, /'#source-field-interaction'/);
 });
 
 void test('signal-generation translations have complete unique sources and no shadowed main-catalog entries', () => {
@@ -399,8 +386,6 @@ void test('signal-generation translations have complete unique sources and no sh
     assert.equal(translateText(entry.source, 'zh-CN'), entry.source, key);
     assert.doesNotMatch(entry.en, /[\u3400-\u9fff]/, key);
   }
-  const guide = fs.readFileSync(path.join(root, 'components/simulation-explainer.tsx'), 'utf8');
-  assert.doesNotMatch(guide, /fetch\(|\/api\/|localStorage|replaceState|\/Users\//);
 });
 
 void test('unknown diagnostic is summarized with raw detail access, not mislabeled as a result', () => {
@@ -410,8 +395,8 @@ void test('unknown diagnostic is summarized with raw detail access, not mislabel
   assert.doesNotMatch(visibleText(html), /[\u3400-\u9fff]/);
 });
 
-void test('all twelve route entry points render English system text', () => {
-  for (const route of ['', 'design', 'electrodes', 'coordinates', 'decision', 'reception', 'library', 'projects', 'guide', 'method', 'results', 'pilot-results']) {
+void test('every route entry point renders English system text', () => {
+  for (const route of ['', 'findings', 'library', 'layout', 'design', 'electrodes', 'coordinates', 'decision', 'robustness', 'reception', 'channels', 'projects', 'deliveries', 'guide', 'method', 'results', 'pilot-results']) {
     const Page = loadUI('app/' + (route ? route + '/' : '') + 'page.tsx').default;
     const html = render(Page, {}, 'en');
     assert.doesNotMatch(visibleText(html), /[\u3400-\u9fff]/, route || '/');
@@ -454,7 +439,7 @@ void test('project delivery controls are bilingual and never render access crede
   }
 });
 
-void test('coordinate import is separate from comparison and the four workspaces remain bilingual', () => {
+void test('coordinate import is separate from comparison and the five areas remain bilingual', () => {
   const Coordinates = loadUI('app/coordinates/page.tsx').default;
   const Decision = loadUI('app/decision/page.tsx').default;
   const { SiteHeader } = loadUI('components/site-header.tsx');
@@ -467,7 +452,7 @@ void test('coordinate import is separate from comparison and the four workspaces
     assert.match(header, /56/); assert.match(header, /aria-current="page"/);
     if (locale === 'en') assert.doesNotMatch(visibleText(header), /[\u3400-\u9fff]/);
     const main = header.match(/<nav aria-label="(?:Main navigation|主导航)"[^>]*>([\s\S]*?)<\/nav>/)?.[1];
-    assert.equal((main?.match(/<a /g) ?? []).length, 4);
+    assert.equal((main?.match(/<a /g) ?? []).length, 5);
   }
 });
 
@@ -561,11 +546,11 @@ void test('non-default coordinate evaluations offer no saved-record, project or 
     for (const locale of ['zh-CN', 'en']) {
       current = state(locale, 'iid', '');
       const saved = render(Page, { mode: 'coordinates' }, locale);
-      assert.ok(saved.includes('/coordinates?a=' + key)); assert.ok(saved.includes('/reception?record=' + key)); assert.ok(saved.includes('/projects?record=' + key));
+      assert.ok(saved.includes('/layout?id=' + key)); assert.ok(saved.includes('/reception?record=' + key)); assert.ok(saved.includes('/projects?record=' + key));
       for (const [noise, scenario, dataPrior] of [['spatial_20', ''], ['iid', 'skull_x2'], ['iid', '', prior]]) {
         current = state(locale, noise, scenario, dataPrior);
         const html = render(Page, { mode: 'coordinates' }, locale);
-        assert.ok(html.includes('/coordinates?a=' + key) && html.includes('/projects?record=' + key), noise + scenario);
+        assert.ok(html.includes('/layout?id=' + key) && html.includes('/projects?record=' + key), noise + scenario);
         assert.ok(!html.includes('/reception?record=' + key), noise + scenario);
         assert.match(html, locale === 'en' ? /Signal simulation accepts only layouts under the default protocol/ : /信号仿真只接受默认协议下的布局/);
         if (locale === 'en') assert.doesNotMatch(visibleText(html), /[㐀-鿿]/);

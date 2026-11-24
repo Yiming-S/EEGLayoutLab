@@ -4,6 +4,7 @@ import type { ComputeRequest } from './local-compute';
 import type { SourceRequest, SourceCondition } from './source-reception';
 import { canonicalSourceRegions } from './source-regions.ts';
 import { libraryViewLink, MASK_NAMES, parseLibraryView } from './ui-language.ts';
+import { layoutHref } from './layout-page.ts';
 
 export type ExperimentReceipt = {
   id: string; key: string; kind: string; status: string; created_at: string; finished_at?: string | null;
@@ -107,8 +108,8 @@ export function activeTaskLink(task: ExperimentReceipt, ar = 90, returnTo = '/li
 
 export function completedTaskLink(task: ExperimentReceipt, ar = 90, returnTo = '/library'): string | null {
   if (!['completed', 'no_layout'].includes(task.status)) return null;
-  if (task.kind === 'local-compute') return `/library?record=${task.key}&ar=${ar}`;
-  if (task.kind === 'design-evaluation') return 'action' in task.request && task.request.action === 'evaluate' ? `/library?record=${task.key}&ar=${ar}` : null;
+  if (task.kind === 'local-compute') return layoutHref({ id: task.key }, ar);
+  if (task.kind === 'design-evaluation') return 'action' in task.request && task.request.action === 'evaluate' ? layoutHref({ id: task.key }, ar) : null;
   if (task.kind === 'electrode-editor') return 'parent_id' in task.request && 'action' in task.request && task.request.action === 'evaluate'
     ? editorRecordLink({ parent_id: task.request.parent_id, key: task.key }, ar, returnTo)
     : '/electrodes?' + new URLSearchParams({ parent: (task.request as { parent_id: string }).parent_id, ar: String(ar), returnTo }).toString();
@@ -118,9 +119,14 @@ export function completedTaskLink(task: ExperimentReceipt, ar = 90, returnTo = '
 /** One list row: a record, or one coordinate design evaluated under several non-default conditions. */
 export type CatalogRow = { kind: 'entry'; entry: CatalogEntry } | { kind: 'group'; key: string; entries: CatalogEntry[] };
 
-/** Coordinate evaluations of the same design under non-default conditions (study cases) share a key. */
+/**
+ * Evaluations of one set of coordinates share a key: the layout key the library
+ * lists, else (older lists) a coordinate design evaluated under non-default conditions.
+ */
 export function conditionGroupKey(entry: CatalogEntry): string | null {
-  return 'summary' in entry && entry.summary.dataset_id === 'design_evaluation' && entry.summary.evaluation_condition
+  if (!('summary' in entry)) return null;
+  if (entry.summary.layout_key) return 'layout:' + entry.summary.layout_key;
+  return entry.summary.dataset_id === 'design_evaluation' && entry.summary.evaluation_condition
     ? `${entry.summary.region_count}\u0000${entry.summary.label}` : null;
 }
 
@@ -148,7 +154,8 @@ export function latestPerCondition(entries: CatalogEntry[]): CatalogEntry[] {
   const latest = new Map<string, CatalogEntry>();
   for (const entry of entries) {
     if (!('summary' in entry)) continue;
-    const key = JSON.stringify(entry.summary.evaluation_condition ?? {});
+    const { dataset_id, evaluation_condition, request, robustness } = entry.summary;
+    const key = JSON.stringify([dataset_id, evaluation_condition ?? {}, request?.noise_model ?? null, request?.data_prior ?? null, !!robustness]);
     const previous = latest.get(key);
     if (!previous || (Date.parse(entry.finished_at ?? '') || 0) > (Date.parse(previous.finished_at ?? '') || 0)) latest.set(key, entry);
   }

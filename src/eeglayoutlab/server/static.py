@@ -36,7 +36,7 @@ import anyio
 
 from .app import raw_path
 
-__all__ = ['StaticExport', 'CONTENT_TYPES', 'page_names', 'content_type', 'export_root']
+__all__ = ['StaticExport', 'DocsSite', 'CONTENT_TYPES', 'page_names', 'content_type', 'export_root']
 
 # vinext's CONTENT_TYPES (static-file-cache.js), which the Node host uses, plus binary glTF.
 CONTENT_TYPES = {
@@ -65,6 +65,10 @@ NOT_BUILT_PAGE = _PAGE.format(
     english='The interface has not been built. Run <code>npm run build</code> in the webapp directory '
             '(or pass <code>--static</code>), then run eeglayoutlab again.').encode('utf-8')
 NOT_FOUND_PAGE = _PAGE.format(title='页面不存在', english='Page not found.').encode('utf-8')
+DOCS_NOT_BUILT_PAGE = _PAGE.format(
+    title='文档尚未构建：请在仓库根目录运行 <code>mkdocs build</code>，然后重新打开本页。',
+    english='The documentation has not been built. Run <code>mkdocs build</code> at the top of the repository '
+            '(or pass <code>--docs</code>), then reload this page.').encode('utf-8')
 _COMMON = [(b'x-content-type-options', b'nosniff')]
 
 
@@ -428,3 +432,51 @@ class StaticExport:
             if remaining > 0:
                 # The file shrank while it was sent; end the response short rather than hang.
                 await send({'type': 'http.response.body', 'body': b''})
+
+
+class DocsSite(StaticExport):
+    """ASGI application for ``/docs`` and ``/docs/...``: the documentation site that ``mkdocs build`` writes
+    (``use_directory_urls``, so a chapter is ``<name>/index.html``).
+
+    ``/docs`` redirects (308) to ``/docs/``; a path ending in ``/`` serves that directory's ``index.html``; a
+    directory named without the slash redirects to it; any other path is a file of the site. Pages are
+    ``no-store`` and files ``public, max-age=3600``, with the same conditional and range handling, exact names and
+    refusals as the interface. A path that is not in the site gets the site's ``404.html``. Until the site is built
+    (its ``index.html`` is there) every path answers 503 with how to build it, so the interface can tell whether to
+    link here or to the Markdown on GitHub.
+    """
+
+    PREFIX = '/docs/'
+
+    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+        method = scope['method']
+        head = method == 'HEAD'
+        if method not in ('GET', 'HEAD'):
+            await _respond(send, 405, [(b'allow', b'GET, HEAD'), (b'content-type', b'text/plain; charset=utf-8')],
+                           b'Method Not Allowed', False)
+            return
+        root = export_root(self.directory)
+        if root is None:
+            await _respond(send, 503, [(b'content-type', HTML.encode()), (b'cache-control', b'no-store')],
+                           DOCS_NOT_BUILT_PAGE, head)
+            return
+        path = scope['path']
+        if raw_path(scope) != path:
+            await self._not_found(root, send, head)
+            return
+        query = scope.get('query_string', b'')
+        if path == self.PREFIX[:-1]:
+            await _respond(send, 308, [(b'location', self.PREFIX.encode() + (b'?' + query if query else b''))],
+                           b'', head)
+            return
+        segments = path[len(self.PREFIX):].split('/')
+        if segments[-1] == '':
+            await self._file(root, scope, send, _lookup(root, [*segments[:-1], 'index.html']), HTML, 'no-store')
+            return
+        found = _lookup(root, segments)
+        if found is None and _lookup(root, [*segments, 'index.html']) is not None:
+            location = path.encode('latin-1') + b'/'
+            await _respond(send, 308, [(b'location', location + (b'?' + query if query else b''))], b'', head)
+            return
+        kind = content_type(segments[-1])
+        await self._file(root, scope, send, found, kind, 'no-store' if kind == HTML else PUBLIC)

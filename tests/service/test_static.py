@@ -23,7 +23,7 @@ require('httpx')
 from eeglayoutlab.server.static import CONTENT_TYPES, export_root, page_names, parse_http_date  # noqa: E402
 
 from .service_support import (  # noqa: E402
-    PAGE_NAMES, PAGES, TOKENS, asgi_request, loopback_client, make_app, static_export, synthetic_root,
+    PAGE_NAMES, PAGES, TOKENS, asgi_request, docs_site, loopback_client, make_app, static_export, synthetic_root,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -58,10 +58,10 @@ def assert_not_found(response):
 
 def test_the_page_names_are_the_exports_and_the_apps(export):
     assert page_names(export) == PAGE_NAMES
-    # The 14 pages of the interface: app/page.tsx is '/', app/<name>/page.tsx is '/<name>'.
+    # The 17 pages of the interface: app/page.tsx is '/', app/<name>/page.tsx is '/<name>'.
     app_pages = {entry.name for entry in (ROOT / 'webapp/app').iterdir() if (entry / 'page.tsx').is_file()}
     assert (ROOT / 'webapp/app/page.tsx').is_file()
-    assert {'index', *app_pages} == PAGE_NAMES and len(PAGE_NAMES) == 14
+    assert {'index', *app_pages} == PAGE_NAMES and len(PAGE_NAMES) == 17
 
 
 @pytest.mark.parametrize('path', ['/', *(f'/{page}' for page in PAGES)])
@@ -545,3 +545,52 @@ def test_the_real_export(tmp_path):
     assert response.content == assets[0].read_bytes()
     assert client.get('/models/ernie/manifest.json').headers['content-type'] == 'application/json; charset=utf-8'
     assert client.get('/.vite/manifest.json').status_code == 404
+
+
+# --- The documentation site under /docs/ ---------------------------------------------------------------------
+
+
+@pytest.fixture
+def docs_client(tmp_path, export):
+    return loopback_client(make_app(synthetic_root(tmp_path / 'root'), export, docs=docs_site(tmp_path / 'site')))
+
+
+def test_docs_pages_and_files_are_served(docs_client):
+    for path, kind, cache in (('/docs/', HTML, 'no-store'), ('/docs/method-details/', HTML, 'no-store'),
+                              ('/docs/method-details/index.html', HTML, 'no-store'),
+                              ('/docs/assets/javascripts/bundle.1a2b.min.js', 'application/javascript; charset=utf-8',
+                               'public, max-age=3600'),
+                              ('/docs/search/search_index.json', 'application/json; charset=utf-8',
+                               'public, max-age=3600'),
+                              ('/docs/sitemap.xml.gz', 'application/octet-stream', 'public, max-age=3600')):
+        response = docs_client.get(path)
+        assert response.status_code == 200, path
+        assert response.headers['content-type'] == kind and response.headers['cache-control'] == cache, path
+    assert 'signal-model' in docs_client.get('/docs/method-details/').text
+    assert docs_client.head('/docs/').status_code == 200
+
+
+def test_docs_directories_redirect_to_their_slash(docs_client):
+    for path, location in (('/docs', '/docs/'), ('/docs?x=1', '/docs/?x=1'),
+                           ('/docs/method-details', '/docs/method-details/'),
+                           ('/docs/method-details?ar=50', '/docs/method-details/?ar=50')):
+        response = docs_client.get(path)
+        assert response.status_code == 308 and response.headers['location'] == location, path
+
+
+def test_docs_unknown_paths_get_the_sites_404(docs_client):
+    for path in ('/docs/nope/', '/docs/nope', '/docs/.hidden', '/docs/Method-Details/', '/docs/%2e%2e/index.html'):
+        response = docs_client.get(path)
+        assert response.status_code == 404, path
+        assert response.text == '<!doctype html><title>docs not found</title>', path
+    response = docs_client.request('POST', '/docs/', headers={'x-eeg-compute-token': TOKENS.csrf})
+    assert response.status_code == 405 and response.headers['allow'] == 'GET, HEAD'
+
+
+def test_docs_answer_503_until_built_and_leave_the_interface_alone(tmp_path, export):
+    client = loopback_client(make_app(synthetic_root(tmp_path / 'root'), export, docs=tmp_path / 'missing'))
+    response = client.get('/docs/method-details/')
+    assert response.status_code == 503 and 'mkdocs build' in response.text
+    assert client.get('/').status_code == 200
+    # A page of the interface whose name starts with "docs" is not the site.
+    assert client.get('/docsx').status_code == 404

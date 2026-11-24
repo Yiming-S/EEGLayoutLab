@@ -70,7 +70,7 @@ export function ParetoPanel({ entries, title, onChoose }: { entries: CatalogEntr
               <td className="py-2 tabular-nums">{row.rank}</td>
               <td>{title(row.item)}{row.dominated_by > 0 && <span className="block text-xs text-muted-foreground">{tx(`被${row.dominated_by}条记录全面超过`)}</span>}</td>
               {row.values.map((value, k) => <td key={k} className="tabular-nums">{format(value, analysis.objectives[k].unit)}</td>)}
-              <td><Button size="sm" variant="outline" onClick={() => onChoose(row.item.id)}>{tx('查看结果')}</Button></td>
+              <td><Button size="sm" variant="outline" onClick={() => onChoose(row.item.id)}>{tx('查看布局')}</Button></td>
             </tr>))}</tbody>
         </table></div>
         {analysis.rows.length > 20 && <p className="mt-1 text-xs text-muted-foreground">{tx(`只列出前20条，共${analysis.rows.length}条。`)}</p>}

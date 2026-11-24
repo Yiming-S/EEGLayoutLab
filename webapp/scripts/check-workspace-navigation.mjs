@@ -11,16 +11,17 @@ const saved = { id, phase: 'saved' };
 const record = { id, dataset_id: 'cache', status: 'completed', region_count: 2, request: { region_count: 2, radius_mm: 35, mode: 'preset', mask_codes: ['AL', 'AR'] }, layout: { xyzMm: Array.from({ length: 64 }, (_, i) => [i, 0, 0]), regionPatchVertexIndices: [[1], [2]] } };
 const url = href => new URL(href, 'http://localhost');
 
-void test('all primary and secondary pages have one workspace', () => {
-  assert.equal(WORKSPACES.length, 4);
+void test('all primary and secondary pages have one area', () => {
+  assert.deepEqual(WORKSPACES.map(area => area.id), ['workspace', 'layouts', 'analysis', 'findings', 'docs']);
   for (const [group, tabs] of Object.entries(WORKSPACE_TABS)) for (const [page] of tabs) assert.equal(workspaceGroup(page), group);
-  assert.equal(workspaceGroup('reception'), 'reception');
-  assert.equal(workingPage('/coordinates?ar=32'), 'coordinates');
+  for (const [page, group] of [['layout', 'layouts'], ['reception', 'analysis'], ['channels', 'analysis'], ['findings', 'findings'], ['home', 'workspace']]) assert.equal(workspaceGroup(page), group, page);
+  for (const [href, page] of [['/coordinates?ar=32', 'coordinates'], ['/?ar=32', 'home'], ['/findings?ar=32', 'findings'], ['/layout?id=' + id, 'layout'],
+    ['/pilot-results', 'results']]) assert.equal(workingPage(href), page, href);
 });
 
 void test('saved layouts retain their exact identity across eligible tools', () => {
   const links = workspaceLinks('/library?ar=32&record=' + id, 32, record, saved);
-  for (const [page, key] of [['electrodes', 'parent'], ['decision', 'a'], ['reception', 'record'], ['coordinates', 'a']]) {
+  for (const [page, key] of [['electrodes', 'parent'], ['decision', 'a'], ['reception', 'record'], ['layout', 'id']]) {
     assert.equal(url(links[page]).searchParams.get(key), id, page);
     assert.equal(url(links[page]).searchParams.get('ar'), '32');
   }
@@ -39,14 +40,15 @@ void test('independent decision limits survive tool and documentation navigation
   const here = '/decision?a=' + id + '&ar=68&thresholdMode=custom&sensitivity=30&p90=20';
   const expected = { mode: 'custom', field: 68, sensitivity: 30, localization: null, p90_mm: 20 };
   const first = workspaceLinks(here, 68, record, saved);
-  for (const page of ['decision', 'coordinates', 'design', 'electrodes', 'reception']) assert.deepEqual(parseDecisionThresholds(url(first[page]).searchParams), expected, page);
+  for (const page of ['decision', 'design', 'electrodes', 'reception']) assert.deepEqual(parseDecisionThresholds(url(first[page]).searchParams), expected, page);
+  // Coordinate import carries only the AR: it evaluates one layout, not a comparison.
+  assert.equal(first.coordinates, '/coordinates?ar=68');
   const fromDesign = workspaceLinks(first.design, 68, record, saved);
   assert.deepEqual(parseDecisionThresholds(url(fromDesign.decision).searchParams), expected);
   const doc = documentationHref('/decision', url(here).search, 'method');
   const next = documentationHref('/method', url(doc).search, 'guide');
   const links = workspaceLinks(next, 68, record, saved);
   assert.equal(links.decision, here);
-  assert.deepEqual(parseDecisionThresholds(url(links.coordinates).searchParams), expected);
 });
 
 void test('native coordinate evaluations can be compared but are not turned into editable patches', () => {
@@ -116,7 +118,7 @@ void test('both results views retain all filters and current selection after too
   const original = '/library?ar=32&domain=whole_scalp_free&area=120&r=2&metric=field_relative&filter=cache&regions=2&kind=editor&electrodes=56&location=AR&q=%E8%80%B3&page=3&sort=newest&record=' + id;
   const first = workspaceLinks(original, 32, record, saved);
   const via = workspaceLinks(first.decision, 46, { ...record, id: secondId }, { id: secondId, phase: 'saved' });
-  for (const href of [via.compare, via.library]) {
+  for (const href of [via.findings, via.library]) {
     const q = url(href).searchParams;
     for (const [key, value] of Object.entries({ ar: '46', domain: 'whole_scalp_free', area: '120', r: '2', metric: 'field_relative', filter: 'cache', regions: '2', kind: 'editor', electrodes: '56', location: 'AR', q: '耳', page: '3', sort: 'newest', record: secondId })) assert.equal(q.get(key), value, key);
     assert.equal(q.has('layoutRecord'), false); assert.equal(q.has('layoutState'), false);

@@ -222,18 +222,20 @@ export function useDecisionController(
   const resultQualification = result
     ? qualification({ metrics: result.nominal }, thresholds)
     : null;
+  // The coordinates page keeps only the AR and the evaluation it reopens; a
+  // comparison carries both records and the full requirement.
   const hereUrl = new URL(
-    decisionHref(ids, thresholds).replace(
-      '/decision?',
-      mode === 'coordinates' ? '/coordinates?' : '/decision?',
-    ),
+    mode === 'coordinates'
+      ? '/coordinates?' + new URLSearchParams({ ar: String(thresholds.field),
+        ...(library?.records.some(r => r.id === ids[0] && r.dataset_id === 'design_evaluation') ? { a: ids[0] } : {}) }).toString()
+      : decisionHref(ids, thresholds),
     'http://localhost',
   );
   if (returnTo)
     hereUrl.searchParams.set('returnTo', safeReturnHref(returnTo, '/library'));
   if (mode === 'coordinates' && imported)
     hereUrl.searchParams.set('resume', '1');
-  ids.forEach((id, index) => { if (annotationRefs[id]) hereUrl.searchParams.set(index ? 'annotation_b' : 'annotation_a', annotationRefs[id]); });
+  ids.forEach((id, index) => { if (annotationRefs[id] && (index === 0 || mode !== 'coordinates')) hereUrl.searchParams.set(index ? 'annotation_b' : 'annotation_a', annotationRefs[id]); });
   if (restoredRecord && job?.key === restoredRecord && result) hereUrl.searchParams.delete('resume');
   const here = hereUrl.pathname + hereUrl.search;
   useEffect(() => {

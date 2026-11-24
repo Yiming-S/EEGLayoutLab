@@ -33,6 +33,11 @@ function GettingStarted({ ar }: { ar: number }) {
   </nav>;
 }
 
+/** The early batches, read-only on their own pages (design 0004, section 7). */
+const HISTORICAL_BATCHES = [
+  { path: '/results', title: '历史半径实验 · 原始比较', date: '2026-09-08', protocol: '每区半径上限，区域允许相交 · 单Ernie头模' },
+  { path: '/pilot-results', title: '历史原型：双区域初始布局', date: '2026-09-08', protocol: '两个32电极区域按几何规则构造，未做优化 · 单Ernie头模' },
+] as const;
 const colors = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)'];
 export default function OverviewWorkspace() {
   const { tx } = useLanguage();
@@ -51,9 +56,9 @@ export default function OverviewWorkspace() {
     return [...groups].map(([text, counts]) => ({ text, counts }));
   };
   return <main className="lab-page">
-    <SiteHeader current="compare" arPercent={ar} labHref={here} returnHref={here} selection={{ id: selected?.id ?? null, phase: "saved" }} />
+    <SiteHeader current="findings" arPercent={ar} labHref={here} returnHref={here} selection={{ id: selected?.id ?? null, phase: "saved" }} />
     <div className="lab-container">
-      <header className="flex flex-wrap items-center justify-between gap-3 py-5"><div><h1 className="text-2xl font-semibold tracking-tight">{tx("实验总览")}</h1><p className="mt-1 text-base text-muted-foreground">{tx('64个电极，集中布置后还能保留多少信号？')}</p></div><a href="#create-layout" className="rounded-lg border bg-card px-4 py-2 text-sm font-medium text-primary">{tx('按部位创建布局 ↓')}</a></header>
+      <header className="flex flex-wrap items-center justify-between gap-3 py-5"><div><h1 className="text-2xl font-semibold tracking-tight">{tx("总面积研究")}</h1><p className="mt-1 text-base text-muted-foreground">{tx('64个电极，集中布置后还能保留多少信号？')}</p></div><a href="#create-layout" className="rounded-lg border bg-card px-4 py-2 text-sm font-medium text-primary">{tx('按部位创建布局 ↓')}</a></header>
       <GettingStarted ar={ar} />
 
       <HomePlacementOptions domain={domain} setDomain={setDomain}>
@@ -103,7 +108,16 @@ export default function OverviewWorkspace() {
       </>)}
       <PlacementDesignPresets ar={ar} />
       <details className="mt-6 text-sm text-muted-foreground"><summary className="cursor-pointer">{tx('本页实验条件与阅读说明')}</summary><p className="mt-3 leading-6">{tx("总数固定64个电极。选择允许范围与总面积上限，比较1、2、3、4、6个区域的已有仿真结果。本页不运行新计算；也可从导航直接进入布局设计。")}</p><p className="mt-2 leading-6">{tx("本页范围：总面积上限约束实验 · 区域互不相接")}{tx(" · 单Ernie头模 · 标准64导名义SNR＝20 dB。少毛发候选区按模型坐标近似定义。")}</p><p className="mt-2 leading-6">{tx('全头候选区：不限制毛发位置，由算法选择区域。')}</p><p className="mt-2 leading-6">{tx('少毛发候选区：耳后、前额与眶周的模型近似范围，不包含完整扩展耳周。')}</p></details>
-      <details className="my-6 text-sm text-muted-foreground"><summary className="cursor-pointer">{tx("历史实验与计算细节")}</summary><p className="mt-3 leading-6">{tx("本页使用30个总面积上限约束主布局，固定min(信号重建,敏感度)优化分支。其他实验协议在历史记录中单独查看。")}</p><div className="mt-3 flex flex-wrap gap-5 text-primary"><a href={`/library?history=1&ar=${ar}`}>{tx("查看历史方案")}</a><a href={`/results?ar=${ar}`}>{tx("早期半径实验完整曲线")}</a><a href={methodLink(here, ar)}>{tx("方法与证据边界")}</a></div></details>
+      <section id="historical-batches" aria-labelledby="historical-batches-title" className="lab-panel my-6">
+        <h2 id="historical-batches-title" className="text-lg font-semibold">{tx('历史批次')}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{tx('两个早期批次按各自协议保留，只读查看；它们的分数只评价各自的布局，不与本页结果混合。')}</p>
+        <ul className="mt-4 grid gap-3 md:grid-cols-2">{HISTORICAL_BATCHES.map(batch => <li key={batch.path} className="rounded-lg border p-4">
+          <a className="font-semibold text-primary underline-offset-4 hover:underline" href={`${batch.path}?ar=${ar}`}>{tx(batch.title)}</a>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">{tx(batch.protocol)}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{tx('计算日期')} · <time dateTime={batch.date}>{batch.date}</time></p>
+        </li>)}</ul>
+        <div className="mt-4 flex flex-wrap gap-5 text-sm text-primary"><a href={`/library?history=1&ar=${ar}`}>{tx("查看历史方案")}</a><a href={methodLink(here, ar)}>{tx("方法与证据边界")}</a></div>
+      </section>
     </div>
   </main>;
 }

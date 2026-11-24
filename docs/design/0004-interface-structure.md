@@ -1,6 +1,6 @@
 # 0004 — The structure of the interface
 
-- **Status:** proposed on 2026-11-23; the decisions below are open
+- **Status:** proposed on 2026-11-23; accepted and implemented on 2026-11-24, with the deviations listed under "Implementation"
 - **Date:** 2026-11-23
 - **Design:** [0001 — Local-first application with a Python service](0001-local-first-architecture.md), decisions 1, 6, 7 and 9, open question "Plugin options in the interface"; [phase 2 plan](0001-phase-2-plan.md), slices 9 and 10 and "Interface changes"
 
@@ -209,9 +209,33 @@ Redirects run in the page, since the interface is static. They stay for the 0.x 
 - Redirect code stays in the interface until 1.0.
 - Screenshots and wording in the guide and in `docs/` that name the old areas need updating.
 
+## Implementation
+
+The three stages of section 10 were implemented together on 2026-11-24, before slice 10. Section 10 asked for stage 2 after slice 10 so that a failing browser workflow would point at either the host or the interface. That reason now applies the other way: slice 10 must run the browser workflows against the Python service on the new pages.
+
+What was built:
+
+- **Areas.** The top bar has the five areas of section 1 (`lib/workspace-navigation.ts`). `/` is the workspace home (`features/workspace`): new layout, recent layouts, computation tasks, robustness studies and projects.
+- **Layout page.** `/layout?key=` and `/layout?id=` (`features/layout`, `lib/layout-page.ts`). The service adds `layout_key` to library summaries (`schemas/layout_key.py`); `contracts/layout-key.mjs` computes the same key, and `tests/service/test_layout_key.py` checks both. The page lists every evaluation of the layout, nominal first, with the threshold judgement; shows the chosen record's coordinates and scores; links to the comparison, the offset test, signal simulation and a robustness study; and lists edited copies and signal experiments.
+- **Library.** One row per layout key, with the three retention scores. "查看布局" opens the layout page. A `/library?record=` address of a search, coordinate evaluation or the like redirects to `/layout?id=`.
+- **Chooser.** On `/decision`, each side chooses a layout and then one of its evaluations (`features/decision/record-picker.tsx`). A short conclusion compares the two records under the current thresholds.
+- **Conditions.** `features/conditions/evaluation-conditions.tsx` serves the design, comparison and robustness pages.
+- **Other pages.** `/channels` holds the channel-subset tool. `/findings` holds the total-area study and lists both historical batches with protocol and date. `/deliveries` uses the common header without the service. `/reception` starts with the choice of layout. `/robustness` can start from a saved 64-electrode layout.
+- **Documentation.** `/method` is an index of the chapters in `docs/` (`lib/method-index.ts`). Its old anchors show a pointer to the chapter that replaced them. The service serves the built site under `/docs/` (`--docs`, default `R/site`; 503 until it is built). Without it, the links open the Markdown on GitHub, whose headings give the same anchors. The new chapters [method details](../method-details.md) and [historical studies](../historical-studies.md) carry what only `/method` covered.
+- **Guide.** `/guide` is rewritten for the five areas.
+
+Deviations from the design:
+
+- **Selection parameters.** `layoutRecord`, `layoutState`, `layoutChannels` and `layoutRegions` are still written and read for drafts and edited copies, whose state lives in the address (section 3). Saved layouts are named by their id or key.
+- **`a` on `/coordinates`.** It is kept for one case: reopening a saved coordinate evaluation, with `annotation_a`. Thresholds and `b` are no longer written there.
+- **Editor rows.** Edited copies are not given a layout key in the library; they are listed on their parent's layout page.
+- **Per-page explanations.** `RetentionExplainer` and `SimulationExplainer` were rendered only on `/method`, so they were removed with it. Pages keep their short bilingual texts, and the performance card links to the metrics chapter through the `/method` index.
+- **Package.** The built documentation is not yet in a package; that waits for the phase 3 package. The showcase links to GitHub.
+- **Header task list.** The visitor status in the header stays until slice 10 (I9). The workspace home shows the tasks as well.
+
 ## Decisions
 
-Open; each has a recommendation.
+Accepted on 2026-11-24, all seven as recommended.
 
 1. **Five areas:** Workspace, Layouts, Analysis, Findings, Documentation (section 1). Recommended.
 2. **A layout page at `/layout?key=`.** The key is the SHA-256 of the Ernie-native `{xyz_mm, region_indices}`. It is computed by the interface and the service, never stored, and enters no identity (section 2). Recommended.

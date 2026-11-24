@@ -28,6 +28,8 @@ export type SavedSummary = {
   evaluation_condition?: EvaluationCondition;
   /** Saved coordinate evaluations that also ran the session-robustness protocol. */
   robustness?: RobustnessSummary;
+  /** Digest of the coordinates and region assignment; records of one layout share it (library list only). */
+  layout_key?: string;
 };
 export type EvaluationCondition = { noise_model?: ComputeRequest['noise_model']; conductivity_scenario?: string; head_id?: string; data_prior?: DataPrior };
 export type ElectrodeAnnotation = { schema: 'eeg-electrode-annotation/1'; id: string; record_id: string; request_sha256: string; electrode_names: string[]; source_metadata?: CoordinateSourceMetadata };
@@ -46,7 +48,7 @@ export function recordAnnotationId(href: string, recordId: string | null | undef
   const q = new URL(href, 'http://localhost').searchParams;
   const value = q.get('annotation_record') === recordId ? q.get('annotation_id') :
     q.get('a') === recordId ? q.get('annotation_a') : q.get('b') === recordId ? q.get('annotation_b') :
-    q.get('record') === recordId ? q.get('annotation_id') : null;
+    q.get('record') === recordId || q.get('id') === recordId ? q.get('annotation_id') : null;
   return value && /^[a-f0-9]{64}$/.test(value) ? value : undefined;
 }
 

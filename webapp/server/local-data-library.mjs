@@ -5,6 +5,7 @@ import { join, resolve, sep } from 'node:path';
 import { designReceptionRecord } from './reception-v2-support.mjs';
 import { dataPriorLabel, noiseModelLabel } from '../contracts/scientific-options.mjs';
 import { RecordStore } from './storage/records.mjs';
+import { layoutKeyText } from '../contracts/layout-key.mjs';
 
 const hash = (value) => createHash('sha256').update(value).digest('hex');
 const idFor = (dataset, id) => hash(`${dataset}:${id}`);
@@ -13,6 +14,15 @@ const familyNames = { bilateral_near_ear: '双侧耳后代理', left_ear_forehea
   bilateral_expanded_ear: '双侧扩展耳周', bilateral_ear_forehead: '双耳后＋前额',
   bilateral_ear_split_forehead: '双耳后＋双侧前额', bilateral_ear_forehead_orbital: '双耳后＋双侧前额＋眶周' };
 const summary = ({ layout: _layout, provenance: _provenance, ...record }) => record;
+const layoutKey = (layout) => layout?.xyzMm && layout.regionIndices ? hash(layoutKeyText(layout.xyzMm, layout.regionIndices)) : null;
+// A listed record carries its layout key last; resident full records are keyed once per row.
+const offlineKeys = new WeakMap();
+const listed = (row) => {
+  if ('layout_key' in row || !row.layout) return summary(row);
+  if (!offlineKeys.has(row)) offlineKeys.set(row, layoutKey(row.layout));
+  const key = offlineKeys.get(row);
+  return key ? { ...summary(row), layout_key: key } : summary(row);
+};
 const DATASETS = [
   { id: 'design_evaluation', label: '已评价坐标布局', note: '已保存的固定64点坐标评价；保留原坐标与评价协议。' },
   { id: 'cache', label: '按需计算缓存', note: '严格半径上限快速搜索；完整配置和科学代码身份一致时自动复用。' },
@@ -148,7 +158,8 @@ export class LocalDataLibrary {
           const cache = await this.queue.readCache(key);
           if (!cache) throw new Error('缓存完整性校验未通过');
           row = this.cacheRecord(cache, false);
-          this.records.set(key, summary(row)); this.loaded.set(key, stamp);
+          const layout_key = layoutKey(row.layout);
+          this.records.set(key, layout_key ? { ...summary(row), layout_key } : summary(row)); this.loaded.set(key, stamp);
         }
         row = this.records.get(key);
         // The queue owns the key formula (code identity, threads and, off macOS, the runtime).
@@ -170,7 +181,7 @@ export class LocalDataLibrary {
       try {
         const info = await stat(join(coordinateDirectory, key, 'cache.json')), stamp = `${info.mtimeMs}:${info.size}`;
         if (this.loaded.get('coordinates:' + key) === stamp && this.records.has(key)) continue;
-        const record = await designReceptionRecord(this.root, key, this.store, { conditions: true });
+        const record = await designReceptionRecord(this.root, key, this.store, { conditions: true, layoutKey: true });
         if (record) this.records.set(key, summary(record));
         else this.records.delete(key);
         this.loaded.set('coordinates:' + key, stamp);
@@ -194,7 +205,7 @@ export class LocalDataLibrary {
 
   async list() {
     await this.refresh();
-    const records = [...this.records.values()].map(summary).sort((a, b) => (b.finished_at || '').localeCompare(a.finished_at || '') || a.label.localeCompare(b.label));
+    const records = [...this.records.values()].map(listed).sort((a, b) => (b.finished_at || '').localeCompare(a.finished_at || '') || a.label.localeCompare(b.label));
     return { schema: 'local-data-library/1', local_only: true, records, warnings: [...new Set(this.warnings)],
       datasets: DATASETS.map((d) => ({ ...d, count: records.filter((r) => r.dataset_id === d.id).length })),
       retention: 'Files on this computer; original experiments are read-only. No browser storage, automatic expiry or background batch computation.' };

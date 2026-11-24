@@ -51,7 +51,7 @@ export function resultsViewHref(
     q.set('area', String(selected.area_cap_cm2));
     q.set('r', String(selected.region_count));
   }
-  return (view === 'overview' ? '/' : '/library') + '?' + q.toString();
+  return (view === 'overview' ? '/findings' : '/library') + '?' + q.toString();
 }
 
 export function resultQualification(record: SavedSummary, ar: number) {

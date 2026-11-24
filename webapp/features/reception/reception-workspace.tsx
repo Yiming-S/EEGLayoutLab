@@ -113,8 +113,38 @@ export default function ReceptionPage() {
             </p>
           ),
         )}
+        <section className="lab-panel mb-4" aria-label={tx('布局')}>
+          <h2 className="font-semibold">{tx('1 · 选择布局')}</h2>
+          <label className="lab-label mt-3 block max-w-2xl">
+            {tx('选择已计算布局（64电极）')}
+            <select
+              className="lab-select"
+              value={id}
+              onChange={(e) => setId(e.target.value)}
+            >
+              <option value="">{tx('选择已计算布局')}</option>
+              {tx(
+                id && !selected && (
+                  <option value={id}>{tx('指定记录正在读取或不可用')}</option>
+                ),
+              )}
+              {tx(
+                records.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {tx(
+                      r.dataset_id === 'cache' && !r.compatible
+                        ? '历史布局 · '
+                        : '',
+                    )}
+                    {localizedRecordTitle(r, locale)}
+                  </option>
+                )),
+              )}
+            </select>
+          </label>
+        </section>
         <section className="lab-panel mb-4" aria-label={tx('源模式')}>
-          <h2 className="font-semibold">{tx('1 · 选择实验源模式')}</h2>
+          <h2 className="font-semibold">{tx('2 · 选择实验源模式')}</h2>
           <div className="mt-3 flex flex-wrap gap-2">
             <Button
               variant={mode === 'multi_source' ? 'default' : 'outline'}
@@ -212,34 +242,7 @@ export default function ReceptionPage() {
           className="lab-panel grid items-end gap-4 md:grid-cols-3 xl:grid-cols-6"
           aria-label={tx('源实验设置')}
         >
-          <h2 className="font-semibold md:col-span-3 xl:col-span-6">{tx('2 · 选择布局与信号条件')}</h2>
-          <label className="lab-label md:col-span-3 xl:col-span-2">
-            {tx('选择已计算布局（64电极）')}
-            <select
-              className="lab-select"
-              value={id}
-              onChange={(e) => setId(e.target.value)}
-            >
-              <option value="">{tx('选择已计算布局')}</option>
-              {tx(
-                id && !selected && (
-                  <option value={id}>{tx('指定记录正在读取或不可用')}</option>
-                ),
-              )}
-              {tx(
-                records.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {tx(
-                      r.dataset_id === 'cache' && !r.compatible
-                        ? '历史布局 · '
-                        : '',
-                    )}
-                    {localizedRecordTitle(r, locale)}
-                  </option>
-                )),
-              )}
-            </select>
-          </label>
+          <h2 className="font-semibold md:col-span-3 xl:col-span-6">{tx('3 · 选择信号条件')}</h2>
           <label className="lab-label" hidden={mode !== 'multi_source'}>
             {tx('模拟脑源位置')}
             <select
@@ -369,7 +372,7 @@ export default function ReceptionPage() {
                     ? '正在提交…'
                     : result
                       ? '读取已保存结果'
-                      : '3 · 开始信号仿真',
+                      : '4 · 开始信号仿真',
                 )}
               </Button>
             </div>

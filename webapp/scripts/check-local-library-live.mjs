@@ -42,7 +42,7 @@ assert.equal(miss.hit, false);
 assert.deepEqual(await files(), before); assert.deepEqual(await hashes(), originalHashes);
 assert.equal((await json('/api/local-compute/health')).active_job?.id, health.active_job?.id);
 const areaRecord = selected.find((row) => row.dataset_id === 'strict_area');
-const routes = ['/', '/?domain=whole_scalp_free&area=120&r=3&ar=50', '/design', `/design?from=${areaRecord.id}&ar=50`, '/library', `/library?record=${areaRecord.id}&ar=50`, '/method?ar=50&returnTo=%2Fdesign%3Far%3D50', '/results'];
+const routes = ['/', '/?domain=whole_scalp_free&area=120&r=3&ar=50', '/design', `/design?from=${areaRecord.id}&ar=50`, '/library', `/library?record=${areaRecord.id}&ar=50`, `/layout?id=${areaRecord.id}&ar=50`, '/findings?domain=whole_scalp_free&area=120&r=3&ar=50', '/channels', '/method?ar=50&returnTo=%2Fdesign%3Far%3D50', '/results'];
 for (const route of routes) {
   const response = await fetch(base + route); assert.equal(response.status, 200);
 }
