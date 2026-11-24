@@ -272,6 +272,53 @@ def test_stage_inputs_survive_the_stages_json_round_trip(builder, tmp_path):
     assert not builder.reusable(tmp_path, "admissibility.npz", {**inputs, "code_sha256": {"a.py": "2"}}, stages)
 
 
+def test_stages_finished_by_an_equivalent_builder_version_are_reused(builder, tmp_path):
+    path, other = "scripts/build_head_package.py", "src/compact_eeg/workflows/head_package.py"
+    earlier = sorted(builder.SAME_STAGE_CODE[path])[0]
+    current = builder.stage_code("mapping.npz")
+    assert earlier not in current.values()
+    inputs = {"bank_sha256": "b", "code_sha256": current}
+    for recorded, bank, reused in (({**current, path: earlier}, "b", True), ({**current, path: earlier}, "c", False),
+                                   ({**current, path: "0" * 64}, "b", False),
+                                   ({**current, path: earlier, other: earlier}, "b", False)):
+        stages = {}
+        builder.write_stage(tmp_path, "mapping.npz", {"x": np.arange(3)}, {"bank_sha256": bank, "code_sha256": recorded}, stages)
+        stages = json.loads(json.dumps(stages, indent=1))
+        assert builder.reusable(tmp_path, "mapping.npz", inputs, stages) is reused
+
+
+def test_package_names_inputs_by_their_path_in_the_root(builder, tmp_path, monkeypatch):
+    root, elsewhere = tmp_path / "root", tmp_path / "elsewhere/m2m_ernie"
+    elsewhere.mkdir(parents=True)
+    (root / "data/external/heads/h1/m2m_h1").mkdir(parents=True)
+    (root / "data/external/simnibs4_examples").mkdir(parents=True)
+    link = root / "data/external/simnibs4_examples/m2m_ernie"
+    link.symlink_to(elsewhere)
+    assert builder.recorded_path(root, link) == "data/external/simnibs4_examples/m2m_ernie"
+    assert builder.recorded_path(root, link / "ernie.msh") == "data/external/simnibs4_examples/m2m_ernie/ernie.msh"
+    assert builder.recorded_path(root, root / "data/external/heads/h1/m2m_h1") == "data/external/heads/h1/m2m_h1"
+    alias = tmp_path / "alias"
+    alias.symlink_to(root)
+    assert builder.recorded_path(root, alias / "data/external/heads/h1/m2m_h1") == "data/external/heads/h1/m2m_h1"
+    monkeypatch.chdir(root)
+    assert builder.recorded_path(root, "data/external/simnibs4_examples/m2m_ernie") == "data/external/simnibs4_examples/m2m_ernie"
+    for outside in (elsewhere, tmp_path, root / ".." / "elsewhere"):
+        with pytest.raises(SystemExit, match="outside the repository root"):
+            builder.recorded_path(root, outside)
+
+
+def test_build_refuses_inputs_outside_the_root_before_any_stage(builder, tmp_path):
+    root = tmp_path / "root"
+    (root / "data/external/m2m_h1").mkdir(parents=True)
+    (tmp_path / "m2m_h1").mkdir()
+    for m2m, ernie in ((tmp_path / "m2m_h1", "data/external/simnibs4_examples/m2m_ernie"),
+                       (root / "data/external/m2m_h1", str(tmp_path / "m2m_ernie"))):
+        args = argparse.Namespace(head_id="h1", t1=None, t2=None, m2m=str(m2m), ernie_m2m=ernie)
+        with pytest.raises(SystemExit, match="outside the repository root"):
+            builder.build(args, root)
+        assert not (root / hp.package_dir("h1") / "stages.json").exists()
+
+
 def test_every_stage_is_keyed_by_the_code_it_runs(builder):
     assert set(builder.STAGE_CODE) == set(hp.FILES)
     for name, files in builder.STAGE_CODE.items():
