@@ -6,6 +6,7 @@ import { RuntimeMessage } from './runtime-message';
 import { activeTaskLink, completedTaskLink, type ExperimentReceipt } from '@/lib/records-catalog';
 import { downloadExperimentReceipt } from './catalog-experiment-details';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 type Task = ExperimentReceipt & { queue_position: number; message: string; progress?: number; cached?: boolean };
 type Status = { online_visitors: number; queued_tasks: number; running_tasks: number; available: boolean; recovery_blocked: boolean; jobs: Task[] };
@@ -63,13 +64,22 @@ export function useTaskStatus() {
   return { status, failure, act };
 }
 
+/** The visitor count and access-log notice matter on a shared server; folded so they do not lead the task list. */
+export function VisitorNotice({ status, className }: { status: Status | null; className?: string }) {
+  const { tx } = useLanguage();
+  return <details className={cn('text-xs text-muted-foreground', className)}>
+    <summary className="cursor-pointer">{tx('访客与访问记录')}</summary>
+    {status && <p className="mt-2">{tx('在线访客')}：{status.online_visitors}</p>}
+    <p className="mt-2">{tx('在线访客按最近90秒活跃的浏览器估算，同一浏览器多个标签页计为一个。')}</p>
+    <p className="mt-2">{tx('无需登录。后台记录IP用于访问日志和限流，日志保留7天，不公开显示。')}</p>
+  </details>;
+}
+
 export function TaskList({ status, failure, act }: ReturnType<typeof useTaskStatus>) {
   const { tx, date } = useLanguage();
   return <>
       {status && <p className="mt-2 text-sm">{tx(`运行中：${status.running_tasks}项 · 等待中：${status.queued_tasks}项`)}</p>}
-      {status && <p className="mt-2 text-xs text-muted-foreground">{tx('在线访客')}：{status.online_visitors}</p>}
-      <p className="mt-2 text-xs text-muted-foreground">{tx('在线访客按最近90秒活跃的浏览器估算，同一浏览器多个标签页计为一个。')}</p>
-      <p className="mt-2 text-xs text-muted-foreground">{tx('无需登录。后台记录IP用于访问日志和限流，日志保留7天，不公开显示。')}</p>
+      <VisitorNotice status={status} className="mt-2" />
       {(status?.recovery_blocked || status?.available === false) && <p className="mt-2 text-warning">{tx('队列暂停，等待服务检查')}</p>}
       {!status?.jobs.length && <p className="mt-3 text-muted-foreground">{tx('当前浏览器暂无计算任务')}</p>}
       {status?.jobs.map(task => <div key={task.id} className="mt-3 border-t pt-3">

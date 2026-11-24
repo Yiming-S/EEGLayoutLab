@@ -43,3 +43,17 @@ export function evaluationLabels(record: SavedSummary) {
   const noise = recordNoiseLabel(record);
   return [protocolName(record.dataset_id), ...(noise ? [noise] : []), ...recordConditionLabels(record), ...(record.robustness ? ['跨会话稳健性'] : [])];
 }
+
+const completed = (records: SavedSummary[]) => records.filter(record => record.status === 'completed' && finished(record));
+const latest = (group: SavedSummary[]) => Math.max(...group.map(finished));
+
+/** The most recently evaluated layouts, one entry per layout (a record without coordinates is its own), each nominal evaluation first. */
+export function recentLayouts(records: SavedSummary[], count: number) {
+  return groupByLayout(completed(records)).sort((a, b) => latest(b) - latest(a)).slice(0, count);
+}
+
+/** A layout to open as an example: the one evaluated under the most conditions, then the most recent. */
+export function exampleLayout(records: SavedSummary[]) {
+  const [best] = groupByLayout(completed(records).filter(record => record.layout_key)).sort((a, b) => b.length - a.length || latest(b) - latest(a));
+  return best?.[0].layout_key ?? null;
+}

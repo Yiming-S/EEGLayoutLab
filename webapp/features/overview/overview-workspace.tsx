@@ -65,7 +65,7 @@ export default function OverviewWorkspace() {
       <div className="grid items-start gap-4 border-t pt-4 md:grid-cols-[1fr_1fr_1.3fr]">
         <label className="lab-label">{tx("区域表面总面积上限")}<select className="lab-select" value={area} onChange={(e) => setArea(Number(e.target.value))}>{tx(AREA_CAPS.map((n) => <option key={n} value={n}>{tx(n)} {tx(" cm² · 各区域合计面积")}</option>))}</select></label>
         <fieldset><legend className="mb-2 text-sm font-semibold">{tx('查看几个区域的布局？')}</legend><div className="flex flex-wrap gap-1.5">{REGION_COUNTS.map(count => <Button key={count} size="sm" variant={r === count ? 'default' : 'outline'} aria-pressed={r === count} onClick={() => setR(count)}>{tx(`${count}区`)}</Button>)}</div></fieldset>
-        <ThresholdSlider value={ar} onChange={setAR} ariaLabel="比较接受阈值AR" hint="要求三项相对指标分别达到此阈值。" />
+        <ThresholdSlider value={ar} onChange={setAR} ariaLabel="比较接受阈值AR" term="ar" hint="要求三项相对指标分别达到此阈值。" />
       </div>
       <p className="text-xs leading-5 text-muted-foreground">{tx('切换以上条件只读取已有结果。单Ernie头模 · 标准64导名义SNR 20 dB。')}</p>
       </HomePlacementOptions>

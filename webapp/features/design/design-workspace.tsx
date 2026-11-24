@@ -58,7 +58,7 @@ export default function DesignWorkspace() {
                 hints={{ noise: '空间相关噪声使相邻电极共享部分噪声，搜索与评价同时使用；结果与独立噪声分开保存。' }}
                 onChange={(patch) => { if (patch.noiseModelId !== undefined) selectNoiseModel(patch.noiseModelId); if ('dataPrior' in patch) selectDataPrior(patch.dataPrior ?? null, patch.dataPriorSource); }} />
             </>)}
-            <ThresholdSlider className="border-t pt-4" value={ar} onChange={setAR} ariaLabel="设计接受阈值AR" hint="只更新结果判断，不改变点位或运行计算。" />
+            <ThresholdSlider className="border-t pt-4" value={ar} onChange={setAR} ariaLabel="设计接受阈值AR" term="ar" hint="只更新结果判断，不改变点位或运行计算。" />
             <details className="border-t pt-4 text-sm"><summary className="cursor-pointer font-medium">{tx("计算设置与限制")}</summary><p className="mt-3 text-xs leading-6 text-muted-foreground">{tx("固定64电极 · 最小电极直线间距4 mm · 单Ernie头模 · 标准64导名义SNR＝20 dB。各布局使用相同物理噪声尺度。算法在有限候选网格内搜索，位置范围按模型坐标近似定义。")}</p><a href={methodLink(here, ar, '#local-compute')} className="mt-2 inline-block text-primary underline">{tx("完整方法")}</a></details>
             {/* The run button stays in view while the settings above scroll. */}
             <div ref={computationRef} className={editing && request ? 'sticky bottom-0 z-10 -mx-2 rounded-b-xl bg-card px-2 pb-2 pt-2 shadow-[0_-12px_14px_-14px_rgba(16,47,58,0.45)]' : undefined}>{tx(editing && request && <LocalComputePanel key={originId + ':editor'} request={request} arPercent={ar} onResult={setComputed} onStatus={setStatus} compact />)}</div>

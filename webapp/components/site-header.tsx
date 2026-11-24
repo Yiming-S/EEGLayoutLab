@@ -269,7 +269,8 @@ export function SiteHeader({
             ))}
           </nav>
         )}
-        <div
+        {/* With nothing selected the bar would only say so; the layout list is one tab away. */}
+        {(selection.id || selection.phase !== 'saved') && <div
           aria-label={tx('当前布局')}
           className="flex min-w-0 shrink-0 items-center justify-end gap-x-3 gap-y-1 text-sm sm:flex-1"
         >
@@ -296,7 +297,7 @@ export function SiteHeader({
               {tx('更换布局')}
             </a>
           </div>
-        </div>
+        </div>}
       </div>
       <ProjectContext currentIsProjects={current === 'projects'} here={here} recordId={selection.phase === 'saved' && record?.status === 'completed' ? record.id : undefined} />
     </header>

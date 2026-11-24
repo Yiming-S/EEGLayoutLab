@@ -34,9 +34,20 @@ export function protocolName(id: string) {
   if (id === 'historical_area') return '历史面积实验（原坐标范围）';
   return id === 'strict_area' ? '总面积上限约束实验' : id === 'cache' ? '每区半径约束计算' : '历史半径实验（区域可相交）';
 }
+/**
+ * A coordinate evaluation's label is often an earlier title: it starts with its region
+ * count ("2区 · …") or ends with "已评价坐标". The title then states neither twice.
+ */
+export function labelNamesRegions(label: string, count: number) {
+  return new RegExp(`^\\s*${count}\\s*(区|个区域|regions?\\b)`, 'i').test(label);
+}
+export function labelNamesEvaluation(label: string) {
+  return /(已评价坐标|evaluated coordinates)\s*$/i.test(label);
+}
 /** Title without the noise-model suffix, so each part matches its own translation. */
 export function recordBaseTitle(record: SavedSummary) {
-  if (record.dataset_id === 'design_evaluation') return `${record.region_count}个区域 · ${record.label} · 已评价坐标`;
+  if (record.dataset_id === 'design_evaluation') return [...(labelNamesRegions(record.label, record.region_count) ? [] : [`${record.region_count}个区域`]),
+    record.label, ...(labelNamesEvaluation(record.label) ? [] : ['已评价坐标'])].join(' · ');
   if (record.dataset_id === 'offline_radius') return record.label;
   const masks = record.request?.mask_codes;
   const location = masks?.length ? masks.map((m) => MASK_NAMES[m] ?? m).join(' + ')

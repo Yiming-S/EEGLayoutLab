@@ -7,6 +7,7 @@ import { SiteHeader } from '@/components/site-header';
 import { SavedLayoutContent } from '@/components/saved-layout-details';
 import { OutcomeBadge, type Outcome } from '@/components/retention-bar';
 import { ThresholdSlider } from '@/components/threshold-slider';
+import { TermHint } from '@/components/term-hint';
 import { buttonVariants } from '@/components/ui/button';
 import { apiJson } from '@/client/task-client';
 import { CoordinateStudyLink } from '@/features/robustness/coordinate-study-link';
@@ -111,8 +112,9 @@ export default function LayoutWorkspace() {
           <section aria-labelledby="layout-evaluations" className="lab-panel relative overflow-x-auto">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div><h2 id="layout-evaluations" className="text-lg font-semibold">{tx('各条件下的评价')}</h2>
-                <p className="mt-1 text-sm text-muted-foreground">{tx('同一组坐标在不同噪声模型、电导率、头模或数据先验下的评价。名义Ernie评价排在最前；不同条件的分数只与相同条件比较。')}</p></div>
-              <ThresholdSlider className="min-w-[240px]" value={ar} onChange={value => select(shown.id, value)} ariaLabel="布局接受阈值AR" hint="只更新判断，不重新计算。" />
+                <p className="mt-1 text-sm text-muted-foreground">{tx('同一组坐标在不同噪声模型、电导率、头模或数据先验下的评价。名义Ernie评价排在最前；不同条件的分数只与相同条件比较。')}</p>
+                <span className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1"><TermHint term="retention" ar={ar} /><TermHint term="head" ar={ar} /></span></div>
+              <ThresholdSlider className="min-w-[240px]" value={ar} onChange={value => select(shown.id, value)} ariaLabel="布局接受阈值AR" term="ar" hint="只更新判断，不重新计算。" />
             </div>
             <table className="mt-4 w-full min-w-[720px] text-left text-sm">
               <thead><tr className="border-b text-muted-foreground"><th className="py-2">{tx('评价条件')}</th><th>{tx('场重建保留率')}</th><th>{tx('幅度保留率（最差10%）')}</th><th>{tx('定位效用保留率')}</th><th>{tx('性能判断')}</th><th><span className="sr-only">{tx('操作')}</span></th></tr></thead>

@@ -734,6 +734,26 @@ disposition = "N"
 [sites."check-evaluation-conditions.mjs::a page offers only the conditions it manages, and builds no condition form of its own"]
 disposition = "N"
 
+# --- check-first-use.mjs ----------------------------------------------------------------------------------------------
+
+[sites."check-first-use.mjs::recent layouts list each layout once, newest first, with its nominal evaluation first"]
+disposition = "N"
+
+[sites."check-first-use.mjs::the example layout is the one evaluated under the most conditions, then the most recent"]
+disposition = "N"
+
+[sites."check-first-use.mjs::a coordinate evaluation whose label already names its regions or evaluation states each once"]
+disposition = "N"
+
+[sites."check-first-use.mjs::each term hint has both languages and opens an existing method chapter"]
+disposition = "N"
+
+[sites."check-first-use.mjs::the home page starts newcomers with the question, three goals and how to read a score"]
+disposition = "N"
+
+[sites."check-first-use.mjs::the header shows the current-layout bar only when a layout is selected or being drafted"]
+disposition = "N"
+
 # --- check-fixed64-results.mjs ----------------------------------------------------------------------------------------
 
 [sites."check-fixed64-results.mjs::export contains 28 configurations, 26 unique layouts and one head"]
