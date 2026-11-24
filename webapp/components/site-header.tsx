@@ -1,5 +1,6 @@
 'use client';
 import { CommunityStatus } from './community-status';
+import { SHOWCASE } from '@/lib/showcase';
 import { ProjectContext } from '@/features/projects/project-context';
 import { recordAnnotationId } from '@/lib/local-library';
 /* oxlint-disable next/no-html-link-for-pages -- preserve established vinext navigation */
@@ -249,7 +250,7 @@ export function SiteHeader({
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-1 min-[1000px]:ml-0">
-          <CommunityStatus />
+          {!SHOWCASE && <CommunityStatus />}
           <details ref={settings} className="relative">
             <summary aria-label={tx('界面设置')} className="flex size-9 cursor-pointer list-none items-center justify-center rounded-lg border bg-card text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
               <Settings2 className="size-4" />

@@ -1,18 +1,9 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
 import { LanguageProvider } from '@/components/language-provider';
+import { ShowcaseBanner } from '@/components/showcase-banner';
 import { SiteFooter } from '@/components/site-footer';
+import { SHOWCASE } from '@/lib/showcase';
 import './globals.css';
-
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
 
 // Static export: the page is rendered once at build time, so the language is chosen in the browser
 // (saved choice, then the browser's languages) by LanguageProvider.
@@ -25,12 +16,11 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang="en" data-showcase={SHOWCASE ? '1' : undefined}>
       <head><link rel="icon" type="image/svg+xml" href="/favicon.svg" /></head>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className="antialiased">
         <LanguageProvider initialLocale="en">
+          <ShowcaseBanner />
           {children}
           <SiteFooter />
         </LanguageProvider>

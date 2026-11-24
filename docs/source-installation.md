@@ -129,13 +129,35 @@ Add `--conda /path/to/micromamba` if the manager is not on `PATH`. The environme
 
 ### What was verified (2026-11-21)
 
-The checks ran in Docker `linux/amd64` (Ubuntu 24.04), emulated with Rosetta on an Apple M3 Ultra (colima 0.10.3, micromamba 2.10.0, Node.js 24.22.3), with the QA workspace's data, table and eleven head packages mounted read-only. They have not been run on a physical x86_64 machine.
+The checks ran in Docker `linux/amd64` (Ubuntu 24.04), emulated with Rosetta on an Apple M3 Ultra (colima 0.10.3, micromamba 2.10.0, Node.js 24.22.3), with the QA workspace's data, table and eleven head packages mounted read-only. They were repeated on a physical machine on 2026-11-23 ([below](#on-a-physical-machine-2026-11-23)).
 
 - `bootstrap_runtime.py --execute` installed the environment from the lock and `check_environment.py --native` passed.
 - The Python fast suite (`-m 'not data_bundle and not native_runtime'`): 564 passed, 4 skipped. A further 60 tests in `test_service_backup.py` and `test_verification_workspace.py` could not start because the container has no `git`; they pass on the Mac. With the data mounted and the real-data reception and search tests switched on (`SOURCE_RECEPTION_REAL_BANK=1 SOURCE_RECEPTION_V2_REAL_BANK=1 LOCAL_RADIUS_REAL_BANK=1`, `-m 'not native_runtime'`), 569 passed. The three tests that need SimNIBS were skipped.
 - `build_scalp_node_table.py --verify` passed for the nominal table and for `--head ernie_xh`.
 - `node examples/run-examples.mjs --root <checkout>`: all three examples match [`expected.json`](../examples/expected.json) within 1e-6. Over all 22,581 numbers in the result files, the largest difference from the Mac run is 4.1e-14.
 - The workers imported numpy, scipy, threadpoolctl and, for evaluation, cortech, numba and nibabel; none imported SimNIBS. Peak memory was 442 MiB for an evaluation worker and 737 MiB for the radius search. Under emulation the examples took 1 min 46 s (35 s natively on the Mac).
+
+### On a physical machine (2026-11-23)
+
+Ubuntu 26.04.1 LTS on an Intel Core i9-14900K (32 threads, 123 GiB RAM). The host had no conda, micromamba, Node.js or curl; micromamba 2.10.0 and Node.js 24.22.3 were downloaded with `wget` into a separate folder and checked against their published SHA-256.
+
+- `bootstrap_runtime.py --execute --conda <micromamba>` installed the environment in 36 s, and `check_environment.py --native` passed.
+- The model data was installed as [data packages](data-packages.md). The archives of `base`, `scalp-node-table` and the eleven heads of example 3 (15.1 GB) were copied from the Mac and installed with `eeglayoutlab data install` in 23 s. `eeglayoutlab data verify` checked them in 7 s. `eeglayoutlab data compose` then placed them in a checkout without data as hard links. The examples gave the same numbers from that checkout as from one whose data had been copied in.
+- `build_scalp_node_table.py --verify` passed for the nominal table and for all eleven head tables.
+- The Python fast suite (`-m 'not data_bundle and not native_runtime'`): 771 passed, 2,544 skipped, 1 failed.
+  - The skipped tests need the service extra or the Node reference, which this environment does not install.
+  - The failure was Linux-specific: `test_a_service_that_is_stopping_opens_no_browser_and_leaves_no_open_page[CommandLineBrowser]` in `tests/service/test_workspace.py`. On Linux, `eeglayoutlab serve` looked for a browser only inside `webbrowser.open`, after it had written the open page, so a stop that arrived during that lookup was not caught. Commit 5637548 looks up the browser first; with it, a full run passed (778 passed, 2,543 skipped).
+  - Two of five full runs ended in a segmentation fault of the interpreter, each at a different place in pure Python code. The same runtime crashed in 1 of 60 runs of a pure parsing loop, with or without numpy. The host's kernel log shows segmentation faults of Python 3.11 to 3.14 since 2026-11-11, most of them on one core, and machine-check events on 2026-11-22. The crashes are therefore attributed to that host, not to the code, and its runs are not a reference for stability.
+- `node examples/run-examples.mjs --root <root>`: all three examples match [`expected.json`](../examples/expected.json) within 1e-6. A Mac run of the same code and data was the reference. Of the 22,622 numbers in the result files, 22,568 were identical, and the largest difference was 3.5e-14. Timings and provenance were not compared.
+- Peak memory, sampled every 50 ms over the whole process tree:
+
+  | Process | Peak |
+  | --- | ---: |
+  | Evaluation worker | 375 MiB |
+  | Radius search | 699 MiB |
+  | Whole tree | 831 MiB |
+
+  The examples took 30 s, against 47 s for the same run on the reference Mac that day.
 
 Cache keys made on Linux include the interpreter version, numpy and scipy versions, the platform, and the environment's conda records and projection-package metadata. A result computed on the Mac is therefore never reused on Linux.
 

@@ -1,0 +1,1 @@
+{"available":false,"local_only":true,"token":"showcase-read-only","max_concurrent_jobs":0,"threads":2,"timeout_seconds":180,"supported_masks":["PL","PR","AL","AR","FL","FM","FR","OL","OR"],"active_job":null,"maintenance":false,"drained":false,"showcase":true}

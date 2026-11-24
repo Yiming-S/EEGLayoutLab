@@ -1,0 +1,14 @@
+{
+  "schema": "eeglayoutlab-showcase-curation/1",
+  "note": "Records published in the read-only showcase. scripts/build-showcase-data.mjs reads them from a running host and writes showcase/api.",
+  "library": {
+    "datasets": ["strict_area", "historical_area"],
+    "records": [
+      {
+        "id": "9e4c787ffe1603f136f888fdf59b40b9ad46339b97a97cb3452bc3132e0c18b6",
+        "label": "2区 · AL + AR · 半径≤35 mm",
+        "bundle": true
+      }
+    ]
+  }
+}

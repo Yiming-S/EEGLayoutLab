@@ -103,7 +103,7 @@ python3 scripts/bootstrap_runtime.py --execute
 .runtime/compute-linux-64/bin/python scripts/build_scalp_node_table.py --verify
 ```
 
-环境安装在 `.runtime/compute-linux-64/`。没有 `.runtime/simnibs-4.6.0/` 时，网页服务和命令行会自动选用它。2026-11-21 在 Docker `linux/amd64`（Apple M3 Ultra 上经 Rosetta 模拟）中验证：三个示例与 `expected.json` 的差异都在 1e-6 以内，与 Mac 结果的最大差为 4.1e-14。尚未在实体 x86_64 机器上验证。完整说明见[英文版](source-installation.md#linux-x86_64)。
+环境安装在 `.runtime/compute-linux-64/`。没有 `.runtime/simnibs-4.6.0/` 时，网页服务和命令行会自动选用它。2026-11-21 在 Docker `linux/amd64`（Apple M3 Ultra 上经 Rosetta 模拟）中验证：三个示例与 `expected.json` 的差异都在 1e-6 以内，与 Mac 结果的最大差为 4.1e-14。2026-11-23 在实体 x86_64 机器（Ubuntu 26.04.1 LTS，Intel Core i9-14900K）上复验：模型数据用 `eeglayoutlab data install` 安装并校验；三个示例与 `expected.json` 一致，与同一代码的 Mac 结果最大差为 3.5e-14；评价进程峰值内存 375 MiB，半径搜索 699 MiB。完整说明见[英文版](source-installation.md#linux-x86_64)。
 
 ## Windows
 

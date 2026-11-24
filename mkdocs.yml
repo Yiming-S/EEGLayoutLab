@@ -1,0 +1,115 @@
+# Documentation site (design 0001, phase 3). Build: see "Building the documentation" in CONTRIBUTING.md.
+# The pages are the repository's own Markdown, read unchanged; docs/mkdocs_hooks.py explains how
+# links written for GitHub resolve on the site.
+site_name: EEGLayoutLab
+site_description: Design and compare compact EEG electrode layouts on a realistic head model.
+repo_url: https://github.com/Yiming-S/EEGLayoutLab
+repo_name: Yiming-S/EEGLayoutLab
+edit_uri: blob/main/
+copyright: © 2026 Yiming Shen. Source code and documentation are licensed under GPL-3.0-only.
+
+docs_dir: docs
+exclude_docs: |
+  /__pycache__/
+  /mkdocs_hooks.py
+  /requirements.txt
+hooks:
+  - docs/mkdocs_hooks.py
+watch:
+  - README.md
+  - CONTRIBUTING.md
+  - THIRD_PARTY_NOTICES.md
+  - contracts
+  - data/README.md
+  - data/SOURCES.md
+  - examples/README.md
+
+# Broken links, broken anchors and navigation entries without a page fail the build.
+strict: true
+validation:
+  nav:
+    not_found: warn
+    absolute_links: warn
+  links:
+    not_found: warn
+    absolute_links: warn
+    unrecognized_links: warn
+    anchors: warn
+
+# Follows README.md: its sections in order, then contracts, design records and notices.
+nav:
+  - Home: README.md
+  - 简体中文指南: docs/getting-started.zh-CN.md
+  - Run locally:
+      - Source installation: docs/source-installation.md
+      - 源码安装说明: docs/source-installation.zh-CN.md
+  - Model data:
+      - Data bundle: data/README.md
+      - Data packages: docs/data-packages.md
+      - Data and reproducibility: docs/data-and-reproducibility.md
+      - Data sources: data/SOURCES.md
+  - How to use:
+      - Model and metrics: docs/model-and-metrics.md
+      - Command line: docs/command-line.md
+      - Coordinate file interface: docs/coordinate-file-interface.md
+      - Repeated evaluation studies: docs/robustness-studies.md
+      - Examples: examples/README.md
+  - Verification:
+      - Contributing: CONTRIBUTING.md
+      - Validation scope: docs/validation.md
+      - Native release check: docs/native-release-gate.md
+      - Task reconciliation: docs/task-reconciliation.md
+      - Source ROI validation: docs/SOURCE_ROI_VALIDATION.md
+      - Atlas source cache: docs/CACHE_PRECOMPUTE.md
+  - Deployment and operations:
+      - Server deployment: docs/server-deployment.md
+      - Web operations: docs/web-operations.md
+      - Read-only showcase: docs/showcase.md
+      - Anonymous queue: docs/anonymous-queue.md
+      - Access and dependencies: docs/security.md
+      - Architecture: docs/architecture.md
+  - Contracts:
+      - Shared data contracts: contracts/README.md
+      - API formats: contracts/api-formats.md
+      - Projects and deliveries: contracts/project-formats.md
+  - Design:
+      - "0001: Local-first application": docs/design/0001-local-first-architecture.md
+      - "0001: Phase 2 plan": docs/design/0001-phase-2-plan.md
+      - "0002: Installed scientific root": docs/design/0002-installed-scientific-root.md
+      - "0003: Identity change at 1.0": docs/design/0003-identity-at-1.0.md
+  - Third-party notices: THIRD_PARTY_NOTICES.md
+
+theme:
+  name: material
+  language: en
+  font: false  # System fonts; the site makes no requests to Google Fonts.
+  features:
+    - content.action.edit
+    - navigation.footer
+    - navigation.sections
+    - navigation.top
+    - search.highlight
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+markdown_extensions:
+  - toc:
+      permalink: true
+      # Heading anchors as GitHub makes them, Chinese headings included (#使用顺序).
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - tables
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.magiclink

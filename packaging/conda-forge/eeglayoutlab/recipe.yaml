@@ -1,0 +1,98 @@
+# Draft conda-forge recipe (rattler-build, recipe format v1) for EEGLayoutLab, laid out as design 0002 decides:
+# the eeglayoutlab package in site-packages and the scientific root tree in $PREFIX/share/eeglayoutlab/root.
+# Not submitted; see README.md for what was verified and what is still missing.
+schema_version: 1
+
+context:
+  name: eeglayoutlab
+  version: "0.2.0"
+  python_min: "3.11"
+
+package:
+  name: ${{ name }}
+  version: ${{ version }}
+
+source:
+  # The draft builds the checkout it sits in. A submitted recipe takes the release tarball and its sha256.
+  path: ../../..
+  use_gitignore: true
+
+build:
+  number: 0
+  noarch: python
+  script:
+    file: build.sh
+    env:
+      # An npm cache to reuse for a local build; empty on conda-forge, where npm uses a cache in the work directory.
+      NPM_CACHE: ${{ env.get("EEGLAYOUTLAB_NPM_CACHE", default="") }}
+  python:
+    entry_points:
+      - eeglayoutlab = eeglayoutlab.cli.main:main
+
+requirements:
+  build:
+    # The interface is exported as static pages at build time; Node is not a run dependency.
+    - nodejs >=22.13
+  host:
+    - python ${{ python_min }}.*
+    - pip
+    - setuptools
+    - wheel
+  run:
+    - python >=${{ python_min }},<3.12
+    # Numerical packages pinned to the Linux runtime lock (configs/runtime/manifest-linux-64.json,
+    # pip-linux-64.txt) on both platforms (design 0002, decision 2). An upgrade needs its own projection
+    # check (design 0001, decision 10).
+    - numpy ==2.3.0
+    - scipy ==1.17.1
+    - numba ==0.64.0
+    - llvmlite ==0.46.0
+    - nibabel ==5.3.3
+    - cortech ==0.1
+    - libblas * *openblas
+    - libopenblas ==0.3.34
+    - matplotlib-base ==3.10.8
+    - threadpoolctl ==3.6.0
+    # The local service (pyproject.toml, extra "service")
+    - fastapi-core ==0.165.0
+    - pydantic ==2.14.4
+    - starlette ==1.10.0
+    - uvicorn ==0.54.0
+
+tests:
+  - python:
+      imports:
+        - eeglayoutlab
+        - eeglayoutlab.cli.main
+        - eeglayoutlab.data
+      python_version: ${{ python_min }}.*
+      pip_check: true
+  - files:
+      recipe:
+        - run_test.py
+    requirements:
+      run:
+        - python ${{ python_min }}.*
+    script:
+      # The root tree, the absence of compact_eeg from site-packages, the data commands and one science import
+      - python run_test.py
+      - eeglayoutlab --help
+      - eeglayoutlab data --help
+
+about:
+  homepage: https://github.com/Yiming-S/EEGLayoutLab
+  repository: https://github.com/Yiming-S/EEGLayoutLab
+  summary: Compact EEG electrode layouts evaluated on head models, as a local application
+  description: |
+    EEGLayoutLab designs and evaluates compact EEG electrode layouts against a
+    standard 64-electrode reference on finite-element head models. The local
+    service serves the interface in the browser and runs each calculation in its
+    own process. Model data is installed separately with `eeglayoutlab data`.
+  license: GPL-3.0-only
+  license_file:
+    - LICENSE
+    - THIRD_PARTY_NOTICES.md
+
+extra:
+  recipe-maintainers:
+    - Yiming-S

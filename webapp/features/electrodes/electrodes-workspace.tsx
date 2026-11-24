@@ -19,6 +19,8 @@ import { localizedRecordTitle, localizedEditorParentTitle } from '@/lib/i18n/rec
 import { initialSlots, editHistory, editorLink } from '@/lib/electrode-editor';
 import { useElectrodesController, running } from './use-electrodes-controller';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
+import { ShowcaseComputeNotice } from '@/components/showcase-banner';
+import { SHOWCASE } from '@/lib/showcase';
 
 const Head = lazy(() =>
   import('@/components/cluster-head-viewer').then((m) => ({
@@ -136,16 +138,16 @@ export default function ElectrodesPage() {
             </Select>
           </div>
           <Button
-            disabled={!parentId || busy}
+            disabled={!parentId || busy || SHOWCASE}
             onClick={() => void switchLayout(parentId)}
           >
             {tx('载入编辑器')}
           </Button>
-          <p className="w-full text-sm text-muted-foreground">
+          {SHOWCASE ? <ShowcaseComputeNotice className="w-full" /> : <p className="w-full text-sm text-muted-foreground">
             {tx(
               '载入后显示真实点位与可移动范围。历史记录若未保存区域边界，需要先在布局设计中生成新版布局。',
             )}
-          </p>
+          </p>}
         </section>
         {error && (
           <div

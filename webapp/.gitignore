@@ -37,3 +37,5 @@ next-env.d.ts
 /.wrangler/
 /outputs/
 /work/
+/showcase-dist/
+/dist.app-build/

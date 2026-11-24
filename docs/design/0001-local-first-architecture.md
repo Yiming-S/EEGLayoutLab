@@ -123,7 +123,7 @@ A request key is the SHA-256 of `JSON.stringify({request, identity})`, so phase 
 - **Workspace.** The user chooses a workspace directory (`eeglayoutlab ~/my-study`). It holds projects, saved layouts, notes, comparison settings and immutable result snapshots as readable files. It can be backed up, kept in git, or sent to a collaborator. Sharing happens through delivery packages; the owner and read-only credentials of 0.2.0 are not carried over.
 - **Cache.** Calculation results are stored by scientific identity in a per-user cache directory shared by all workspaces. Removing the cache never removes workspace snapshots.
 - **Data packages.** The base bundle, the scalp-node tables, the conductivity-scenario tables and each head package are separate packages with their own version and SHA-256 manifest. They live in the user data directory (`~/Library/Application Support/EEGLayoutLab` on macOS, `$XDG_DATA_HOME/eeglayoutlab` on Linux).
-- **Data commands.** `eeglayoutlab data install`, `list`, `verify` and `remove` manage them, showing progress and checking SHA-256 after each download. Data is published on Zenodo so that each version has a DOI.
+- **Data commands.** `eeglayoutlab data install`, `list`, `verify`, `compose` and `remove` manage them, showing progress and checking SHA-256 after each download. Data is published on Zenodo so that each version has a DOI.
 
 ### 8. Versions and compatibility
 
@@ -188,7 +188,7 @@ Each phase ends with the application fully usable.
 | 4. Retirement | Remove the Node host and its tests. Publish the plugin API. Decide the 1.0 identity change | The repository contains one service implementation. The plugin API has documented examples |
 | Later | Server edition | Deployed when an institution or collaborator needs it |
 
-Phase 2 is planned in slices in [0001-phase-2-plan.md](0001-phase-2-plan.md).
+Phase 2 is planned in slices in [0001-phase-2-plan.md](0001-phase-2-plan.md). Where the scientific root lies in an application installed from conda-forge (phase 3) is decided in [0002](0002-installed-scientific-root.md). The 1.0 identity change of phase 4 is decided in [0003](0003-identity-at-1.0.md).
 
 ### Phase 0 results
 

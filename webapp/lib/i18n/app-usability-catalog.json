@@ -250,5 +250,21 @@
   "ui2_not_met": {
     "source": "未达到：{{0}}",
     "en": "Not met: {{0}}"
+  },
+  "showcase_read_only": {
+    "source": "只读展示版",
+    "en": "Read-only showcase"
+  },
+  "showcase_banner_note": {
+    "source": "可浏览示例结果、三维头模和方法说明；计算、保存与导入需要安装本地版。",
+    "en": "Browse example results, the 3D head and the method pages. Calculating, saving and importing need the installed application."
+  },
+  "showcase_install_link": {
+    "source": "安装说明",
+    "en": "Installation"
+  },
+  "showcase_refusal": {
+    "source": "这是只读展示版，不运行计算，也不保存数据。安装 EEGLayoutLab 本地版后即可计算。",
+    "en": "This is the read-only showcase: it runs no calculations and stores nothing. Install EEGLayoutLab to compute."
   }
 }

@@ -8,6 +8,7 @@
 !/THIRD_PARTY_NOTICES.md
 !/LICENSE
 !/pyproject.toml
+!/mkdocs.yml
 !/configs/
 !/contracts/
 !/data/
