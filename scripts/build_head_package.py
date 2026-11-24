@@ -8,6 +8,10 @@ the SHA256 of the code it runs, match. A charm m2m folder is reused only after a
 recorded successful charm of the same scans and SimNIBS version; any other existing
 folder is resumed only when this builder recorded the attempt, or with --charm-resume.
 The package is refused when the mapped standard64 reference fails the layout screen.
+package.json names the m2m folder, mesh and Ernie m2m folder by their paths under the
+repository root, read without following links: a link under the root to a folder elsewhere
+is recorded by its own path, so the package names no host directory. An input outside the
+root is refused; link it under the root instead.
 
     # existing m2m folder (Ernie under the cross-head protocol)
     .runtime/simnibs-4.6.0/bin/python scripts/build_head_package.py --head-id ernie_xh \\
@@ -52,6 +56,12 @@ STAGE_CODE = {"scalp.npz": ("src/compact_eeg/workflows/head_package.py",),
               "sources.npz": ("scripts/build_head_package.py", "src/compact_eeg/workflows/head_package.py"),
               "mapping.npz": ("scripts/build_head_package.py", "src/compact_eeg/workflows/head_package.py",
                               "src/compact_eeg/workflows/scalp_node_table.py")}
+# Earlier versions of a stage code file whose stage code is the same as now: stages they finished are
+# reused. Add the outgoing SHA256 when a change leaves every stage's computation alone; empty the
+# entry when a change touches what a stage computes.
+SAME_STAGE_CODE = {"scripts/build_head_package.py": frozenset({
+    "f19914806fb2c40a5885838834ddd4e5b15afa5ccc26bbae16436a4a862e611e",  # 0.2.0: recorded input paths with links followed
+})}
 CHARM_LABELS = Path("label_prep/tissue_labeling_upsampled.nii.gz")  # written after the MNI warps
 LICENSES = {"IXI": {"license": "CC BY-SA 3.0", "url": "https://brain-development.org/ixi-dataset/",
                     "attribution": "IXI dataset, https://brain-development.org/ixi-dataset/"}}
@@ -61,9 +71,18 @@ def emit(**values):
     print(json.dumps(values, ensure_ascii=False, default=str), flush=True)
 
 
-def relative(root, path):
-    path = Path(path).resolve()
-    return str(path.relative_to(root)) if path.is_relative_to(root) else str(path)
+def recorded_path(root, path):
+    """An input's path under the repository root, as package.json records it.
+
+    The path as given comes first, without following links, so a link under the root names a
+    folder elsewhere by its own path; the path with links followed is the fallback. The table
+    builder opens the mesh at the recorded path.
+    """
+    for candidate in (Path(os.path.abspath(path)), Path(path).resolve()):
+        if candidate.is_relative_to(root):
+            return candidate.relative_to(root).as_posix()
+    raise SystemExit(f"{path} is outside the repository root {root}; link it under the root "
+                     "(for example under data/external/) and pass that path")
 
 
 def normalized(value):
@@ -83,9 +102,19 @@ def write_stage(directory, name, arrays, inputs, stages):
     stages[name] = {"inputs": normalized(inputs), "sha256": sha256_file(path)}
 
 
+def same_inputs(recorded, inputs):
+    """Recorded stage inputs equal these, reading a code version in SAME_STAGE_CODE as the current file."""
+    code = recorded.get("code_sha256")
+    if isinstance(code, dict):
+        current = inputs.get("code_sha256") or {}
+        recorded = {**recorded, "code_sha256": {
+            path: current.get(path, sha) if sha in SAME_STAGE_CODE.get(path, ()) else sha for path, sha in code.items()}}
+    return recorded == inputs
+
+
 def reusable(directory, name, inputs, stages):
     entry = stages.get(name)
-    return bool(entry and entry["inputs"] == normalized(inputs) and (directory / name).is_file()
+    return bool(entry and same_inputs(entry["inputs"], normalized(inputs)) and (directory / name).is_file()
                 and sha256_file(directory / name) == entry["sha256"])
 
 
@@ -225,8 +254,10 @@ def build(args, root):
         if args.t2:
             inputs["t2_sha256"] = stages["charm"]["inputs"]["t2_sha256"]
     else:
-        m2m = Path(args.m2m).resolve()
+        m2m = Path(os.path.abspath(args.m2m))  # as named: a link under the root is recorded by its own path
     mesh_path = m2m / f"{m2m.name.removeprefix('m2m_')}.msh"
+    ernie_m2m = Path(os.path.abspath(root / args.ernie_m2m))
+    paths = {"m2m": recorded_path(root, m2m), "mesh": recorded_path(root, mesh_path), "ernie_m2m": recorded_path(root, ernie_m2m)}
     central = [m2m / "surfaces" / f"{side}.central.gii" for side in ("lh", "rh")]
     spheres = [m2m / "surfaces" / f"{side}.sphere.reg.gii" for side in ("lh", "rh")]
     import simnibs
@@ -302,7 +333,6 @@ def build(args, root):
     emit(stage="source_qa", fallback_max_mm=source_qa["fallback_distance_mm"]["maximum"], exceptions=len(exceptions))
 
     data, pointer, report = de.load_bank(root)
-    ernie_m2m = (root / args.ernie_m2m).resolve()
     if sha256_file(ernie_m2m / "ernie.msh") != json.loads((root / "configs/ernie_fem_point_pilot.json").read_text())["mesh_sha256"]:
         raise SystemExit("The Ernie m2m folder is not the frozen Ernie head")
     same_subject = inputs["mesh_sha256"] == sha256_file(ernie_m2m / "ernie.msh")
@@ -337,8 +367,7 @@ def build(args, root):
     dataset = {"name": args.dataset, "subject": args.subject, **LICENSES.get(args.dataset, {})}
     manifest = {
         "schema": hp.SCHEMA, "head_id": head_id, "dataset": dataset,
-        "inputs": {**inputs, "m2m": relative(root, m2m), "mesh": relative(root, mesh_path),
-                   "ernie_m2m": relative(root, ernie_m2m), "charm": bool(args.t1),
+        "inputs": {**inputs, **paths, "charm": bool(args.t1),
                    **(charm_manifest_inputs(stages["charm"]) if args.t1 else {})},
         "conductivity_by_tetrahedron_tag": conductivity, "conductivity_source": "simnibs.utils.mesh_element_properties defaults",
         "gauge_node_one_based": gauge, "gauge_rule": "white-matter node nearest the white-matter node centroid",
@@ -371,7 +400,7 @@ def main():
     parser.add_argument("--repository-root", default=str(SOURCE_ROOT))
     parser.add_argument("--head-id", required=True)
     source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--m2m", help="existing SimNIBS m2m folder")
+    source.add_argument("--m2m", help="existing SimNIBS m2m folder under the repository root (a link there is fine)")
     source.add_argument("--t1", help="T1-weighted image; runs charm")
     parser.add_argument("--t2", help="T2-weighted image for charm")
     parser.add_argument("--charm-resume", action="store_true",
@@ -381,7 +410,7 @@ def main():
     parser.add_argument("--charm-forceqform", action="store_true",
                         help="pass --forceqform to charm, for scans whose qform and sform differ (IXI headers differ by "
                              "rounding, up to 2e-5, which charm refuses); recorded in the charm inputs and package.json")
-    parser.add_argument("--ernie-m2m", default=str(ERNIE_M2M), help="full Ernie m2m with toMNI transforms")
+    parser.add_argument("--ernie-m2m", default=str(ERNIE_M2M), help="full Ernie m2m with toMNI transforms, relative to the root")
     parser.add_argument("--dataset", required=True)
     parser.add_argument("--subject", required=True)
     parser.add_argument("--execute", action="store_true")
