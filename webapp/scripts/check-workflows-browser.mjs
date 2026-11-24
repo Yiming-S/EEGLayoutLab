@@ -81,7 +81,10 @@ try {
 
   await check('English findings → layout list → layout page keeps the filters and AR without computation', async () => {
     const before = submitCount();
-    await go('/findings?domain=whole_scalp_free&area=120&r=2&ar=43'); await layoutId(area.id);
+    await go('/findings?domain=whole_scalp_free&area=120&r=2&ar=43');
+    // Details open in a sheet from the region row (index 1 is two regions).
+    await page.getByRole('button', { name: t('查看布局与指标'), exact: true }).nth(1).click(); await layoutId(area.id);
+    await page.getByRole('button', { name: t('关闭方案详情'), exact: true }).click();
     await page.getByRole('link', { name: t('布局'), exact: true }).click();
     await page.waitForURL(url => url.pathname === '/library' && url.searchParams.get('ar') === '43');
     await label('布局实验协议').selectOption('cache');
@@ -175,7 +178,8 @@ try {
     const before = submitCount();
     await go(`/decision?a=${area.id}&b=${otherArea.id}&ar=46&thresholdMode=joint`);
     const selection = page.getByRole('region', { name: t('选择对比方案'), exact: true });
-    const a = selection.getByLabel(regex(t('方案A'))), b = selection.getByLabel(regex(t('方案B')));
+    // Exact names: each side also has a filter box and, for layouts with several evaluations, a condition select.
+    const a = selection.getByLabel(t('方案A'), { exact: true }), b = selection.getByLabel(t('方案B'), { exact: true });
     await a.waitFor();
     await page.waitForFunction(({ a, b }) => [...document.querySelectorAll('select')].some(select => select.value === a) && [...document.querySelectorAll('select')].some(select => select.value === b), { a: area.id, b: otherArea.id });
     assert.equal(await a.inputValue(), area.id); assert.equal(await b.inputValue(), otherArea.id);

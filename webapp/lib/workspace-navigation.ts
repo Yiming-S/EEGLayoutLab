@@ -240,6 +240,14 @@ export function workspaceLinks(
     }
     links.projects = '/projects?record=' + selection.id + '&annotation_id=' + annotation;
   }
+  // A layout record opens on its own page (the list redirects there), so the list
+  // link names no layout record. Editor copies and signal experiments (prefixed
+  // ids) keep theirs: their details stay on the list.
+  const list = new URL(links.library, url);
+  if (/^[a-f0-9]{64}$/.test(list.searchParams.get('record') ?? '')) {
+    list.searchParams.delete('record'); list.searchParams.delete('annotation_id');
+    links.library = list.pathname + list.search;
+  }
   for (const page of [
     'design',
     'electrodes',

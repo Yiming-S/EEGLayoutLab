@@ -120,10 +120,27 @@ void test('both results views retain all filters and current selection after too
   const via = workspaceLinks(first.decision, 46, { ...record, id: secondId }, { id: secondId, phase: 'saved' });
   for (const href of [via.findings, via.library]) {
     const q = url(href).searchParams;
-    for (const [key, value] of Object.entries({ ar: '46', domain: 'whole_scalp_free', area: '120', r: '2', metric: 'field_relative', filter: 'cache', regions: '2', kind: 'editor', electrodes: '56', location: 'AR', q: '耳', page: '3', sort: 'newest', record: secondId })) assert.equal(q.get(key), value, key);
+    for (const [key, value] of Object.entries({ ar: '46', domain: 'whole_scalp_free', area: '120', r: '2', metric: 'field_relative', filter: 'cache', regions: '2', kind: 'editor', electrodes: '56', location: 'AR', q: '耳', page: '3', sort: 'newest' })) assert.equal(q.get(key), value, key);
     assert.equal(q.has('layoutRecord'), false); assert.equal(q.has('layoutState'), false);
-    assert.equal(routeSelection(href).id, secondId);
   }
+  // The findings view keeps the selection; the list names no layout record, since
+  // the list opens a layout record on its own page and would leave the list.
+  assert.equal(url(via.findings).searchParams.get('record'), secondId);
+  assert.equal(routeSelection(via.findings).id, secondId);
+  assert.equal(url(via.library).searchParams.has('record'), false);
+  assert.equal(via.layout, '/layout?id=' + secondId + '&ar=46');
+});
+
+void test('the layout list link keeps editor and signal records, whose details stay on the list', () => {
+  for (const entry of ['editor:' + 'c'.repeat(64), 'source:' + 'd'.repeat(64)]) {
+    const links = workspaceLinks('/library?ar=32&filter=all&record=' + encodeURIComponent(entry), 32, null, { id: null, phase: 'saved' });
+    assert.equal(url(links.library).searchParams.get('record'), entry);
+  }
+  const note = 'e'.repeat(64);
+  const annotated = workspaceLinks('/library?ar=32&record=' + id + '&annotation_id=' + note, 32, record, saved);
+  assert.equal(url(annotated.library).searchParams.has('record'), false);
+  assert.equal(url(annotated.library).searchParams.has('annotation_id'), false);
+  assert.equal(url(annotated.layout).searchParams.get('annotation_id'), note);
 });
 
 void test('docs preserve full work parameters rather than creating a new configuration', () => {

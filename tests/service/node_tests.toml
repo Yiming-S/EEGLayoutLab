@@ -2699,6 +2699,9 @@ disposition = "N"
 [sites."check-workspace-navigation.mjs::invalid IDs, counts and external returns cannot become active layout references"]
 disposition = "N"
 
+[sites."check-workspace-navigation.mjs::the layout list link keeps editor and signal records, whose details stay on the list"]
+disposition = "N"
+
 # --- Opt-in scripts ---------------------------------------------------------------------------------------------------
 
 [scripts."check-app-live.mjs"]
