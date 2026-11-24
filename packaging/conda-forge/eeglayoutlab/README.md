@@ -43,13 +43,12 @@ All in scratch directories: the environment, the data directory and the example 
 | Environment | 90 packages, 2.3 GB, Python 3.11.18. The pins resolve as written. BLAS is `libopenblas 0.3.34 openmp` with `llvm-openmp 23.1.6` |
 | Tree | `src/compact_eeg`, `scripts`, `configs`, `examples` (without `outputs`), `webapp/public` and the three `data` files in R are byte-identical to the checkout. `site-packages/eeglayoutlab` is byte-identical to `src/eeglayoutlab`. `compact_eeg` is not importable from `site-packages`, and R holds no bytecode |
 | Commands | `eeglayoutlab --help`, `eeglayoutlab data list` |
-| Data | `data install --from-root` put `base-1.0.0` (406 MB, 21 files) and `scalp-node-table-1.0.0` (1.40 GB, 4 files) in a test data directory. `data compose --root R` placed 24 files as hard links and left `data/SOURCES.md`, already in R with the same bytes, as it was. A second compose placed nothing. `data verify`: both packages intact |
-| Examples | `EEG_COMPUTE_PYTHON=ENV/bin/python node examples/run-examples.mjs --root R --skip-cross-head` passes. All 15 scores of examples 1 and 2 equal `expected.json` exactly (largest difference 0.0). The run took 13.3 s, with a peak of 0.99 GiB for the whole process tree and 0.85 GiB for one process |
+| Data | `data install --from-root` put `base-1.0.0` (406 MB, 21 files) and `scalp-node-table-1.0.0` (1.40 GB, 4 files) in a test data directory. `data compose --root R` placed 24 files as hard links and left `data/SOURCES.md`, already in R with the same bytes, as it was. A second compose placed nothing. The eleven head packages followed, with manifests built again by `data build` after the head rebuild; none of them records a home-directory path. They were installed in 8 s, and compose placed their 110 files (13.34 GB) as hard links. `data verify`: all 13 packages intact, in 6 s |
+| Examples | `EEG_COMPUTE_PYTHON=ENV/bin/python node examples/run-examples.mjs --root R` passes, example 3 on all eleven heads (11 of 11 cases). All 24 scores equal `expected.json` exactly (largest difference 0.0). The run took 38.0 s, with a peak of 1.01 GiB for the whole process tree and 0.88 GiB for one process. Examples 1 and 2 alone, before the heads were installed: 13.3 s, 0.99 GiB |
 | Service | `eeglayoutlab serve WORKSPACE --root R` serves the interface from `R/webapp/dist/client`: the page, its scripts and `models/ernie/source-roi.json` |
 
 **Not checked:**
 - **Linux.** The package is `noarch: python`, so the same file installs there, but it has not been built or installed on Linux.
-- **Example 3.** The head package manifests no longer match the head files: the head rebuild changed every `package.json` except those of ixi230 and ixi231, which are still to be rebuilt. Example 3 can run once the rebuild is finished and the manifests are generated again.
 - **FEM and reception v2.** SimNIBS is not in this environment, so no FEM solve ran and reception v2 is unavailable (0002, consequences).
 
 ## What design 0002 still needs in the code
