@@ -18,6 +18,9 @@ import {
   parseDecisionThresholds,
   jointDecisionThresholds,
   decisionCriteriaSummary,
+  exportRecordCoordinates,
+  tryExportDesign,
+  recordElectrodeCount,
 } from '../lib/design-decision.ts';
 import { assessment } from '../lib/lab-workflow.ts';
 import {
@@ -178,6 +181,41 @@ void test('comparison blocks protocol mixing and reports unmatched actual area',
       s.includes('99%'),
     ),
   );
+  const sparse24 = {
+    id: 's24',
+    label: '24ch adaptive',
+    dataset_id: 'cache',
+    region_count: 2,
+    request: { electrode_count: 24, allocation_mode: 'adaptive' },
+    provenance: { sha256: 'a' },
+    metrics: { field_relative: 0.72 },
+    layout: {
+      xyzMm: design.xyz_mm.slice(0, 24),
+      regionIndices: [...Array(8).fill(0), ...Array(16).fill(1)],
+      regionPatchVertexIndices: [[1], [2]],
+    },
+  };
+  const full64 = {
+    ...sparse24,
+    id: 'f64',
+    label: '64ch balanced',
+    request: { electrode_count: 64, allocation_mode: 'balanced' },
+    layout: {
+      xyzMm: design.xyz_mm,
+      regionIndices: design.region_indices,
+      regionPatchVertexIndices: [[1], [2]],
+    },
+  };
+  assert.equal(recordElectrodeCount(sparse24), 24);
+  assert.equal(tryExportDesign(sparse24), null);
+  assert.equal(tryExportDesign(full64)?.xyz_mm.length, 64);
+  const exported24 = exportRecordCoordinates(sparse24);
+  assert.equal(exported24?.xyz_mm.length, 24);
+  assert.deepEqual(exported24?.region_indices.slice(0, 9), [0, 0, 0, 0, 0, 0, 0, 0, 1]);
+  assert.equal(designCSV(exported24).trim().split('\n').length, 26);
+  const sparseNotes = comparisonNotes([sparse24, full64]);
+  assert.ok(sparseNotes.some((s) => s.includes('电极总数不同')));
+  assert.ok(sparseNotes.some((s) => s.includes('区域通道配额方式不同')));
 });
 void test('report retains negative scores, original provenance and independent stage scope', () => {
   const r = {
@@ -197,6 +235,21 @@ void test('report retains negative scores, original provenance and independent s
   assert.ok(report.includes('-10.00%'));
   assert.ok(report.includes('512独立源复评'));
   assert.ok(report.includes('"sha256": "a"'));
+  const sparseReportZh = decisionMarkdown(
+    [{ ...r, request: { electrode_count: 16 } }, r],
+    { field: 90, sensitivity: null, localization: null, p90_mm: null },
+  );
+  assert.ok(sparseReportZh.includes('|方案|电极数|区域数|'));
+  assert.ok(sparseReportZh.includes('|16|2|'));
+  const sparseReportEn = decisionMarkdown(
+    [{ ...r, request: { electrode_count: 16 } }, r],
+    { field: 90, sensitivity: null, localization: null, p90_mm: null },
+    undefined,
+    'en',
+  );
+  assert.ok(sparseReportEn.includes('|Plan|Electrodes|Regions|') || sparseReportEn.includes('|Layout|Electrodes|Regions|'));
+  const strippedEn = sparseReportEn.replace(/```json[\s\S]*?```/g, '');
+  assert.equal(/[\u3400-\u9fff]/.test(strippedEn), false);
 });
 void test('result validator rejects a switched request or displaced nominal coordinates', () => {
   validateDesignResult(baselineResult(), request);

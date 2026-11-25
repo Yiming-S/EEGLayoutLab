@@ -65,9 +65,40 @@ function fittedRadius(points: readonly { r: number }[]) {
   return Math.min(MAX_RADIUS, FIT_RADIUS / Math.max(1, ...points.map(p => p.r)));
 }
 
+export type LayoutPlot = {
+  xyz_mm: readonly Point[];
+  region_indices: readonly number[];
+  electrode_names?: readonly string[];
+};
+
+const finiteCoord = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && Math.abs(v) <= 500;
+
+/** Validate any 2–64 electrode layout (balanced or adaptive) for read-only 2D azimuthal SVG projection. */
+export function validateLayoutPlot(input: LayoutPlot): LayoutPlot {
+  if (!input || !Array.isArray(input.xyz_mm) || input.xyz_mm.length < 2 || input.xyz_mm.length > 64 ||
+      input.xyz_mm.some(p => !Array.isArray(p) || p.length !== 3 || !p.every(finiteCoord)))
+    throw new Error('布局图需要2–64个有效三维坐标。');
+  const total = input.xyz_mm.length;
+  if (new Set(input.xyz_mm.map(p => p.join(','))).size !== total)
+    throw new Error('布局图坐标不能重复。');
+  if (!Array.isArray(input.region_indices) || input.region_indices.length !== total)
+    throw new Error('布局图需要匹配的区域标签。');
+  const r = new Set(input.region_indices).size;
+  if (![1, 2, 3, 4, 6].includes(r) || input.region_indices.some(v => !Number.isInteger(v) || v < 0 || v >= r))
+    throw new Error('区域标签须从0连续编号，区域数量为1、2、3、4或6。');
+  if (input.electrode_names !== undefined && (!Array.isArray(input.electrode_names) || input.electrode_names.length !== total))
+    throw new Error('电极名称数量须与坐标一致。');
+  return input;
+}
+
 /** One scale that fits every layout shown side by side. */
 export function sharedFigureRadius(designs: readonly ElectrodeDesign[]) {
   return Math.min(MAX_RADIUS, ...designs.map(design => fittedRadius(projectLayout(validateDesign(design).xyz_mm))));
+}
+
+/** One scale that fits every 2–64-electrode layout plot shown side by side. */
+export function sharedPlotFigureRadius(plots: readonly LayoutPlot[]) {
+  return Math.min(MAX_RADIUS, ...plots.map(plot => fittedRadius(projectLayout(validateLayoutPlot(plot).xyz_mm))));
 }
 
 function marker(shape: (typeof SHAPES)[number], x: number, y: number, size: number, fill: string) {
@@ -82,16 +113,20 @@ function marker(shape: (typeof SHAPES)[number], x: number, y: number, size: numb
 }
 
 /** Closest pair of projected electrodes in figure pixels; names collide below about 16 px. */
-export function figureSpacing(design: ElectrodeDesign, radius?: number) {
-  const disc = projectLayout(validateDesign(design).xyz_mm), scale = radius ?? fittedRadius(disc);
+export function plotFigureSpacing(plot: LayoutPlot, radius?: number) {
+  const disc = projectLayout(validateLayoutPlot(plot).xyz_mm), scale = radius ?? fittedRadius(disc);
   let closest = Infinity;
   disc.forEach((a, i) => disc.slice(i + 1).forEach(b => { closest = Math.min(closest, Math.hypot(a.x - b.x, a.y - b.y) * scale); }));
   return closest;
 }
 
-export function layoutFigureSvg(input: ElectrodeDesign, text: FigureText, { labels = true, radius: sharedRadius }:
+export function figureSpacing(design: ElectrodeDesign, radius?: number) {
+  return plotFigureSpacing(validateDesign(design), radius);
+}
+
+export function plotFigureSvg(input: LayoutPlot, text: FigureText, { labels = true, radius: sharedRadius }:
   { labels?: boolean; radius?: number } = {}) {
-  const design = validateDesign(input), names = design.electrode_names ?? design.xyz_mm.map((_, index) => `E${index + 1}`);
+  const design = validateLayoutPlot(input), names = design.electrode_names ?? design.xyz_mm.map((_, index) => `E${index + 1}`);
   const disc = projectLayout(design.xyz_mm), count = Math.max(...design.region_indices) + 1;
   const radius = sharedRadius ?? fittedRadius(disc);
   const at = (p: { x: number; y: number }) => ({ x: CENTRE.x + p.x * radius, y: CENTRE.y - p.y * radius });
@@ -122,6 +157,10 @@ export function layoutFigureSvg(input: ElectrodeDesign, text: FigureText, { labe
     ...caption.map((line, index) => `<text x="32" y="${captionY + index * 14}" font-size="10" fill="${INK.muted}">${escape(line)}</text>`),
     '</svg>',
   ].join('\n') + '\n';
+}
+
+export function layoutFigureSvg(input: ElectrodeDesign, text: FigureText, options: { labels?: boolean; radius?: number } = {}) {
+  return plotFigureSvg(validateDesign(input), text, options);
 }
 
 /** PNG at a fixed pixel scale from the same SVG (browser only). */

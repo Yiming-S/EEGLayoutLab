@@ -16,7 +16,7 @@ export function recordPickerChoices(records: SavedSummary[], locale: Locale,
     row.primary.finished_at ? date(row.primary.finished_at, true) : row.primary.id.slice(0, 8),
     ...(row.primary.dataset_id === 'cache' && !row.primary.compatible ? [tx('旧版本记录 · 仅供查阅')] : [])].join(' · '),
     target: searchTarget([...row.group.map(recordSearchText), row.title],
-      { regionCount: row.primary.region_count, electrodeCount: row.primary.status === 'completed' ? 64 : null,
+      { regionCount: row.primary.region_count, electrodeCount: row.primary.status === 'completed' ? (row.primary.request?.electrode_count ?? 64) : null,
         locations: locationsFor(row.primary), ids: row.group.map(record => record.id) }) }));
 }
 

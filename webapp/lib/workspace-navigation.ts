@@ -124,20 +124,21 @@ export function layoutCapabilities(
   record: SavedRecord | null,
   selection: WorkspaceSelection,
 ) {
-  const current =
+  const complete =
     selection.phase === 'saved' &&
     record?.id === selection.id &&
     record.status === 'completed' &&
-    record.layout?.xyzMm.length === 64;
+    (record.layout?.xyzMm.length ?? 0) >= 2;
+  const fixed64 = complete && record.layout?.xyzMm.length === 64;
   return {
-    design: !!current && !!radiusDesignLink(record, 90),
+    design: !!complete && !!radiusDesignLink(record, 90),
     edit:
-      !!current &&
+      !!fixed64 &&
       ['strict_area', 'cache'].includes(record.dataset_id) &&
       !!record.layout?.regionPatchVertexIndices?.length &&
       !record.request?.noise_model && !record.request?.data_prior,
-    compare: !!current && canCompareRecord(record),
-    reception: !!current && canSimulateRecord(record),
+    compare: !!complete && canCompareRecord(record),
+    reception: !!fixed64 && canSimulateRecord(record),
   };
 }
 export function workingPage(href: string): PageId {

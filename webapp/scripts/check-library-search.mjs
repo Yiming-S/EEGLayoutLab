@@ -105,6 +105,21 @@ void test('comparison search finds every completed published layout by its actua
       assert.equal(filtered.visible.length, choices.length);
       assert.deepEqual(filtered.misses, []);
     }
+    const sparseRecord = {
+      ...records[0],
+      id: 'f'.repeat(64),
+      layout_key: 'e'.repeat(64),
+      label: '2区 · PL + FM · 半径≤30 mm · 24导',
+      request: { region_count: 2, radius_mm: 30, mode: 'preset', mask_codes: ['PL', 'FM'], electrode_count: 24 },
+    };
+    const mixedChoices = recordPickerChoices([sparseRecord, ...records.slice(0, 2)], locale, text => text, value => value);
+    for (const query of ['24导', '24 电极', '24 electrodes', '24 channels']) {
+      const filtered24 = filterRecordPickerChoices(mixedChoices, query, '');
+      assert.equal(filtered24.matched.length, 1, `${locale}: ${query}`);
+      assert.equal(filtered24.matched[0].primary.id, sparseRecord.id);
+    }
+    const [catalog24] = buildRecordCatalog([sparseRecord], [], []);
+    assert.equal(catalog24.electrode_count, 24);
   }
 });
 

@@ -81,7 +81,7 @@ function StartHere({ ar, example, onClose }: { ar: number; example: string | nul
   const goals = [
     { href: '/findings?ar=' + ar, icon: BookOpen, title: '先看现成结论', text: '浏览总面积研究：1–6个区域在不同面积上限下各保留多少信号。只读，不需要计算。' },
     { href: '/coordinates?ar=' + ar, icon: Import, title: '评价我已有的电极位置', text: '导入CSV、JSON、BIDS、.elc或.sfp坐标文件，或按10-05电极名称导入，得到三项保留率。' },
-    { href: '/design?ar=' + ar, icon: Search, title: '设计一个新布局', text: '选择头部部位、区域数和每区大小，搜索64电极布局并评价。' },
+    { href: '/design?ar=' + ar, icon: Search, title: '设计一个新布局', text: '选择头部部位、区域数、电极总数（8–64导）和每区大小，搜索布局并评价。' },
   ];
   const rules = [
     '保留率 = 布局的得分 ÷ 标准64导全头布置的得分；100%表示与全头64导相同。',
@@ -95,13 +95,13 @@ function StartHere({ ar, example, onClose }: { ar: number; example: string | nul
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="max-w-3xl">
             <span className="font-mono text-[11px] font-medium tracking-[0.12em] text-muted-foreground uppercase">
-              64-CH · ERNIE FEM
+              8–64 CH · ERNIE FEM
             </span>
             <h2 id="start-here" className="mt-1.5 text-lg font-semibold tracking-[-0.02em] text-foreground sm:text-xl">
               {tx('从这里开始')}
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-6.5 text-ink-soft">
-              {tx('把64个电极集中放在头上少数几个区域，相比标准64导全头布置还能保留多少信号？本应用用头模仿真回答这个问题，并帮你设计、评价和比较这样的布局。')}
+              {tx('把电极集中放在头上少数几个区域（默认64导，支持8–64导探索），相比标准64导全头布置还能保留多少信号？本应用用头模仿真回答这个问题，并帮你设计、评价和比较这样的布局。')}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -166,7 +166,7 @@ function NewLayout({ ar }: { ar: number }) {
       <ArchitecturalMatrix
         framed
         items={[
-          { href: '/design?ar=' + ar, icon: Search, title: '按区域搜索', text: '选择部位、区域数和每区半径，搜索64电极布局。' },
+          { href: '/design?ar=' + ar, icon: Search, title: '按区域搜索', text: '选择部位、区域数、电极总数（默认64导）和每区半径，搜索最优布局。' },
           { href: '/coordinates?ar=' + ar, icon: Import, title: '坐标导入', text: '读取已有电极坐标文件，在当前条件下评价。' },
           { href: '/library?ar=' + ar, icon: PencilRuler, title: '复制并编辑', text: '从布局列表打开一个布局，移动或停用电极。' },
         ]}

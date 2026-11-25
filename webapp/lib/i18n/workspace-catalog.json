@@ -311,5 +311,93 @@
   "electrode_label_16": { "source": "16导", "en": "16 channels" },
   "electrode_label_24": { "source": "24导", "en": "24 channels" },
   "electrode_label_32": { "source": "32导", "en": "32 channels" },
-  "electrode_label_48": { "source": "48导", "en": "48 channels" }
+  "electrode_label_48": { "source": "48导", "en": "48 channels" },
+  "design_limits_variable_k": {
+    "source": "支持8–64导（默认64导） · 最小电极直线间距4 mm · 单Ernie头模 · 标准64导名义SNR＝20 dB。各布局使用相同物理噪声尺度。算法在有限候选网格内搜索，位置范围按模型坐标近似定义。",
+    "en": "Supports 8–64 channels (default 64) · minimum straight-line electrode spacing of 4 mm · one Ernie head model · nominal standard-64 SNR = 20 dB. All layouts use the same physical noise scale. The algorithm searches a finite candidate grid; placement domains are approximated using model coordinates."
+  },
+  "design_next_sparse_k": {
+    "source": "布局详情汇总这个布局在各条件下的评价并支持双栏对比；信号仿真与电极编辑仅适用于默认协议下的64导布局。",
+    "en": "The layout’s page gathers its evaluations under every condition and supports side-by-side comparison; signal simulation and electrode editing apply only to 64-channel layouts under the default protocol."
+  },
+  "design_next_empty_k": {
+    "source": "计算出完整布局后，可打开布局详情、加入方案对比，或在64导默认协议下用同一脑源测试。",
+    "en": "Once a complete layout is computed, open its page, compare it with another layout, or test it with the same brain sources under the default 64-channel protocol."
+  },
+  "saved_details_sparse_k": {
+    "source": "此布局为少于64导方案，支持三维查看、导出与双栏方案对比；电极编辑与信号仿真仅适用于64导布局。",
+    "en": "This layout uses fewer than 64 channels and supports 3D viewing, export, and side-by-side comparison; electrode editing and signal simulation apply only to 64-channel layouts."
+  },
+  "home_start_lead_k": {
+    "source": "把电极集中放在头上少数几个区域（默认64导，支持8–64导探索），相比标准64导全头布置还能保留多少信号？本应用用头模仿真回答这个问题，并帮你设计、评价和比较这样的布局。",
+    "en": "If electrodes are concentrated in a few regions of the head (default 64 channels, with 8–64-channel exploration), how much signal do they keep compared with the standard whole-head 64-electrode layout? This application answers that by head-model simulation, and helps you design, evaluate and compare such layouts."
+  },
+  "home_start_design_k": {
+    "source": "选择头部部位、区域数、电极总数（8–64导）和每区大小，搜索布局并评价。",
+    "en": "Choose the head locations, region count, total electrodes (8–64 channels), and each region's size, then search for a layout and evaluate it."
+  },
+  "home_new_search_k": {
+    "source": "选择部位、区域数、电极总数（默认64导）和每区半径，搜索最优布局。",
+    "en": "Choose sites, the number of regions, total electrodes (default 64), and the radius per region to search for a layout."
+  },
+  "decision_compare_intro_k": {
+    "source": "选择两个已保存布局（支持8–64导及跨区自适应配额），并排核对约束、空间分布与三项保留率；64导均衡方案还可检查网格位置偏移。",
+    "en": "Select two saved layouts (supporting 8–64 channels and adaptive regional quotas), compare constraints, spatial geometry and retention metrics side by side, and test grid position shifts on 64-channel equal-split designs."
+  },
+  "decision_svg_subtitle_k": {
+    "source": "{{0}}导 · {{1}}个区域 · Ernie模板头",
+    "en": "{{0}} channels · {{1}} regions · Ernie template head"
+  },
+  "decision_offset_fixed64_only": {
+    "source": "仅64导均衡方案支持偏移测试",
+    "en": "Offset test requires 64 equal-split channels"
+  },
+  "decision_row_electrodes_split": {
+    "source": "电极数 / 各区分配",
+    "en": "Electrodes / regional split"
+  },
+  "decision_offset_blocked_k": {
+    "source": "当前所选方案使用少于64导或跨区自适应配额；上方已完成并排性能与空间对比，下方跨条件坐标评价与网格偏移仅适用于均衡分配的64电极方案。",
+    "en": "The selected layout uses fewer than 64 channels or an adaptive cross-region quota; side-by-side metric and spatial comparison is shown above, while coordinate re-evaluation and grid-shift tests below apply only to equal-split 64-electrode designs."
+  },
+  "decision_export_fallback_name": {
+    "source": "导出布局",
+    "en": "Exported layout"
+  },
+  "decision_note_electrode_count": {
+    "source": "电极总数不同：比较的是通道规模与空间分布的共同影响（均相对标准全头64导评分）。",
+    "en": "Total electrode counts differ: this compares the joint effect of channel count and spatial placement (both scored relative to whole-head standard64)."
+  },
+  "decision_note_allocation_mode": {
+    "source": "区域通道配额方式不同（均分与跨区自适应）：各区通道数随有效孔径变化。",
+    "en": "Regional channel quota modes differ (equal split vs adaptive cross-region): per-region channel counts vary with effective aperture."
+  },
+  "decision_md_electrodes_basis_k": {
+    "source": "各方案测量电极数见下表（8–64导）；参照均为Ernie头模上的BioSemi64标签匹配全头布局。",
+    "en": "Each layout's measurement electrode count (8–64 channels) is listed below; all are referenced to the BioSemi64 label-matched whole-head layout on Ernie."
+  },
+  "decision_md_header_k": {
+    "source": "|方案|电极数|区域数|实际面积 cm²|重建保留率|幅度保留率（最差10%）|相对定位评分|定位中位数|定位P90|条件判定|",
+    "en": "|Layout|Electrodes|Regions|Actual area, cm²|Reconstruction retention|Amplitude retention (lowest 10%)|Relative Localization Utility|Median localization error|Localization P90|Criteria assessment|"
+  },
+  "decision_md_row_10_cols": {
+    "source": "|{{0}}|{{1}}|{{2}}|{{3}}|{{4}}|{{5}}|{{6}}|{{7}}|{{8}}|{{9}}|",
+    "en": "|{{0}}|{{1}}|{{2}}|{{3}}|{{4}}|{{5}}|{{6}}|{{7}}|{{8}}|{{9}}|"
+  },
+  "figure_err_coords": {
+    "source": "布局图需要2–64个有效三维坐标。",
+    "en": "Layout figure requires 2–64 valid 3D coordinates."
+  },
+  "figure_err_dup": {
+    "source": "布局图坐标不能重复。",
+    "en": "Layout figure coordinates must be distinct."
+  },
+  "figure_err_regions": {
+    "source": "布局图需要匹配的区域标签。",
+    "en": "Layout figure requires matching region labels."
+  },
+  "figure_err_names": {
+    "source": "电极名称数量须与坐标一致。",
+    "en": "Electrode name count must match the coordinates."
+  }
 }

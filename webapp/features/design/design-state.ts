@@ -55,7 +55,7 @@ export function designViewState(input: DesignStateInput): DesignViewState {
     };
     case 'no_layout': return {
       phase: 'no_layout', title: '本次搜索未找到完整布局',
-      detail: '本次搜索未找到完整64点布局。可扩大半径或调整位置范围后再次计算。',
+      detail: '本次搜索未找到完整布局。可扩大半径、减少电极总数或调整位置范围后再次计算。',
       action: 'configure', actionLabel: '查看布局参数与计算',
     };
   }

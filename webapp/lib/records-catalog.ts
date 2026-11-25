@@ -56,7 +56,7 @@ export function buildRecordCatalog(layouts: SavedSummary[], editors: EditorRecor
   }
   return [
     ...layouts.map(summary => ({ id: summary.id, kind: summary.dataset_id === 'design_evaluation' ? 'coordinates' as const : 'layout' as const,
-      finished_at: summary.finished_at, electrode_count: summary.status === 'completed' ? 64 : null,
+      finished_at: summary.finished_at, electrode_count: summary.status === 'completed' ? (summary.request?.electrode_count ?? 64) : null,
       region_count: summary.region_count, locations: locationsFor(summary), summary })),
     ...editors.map(editor => ({ id: 'editor:' + editor.key, kind: 'editor' as const, finished_at: editor.finished_at,
       electrode_count: editor.electrode_count, region_count: editor.active_regions, parent_id: editor.parent_id,
@@ -64,7 +64,7 @@ export function buildRecordCatalog(layouts: SavedSummary[], editors: EditorRecor
     ...[...newestSignals.values()].map(receipt => {
       const request = receipt.request as SourceRequest, parent = parents.get(request.record_id);
       return { id: 'source:' + receipt.key, kind: 'source' as const, finished_at: receipt.finished_at ?? receipt.created_at,
-        electrode_count: receipt.catalog?.electrode_count ?? (parent?.status === 'completed' ? 64 : null),
+        electrode_count: receipt.catalog?.electrode_count ?? (parent?.status === 'completed' ? (parent.request?.electrode_count ?? 64) : null),
         region_count: receipt.catalog?.region_count ?? parent?.region_count ?? null, parent_id: request.record_id,
         locations: locationsFor(parent, receipt.catalog?.mask_codes, receipt.catalog?.location_mode), receipt, request };
     }),
@@ -114,6 +114,9 @@ export function activeTaskLink(task: ExperimentReceipt, ar = 90, returnTo = '/li
   if (task.kind === 'local-compute') {
     const q = new URLSearchParams({ ar: String(ar), draft: '1', r: String(request.region_count), radius: String(request.radius_mm), mode: String(request.mode) });
     if (Array.isArray(request.mask_codes) && request.mask_codes.length) q.set('masks', request.mask_codes.join(','));
+    if (typeof request.electrode_count === 'number' && request.electrode_count !== 64) q.set('k', String(request.electrode_count));
+    if (request.allocation_mode === 'adaptive') q.set('allocation', 'adaptive');
+    if (request.objective_mode === 'composite') q.set('objective', 'composite');
     return '/design?' + q.toString();
   }
   if (task.kind === 'design-evaluation') return '/coordinates';

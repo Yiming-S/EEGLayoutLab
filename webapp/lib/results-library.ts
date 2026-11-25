@@ -70,7 +70,8 @@ export function savedLayoutActions(
   back: string,
 ) {
   const complete =
-    record.status === 'completed' && record.layout?.xyzMm.length === 64;
+    record.status === 'completed' && (record.layout?.xyzMm.length ?? 0) >= 2;
+  const fixed64 = complete && record.layout?.xyzMm.length === 64;
   const current = ['strict_area', 'cache', 'design_evaluation'].includes(
     record.dataset_id,
   );
@@ -83,14 +84,14 @@ export function savedLayoutActions(
   return {
     design: withReturn(radiusDesignLink(record, ar)),
     edit:
-      complete &&
+      fixed64 &&
       ['strict_area', 'cache'].includes(record.dataset_id) &&
       record.layout?.regionPatchVertexIndices?.length &&
       !record.request?.noise_model && !record.request?.data_prior
         ? withReturn(`/electrodes?parent=${record.id}&ar=${ar}`)
         : null,
     compare:
-      complete && current && !record.request?.allocation_mode
+      complete && current
         ? withReturn(decisionHref([record.id], jointDecisionThresholds(ar)))
         : null,
     reception:

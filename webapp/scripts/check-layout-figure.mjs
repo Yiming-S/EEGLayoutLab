@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseElectrodeLabels } from '../lib/bids-electrodes.ts';
 import { ERNIE_MNI_MAPPING } from '../lib/ernie-mni.ts';
-import { FIGURE_REGION_COLORS, figureSpacing, layoutFigureSvg, projectLayout, sharedFigureRadius } from '../lib/layout-figure.ts';
+import { FIGURE_REGION_COLORS, figureSpacing, layoutFigureSvg, plotFigureSpacing, plotFigureSvg, projectLayout, sharedFigureRadius, sharedPlotFigureRadius } from '../lib/layout-figure.ts';
 
 const names = ERNIE_MNI_MAPPING.golden.standard64.names;
 const labels = regions => parseElectrodeLabels({ name: 'labels.tsv', text: 'name\tregion\n' + names.map((name, index) => name + '\t' + regions(index)).join('\n') + '\n' });
@@ -55,4 +55,14 @@ void test('side-by-side figures share a scale that fits both sets of electrodes'
     assert.ok(projectLayout(design.xyz_mm).every(point => point.r * radius <= 290 + 1e-9));
   }
   assert.ok(figureSpacing(standard, radius) < figureSpacing(standard));
+  const adaptive16 = {
+    name: 'adaptive16',
+    xyz_mm: standard.xyz_mm.slice(0, 16),
+    region_indices: [...Array(4).fill(0), ...Array(12).fill(1)],
+  };
+  const sharedAdaptiveRadius = sharedPlotFigureRadius([adaptive16, standard]);
+  const adaptiveSvg = plotFigureSvg(adaptive16, { ...text, subtitle: '16 electrodes' }, { radius: sharedAdaptiveRadius });
+  assert.equal((adaptiveSvg.match(/<title>/g) ?? []).length, 16);
+  assert.ok(adaptiveSvg.includes('>Region 1 (4)</text>') && adaptiveSvg.includes('>Region 2 (12)</text>'));
+  assert.ok(plotFigureSpacing(adaptive16, sharedAdaptiveRadius) > 0);
 });

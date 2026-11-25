@@ -21,6 +21,12 @@ export type ElectrodeDesign = {
   electrode_names?: string[];
   source_metadata?: CoordinateSourceMetadata;
 };
+export type RecordCoordinates = {
+  name: string;
+  xyz_mm: [number, number, number][];
+  region_indices: number[];
+  electrode_names?: string[];
+};
 export type DecisionThresholds = {
   mode?: 'joint' | 'custom';
   field: number;
@@ -246,6 +252,10 @@ export function restoreDesignEvaluation(bundle: unknown, record: SavedRecord) {
     robustness: request.robustness === 'standard/1', data_prior, result };
 }
 
+export function recordElectrodeCount(record: Pick<SavedRecord, 'layout' | 'request'>): number {
+  return record.layout?.xyzMm?.length ?? record.request?.electrode_count ?? 64;
+}
+
 export function exportDesign(record: SavedRecord): ElectrodeDesign {
   if (!record.layout) throw new Error('该记录没有完整布局');
   return validateDesign({
@@ -259,7 +269,32 @@ export function exportDesign(record: SavedRecord): ElectrodeDesign {
     ...(record.electrode_annotation?.source_metadata ? { source_metadata: record.electrode_annotation.source_metadata } : {}),
   });
 }
-export function designCSV(design: ElectrodeDesign) {
+
+export function tryExportDesign(record: SavedRecord | null | undefined): ElectrodeDesign | null {
+  if (!record?.layout) return null;
+  try { return exportDesign(record); } catch { return null; }
+}
+
+/** Extract coordinates for any valid 2–64 electrode layout (balanced or adaptive) for 2D plotting and CSV export. */
+export function exportRecordCoordinates(record: SavedRecord | null | undefined): RecordCoordinates | null {
+  const layout = record?.layout;
+  if (!layout || !Array.isArray(layout.xyzMm) || layout.xyzMm.length < 2 || layout.xyzMm.length > 64) return null;
+  if (layout.xyzMm.some((p) => !Array.isArray(p) || p.length !== 3 || !p.every(finite) || p.some((v) => Math.abs(v) > 500))) return null;
+  const total = layout.xyzMm.length;
+  if (new Set(layout.xyzMm.map((p) => p.join(','))).size !== total) return null;
+  if (!Array.isArray(layout.regionIndices) || layout.regionIndices.length !== total) return null;
+  const r = new Set(layout.regionIndices).size;
+  if (![1, 2, 3, 4, 6].includes(r) || layout.regionIndices.some((v) => !Number.isInteger(v) || v < 0 || v >= r)) return null;
+  const names = record.electrode_annotation?.electrode_names;
+  return {
+    name: typeof record.label === 'string' ? record.label.slice(0, 100) : '导出布局',
+    xyz_mm: layout.xyzMm,
+    region_indices: layout.regionIndices,
+    ...(names && names.length === total ? { electrode_names: [...names] } : {}),
+  };
+}
+
+export function designCSV(design: Pick<ElectrodeDesign, 'xyz_mm' | 'region_indices' | 'electrode_names'>) {
   return [
     '# coordinate_system=ernie_native_mm; unit=mm; region=zero_based',
     'electrode,region,x_mm,y_mm,z_mm',
@@ -402,6 +437,10 @@ export function comparisonNotes(records: SavedRecord[]) {
     scenario: r.evaluation_condition?.conductivity_scenario ?? null, head: r.evaluation_condition?.head_id ?? null });
   if (condition(a) !== condition(b))
     notes.push('评价条件不同（噪声模型、电导率情景或头模）：分数不可直接比较。');
+  if (recordElectrodeCount(a) !== recordElectrodeCount(b))
+    notes.push('电极总数不同：比较的是通道规模与空间分布的共同影响（均相对标准全头64导评分）。');
+  if ((a.request?.allocation_mode ?? 'balanced') !== (b.request?.allocation_mode ?? 'balanced'))
+    notes.push('区域通道配额方式不同（均分与跨区自适应）：各区通道数随有效孔径变化。');
   if (
     a.mode !== b.mode ||
     JSON.stringify(a.request?.mask_codes) !==
@@ -451,6 +490,7 @@ export function decisionMarkdown(
     originalNames.push(localizedRecordTitle(record, locale).replace(/[|\r\n]/g, ' '));
     return token;
   };
+  const allFixed64 = records.every((r) => recordElectrodeCount(r) === 64);
   const lines = [
     '# EEG布局设计对比报告',
     '',
@@ -458,20 +498,29 @@ export function decisionMarkdown(
     '',
     '## 比较条件',
     '',
-    '固定64个测量电极；参照为Ernie头模上的BioSemi64标签匹配全头布局。',
+    allFixed64
+      ? '固定64个测量电极；参照为Ernie头模上的BioSemi64标签匹配全头布局。'
+      : '各方案测量电极数见下表（8–64导）；参照均为Ernie头模上的BioSemi64标签匹配全头布局。',
     decisionCriteriaSummary(thresholds),
     '',
     ...comparisonNotes(records).map((n) => `- ${n}`),
     '',
     '## 原记录指标',
     '',
-    '|方案|区域数|实际面积 cm²|重建保留率|幅度保留率（最差10%）|相对定位评分|定位中位数|定位P90|条件判定|',
-    '|---|---:|---:|---:|---:|---:|---:|---:|---|',
+    allFixed64
+      ? '|方案|区域数|实际面积 cm²|重建保留率|幅度保留率（最差10%）|相对定位评分|定位中位数|定位P90|条件判定|'
+      : '|方案|电极数|区域数|实际面积 cm²|重建保留率|幅度保留率（最差10%）|相对定位评分|定位中位数|定位P90|条件判定|',
+    allFixed64
+      ? '|---|---:|---:|---:|---:|---:|---:|---:|---|'
+      : '|---|---:|---:|---:|---:|---:|---:|---:|---:|---|',
   ];
   for (const r of records) {
     const q = qualification(r, thresholds);
+    const verdict = q.state === 'pass' ? '达到全部启用要求' : q.state === 'missing' ? '数据不完整' : '未达到：' + q.failed.join('、');
     lines.push(
-      `|${reportName(r)}|${r.region_count}|${r.geometry?.union_area_cm2?.toFixed(2) ?? '未提供'}|${pct(r.metrics?.field_relative)}|${pct(r.metrics?.sensitivity_tail)}|${pct(r.metrics?.localization_relative)}|${mm(r.metrics?.median_mm)}|${mm(r.metrics?.p90_mm)}|${q.state === 'pass' ? '达到全部启用要求' : q.state === 'missing' ? '数据不完整' : '未达到：' + q.failed.join('、')}|`,
+      allFixed64
+        ? `|${reportName(r)}|${r.region_count}|${r.geometry?.union_area_cm2?.toFixed(2) ?? '未提供'}|${pct(r.metrics?.field_relative)}|${pct(r.metrics?.sensitivity_tail)}|${pct(r.metrics?.localization_relative)}|${mm(r.metrics?.median_mm)}|${mm(r.metrics?.p90_mm)}|${verdict}|`
+        : `|${reportName(r)}|${recordElectrodeCount(r)}|${r.region_count}|${r.geometry?.union_area_cm2?.toFixed(2) ?? '未提供'}|${pct(r.metrics?.field_relative)}|${pct(r.metrics?.sensitivity_tail)}|${pct(r.metrics?.localization_relative)}|${mm(r.metrics?.median_mm)}|${mm(r.metrics?.p90_mm)}|${verdict}|`,
     );
   }
   lines.push(

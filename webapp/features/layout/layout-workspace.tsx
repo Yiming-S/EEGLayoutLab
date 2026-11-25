@@ -161,8 +161,10 @@ export default function LayoutWorkspace() {
             <div className="flex flex-wrap gap-2">
               {['strict_area', 'cache', 'design_evaluation'].includes(shown.dataset_id) && shown.status === 'completed' && !shown.request?.allocation_mode && !shown.request?.electrode_count && <>
                 <a className={buttonVariants({ variant: 'default' })} href={decisionHref([shown.id], jointDecisionThresholds(ar))}>{tx('在其他条件下评价 · 位置偏移测试')}</a>
-                <a className={buttonVariants({ variant: 'outline' })} href={decisionHref([shown.id], jointDecisionThresholds(ar)) + '#compare-pick'}>{tx('与另一个布局对比')}</a>
               </>}
+              {['strict_area', 'cache', 'design_evaluation'].includes(shown.dataset_id) && shown.status === 'completed' && (
+                <a className={buttonVariants({ variant: !shown.request?.allocation_mode && !shown.request?.electrode_count ? 'outline' : 'default' })} href={decisionHref([shown.id], jointDecisionThresholds(ar)) + '#compare-pick'}>{tx('与另一个布局对比')}</a>
+              )}
               {record && canSimulateRecord(record) && <a className={buttonVariants({ variant: 'outline' })} href={`/reception?record=${shown.id}&ar=${ar}&returnTo=${encodeURIComponent(here)}`}>{tx('信号仿真')}</a>}
             </div>
             {design && design.xyz_mm.length === 64 && <CoordinateStudyLink design={design} />}

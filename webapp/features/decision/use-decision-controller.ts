@@ -20,6 +20,7 @@ import {
   parseDecisionThresholds,
   decisionHref,
   exportDesign,
+  tryExportDesign,
   designSubmission,
   isConductivityScenario,
   isPerturbationRadius,
@@ -223,9 +224,7 @@ export function useDecisionController(
   const design =
     testTarget === 'import'
       ? imported
-      : targetRecord
-        ? exportDesign(targetRecord)
-        : null;
+      : tryExportDesign(targetRecord);
   const requestIdentity = evaluationIdentity({ action, design, radius_mm: radius, seed, noise: noiseModelId, scenario: scenarioId, robustness, prior: dataPrior });
   const result =
     jobIdentity === requestIdentity && job?.status === 'completed'

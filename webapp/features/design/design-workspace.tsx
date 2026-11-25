@@ -149,7 +149,7 @@ export default function DesignWorkspace() {
                 <span>{tx("计算设置与限制")}</span>
                 <ChevronDown aria-hidden className="size-4 text-muted-foreground transition-transform group-open/limits:rotate-180" />
               </summary>
-              <p className="mt-2.5 text-xs leading-6 text-muted-foreground">{tx("固定64电极 · 最小电极直线间距4 mm · 单Ernie头模 · 标准64导名义SNR＝20 dB。各布局使用相同物理噪声尺度。算法在有限候选网格内搜索，位置范围按模型坐标近似定义。")}</p>
+              <p className="mt-2.5 text-xs leading-6 text-muted-foreground">{tx("支持8–64导（默认64导） · 最小电极直线间距4 mm · 单Ernie头模 · 标准64导名义SNR＝20 dB。各布局使用相同物理噪声尺度。算法在有限候选网格内搜索，位置范围按模型坐标近似定义。")}</p>
               <a href={methodLink(here, ar, '#local-compute')} className="mt-2 lab-link-pill">{tx("完整方法")}</a>
             </details>
             {/* The run button stays in view while the settings above scroll. */}
@@ -178,10 +178,12 @@ export default function DesignWorkspace() {
           <h2 id="design-next" className="font-semibold">{tx('下一步')}</h2>
           {savedId ? <>
             <a className={buttonVariants({ size: 'sm' })} href={layoutHref({ id: savedId }, ar)}>{tx('打开布局详情')}</a>
+            <a className={buttonVariants({ size: 'sm', variant: 'outline' })} href={`/decision?a=${savedId}&ar=${ar}&thresholdMode=joint&returnTo=${encodeURIComponent(here)}#compare-pick`}>{tx('与另一个布局对比')}</a>
             {receptionId && <a className={buttonVariants({ size: 'sm', variant: 'outline' })} href={sourceExperimentLink(receptionId, ar, here)}>{tx('用同一脑源测试这个布局')}</a>}
             <span className="text-sm text-muted-foreground">{tx(receptionId ? '布局详情汇总这个布局在各条件下的评价；信号仿真对照标准64的时间波形与重建，加入模拟心电和眼电。'
-              : '布局详情汇总这个布局在各条件下的评价。空间相关噪声或数据先验下搜索的布局不进入信号仿真。')}</span>
-          </> : <span className="text-sm text-muted-foreground">{tx('计算出完整64点布局后，可打开布局详情或用同一脑源测试。')}</span>}
+              : activeChannelTotal !== 64 ? '布局详情汇总这个布局在各条件下的评价并支持双栏对比；信号仿真与电极编辑仅适用于默认协议下的64导布局。'
+                : '布局详情汇总这个布局在各条件下的评价。空间相关噪声或数据先验下搜索的布局不进入信号仿真。')}</span>
+          </> : <span className="text-sm text-muted-foreground">{tx('计算出完整布局后，可打开布局详情、加入方案对比，或在64导默认协议下用同一脑源测试。')}</span>}
         </section>
         <p className="mt-5 text-sm text-muted-foreground"><a className="font-medium text-primary underline underline-offset-4" href={comparison}>{tx(source?.dataset_id === 'strict_area' ? '返回来源比较' : '查看已有结果')}</a> {tx(" · 新半径方案不会加入固定面积曲线；在")}<a className="font-medium text-primary underline underline-offset-4" href={'/library?ar=' + ar}>{tx("计算记录")}</a>{tx("中查看。")}</p>
       </>)}
