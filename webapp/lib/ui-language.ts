@@ -1,5 +1,5 @@
 import type { SavedSummary } from './local-library';
-import { allocationModeLabel, conductivityScenarioLabel, dataPriorLabel, noiseModelLabel, objectiveModeLabel } from '../contracts/scientific-options.mjs';
+import { allocationModeLabel, conductivityScenarioLabel, dataPriorLabel, electrodeCountLabel, noiseModelLabel, objectiveModeLabel } from '../contracts/scientific-options.mjs';
 
 // Display vocabulary only: preserve calculation keys, record IDs and raw data.
 export const metricPercent = (value: number | null | undefined, missing = '尚未计算') =>
@@ -69,6 +69,9 @@ export function recordAllocationLabel(record: SavedSummary) {
 export function recordObjectiveLabel(record: SavedSummary) {
   return record.request?.objective_mode ? objectiveModeLabel(record.request.objective_mode) : '';
 }
+export function recordElectrodeLabel(record: SavedSummary) {
+  return record.request?.electrode_count ? electrodeCountLabel(record.request.electrode_count) : '';
+}
 /** The non-default evaluation conditions of a saved coordinate evaluation, one label each. */
 export function recordConditionLabels(record: SavedSummary): string[] {
   const condition = record.dataset_id === 'design_evaluation' ? record.evaluation_condition : undefined;
@@ -84,7 +87,8 @@ export function recordTitle(record: SavedSummary) {
   const noise = recordNoiseLabel(record);
   const allocation = recordAllocationLabel(record);
   const objective = recordObjectiveLabel(record);
-  return [recordBaseTitle(record), ...(noise ? [noise] : []), ...(allocation ? [allocation] : []), ...(objective ? [objective] : []), ...recordConditionLabels(record)].join(' · ');
+  const electrodes = recordElectrodeLabel(record);
+  return [recordBaseTitle(record), ...(noise ? [noise] : []), ...(allocation ? [allocation] : []), ...(objective ? [objective] : []), ...(electrodes ? [electrodes] : []), ...recordConditionLabels(record)].join(' · ');
 }
 export function safeReturnHref(value: string | null | undefined, fallback: string) {
   if (!value?.startsWith('/') || value.startsWith('//')) return fallback;

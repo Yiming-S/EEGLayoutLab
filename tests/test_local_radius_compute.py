@@ -366,6 +366,70 @@ def test_adaptive_quota_unlocks_asymmetric_apertures_and_improves_objective():
     assert d_adap["final_region_counts"] == w_adap["geometry"]["actual_region_counts"]
 
 
+def test_variable_electrode_count_request_and_bounded_search():
+    from compact_eeg.local_radius_compute import search_seed
+    base = {"region_count": 2, "radius_mm": 30, "mode": "preset", "mask_codes": ["PL", "FM"]}
+    req16 = validate_request({**base, "allocation_mode": "adaptive", "objective_mode": "composite", "electrode_count": 16})
+    assert req16["electrode_count"] == 16
+    assert search_seed(req16) == search_seed(validate_request(base))
+    for bad in (
+        {**base, "electrode_count": 64},
+        {**base, "electrode_count": None},
+        {**base, "electrode_count": 20},
+        {**base, "electrode_count": True},
+        {"region_count": 6, "radius_mm": 30, "mode": "whole_surface", "electrode_count": 8},
+        {"region_count": 4, "radius_mm": 30, "mode": "whole_surface", "allocation_mode": "adaptive", "electrode_count": 12},
+    ):
+        with pytest.raises(ValueError):
+            validate_request(bad)
+
+    domain, engine, idx_grid = _grid_patch_fixture()
+    start_combos = ((int(idx_grid[3, 4]), int(idx_grid[22, 4])),)
+    win8_bal, diag8_bal = bounded_radius_search(
+        domain, engine, start_combos, seed=202615, adaptive_allocation=False,
+        objective_mode="composite", total_electrodes=8)
+    assert win8_bal is not None
+    assert diag8_bal["physical_electrode_count"] == 8
+    assert domain.validate(win8_bal, total_electrodes=8)["actual_region_counts"] == [4, 4]
+
+    win16_adap, diag16_adap = bounded_radius_search(
+        domain, engine, start_combos, seed=202615, adaptive_allocation=True,
+        objective_mode="composite", total_electrodes=16)
+    assert win16_adap is not None
+    geom16 = domain.validate(win16_adap, adaptive_allocation=True, total_electrodes=16)
+    assert sum(geom16["actual_region_counts"]) == 16
+    assert all(c >= 4 for c in geom16["actual_region_counts"])
+    assert diag16_adap["physical_electrode_count"] == 16
+
+
+def test_stage1_stage3_nonlocal_margin_proxy_screening_and_reranking():
+    from compact_eeg.layout_search_metrics import LayoutSearchMetrics
+    domain, base_engine, idx_grid = _grid_patch_fixture()
+    rng = np.random.default_rng(31415)
+    src_xyz = rng.uniform(-60.0, 60.0, size=(120, 3))
+    bank_raw = base_engine._bank.copy()
+    engine = LayoutSearchMetrics(
+        bank_raw, bank_raw[np.linspace(0, len(bank_raw) - 1, 64, dtype=int)],
+        rng.uniform(0.3, 1.4, 120), dictionary_xyz_mm=src_xyz, dictionary_anchor_count=32,
+    )
+    combos = (
+        (int(idx_grid[3, 4]), int(idx_grid[22, 4])),
+        (int(idx_grid[5, 4]), int(idx_grid[20, 4])),
+        (int(idx_grid[7, 4]), int(idx_grid[18, 4])),
+    )
+    win, diag = bounded_radius_search(
+        domain, engine, combos, seed=202620, adaptive_allocation=True,
+        objective_mode="composite", total_electrodes=24, enable_localization_proxy=True,
+    )
+    assert win is not None
+    proxy_diag = diag["dictionary_margin_proxy"]
+    assert proxy_diag["enabled"] is True
+    assert proxy_diag["stage1_evaluations"] >= 3
+    assert proxy_diag["stage3_evaluations"] >= 1
+    assert np.isfinite(proxy_diag["winner_margin20"]) and proxy_diag["winner_margin20"] > 0.0
+    assert domain.validate(win, adaptive_allocation=True, total_electrodes=24)["union_connected_component_count"] == 2
+
+
 @pytest.mark.skipif(os.environ.get("LOCAL_RADIUS_REAL_BANK") != "1", reason="opt-in frozen Ernie geometry regression")
 def test_real_bank_posterior25_has_same_constraint_32_plus32_solution():
     from compact_eeg.area_budget_study import _initial_layout

@@ -1,5 +1,5 @@
 import { translateText, type Locale } from './core.ts';
-import { labelNamesEvaluation, labelNamesRegions, recordAllocationLabel, recordBaseTitle, recordConditionLabels, recordNoiseLabel, recordObjectiveLabel, recordTitle } from '../ui-language.ts';
+import { labelNamesEvaluation, labelNamesRegions, recordAllocationLabel, recordBaseTitle, recordConditionLabels, recordElectrodeLabel, recordNoiseLabel, recordObjectiveLabel, recordTitle } from '../ui-language.ts';
 import type { SavedSummary } from '../local-library';
 import type { EditorRecord } from '../electrode-editor';
 
@@ -15,9 +15,11 @@ export function localizedRecordTitle(record: SavedSummary, locale: Locale): stri
   const noise = recordNoiseLabel(record);
   const allocation = recordAllocationLabel(record);
   const objective = recordObjectiveLabel(record);
+  const electrodes = recordElectrodeLabel(record);
   return [translateText(recordBaseTitle(record), locale), ...(noise ? [translateText(noise, locale)] : []),
     ...(allocation ? [translateText(allocation, locale)] : []),
-    ...(objective ? [translateText(objective, locale)] : [])].join(' · ');
+    ...(objective ? [translateText(objective, locale)] : []),
+    ...(electrodes ? [translateText(electrodes, locale)] : [])].join(' · ');
 }
 
 /** Use parent metadata for system titles; unknown names remain original data. */

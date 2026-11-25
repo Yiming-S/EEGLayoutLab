@@ -15,7 +15,8 @@ import { methodLink, recordLink, METRICS } from '@/lib/lab-workflow';
 import { sourceExperimentLink } from '@/lib/source-reception';
 import { editorLink } from '@/lib/electrode-editor';
 import { DesignPlacementOptions } from '@/components/placement-options';
-import { useDesignController } from './use-design-controller';
+import { ELECTRODE_COUNTS } from '../../contracts/scientific-options.mjs';
+import { minElectrodesFor, useDesignController } from './use-design-controller';
 import { designViewState } from './design-state';
 import { EvaluationConditions } from '@/features/conditions/evaluation-conditions';
 import { ThresholdSlider } from '@/components/threshold-slider';
@@ -24,14 +25,16 @@ import { cn } from '@/lib/utils';
 const Head = lazy(() => import('@/components/cluster-head-viewer').then((m) => ({ default: m.ClusterHeadViewer })));
 export default function DesignWorkspace() {
   const { tx, locale } = useLanguage();
-  const { error, ready, ar, comparison, here, savedId, receptionId, count, source, notice, settingsRef, editing, radius, regions, allocationMode, selectAllocationMode, objectiveMode, selectObjectiveMode, choices, choice, customSlots, selectChoice, selectSlot, changeRegions, startRadius, setRadius, noiseModelId, selectNoiseModel, dataPrior, dataPriorSource, selectDataPrior, setDraft, setAR, request, originId, setComputed, setStatus, metrics, layout, geometry, currentStatus } = useDesignController();
+  const { error, ready, ar, comparison, here, savedId, receptionId, count, source, notice, settingsRef, editing, radius, regions, electrodeCount, selectElectrodeCount, allocationMode, selectAllocationMode, objectiveMode, selectObjectiveMode, choices, choice, customSlots, selectChoice, selectSlot, changeRegions, startRadius, setRadius, noiseModelId, selectNoiseModel, dataPrior, dataPriorSource, selectDataPrior, setDraft, setAR, request, originId, setComputed, setStatus, metrics, layout, geometry, currentStatus } = useDesignController();
   const computationRef = useRef<HTMLDivElement>(null);
   const state = designViewState({ ready, error, editing, hasLayout: !!layout, hasChoice: !!choice, currentStatus });
   const radiusRatio = Math.max(0, Math.min(1, (radius - 15) / (80 - 15)));
-  const defaultAllocation = Array.from({ length: count }, (_, i) => Math.floor(64 / count) + Number(i < 64 % count));
-  const actualAllocation = layout?.regionIndices?.length === 64
+  const activeChannelTotal = editing ? electrodeCount : (layout?.xyzMm?.length ?? 64);
+  const defaultAllocation = Array.from({ length: count }, (_, i) => Math.floor(activeChannelTotal / count) + Number(i < activeChannelTotal % count));
+  const actualAllocation = layout?.regionIndices?.length
     ? Array.from({ length: count }, (_, r) => layout.regionIndices.filter((v) => v === r).length)
     : defaultAllocation;
+  const minElectrodes = minElectrodesFor(regions, allocationMode);
   const revealSettings = () => {
     if (!settingsRef.current) return;
     settingsRef.current.open = true;
@@ -39,7 +42,7 @@ export default function DesignWorkspace() {
     (target ?? settingsRef.current).scrollIntoView({ block: 'start' });
   };
   return <main className="lab-page">
-    <SiteHeader current="design" arPercent={ar} labHref={comparison} returnHref={here} selection={{ id: receptionId ?? null, phase: receptionId ? "saved" : "draft", channels: 64, regions: count }} receptionHref={receptionId ? sourceExperimentLink(receptionId, ar, here) : undefined} />
+    <SiteHeader current="design" arPercent={ar} labHref={comparison} returnHref={here} selection={{ id: receptionId ?? null, phase: receptionId ? "saved" : "draft", channels: activeChannelTotal, regions: count }} receptionHref={receptionId ? sourceExperimentLink(receptionId, ar, here) : undefined} />
     <div className="lab-container">
       <header className="mb-5 flex flex-wrap items-end justify-between gap-4 border-b border-border pt-7 pb-5" data-design-state={state.phase}>
         <div>
@@ -58,7 +61,7 @@ export default function DesignWorkspace() {
                 <span aria-hidden className="grid size-6 place-items-center rounded border border-border bg-secondary/75 text-foreground/80">
                   <SlidersHorizontal className="size-3.5" />
                 </span>
-                <span>{tx('布局参数')} · {count} {tx('个区域')}{editing && <> · {radius} mm</>}</span>
+                <span>{tx('布局参数')} · {count} {tx('个区域')}{editing && <> · {electrodeCount} {tx('电极')} · {radius} mm</>}</span>
               </span>
               <ChevronDown aria-hidden className="size-4 text-muted-foreground transition-transform group-open:rotate-180" />
             </summary>
@@ -72,7 +75,33 @@ export default function DesignWorkspace() {
                 <p className="text-xs leading-5 text-muted-foreground">{tx("这是总面积上限约束实验的原始布局。按需计算使用每区半径约束，创建新配置后重新搜索和评价。")}</p>
                 <p className="text-xs leading-5 text-muted-foreground">{tx("新建不会覆盖原方案，也不会立即启动计算。")}</p>
               </> : <>
-                <p className="text-xs leading-5 text-ink-soft"><strong className="font-medium text-foreground">{tx(choice?.label ?? '请先补全上方区域部位')}</strong><br />{tx("各区电极数：")}<span className="font-mono tabular-nums">{layout ? actualAllocation.join(' + ') : allocationMode === 'adaptive' && regions > 1 ? tx('自动调配（每区 ≥ 4，共 64）') : defaultAllocation.join(' + ')}</span></p>
+                <p className="text-xs leading-5 text-ink-soft"><strong className="font-medium text-foreground">{tx(choice?.label ?? '请先补全上方区域部位')}</strong><br />{tx("各区电极数：")}<span className="font-mono tabular-nums">{layout ? actualAllocation.join(' + ') : allocationMode === 'adaptive' && regions > 1 ? `${tx('自动调配（每区 ≥ 4）')} · Σ=${electrodeCount}` : defaultAllocation.join(' + ')}</span></p>
+                <fieldset className="space-y-1.5">
+                  <legend className="block text-xs font-medium text-foreground">{tx('电极总数 K')}</legend>
+                  <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-7">
+                    {ELECTRODE_COUNTS.map((k) => {
+                      const disabled = k < minElectrodes;
+                      const active = electrodeCount === k;
+                      return (
+                        <button
+                          key={k}
+                          type="button"
+                          disabled={disabled}
+                          onClick={() => selectElectrodeCount(k)}
+                          aria-pressed={active}
+                          className={cn(
+                            'rounded-lg border px-1.5 py-1.5 text-center font-mono text-xs font-medium tabular-nums transition-colors',
+                            disabled ? 'cursor-not-allowed border-border/50 bg-muted/40 text-muted-foreground/50'
+                              : active ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-card text-ink-soft hover:border-foreground/30',
+                          )}
+                        >
+                          {k}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[11px] leading-4 text-muted-foreground">{tx('默认64导（与标准全头64导参考基线一致）；指定更少导联（如8、16、24、32导）可在固定贴片半径下测试通道饱和拐点。')}</p>
+                </fieldset>
                 {regions > 1 && <fieldset className="space-y-1.5">
                   <legend className="block text-xs font-medium text-foreground">{tx('区域通道配额')}</legend>
                   <div className="grid grid-cols-2 gap-1.5">
@@ -83,7 +112,7 @@ export default function DesignWorkspace() {
                       {tx('跨区自适应配额')}
                     </button>
                   </div>
-                  <p className="text-[11px] leading-4 text-muted-foreground">{tx(allocationMode === 'adaptive' ? '每区至少保留 4 个锚点电极，其余通道按有效孔径与信噪比跨区自动调配。' : '固定按 64/R 均分各区电极数，与面积和历史基线口径一致。')}</p>
+                  <p className="text-[11px] leading-4 text-muted-foreground">{tx(allocationMode === 'adaptive' ? '每区至少保留 4 个锚点电极，其余通道按有效孔径与信噪比跨区自动调配。' : '固定按 K/R 均分各区电极数，与面积和历史基线口径一致。')}</p>
                 </fieldset>}
                 <fieldset className="space-y-1.5">
                   <legend className="block text-xs font-medium text-foreground">{tx('搜索优化目标')}</legend>

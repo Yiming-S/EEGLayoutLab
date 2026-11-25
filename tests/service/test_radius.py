@@ -95,6 +95,23 @@ def test_adaptive_cross_region_allocation_mode_normalizes_and_enforces_floor():
         normalize_request({**REQUEST, 'objective_mode': 'invalid'})
     validate_worker_result({**asymmetric, 'request': comp_req}, comp_req)
 
+    k16_req = normalize_request({**comp_req, 'electrode_count': 16})
+    assert k16_req == {**comp_req, 'electrode_count': 16}
+    assert normalize_request({**REQUEST, 'electrode_count': 64}) == REQUEST
+    assert normalize_request({**REQUEST, 'electrode_count': None}) == REQUEST
+    with pytest.raises(ValueError, match='电极总数只支持'):
+        normalize_request({**REQUEST, 'electrode_count': 20})
+    with pytest.raises(ValueError, match='至少为每区4导'):
+        normalize_request({'region_count': 4, 'radius_mm': 30, 'mode': 'whole_surface', 'allocation_mode': 'adaptive', 'electrode_count': 12})
+    with pytest.raises(ValueError, match='每区至少2导'):
+        normalize_request({'region_count': 6, 'radius_mm': 30, 'mode': 'whole_surface', 'electrode_count': 8})
+    k16_res = result_for(k16_req)
+    k16_res['layout']['xyzMm'] = k16_res['layout']['xyzMm'][:16]
+    k16_res['layout']['regionIndices'] = [0 if i < 6 else 1 for i in range(16)]
+    validate_worker_result(k16_res, k16_req)
+    with pytest.raises(RadiusResultError, match='^无效16点坐标$'):
+        validate_worker_result({**k16_res, 'layout': {**k16_res['layout'], 'xyzMm': k16_res['layout']['xyzMm'][:15]}}, k16_req)
+
 
 def _variant(change) -> dict:
     result = copy.deepcopy(result_for())

@@ -62,8 +62,9 @@ def evaluate_grid_localization(
     off_dictionary_distance_tolerance_mm: float = 1e-6,
     physical_noise_covariance_v2: np.ndarray | None = None,
     noise_model: object = "iid_equal_variance",
+    expected_electrodes: int | None = 64,
 ) -> PrototypeLocalizationResult:
-    """Evaluate a 64-electrode layout against a frozen fixed-normal dictionary.
+    """Evaluate a K-electrode layout (default K=64) against a frozen fixed-normal dictionary.
 
     Both lead fields are in V/(A m); coordinates are in the *same* frame in mm.
     Generation and dictionary normals must already be encoded in their lead
@@ -80,7 +81,7 @@ def evaluate_grid_localization(
     cortical area. Optional supplied weights affect the source-tail utility;
     reported error quantiles remain unweighted simulated-trial summaries.
 
-    ``physical_noise_covariance_v2`` (64x64, V^2) replaces the iid noise for
+    ``physical_noise_covariance_v2`` (KxK, V^2) replaces the iid noise for
     correlated models: the same standard-normal stream is coloured by the
     Cholesky factor of its reference-free projection and the scanner whitens
     with that projection. None keeps the original iid path exactly.
@@ -89,10 +90,13 @@ def evaluate_grid_localization(
     hg = np.asarray(generation_leadfield, dtype=float)
     xd = np.asarray(dictionary_xyz_mm, dtype=float)
     xg = np.asarray(generation_xyz_mm, dtype=float)
-    if hd.ndim != 2 or hd.shape[0] != 64 or hd.shape[1] < 1:
-        raise ValueError("dictionary_leadfield must have shape (64, n_dictionary >= 1)")
-    if hg.ndim != 2 or hg.shape[0] != 64 or hg.shape[1] < 1:
-        raise ValueError("generation_leadfield must have shape (64, n_generation >= 1)")
+    if expected_electrodes is not None and (not isinstance(expected_electrodes, (int, np.integer)) or isinstance(expected_electrodes, (bool, np.bool_)) or not 3 <= int(expected_electrodes) <= 64):
+        raise ValueError("expected_electrodes must be an integer in [3, 64] or None")
+    k = hd.shape[0] if expected_electrodes is None else int(expected_electrodes)
+    if hd.ndim != 2 or hd.shape[0] != k or not 3 <= k <= 64 or hd.shape[1] < 1:
+        raise ValueError(f"dictionary_leadfield must have shape ({k}, n_dictionary >= 1)")
+    if hg.ndim != 2 or hg.shape[0] != k or hg.shape[1] < 1:
+        raise ValueError(f"generation_leadfield must have shape ({k}, n_generation >= 1)")
     if xd.shape != (hd.shape[1], 3) or xg.shape != (hg.shape[1], 3):
         raise ValueError("coordinates must have one xyz row per corresponding lead-field column")
     if not all(np.all(np.isfinite(value)) for value in (hd, hg, xd, xg)):
@@ -121,21 +125,21 @@ def evaluate_grid_localization(
     if require_off_dictionary and np.any(on_dictionary):
         raise ValueError("generation positions fall on the inverse dictionary within the configured tolerance")
     generator, stream_key = _layout_noise_generator(noise_seed, layout_id)
-    standard_noise = generator.normal(size=(63, count, int(noise_repetitions)))
-    contrast = helmert_contrast(64)
+    standard_noise = generator.normal(size=(k - 1, count, int(noise_repetitions)))
+    contrast = helmert_contrast(k)
     hd_reference_free = contrast @ (hd - hd.mean(axis=0, keepdims=True))
     hg_reference_free = contrast @ (hg - hg.mean(axis=0, keepdims=True))
     if physical_noise_covariance_v2 is None:
         noise = sigma * standard_noise
-        whitening = variance * np.eye(63)
+        whitening = variance * np.eye(k - 1)
     else:
         covariance = np.asarray(physical_noise_covariance_v2, dtype=float)
-        if covariance.shape != (64, 64) or not np.all(np.isfinite(covariance)) or not np.allclose(covariance, covariance.T, rtol=1e-10, atol=0):
-            raise ValueError("physical_noise_covariance_v2 must be a finite symmetric 64x64 matrix")
+        if covariance.shape != (k, k) or not np.all(np.isfinite(covariance)) or not np.allclose(covariance, covariance.T, rtol=1e-10, atol=0):
+            raise ValueError(f"physical_noise_covariance_v2 must be a finite symmetric {k}x{k} matrix")
         whitening = contrast @ covariance @ contrast.T
         whitening = .5 * (whitening + whitening.T)
         noise = np.einsum("ij,jqr->iqr", np.linalg.cholesky(whitening), standard_noise)
-    observations = (hg_reference_free[:, :, None] * source_moment_am + noise).reshape(63, -1)
+    observations = (hg_reference_free[:, :, None] * source_moment_am + noise).reshape(k - 1, -1)
     indices = fixed_normal_scan(
         hd_reference_free, observations, whitening,
         batch_size=scan_batch_size,
@@ -149,8 +153,8 @@ def evaluate_grid_localization(
         "ar_computed": False,
         "classification_accuracy_computed": False,
         "layout_id": layout_id,
-        "electrode_count": 64,
-        "reference_free_dimensions": 63,
+        "electrode_count": k,
+        "reference_free_dimensions": k - 1,
         "dictionary_source_count": int(hd.shape[1]),
         "generation_source_count": count,
         "noise_repetitions_per_source": int(noise_repetitions),

@@ -268,6 +268,70 @@ class LayoutSearchMetricsTests(unittest.TestCase):
             self.assertEqual(p_add.best_candidate, int(pool[best_add]))
             self.assertAlmostEqual(p_add.objective, float(add_comp[best_add]), places=12)
 
+    def test_variable_electrode_count_states_exchanges_and_evaluation(self):
+        from compact_eeg.layout_search_metrics import combine_search_objective
+        from compact_eeg.prototype_metrics import helmert_contrast
+        xyz_cand = self.rng.normal(size=(100, 3)) * 35.0
+        xyz_ref = xyz_cand[:64].copy()
+        engines = [
+            self.engine,
+            self.engine.with_noise_kernel((xyz_cand, xyz_ref, 0.5, 20.0)),
+        ]
+        for eng in engines:
+            for k in (8, 16, 24, 32):
+                indices_k = self.rng.choice(100, k, replace=False)
+                state = eng.make_state(indices_k, snr_db=20, count=k)
+                pk = helmert_contrast(k)
+                _, noise = eng._noise(20)
+                ref_info = 0.5 * (np.linalg.slogdet(eng._cbb + noise * eng._reference_noise)[1] - np.linalg.slogdet(noise * eng._reference_noise)[1])
+                c_cand = eng._covariance[np.ix_(indices_k, indices_k)]
+                m_cand = noise * eng._noise_matrix(indices_k)
+                cand_info = 0.5 * (np.linalg.slogdet(pk @ (c_cand + m_cand) @ pk.T)[1] - np.linalg.slogdet(pk @ m_cand @ pk.T)[1])
+                self.assertAlmostEqual(state.information_relative, float(cand_info / ref_info), places=11)
+                if eng is self.engine:
+                    report = eng.evaluate(indices_k, count=k)
+                    p_partial = eng.make_partial_state(indices_k, snr_db=20)
+                    self.assertEqual(report["physical_electrodes_per_layout"], k)
+                    self.assertEqual(report["reference_free_dimensions"], k - 1)
+                    self.assertAlmostEqual(report["conditions"][2]["field_retention_unclipped"], p_partial.field_relative, places=12)
+                    self.assertAlmostEqual(report["conditions"][2]["information_retention_unclipped"], p_partial.information_relative, places=12)
+                    # Direct Helmert LMMSE verification in (k-1)-dimensional reference-free subspace
+                    cbs_p = eng._cross[:, indices_k] @ pk.T
+                    k_sub = pk @ (c_cand + m_cand) @ pk.T
+                    direct_abs = float(np.trace(cbs_p @ np.linalg.solve(k_sub, cbs_p.T)) / eng._target_energy)
+                    self.assertAlmostEqual(state.field_absolute, direct_abs, places=11)
+                candidates = self.rng.permutation(100)
+                ex = eng.score_exchanges(state, k // 2, candidates, chunk_size=11, include_sensitivity=True, include_information=True)
+                cert = eng.tail_dual_certificate(indices_k)
+                comp_objs = combine_search_objective(ex.field_relative, ex.sensitivity_tail, ex.information_relative, objective_mode="composite")
+                pruned = eng.best_pruned_exchange(
+                    state, k // 2, candidates, objective_floor=-0.5, tol=0.0,
+                    dual_hint=(cert[1], cert[2]), chunk_size=11, objective_mode="composite",
+                )
+                best_i = int(np.argmax(comp_objs))
+                self.assertEqual(pruned.best_candidate, int(ex.candidate_indices[best_i]))
+                self.assertAlmostEqual(pruned.objective, float(comp_objs[best_i]), places=12)
+
+    def test_nonlocal_dictionary_confusion_margin_identity_and_variable_k(self):
+        src_xyz = self.rng.normal(size=(96, 3)) * 45.0
+        cand_xyz = self.rng.normal(size=(100, 3)) * 35.0
+        eng_iid = LayoutSearchMetrics(
+            self.bank, self.reference, self.weights,
+            dictionary_xyz_mm=src_xyz, dictionary_anchor_count=32, **self.kwargs,
+        )
+        eng_sp = eng_iid.with_noise_kernel((cand_xyz, cand_xyz[:64], 0.5, 20.0))
+        self.assertFalse(self.engine.has_nonlocal_margin)
+        self.assertIsNone(self.engine.nonlocal_confusion_margin(np.arange(64)))
+        for eng in (eng_iid, eng_sp):
+            self.assertTrue(eng.has_nonlocal_margin)
+            self.assertAlmostEqual(eng.nonlocal_confusion_margin(np.arange(64), snr_db=20), 1.0, places=12)
+            m4 = eng.nonlocal_confusion_margin(self.indices[:4], snr_db=0, count=4)
+            m16 = eng.nonlocal_confusion_margin(self.indices[:16], snr_db=0, count=16)
+            m64 = eng.nonlocal_confusion_margin(self.indices, snr_db=0, count=64)
+            self.assertTrue(np.isfinite(m4) and m4 > 0.0)
+            self.assertGreater(m16, m4)
+            self.assertGreater(m64, m16)
+
 
 if __name__ == "__main__":
     unittest.main()

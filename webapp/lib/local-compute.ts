@@ -10,10 +10,12 @@ export type ComputeRequest = {
   noise_model?: SearchNoiseModel;
   /** Optional data-derived source prior and noise (eeg-data-prior/1 request value); replaces noise_model. */
   data_prior?: DataPrior;
-  /** Optional multi-region electrode quota mode; absent means balanced 64/R default. */
+  /** Optional multi-region electrode quota mode; absent means balanced K/R default. */
   allocation_mode?: 'adaptive';
   /** Optional search objective mode; absent means min(field, sensitivity) default. */
   objective_mode?: 'composite';
+  /** Optional total electrode count; absent means 64 default. */
+  electrode_count?: 8 | 12 | 16 | 24 | 32 | 48;
 };
 /** Region gains in DATA_PRIOR_REGIONS order and the fitted noise correlation (eeg-data-prior/1 request value). */
 export type DataPrior = DataPriorRequest;
@@ -68,7 +70,8 @@ export function requestKey(request: ComputeRequest) {
     ...(request.noise_model ? { noise_model: request.noise_model } : {}),
     ...(request.data_prior ? { data_prior: request.data_prior } : {}),
     ...(request.allocation_mode ? { allocation_mode: request.allocation_mode } : {}),
-    ...(request.objective_mode ? { objective_mode: request.objective_mode } : {}) });
+    ...(request.objective_mode ? { objective_mode: request.objective_mode } : {}),
+    ...(request.electrode_count ? { electrode_count: request.electrode_count } : {}) });
 }
 
 export function matchingResult(job: ComputeJob | null, request: ComputeRequest) {

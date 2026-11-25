@@ -45,7 +45,7 @@ from .records import KEY, RecordStore, error_code, node_message, read_file, real
 
 __all__ = ['LIBRARY_SCHEMA', 'DATASETS', 'RETENTION', 'INPUT_WARNING', 'LibraryError', 'PathArgumentError',
            'domain_label', 'noise_model_label', 'data_prior_label', 'allocation_mode_label', 'objective_mode_label',
-           'validate_saved_record', 'radius_records', 'area_records', 'summary', 'Library']
+           'electrode_count_label', 'validate_saved_record', 'radius_records', 'area_records', 'summary', 'Library']
 
 LIBRARY_SCHEMA = 'local-data-library/1'
 DATASETS = (
@@ -265,15 +265,20 @@ def objective_mode_label(value: Any) -> str:
     return '子空间信息复合目标' if _same(value, 'composite') else ''
 
 
+def electrode_count_label(value: Any) -> str:
+    """``electrodeCountLabel(value)`` (scientific-options.mjs)."""
+    return f'{_js_string(value)}导' if jsjson.is_number(value) and not _same(value, 64) else ''
+
+
 # --- Records ----------------------------------------------------------------------------------------------------
 
-def _xyz(value: Any) -> bool:
-    return (isinstance(value, list) and len(value) == 64
+def _xyz(value: Any, expected_len: int = 64) -> bool:
+    return (isinstance(value, list) and len(value) == expected_len
             and all(isinstance(p, list) and len(p) == 3 and all(_finite(v) for v in p) for p in value))
 
 
 def validate_saved_record(record: Any) -> Any:
-    """``validateSavedRecord(record)``: 64 distinct points, valid regional counts, a consistent minimum retention,
+    """``validateSavedRecord(record)``: distinct points, valid regional counts, a consistent minimum retention,
     and valid region patches. Returns the record; raises ``LibraryError`` with Node's message."""
     if not js_truthy(record) or _member(record, 'status') not in ('completed', 'no_layout'):
         raise LibraryError('无效记录状态')
@@ -282,15 +287,20 @@ def validate_saved_record(record: Any) -> Any:
             raise LibraryError('缺失布局带有分数')
         return record
     layout, r, m = _member(record, 'layout'), _member(record, 'region_count'), _member(record, 'metrics')
-    adaptive = _same(_opt(_member(record, 'request'), 'allocation_mode'), 'adaptive')
-    if (not _number_in(r, (1, 2, 3, 4, 6)) or not _xyz(_opt(layout, 'xyzMm')) or not _xyz(_opt(layout, 'referenceXyzMm'))
-            or len({_joined(p) for p in layout['xyzMm']}) != 64
-            or not isinstance(_member(layout, 'regionIndices'), list) or len(layout['regionIndices']) != 64
+    req = _member(record, 'request')
+    adaptive = _same(_opt(req, 'allocation_mode'), 'adaptive')
+    raw_ec = _opt(req, 'electrode_count')
+    expected_count = 64 if raw_ec in (None, UNDEFINED) else int(jsjson.to_number(raw_ec))
+    if (not _number_in(r, (1, 2, 3, 4, 6)) or not _xyz(_opt(layout, 'xyzMm'), expected_count)
+            or not _xyz(_opt(layout, 'referenceXyzMm'), 64)
+            or len({_joined(p) for p in layout['xyzMm']}) != expected_count
+            or not isinstance(_member(layout, 'regionIndices'), list) or len(layout['regionIndices']) != expected_count
             or any(not jsjson.is_integer(n) or n < 0 or n >= r for n in layout['regionIndices'])
             or (any(sum(1 for i in layout['regionIndices'] if i == n) < MIN_ADAPTIVE_REGION_ELECTRODES
                     for n in range(int(r)))
                 if adaptive
-                else any(sum(1 for i in layout['regionIndices'] if i == n) != 64 // int(r) + int(n < 64 % int(r))
+                else any(sum(1 for i in layout['regionIndices'] if i == n)
+                         != expected_count // int(r) + int(n < expected_count % int(r))
                          for n in range(int(r))))):
         raise LibraryError('记录坐标与区域标签无效')
     scores = [_opt(m, key) for key in _SCORES]
@@ -594,6 +604,8 @@ class Library:
             label += ' · ' + allocation_mode_label(request['allocation_mode'])
         if js_truthy(request.get('objective_mode')):
             label += ' · ' + objective_mode_label(request['objective_mode'])
+        if js_truthy(request.get('electrode_count')):
+            label += ' · ' + electrode_count_label(request['electrode_count'])
         record: dict[str, Any] = {
             'id': cache['key'], 'dataset_id': 'cache', 'status': r['status'], 'label': label,
             'region_count': request['region_count'], 'radius_cap_mm': request['radius_mm'], 'mode': mode,

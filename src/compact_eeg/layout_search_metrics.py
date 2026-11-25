@@ -27,6 +27,7 @@ from .metrics import helmert_contrast, participation_effective_rank
 from .noise_models import gaussian_cross, spatial_correlation
 
 COMPOSITE_WEIGHTS = (0.55, 0.30, 0.15)
+STAGE_MARGIN_WEIGHT = 0.22
 
 
 def combine_search_objective(field_relative, sensitivity_tail, info_relative=None, *, objective_mode="min"):
@@ -136,6 +137,7 @@ class LayoutSearchMetrics:
         source_moment_am=1e-8, numerical_zero_relative_tolerance=1e-8,
         source_tail_fraction=.1, maximum_excluded_source_area_fraction=.001,
         covariance_block_size=256, noise_kernel=None,
+        dictionary_xyz_mm=None, dictionary_anchor_count=128,
     ):
         started = time.perf_counter()
         bank = np.asarray(candidate_leadfield, dtype=np.float64)
@@ -177,6 +179,7 @@ class LayoutSearchMetrics:
         if not np.isfinite(normalization) or normalization <= 0:
             raise ValueError("reference must have positive weighted signal power")
         hb = scaled_hb / normalization
+        self._hb_normalized = _readonly(hb)
         physical_std = scale * self.source_moment_am * normalization
         self.reference_mean_contrast_signal_power_v2 = _positive(physical_std * physical_std, "physical reference signal power")
         self._bank = bank.copy()
@@ -197,6 +200,7 @@ class LayoutSearchMetrics:
         if not np.all(np.isfinite(self._covariance)) or not np.all(np.isfinite(self._cross)):
             raise ValueError("normalized covariance exceeds float64 range")
         self._covariance.setflags(write=False)
+        self._init_dictionary_anchors(dictionary_xyz_mm, weights, dictionary_anchor_count)
         self._set_noise_kernel(noise_kernel)
         self._reference_bipolar = np.ptp(reference_centered, axis=0) / scale / normalization
         threshold_original = 2 * tolerance * float(np.max(np.abs(reference_centered)))
@@ -218,6 +222,44 @@ class LayoutSearchMetrics:
         self.cache_bytes = int(sum(a.nbytes for a in (self._bank, self._covariance, self._cross, self._cbb, self._weights, self._reference_bipolar, self._valid)))
         self.construction_seconds = time.perf_counter() - started
 
+    def _init_dictionary_anchors(self, dictionary_xyz_mm, weights, anchor_count):
+        if dictionary_xyz_mm is None:
+            self._anchor_indices = None
+            self._anchor_weights = None
+            self._nonlocal_penalty = None
+            return
+        xyz_d = np.asarray(dictionary_xyz_mm, dtype=np.float64)
+        if xyz_d.shape != (self.source_count, 3) or not np.all(np.isfinite(xyz_d)):
+            raise ValueError("dictionary_xyz_mm must be a finite (Q, 3) array")
+        if not isinstance(anchor_count, (int, np.integer)) or isinstance(anchor_count, (bool, np.bool_)) or anchor_count < 1:
+            raise ValueError("dictionary_anchor_count must be a positive integer")
+        m = min(int(anchor_count), self.source_count)
+        first = int(np.argmax(weights))
+        chosen = [first]
+        d2 = np.sum((xyz_d - xyz_d[first]) ** 2, axis=1)
+        for _ in range(1, m):
+            nxt = int(np.argmax(d2))
+            chosen.append(nxt)
+            d2 = np.minimum(d2, np.sum((xyz_d - xyz_d[nxt]) ** 2, axis=1))
+        anchors = np.asarray(chosen, dtype=np.int64)
+        dists = np.linalg.norm(xyz_d[anchors, None, :] - xyz_d[None, :, :], axis=2)
+        nearest = np.argmin(dists, axis=0)
+        voronoi_w = np.bincount(nearest, weights=weights, minlength=m)
+        voronoi_w = voronoi_w / float(voronoi_w.sum())
+        max_span = float(np.max(dists))
+        if max_span >= 15.0:
+            penalty = np.where(dists >= 15.0, np.minimum(1.0, dists / 50.0), 0.0)
+        else:
+            scale_d = max(1e-6, max_span)
+            penalty = np.where(dists > 1e-6, np.minimum(1.0, dists / scale_d), 0.0)
+        self._anchor_indices = _readonly(anchors)
+        self._anchor_weights = _readonly(voronoi_w)
+        self._nonlocal_penalty = _readonly(penalty)
+
+    @property
+    def has_nonlocal_margin(self) -> bool:
+        return self._anchor_indices is not None
+
     def _set_noise_kernel(self, noise_kernel):
         self._kernel = None
         self._reference_noise = np.eye(63)
@@ -234,6 +276,7 @@ class LayoutSearchMetrics:
             self._reference_rank = _whitened_rank(self._cbb, self._reference_noise)
         self._baseline_cache = {}
         self._info_baseline_cache = {}
+        self._margin_baseline_cache = {}
 
     def with_noise_kernel(self, noise_kernel):
         """Engine sharing this bank's signal caches under another noise model; states are not interchangeable."""
@@ -242,8 +285,13 @@ class LayoutSearchMetrics:
         engine._set_noise_kernel(noise_kernel)
         return engine
 
-    def _indices(self, value):
-        return _index_vector(value, self.point_count, count=64)
+    def _indices(self, value, *, count=64):
+        if count is not None and (not isinstance(count, (int, np.integer)) or isinstance(count, (bool, np.bool_)) or not 2 <= int(count) <= 64):
+            raise ValueError("count must be an integer in [2, 64]")
+        selected = _index_vector(value, self.point_count, count=None if count is None else int(count))
+        if not 2 <= len(selected) <= 64:
+            raise ValueError("indices must contain between 2 and 64 unique points")
+        return selected
 
     def _noise(self, snr_db):
         snr = float(snr_db)
@@ -305,14 +353,61 @@ class LayoutSearchMetrics:
         st = self.make_state(selected, snr_db=snr_db) if len(selected) == 64 else self.make_partial_state(selected, snr_db=snr_db)
         return float(st.information_relative)
 
-    def make_state(self, indices, *, snr_db=20):
-        """Cholesky evaluation of one layout, default field-only 20 dB score."""
-        selected = self._indices(indices)
+    def _score_whitened_topographies(self, u, noise):
+        norms2 = np.sum(u * u, axis=0)
+        u_hat = u / np.maximum(1e-15, np.sqrt(norms2))[None, :]
+        cos2 = np.clip((u_hat[:, self._anchor_indices].T @ u_hat) ** 2, 0.0, 1.0)
+        disc_snr = (norms2[self._anchor_indices, None] / noise) * (1.0 - cos2)
+        worst_risk = np.max(self._nonlocal_penalty * np.exp(-0.35 * disc_snr), axis=1)
+        u_vec = 1.0 - worst_risk
+        w = self._anchor_weights
+        order = np.argsort(u_vec, kind="stable")
+        sw = w[order]
+        prev = np.cumsum(sw) - sw
+        taken = np.clip(0.20 - prev, 0.0, sw)
+        cvar20 = float(np.sum(taken * u_vec[order]) / 0.20)
+        mean_u = float(np.sum(w * u_vec))
+        return 0.5 * mean_u + 0.5 * cvar20
+
+    def _margin_baseline(self, snr_db):
+        snr, noise = self._noise(snr_db)
+        if snr not in self._margin_baseline_cache:
+            if self._kernel is None:
+                u_ref = self._hb_normalized
+            else:
+                chol_n = cho_factor(self._reference_noise, lower=True, check_finite=False)[0]
+                u_ref = solve_triangular(chol_n, self._hb_normalized, lower=True, check_finite=False)
+            base = self._score_whitened_topographies(u_ref, noise)
+            if not np.isfinite(base) or base <= 0:
+                raise FloatingPointError("invalid reference non-local confusion margin")
+            self._margin_baseline_cache[snr] = base
+        return self._margin_baseline_cache[snr]
+
+    def nonlocal_confusion_margin(self, indices, *, snr_db=20, count=None):
+        """Zero-test-leakage relative non-local dictionary cosine confusion utility."""
+        if not self.has_nonlocal_margin:
+            return None
+        selected = self._indices(indices, count=count)
+        k = len(selected)
+        snr, noise = self._noise(snr_db)
+        pk = self._contrast if k == 64 else helmert_contrast(k)
+        u = pk @ self._bank[selected]
+        if self._kernel is not None:
+            m_sub = pk @ self._noise_matrix(selected) @ pk.T
+            chol_m = cho_factor(.5 * (m_sub + m_sub.T), lower=True, check_finite=False)[0]
+            u = solve_triangular(chol_m, u, lower=True, check_finite=False)
+        val = self._score_whitened_topographies(u, noise)
+        return float(val / self._margin_baseline(snr))
+
+    def make_state(self, indices, *, snr_db=20, count=64):
+        """Cholesky evaluation of one K-electrode layout (default K=64), 20 dB score."""
+        selected = self._indices(indices, count=count)
+        k = len(selected)
         snr, noise = self._noise(snr_db)
         covariance = self._covariance[np.ix_(selected, selected)]
         covariance = .5 * (covariance + covariance.T) + noise * self._noise_matrix(selected)
         factor = cho_factor(covariance, lower=True, check_finite=False)
-        inverse = cho_solve(factor, np.eye(64), check_finite=False)
+        inverse = cho_solve(factor, np.eye(k), check_finite=False)
         inverse = .5 * (inverse + inverse.T)
         cross = self._cross[:, selected]
         weighted_cross = cross @ inverse
@@ -338,19 +433,20 @@ class LayoutSearchMetrics:
         if not isinstance(state, LayoutScoreState) or state._owner is not self._owner:
             raise ValueError("state belongs to a different covariance bank")
 
-    def _position(self, position):
-        if not isinstance(position, (int, np.integer)) or isinstance(position, (bool, np.bool_)) or not 0 <= position < 64:
-            raise ValueError("position must be an integer in [0,63]")
+    def _position(self, position, size=64):
+        if not isinstance(position, (int, np.integer)) or isinstance(position, (bool, np.bool_)) or not 0 <= position < size:
+            raise ValueError(f"position must be an integer in [0,{size - 1}]")
         return int(position)
 
     def apply_exchange(self, state, position, candidate_index):
         """Accept one replacement and rebuild Cholesky state; no update drift."""
         self._check_state(state)
-        position = self._position(position)
+        k = len(state.indices)
+        position = self._position(position, k)
         candidate = _index_vector(np.asarray([candidate_index]), self.point_count, count=1, name="candidate index")[0]
         indices = state.indices.copy()
         indices[position] = candidate
-        return self.make_state(indices, snr_db=state.snr_db)
+        return self.make_state(indices, snr_db=state.snr_db, count=k)
 
     def _tails(self, bipolar):
         count = bipolar.shape[0]
@@ -365,9 +461,9 @@ class LayoutSearchMetrics:
         taken = np.clip(self._fraction - previous, 0, sorted_weights)
         return np.sum(taken * np.take_along_axis(ratios, order, axis=1), axis=1) / self._fraction
 
-    def sensitivity_tail(self, indices):
+    def sensitivity_tail(self, indices, *, count=64):
         """Exact area-weighted lower tail of source bipolar-amplitude ratios."""
-        indices = self._indices(indices)
+        indices = self._indices(indices, count=count)
         if not self._sensitivity_available:
             return None
         return float(self._tails(np.ptp(self._bank[indices], axis=0)[None, :])[0])
@@ -391,7 +487,8 @@ class LayoutSearchMetrics:
                         include_sensitivity=False, include_information=False):
         """Batch Schur-complement scores for one replaceable position."""
         self._check_state(state)
-        position = self._position(position)
+        k = len(state.indices)
+        position = self._position(position, k)
         if not isinstance(chunk_size, (int, np.integer)) or chunk_size < 1:
             raise ValueError("chunk_size must be a positive integer")
         if not isinstance(include_sensitivity, bool):
@@ -399,7 +496,7 @@ class LayoutSearchMetrics:
         if candidate_indices is None:
             candidate_indices = np.arange(self.point_count)
         candidates = _index_vector(candidate_indices, self.point_count, name="candidate_indices")
-        keep = np.delete(np.arange(64), position)
+        keep = np.delete(np.arange(k), position)
         retained = state.indices[keep]
         candidates = candidates[~np.isin(candidates, retained)]
         w = state._inverse_covariance
@@ -427,21 +524,23 @@ class LayoutSearchMetrics:
             None if sensitivity is None else _readonly(sensitivity), fallbacks,
             None if info_rel is None else _readonly(info_rel))
 
-    def evaluate(self, indices, *, snr_db=(0, 10, 20)):
+    def evaluate(self, indices, *, snr_db=(0, 10, 20), count=64):
         """Final three-SNR report using direct Cholesky, never a search estimate."""
-        selected = self._indices(indices)
+        selected = self._indices(indices, count=count)
+        k = len(selected)
+        contrast = self._contrast if k == 64 else helmert_contrast(k)
         snrs = tuple(snr_db)
         if not snrs:
             raise ValueError("at least one SNR is required")
         centered = self._bank[selected] - self._bank[selected[:1]]
         centered -= centered.mean(axis=0, keepdims=True)
-        hx = self._contrast @ centered
+        hx = contrast @ centered
         cxx = (hx * self._weights) @ hx.T
         rank = participation_effective_rank(cxx) if self._kernel is None else \
-            _whitened_rank(cxx, self._contrast @ self._noise_matrix(selected) @ self._contrast.T)
+            _whitened_rank(cxx, contrast @ self._noise_matrix(selected) @ contrast.T)
         conditions = []
         for snr in snrs:
-            state = self.make_state(selected, snr_db=snr)
+            state = self.make_state(selected, snr_db=snr, count=k)
             _, noise = self._noise(snr)
             variance = self.reference_mean_contrast_signal_power_v2 * noise
             conditions.append({"nominal_reference_snr_db": state.snr_db,
@@ -455,17 +554,17 @@ class LayoutSearchMetrics:
                 "candidate_noise_whitened_area_weighted_effective_rank": rank,
                 "baseline_identity_field_retention": 1.,
                 **({} if self._kernel is None else {"noise_correlation": {"kind": "spatial_gaussian",
-                    "rho": self._kernel[1], "length_mm": self._kernel[2]}})})
+                    "rho": self._kernel[1], "length_mm": self._kernel[2]}} )})
         return {"schema_version": "compact-eeg-layout-search-metrics/1",
-            "scientific_role": "exploratory_fixed64_field_and_sensitivity_scoring",
+            "scientific_role": "exploratory_fixed64_field_and_sensitivity_scoring" if k == 64 else "exploratory_variable_k_field_and_sensitivity_scoring",
             "formal_v2_performance_eligible": False, "ar_computed": False,
             "classification_accuracy_computed": False, "global_optimum_certified": False,
-            "physical_electrodes_per_layout": 64, "reference_free_dimensions": 63,
+            "physical_electrodes_per_layout": k, "reference_free_dimensions": k - 1,
             "source_count": self.source_count, "candidate_bank_point_count": self.point_count,
             "source_moment_am": self.source_moment_am,
             "reference_mean_contrast_signal_power_v2": self.reference_mean_contrast_signal_power_v2,
             "conditions": conditions,
-            "source_sensitivity": {"area_weighted_lower_tail_retention_unclipped": self.sensitivity_tail(selected),
+            "source_sensitivity": {"area_weighted_lower_tail_retention_unclipped": self.sensitivity_tail(selected, count=k),
                 "source_tail_fraction": self._fraction, "numerical_zero_relative_tolerance": self._tolerance,
                 "bipolar_denominator_threshold_v_per_am": self._threshold_original,
                 "excluded_source_area_fraction": self._excluded_area, "excluded_source_count": int((~self._valid).sum()),
@@ -751,8 +850,9 @@ class LayoutSearchMetrics:
                              objective_mode="min"):
         """Exact argmax exchange above objective_floor + tol via Schur + CVaR bounds."""
         self._check_state(state)
-        position = self._position(position)
-        keep = np.delete(np.arange(64), position)
+        k = len(state.indices)
+        position = self._position(position, k)
+        keep = np.delete(np.arange(k), position)
         retained = state.indices[keep]
         w = state._inverse_covariance
         reduced = w[np.ix_(keep, keep)] - np.outer(w[keep, position], w[position, keep]) / w[position, position]
@@ -774,7 +874,7 @@ class LayoutSearchMetrics:
 
 __all__ = [
     "LayoutSearchMetrics", "LayoutScoreState", "ExchangeScores", "PartialScoreState",
-    "PrunedMoveResult", "COMPOSITE_WEIGHTS", "combine_search_objective",
+    "PrunedMoveResult", "COMPOSITE_WEIGHTS", "STAGE_MARGIN_WEIGHT", "combine_search_objective",
 ]
 
 

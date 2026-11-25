@@ -212,9 +212,11 @@ def parents(library: Any) -> list[dict]:
     for summary in library.list()['records']:
         if (not _same(summary.get('status', UNDEFINED), 'completed')
                 or summary.get('dataset_id', UNDEFINED) not in _PARENT_DATASETS
-                or js_truthy(_opt(summary.get('request', UNDEFINED), 'noise_model'))):
+                or js_truthy(_opt(summary.get('request', UNDEFINED), 'noise_model'))
+                or js_truthy(_opt(summary.get('request', UNDEFINED), 'electrode_count'))):
             continue
         record = library.get(summary['id'])
-        if js_truthy(_opt(_opt(record, 'layout'), 'regionPatchVertexIndices')):
+        if (js_truthy(_opt(_opt(record, 'layout'), 'regionPatchVertexIndices'))
+                and _same(_length(_opt(_opt(record, 'layout'), 'xyzMm')), 64)):
             rows.append(summary)
     return rows

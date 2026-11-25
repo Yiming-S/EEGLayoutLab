@@ -170,4 +170,18 @@ void test('adaptive cross-region allocation mode normalizes cleanly and enforces
   assert.notEqual(requestKey(compositeReq), requestKey(adaptiveReq));
   assert.throws(() => normalizeRequest({ ...request, objective_mode: 'invalid' }), /优化目标模式无效/);
   validateWorkerResult({ ...asymmetric, request: compositeReq }, compositeReq);
+
+  const k16Req = normalizeRequest({ ...compositeReq, electrode_count: 16 });
+  assert.deepEqual(k16Req, { ...compositeReq, electrode_count: 16 });
+  assert.deepEqual(normalizeRequest({ ...request, electrode_count: 64 }), request);
+  assert.deepEqual(normalizeRequest({ ...request, electrode_count: null }), request);
+  assert.notEqual(requestKey(k16Req), requestKey(compositeReq));
+  assert.throws(() => normalizeRequest({ ...request, electrode_count: 20 }), /电极总数只支持/);
+  assert.throws(() => normalizeRequest({ region_count: 4, radius_mm: 30, mode: 'whole_surface', allocation_mode: 'adaptive', electrode_count: 12 }), /至少为每区4导/);
+  assert.throws(() => normalizeRequest({ region_count: 6, radius_mm: 30, mode: 'whole_surface', electrode_count: 8 }), /每区至少2导/);
+  const k16Result = resultFor(k16Req);
+  k16Result.layout.xyzMm = k16Result.layout.xyzMm.slice(0, 16);
+  k16Result.layout.regionIndices = Array.from({ length: 16 }, (_, i) => (i < 6 ? 0 : 1));
+  validateWorkerResult(k16Result, k16Req);
+  assert.throws(() => validateWorkerResult({ ...k16Result, layout: { ...k16Result.layout, xyzMm: k16Result.layout.xyzMm.slice(0, 15) } }, k16Req), /无效16点坐标/);
 });

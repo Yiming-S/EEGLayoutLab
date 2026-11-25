@@ -76,6 +76,7 @@ REQUEST_FORMATS: dict[str, RequestFormat] = {
                 'mask_codes': radius_search.MASK_CODES,
                 'spatial_noise_lengths_mm': options.SPATIAL_NOISE_LENGTHS_MM,
                 'data_prior_lengths_mm': options.DATA_PRIOR_LENGTHS_MM,
+                'electrode_counts': radius_search.ELECTRODE_COUNTS,
             },
         ),
     )

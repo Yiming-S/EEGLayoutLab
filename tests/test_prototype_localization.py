@@ -131,6 +131,33 @@ class PrototypeLocalizationTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     self.evaluate(**kwargs)
 
+    def test_variable_electrode_count_localization_matches_helmert_k_scanner(self) -> None:
+        sigma = 2e-8
+        k = 16
+        dict_k = self.dictionary[:k]
+        gen_k = self.generation[:k]
+        result_iid = self.evaluate(
+            dictionary=dict_k, generation=gen_k, physical_electrode_noise_std_v=sigma,
+            layout_id="compact16", expected_electrodes=k,
+        )
+        self.assertEqual(result_iid.standard_normal_noise.shape, (k - 1, 3, 16))
+        ck = helmert_contrast(k)
+        hd = ck @ (dict_k - dict_k.mean(axis=0, keepdims=True))
+        hg = ck @ (gen_k - gen_k.mean(axis=0, keepdims=True))
+        obs = (hg[:, :, None] * 1e-8 + sigma * result_iid.standard_normal_noise).reshape(k - 1, -1)
+        expected = fixed_normal_scan(hd, obs, sigma ** 2 * np.eye(k - 1)).reshape(3, 16)
+        np.testing.assert_array_equal(result_iid.estimated_dictionary_indices, expected)
+
+        coords = np.linspace(0.0, 45.0, k)[:, None]
+        d2 = (coords - coords.T) ** 2
+        cov_k = (sigma ** 2) * (0.5 * np.eye(k) + 0.5 * np.exp(-d2 / (2.0 * 20.0 ** 2)))
+        result_corr = self.evaluate(
+            dictionary=dict_k, generation=gen_k, physical_electrode_noise_std_v=sigma,
+            physical_noise_covariance_v2=cov_k, layout_id="compact16_corr", expected_electrodes=k,
+        )
+        self.assertEqual(result_corr.errors_mm.shape, (3, 16))
+        self.assertTrue(np.all(np.isfinite(result_corr.errors_mm)))
+
 
 if __name__ == "__main__":
     unittest.main()
