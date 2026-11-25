@@ -1051,6 +1051,11 @@ export interface components {
              * @constant
              */
             objective_mode?: "composite";
+            /**
+             * Electrode Count
+             * @enum {integer}
+             */
+            electrode_count?: 8 | 12 | 16 | 24 | 32 | 48;
         };
         RobustnessStudyInput: components["schemas"]["NoiseSeedStudy"] | components["schemas"]["GridDisplacementStudy"] | components["schemas"]["CrossHeadStudy"];
         /**

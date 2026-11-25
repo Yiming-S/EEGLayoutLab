@@ -205,8 +205,8 @@ class AreaDomain:
             "actual_region_counts": list(allocation)}
 
 
-def _initial_layout(domain, centers, patch, allowed, spacing, trial, rng):
-    allocation = balanced_region_point_counts(len(centers))
+def _initial_layout(domain, centers, patch, allowed, spacing, trial, rng, *, total_physical_nodes=64):
+    allocation = balanced_region_point_counts(len(centers), total_physical_nodes=total_physical_nodes)
     pools = [np.intersect1d(pool, allowed) for pool in patch["bank_pools"]]
     selected, labels, achieved = [], [], np.zeros(len(centers), int)
     order = np.arange(len(centers)) if trial == 0 else rng.permutation(len(centers))
@@ -241,7 +241,7 @@ def _initial_layout(domain, centers, patch, allowed, spacing, trial, rng):
         achieved[region] = len(local)
         if len(local) != allocation[region]:
             break
-    if len(selected) != 64:
+    if len(selected) != total_physical_nodes:
         return None, achieved.tolist()
     return {"candidate_bank_indices": selected, "region_indices": labels, "centers": list(centers)}, achieved.tolist()
 

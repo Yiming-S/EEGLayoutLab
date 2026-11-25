@@ -32,7 +32,7 @@ from scipy.sparse.csgraph import connected_components, dijkstra
 
 from .area_budget_study import _initial_layout, center_combinations, union_area_cm2
 from .artifacts import sha256_file
-from .layout_search_metrics import COMPOSITE_WEIGHTS, LayoutSearchMetrics, combine_search_objective
+from .layout_search_metrics import COMPOSITE_WEIGHTS, STAGE_MARGIN_WEIGHT, LayoutSearchMetrics, combine_search_objective
 from .multiregion_geometry import balanced_region_point_counts, bounded_center_combinations
 from .multiregion_search import _mixed_proposals
 from .packing_pilot import build_surface_edge_graph
@@ -40,8 +40,9 @@ from .prototype_localization import evaluate_grid_localization
 from . import noise_models
 from .surface import vertex_area_weights
 
-ALGORITHM_VERSION = "strict-radius-local/6-composite-info-adaptive-fedorov"
+ALGORITHM_VERSION = "strict-radius-local/7-variable-k-composite-adaptive-fedorov"
 MIN_ADAPTIVE_REGION_ELECTRODES = 4
+ELECTRODE_COUNTS = (8, 12, 16, 24, 32, 48, 64)
 MASK_ROIS = {
     "PL": "left_near_ear_posterolateral_approx",
     "PR": "right_near_ear_posterolateral_approx",
@@ -60,7 +61,11 @@ SEARCH_BUDGET = {
     "geometry_restarts": 2,
     "adaptive_waterfill_tuples": 6,
     "screen_starts": 6,
+    "margin_screen_starts": 6,
     "retained_finalists": 2,
+    "margin_retained_finalists": 2,
+    "stage1_margin_shortlist_cap": 32,
+    "stage_margin_weight": STAGE_MARGIN_WEIGHT,
     "outer_alternating_rounds": 4,
     "coordinate_sweeps": 8,
     "regional_polish_sweeps": 2,
@@ -82,11 +87,11 @@ def validate_request(raw):
     """Strict allow-list; never silently substitute an unsupported submask."""
     allowed_fields = {
         "region_count", "radius_mm", "mode", "mask_codes",
-        "noise_model", "data_prior", "allocation_mode", "objective_mode",
+        "noise_model", "data_prior", "allocation_mode", "objective_mode", "electrode_count",
     }
     if not isinstance(raw, dict) or set(raw) - allowed_fields:
         raise ValueError("Request contains unsupported fields")
-    # Default iid noise, balanced quota, and min objective are omitted so existing requests keep their canonical form and seed.
+    # Default iid noise, balanced quota, min objective, and 64 electrodes are omitted so existing requests keep their canonical form and seed.
     noise = noise_models.normalize(raw.get("noise_model"), allow_brain_background=False)
     if "noise_model" in raw and (raw["noise_model"] is None or noise != raw["noise_model"]):
         raise ValueError("noise_model must be a non-default spatial preset in canonical form")
@@ -111,6 +116,15 @@ def validate_request(raw):
         if raw["objective_mode"] != "composite":
             raise ValueError("objective_mode must be 'composite' when provided; omit for min default")
         objective_mode = "composite"
+    electrode_count = None
+    if "electrode_count" in raw:
+        raw_ec = raw["electrode_count"]
+        if type(raw_ec) is not int or raw_ec not in ELECTRODE_COUNTS or raw_ec == 64:
+            raise ValueError("electrode_count must be one of 8, 12, 16, 24, 32, 48 when provided; omit for 64 default")
+        min_req = count * MIN_ADAPTIVE_REGION_ELECTRODES if allocation_mode == "adaptive" else count * 2
+        if raw_ec < min_req:
+            raise ValueError(f"electrode_count {raw_ec} is too small for region_count={count} (minimum {min_req})")
+        electrode_count = int(raw_ec)
     if type(radius) not in (float, int) or not np.isfinite(radius) or not 15 <= radius <= 80 or radius % 5:
         raise ValueError("radius_mm must be 15..80 in steps of 5 mm")
     if mode not in (*FREE_ROIS, "preset"):
@@ -126,15 +140,16 @@ def validate_request(raw):
     return {"region_count": count, "radius_mm": int(radius), "mode": mode, "mask_codes": list(codes),
             **({"noise_model": noise} if noise else {}), **({"data_prior": prior} if prior else {}),
             **({"allocation_mode": allocation_mode} if allocation_mode else {}),
-            **({"objective_mode": objective_mode} if objective_mode else {})}
+            **({"objective_mode": objective_mode} if objective_mode else {}),
+            **({"electrode_count": electrode_count} if electrode_count else {})}
 
 
 SEED_NAMESPACE = "strict-radius-local/3-external-exposure"
 
 
 def search_seed(request):
-    """Search seed of a validated request; scoring/quota/objective modes share the same seed stream."""
-    excluded = ("noise_model", "data_prior", "allocation_mode", "objective_mode")
+    """Search seed of a validated request; scoring/quota/objective/count modes share the same seed stream."""
+    excluded = ("noise_model", "data_prior", "allocation_mode", "objective_mode", "electrode_count")
     canonical = json.dumps({k: v for k, v in request.items() if k not in excluded}, sort_keys=True, separators=(",", ":"))
     return int.from_bytes(hashlib.sha256((SEED_NAMESPACE + canonical).encode()).digest()[:4], "little")
 
@@ -143,19 +158,19 @@ def request_rois(request):
     return tuple(MASK_ROIS[c] for c in request["mask_codes"]) if request["mode"] == "preset" else (FREE_ROIS[request["mode"]],) * request["region_count"]
 
 
-def _patch_pool_feasible(patch, allocation, adaptive_allocation):
+def _patch_pool_feasible(patch, allocation, adaptive_allocation, total_electrodes=64):
     if patch is None:
         return False
     pools = patch["bank_pools"]
     if adaptive_allocation:
-        return sum(len(p) for p in pools) >= 64 and all(len(p) >= MIN_ADAPTIVE_REGION_ELECTRODES for p in pools)
+        return sum(len(p) for p in pools) >= total_electrodes and all(len(p) >= MIN_ADAPTIVE_REGION_ELECTRODES for p in pools)
     return all(len(p) >= req for p, req in zip(pools, allocation, strict=True))
 
 
 def _signal_aware_center_shortlist(vertices, choices, rois, identical, limit, seed, domain, signal_power, *,
-                                   adaptive_allocation=False):
+                                   adaptive_allocation=False, total_electrodes=64, engine=None, use_margin_proxy=False):
     """Combine geometric spread tuples with leadfield-power-ranked feasible tuples."""
-    allocation = balanced_region_point_counts(len(rois))
+    allocation = balanced_region_point_counts(len(rois), total_physical_nodes=total_electrodes)
     pool_cap = max(limit * 4, 96)
     if identical:
         raw_pool = list(center_combinations(vertices, np.asarray(choices[0]), len(rois), pool_cap, seed))
@@ -170,7 +185,8 @@ def _signal_aware_center_shortlist(vertices, choices, rois, identical, limit, se
                 row = domain.distances[roi][domain.center_rows[roi][int(c)]]
                 in_disk = np.flatnonzero(np.isin(domain.bank_ids, np.flatnonzero(row <= domain.radius_m)))
                 if len(in_disk):
-                    top_k = min(len(in_disk), 48 if adaptive_allocation else max(allocation))
+                    cap_k = max(MIN_ADAPTIVE_REGION_ELECTRODES, (3 * total_electrodes) // 4) if adaptive_allocation else max(allocation)
+                    top_k = min(len(in_disk), cap_k)
                     vals = np.partition(signal_power[in_disk], len(in_disk) - top_k)[len(in_disk) - top_k:]
                     center_power[key] = float(np.mean(vals))
                 else:
@@ -206,7 +222,7 @@ def _signal_aware_center_shortlist(vertices, choices, rois, identical, limit, se
     scored_feasible = []
     for tup in raw_pool:
         patch = domain.patches(tup)
-        if not _patch_pool_feasible(patch, allocation, adaptive_allocation):
+        if not _patch_pool_feasible(patch, allocation, adaptive_allocation, total_electrodes):
             continue
         pts = vertices[np.asarray(tup, dtype=np.int64)]
         spread = float(np.linalg.norm(pts[:, None] - pts[None], axis=2)[np.triu_indices(len(tup), 1)].min()) if len(tup) > 1 else 1.0
@@ -217,8 +233,8 @@ def _signal_aware_center_shortlist(vertices, choices, rois, identical, limit, se
                 top_a = np.partition(vals, len(vals) - MIN_ADAPTIVE_REGION_ELECTRODES)[len(vals) - MIN_ADAPTIVE_REGION_ELECTRODES:]
                 anchor_means.append(float(np.mean(top_a)))
             union_vals = np.concatenate([signal_power[p] for p in patch["bank_pools"]])
-            top64 = np.partition(union_vals, len(union_vals) - 64)[len(union_vals) - 64:]
-            composite = 0.60 * float(np.mean(top64)) + 0.35 * min(anchor_means) + 0.05 * spread
+            top_union = np.partition(union_vals, len(union_vals) - total_electrodes)[len(union_vals) - total_electrodes:]
+            composite = 0.60 * float(np.mean(top_union)) + 0.35 * min(anchor_means) + 0.05 * spread
         else:
             reg_means = []
             for pool, req in zip(patch["bank_pools"], allocation):
@@ -230,6 +246,40 @@ def _signal_aware_center_shortlist(vertices, choices, rois, identical, limit, se
     if not scored_feasible:
         return tuple(raw_pool[:limit])
     scored_feasible.sort(key=lambda item: (-item[0], item[1]))
+    if use_margin_proxy and engine is not None and engine.has_nonlocal_margin and total_electrodes >= 3:
+        xyz_bank = domain.vertices[domain.bank_ids]
+        cap_m = min(len(scored_feasible), int(SEARCH_BUDGET["stage1_margin_shortlist_cap"]))
+        top_p = np.asarray([s for s, _ in scored_feasible[:cap_m]], dtype=float)
+        p_span = max(1e-9, float(top_p.max() - top_p.min()))
+        reranked = []
+        for p_val, tup in scored_feasible[:cap_m]:
+            patch = domain.patches(tup)
+            sample_ids = []
+            per_reg = [MIN_ADAPTIVE_REGION_ELECTRODES] * len(rois) if adaptive_allocation else list(allocation)
+            for r_i, req_r in enumerate(per_reg):
+                pool = patch["bank_pools"][r_i]
+                pool_set = set(map(int, pool))
+                for cand_b in pool[np.argsort(-signal_power[pool], kind="stable")]:
+                    if len(sample_ids) and np.min(np.sum((xyz_bank[np.asarray(sample_ids)] - xyz_bank[int(cand_b)]) ** 2, axis=1)) < .004 ** 2:
+                        continue
+                    sample_ids.append(int(cand_b))
+                    if sum(1 for x in sample_ids if x in pool_set) >= req_r:
+                        break
+            if len(sample_ids) < total_electrodes:
+                u_pool = np.concatenate(patch["bank_pools"])
+                for cand_b in u_pool[np.argsort(-signal_power[u_pool], kind="stable")]:
+                    if int(cand_b) in sample_ids:
+                        continue
+                    if len(sample_ids) and np.min(np.sum((xyz_bank[np.asarray(sample_ids)] - xyz_bank[int(cand_b)]) ** 2, axis=1)) < .004 ** 2:
+                        continue
+                    sample_ids.append(int(cand_b))
+                    if len(sample_ids) >= total_electrodes:
+                        break
+            m_score = engine.nonlocal_confusion_margin(sample_ids[:total_electrodes], snr_db=20) if len(sample_ids) >= 3 else 0.0
+            p_norm = (p_val - float(top_p.min())) / p_span
+            reranked.append((0.60 * p_norm + 0.40 * float(m_score or 0.0), tup))
+        reranked.sort(key=lambda item: (-item[0], item[1]))
+        scored_feasible = reranked + scored_feasible[cap_m:]
     selected, picked = [], set()
     half = max(1, (2 * limit) // 3)
     for _, tup in scored_feasible[:half]:
@@ -253,7 +303,8 @@ def _signal_aware_center_shortlist(vertices, choices, rois, identical, limit, se
 
 def select_radius_center_combinations(vertices, centers, region_rois, seed, *,
                                       maximum_combinations=None, domain=None, signal_power=None,
-                                      adaptive_allocation=False):
+                                      adaptive_allocation=False, total_electrodes=64,
+                                      engine=None, use_margin_proxy=False):
     """Exhaust small frozen center spaces; retain bounded or signal-aware shortlist on large spaces."""
     rois = tuple(region_rois)
     if not rois:
@@ -272,8 +323,13 @@ def select_radius_center_combinations(vertices, centers, region_rois, seed, *,
     elif domain is not None and signal_power is not None:
         combinations = _signal_aware_center_shortlist(
             vertices, choices, rois, identical, limit, seed, domain, signal_power,
-            adaptive_allocation=adaptive_allocation)
-        method = "signal_and_spread_bounded_center_shortlist"
+            adaptive_allocation=adaptive_allocation, total_electrodes=total_electrodes,
+            engine=engine, use_margin_proxy=use_margin_proxy)
+        method = (
+            "signal_spread_and_dictionary_margin_shortlist"
+            if (use_margin_proxy and engine is not None and engine.has_nonlocal_margin)
+            else "signal_and_spread_bounded_center_shortlist"
+        )
     elif identical:
         combinations = center_combinations(vertices, np.asarray(choices[0]), len(rois), limit, seed)
     else:
@@ -378,20 +434,20 @@ class RadiusDomain:
         self._patch_cache[key] = result
         return result
 
-    def validate(self, snapshot, *, spacing_m=.004, adaptive_allocation=False):
+    def validate(self, snapshot, *, spacing_m=.004, adaptive_allocation=False, total_electrodes=64):
         ids = _integer_vector(snapshot["candidate_bank_indices"], len(self.bank_ids), "layout bank indices")
         labels = _integer_vector(snapshot["region_indices"], len(self.region_rois), "region labels")
         centers = tuple(int(c) for c in snapshot["centers"])
-        if len(ids) != 64 or len(labels) != 64 or len(np.unique(ids)) != 64:
-            raise ValueError("Layout requires 64 unique physical points")
+        if len(ids) != total_electrodes or len(labels) != total_electrodes or len(np.unique(ids)) != total_electrodes:
+            raise ValueError(f"Layout requires {total_electrodes} unique physical points")
         counts = np.bincount(labels, minlength=len(self.region_rois)).tolist()
         if adaptive_allocation:
-            if sum(counts) != 64 or any(c < MIN_ADAPTIVE_REGION_ELECTRODES for c in counts):
+            if sum(counts) != total_electrodes or any(c < MIN_ADAPTIVE_REGION_ELECTRODES for c in counts):
                 raise ValueError("Adaptive regional allocation floor violated")
-        elif counts != list(balanced_region_point_counts(len(self.region_rois))):
+        elif counts != list(balanced_region_point_counts(len(self.region_rois), total_physical_nodes=total_electrodes)):
             raise ValueError("Balanced regional allocation violated")
         xyz = self.vertices[self.bank_ids[ids]]
-        gap = float(np.linalg.norm(xyz[:, None] - xyz[None], axis=2)[np.triu_indices(64, 1)].min())
+        gap = float(np.linalg.norm(xyz[:, None] - xyz[None], axis=2)[np.triu_indices(total_electrodes, 1)].min())
         if gap + 1e-12 < spacing_m:
             raise ValueError("Minimum physical spacing violated, including repeated coordinates")
         patch = self.patches(centers)
@@ -487,8 +543,8 @@ def _patch_union_lookup(patch, total_bank_size):
 
 
 def _initial_adaptive_layout(xyz, centers, patch, signal_power, spacing_m, trial, rng, *,
-                             engine=None, objective_mode="min"):
-    """Construct a 64-electrode layout with >= 4 anchors per region and adaptive union quota."""
+                             engine=None, objective_mode="min", total_electrodes=64):
+    """Construct a K-electrode layout with >= 4 anchors per region and adaptive union quota."""
     n_reg = len(centers)
     union_pool, bank_to_region = _patch_union_lookup(patch, len(xyz))
     selected, labels_acc = [], []
@@ -504,7 +560,7 @@ def _initial_adaptive_layout(xyz, centers, patch, signal_power, spacing_m, trial
         selected.extend(packed)
         labels_acc.extend([r] * len(packed))
 
-    rem = 64 - len(selected)
+    rem = total_electrodes - len(selected)
     proposals_added = 0
     if engine is not None:
         use_info = objective_mode == "composite"
@@ -528,8 +584,8 @@ def _initial_adaptive_layout(xyz, centers, patch, signal_power, spacing_m, trial
             selected.append(chosen)
             labels_acc.append(int(bank_to_region[chosen]))
 
-    if len(selected) < 64:
-        while len(selected) < 64:
+    if len(selected) < total_electrodes:
+        while len(selected) < total_electrodes:
             cand = _eligible_pool_by_spacing(xyz, union_pool, selected, spacing_m)
             if not len(cand):
                 break
@@ -545,11 +601,11 @@ def _initial_adaptive_layout(xyz, centers, patch, signal_power, spacing_m, trial
             selected.append(chosen)
             labels_acc.append(int(bank_to_region[chosen]))
 
-    if len(selected) < 64:
+    if len(selected) < total_electrodes:
         anchors = selected[:n_reg * MIN_ADAPTIVE_REGION_ELECTRODES]
         anchor_labels = labels_acc[:n_reg * MIN_ADAPTIVE_REGION_ELECTRODES]
         packed_rem = _pack_region_with_backtrack(
-            xyz, union_pool, 64 - len(anchors), anchors, spacing_m, rng,
+            xyz, union_pool, total_electrodes - len(anchors), anchors, spacing_m, rng,
             repair_depth=3, branch_width=4, max_nodes=96)
         if packed_rem is None:
             return None, np.bincount(labels_acc, minlength=n_reg).tolist(), proposals_added
@@ -619,14 +675,22 @@ def _neighbor_center_proposals(domain, current_centers, region_r, outer_round, v
 
 
 def bounded_radius_search(domain, engine, combinations, seed, progress=lambda **kwargs: None, *,
-                          deadline_monotonic=None, adaptive_allocation=False, objective_mode="min"):
-    """Convergent Fedorov coordinate ascent + joint center shift + adaptive quota / composite objective."""
+                          deadline_monotonic=None, adaptive_allocation=False, objective_mode="min",
+                          total_electrodes=64, enable_localization_proxy=True):
+    """Convergent Fedorov coordinate ascent + joint center shift + Stage 1/3 margin screening."""
     if objective_mode not in ("min", "composite"):
         raise ValueError(f"Unsupported objective_mode: {objective_mode}")
+    if type(total_electrodes) is not int or not 2 <= total_electrodes <= 64:
+        raise ValueError("total_electrodes must be an integer in [2, 64]")
     n_reg = len(domain.region_rois)
     adaptive = bool(adaptive_allocation and n_reg >= 2)
+    use_margin_proxy = bool(
+        enable_localization_proxy and objective_mode == "composite"
+        and engine is not None and engine.has_nonlocal_margin and total_electrodes >= 3
+    )
+    margin_stats = {"enabled": use_margin_proxy, "stage1_evaluations": 0, "stage3_evaluations": 0, "elapsed_seconds": 0.0}
     allowed = np.arange(len(domain.bank_ids))
-    allocation = balanced_region_point_counts(n_reg)
+    allocation = balanced_region_point_counts(n_reg, total_physical_nodes=total_electrodes)
     tol = float(SEARCH_BUDGET["improvement_tolerance"])
     attempts, starts, trace = [], [], []
     scored_count, proposal_count = 0, 0
@@ -640,11 +704,28 @@ def bounded_radius_search(domain, engine, combinations, seed, progress=lambda **
     def past_deadline():
         return deadline_monotonic is not None and time.perf_counter() >= deadline_monotonic
 
+    def eval_stage_merit(snap, *, stage="stage1"):
+        if not use_margin_proxy:
+            snap["margin20"] = None
+            snap["stage_merit"] = snap["objective"]
+            return snap["objective"]
+        if snap.get("margin20") is not None and snap.get("stage_merit") is not None:
+            return float(snap["stage_merit"])
+        t_m0 = time.perf_counter()
+        m_val = float(engine.nonlocal_confusion_margin(
+            snap["candidate_bank_indices"], snr_db=20, count=total_electrodes))
+        margin_stats["elapsed_seconds"] += time.perf_counter() - t_m0
+        margin_stats[f"{stage}_evaluations"] += 1
+        merit = float((1.0 - STAGE_MARGIN_WEIGHT) * snap["objective"] + STAGE_MARGIN_WEIGHT * m_val)
+        snap["margin20"] = m_val
+        snap["stage_merit"] = merit
+        return merit
+
     def score(snapshot):
         nonlocal scored_count
-        geometry = domain.validate(snapshot, adaptive_allocation=adaptive)
-        state = engine.make_state(snapshot["candidate_bank_indices"], snr_db=20)
-        sensitivity = engine.sensitivity_tail(state.indices)
+        geometry = domain.validate(snapshot, adaptive_allocation=adaptive, total_electrodes=total_electrodes)
+        state = engine.make_state(snapshot["candidate_bank_indices"], snr_db=20, count=total_electrodes)
+        sensitivity = engine.sensitivity_tail(state.indices, count=total_electrodes)
         if sensitivity is None or not np.isfinite(sensitivity) or not np.isfinite(state.field_relative):
             raise ValueError("Field/sensitivity numerical denominator is unavailable")
         scored_count += 1
@@ -671,7 +752,7 @@ def bounded_radius_search(domain, engine, combinations, seed, progress=lambda **
             attempts.append({"centers": list(centers), "status": "no_separated_disks"})
             continue
         pool_counts = [len(pool) for pool in patch["bank_pools"]]
-        if not _patch_pool_feasible(patch, allocation, adaptive):
+        if not _patch_pool_feasible(patch, allocation, adaptive, total_electrodes):
             attempts.append({"centers": list(centers), "status": "insufficient_bank_candidates",
                 "bank_pool_counts": pool_counts,
                 "required_region_counts": [MIN_ADAPTIVE_REGION_ELECTRODES] * n_reg if adaptive else list(allocation),
@@ -682,10 +763,12 @@ def bounded_radius_search(domain, engine, combinations, seed, progress=lambda **
             trial_rng = np.random.default_rng(np.random.SeedSequence([seed, i, trial]))
             if adaptive:
                 snapshot, achieved, added_p = _initial_adaptive_layout(
-                    xyz, centers, patch, signal_power, .004, trial, trial_rng, objective_mode=objective_mode)
+                    xyz, centers, patch, signal_power, .004, trial, trial_rng,
+                    objective_mode=objective_mode, total_electrodes=total_electrodes)
                 proposal_count += added_p
             else:
-                snapshot, achieved = _initial_layout(domain, centers, patch, allowed, .004, trial, trial_rng)
+                snapshot, achieved = _initial_layout(
+                    domain, centers, patch, allowed, .004, trial, trial_rng, total_physical_nodes=total_electrodes)
                 if snapshot is None:
                     selected, labels_acc, partial = [], [], []
                     ok = True
@@ -699,7 +782,7 @@ def bounded_radius_search(domain, engine, combinations, seed, progress=lambda **
                         selected.extend(packed)
                         labels_acc.extend([int(r)] * len(packed))
                         partial.append(len(packed))
-                    if ok and len(selected) == 64:
+                    if ok and len(selected) == total_electrodes:
                         snapshot = {"candidate_bank_indices": selected, "region_indices": labels_acc, "centers": list(centers)}
                         achieved = [int(allocation[r]) for r in range(len(centers))]
             attempts.append({"centers": list(centers), "trial": trial, "achieved": achieved,
@@ -723,7 +806,7 @@ def bounded_radius_search(domain, engine, combinations, seed, progress=lambda **
             wf_rng = np.random.default_rng(np.random.SeedSequence([seed, 900, orig_i]))
             snapshot, achieved, added_p = _initial_adaptive_layout(
                 xyz, centers, patch, signal_power, .004, 0, wf_rng,
-                engine=engine, objective_mode=objective_mode)
+                engine=engine, objective_mode=objective_mode, total_electrodes=total_electrodes)
             proposal_count += added_p
             attempts.append({"centers": list(centers), "trial": "schur_waterfill", "achieved": achieved,
                 "common_graph_radius_mm": patch["radius_m"] * 1000,
@@ -734,7 +817,8 @@ def bounded_radius_search(domain, engine, combinations, seed, progress=lambda **
     if not starts:
         return None, {"attempts": attempts, "trace": trace, "scored_layouts": scored_count,
             "coordinate_proposals": proposal_count, "allocation_mode": "adaptive" if adaptive else "balanced",
-            "objective_mode": objective_mode, "infeasibility_certified": False}
+            "objective_mode": objective_mode, "physical_electrode_count": total_electrodes,
+            "infeasibility_certified": False}
 
     def fedorov_ascent(current, state, patch, rng, *, active_positions=None, max_sweeps=8, phase="fedorov"):
         nonlocal proposal_count
@@ -742,11 +826,11 @@ def bounded_radius_search(domain, engine, combinations, seed, progress=lambda **
         labels = np.asarray(current["region_indices"], dtype=np.int64).copy()
         reg_counts = np.bincount(labels, minlength=n_reg)
         union_pool, bank_to_region = _patch_union_lookup(patch, len(xyz)) if adaptive else (None, None)
-        universe = np.arange(64, dtype=np.int64) if active_positions is None else np.asarray(active_positions, dtype=np.int64)
+        universe = np.arange(total_electrodes, dtype=np.int64) if active_positions is None else np.asarray(active_positions, dtype=np.int64)
         cert = engine.tail_dual_certificate(ids)
         dual_hint = (cert[1], cert[2]) if cert is not None else None
         change_epoch = 0
-        checked_epoch = np.full(64, -1, dtype=np.int64)
+        checked_epoch = np.full(total_electrodes, -1, dtype=np.int64)
         local_moves = []
         converged = False
         for sweep in range(max_sweeps):
@@ -909,7 +993,8 @@ def bounded_radius_search(domain, engine, combinations, seed, progress=lambda **
         if adaptive:
             for trial in range(2):
                 snap, _, _ = _initial_adaptive_layout(
-                    xyz, new_centers, new_patch, signal_power, .004, trial, rng, objective_mode=objective_mode)
+                    xyz, new_centers, new_patch, signal_power, .004, trial, rng,
+                    objective_mode=objective_mode, total_electrodes=total_electrodes)
                 if snap is not None:
                     return (
                         np.asarray(snap["candidate_bank_indices"], dtype=np.int64),
@@ -936,25 +1021,26 @@ def bounded_radius_search(domain, engine, combinations, seed, progress=lambda **
         if ok:
             return repaired, labels.copy()
         for trial in range(2):
-            snap, _ = _initial_layout(domain, new_centers, new_patch, allowed, .004, trial, rng)
+            snap, _ = _initial_layout(
+                domain, new_centers, new_patch, allowed, .004, trial, rng, total_physical_nodes=total_electrodes)
             if snap is not None:
                 return np.asarray(snap["candidate_bank_indices"], dtype=np.int64), labels.copy()
         return None
 
-    def propose_center_shift(current, region_r, new_center, rng):
+    def propose_center_shift(current, region_r, new_center, rng, *, margin_guided=False, min_obj_floor=None):
         new_centers = list(current["centers"])
         new_centers[region_r] = int(new_center)
         if len(set(new_centers)) != len(new_centers):
             return None
         new_patch = domain.patches(new_centers)
-        if not _patch_pool_feasible(new_patch, allocation, adaptive):
+        if not _patch_pool_feasible(new_patch, allocation, adaptive, total_electrodes):
             return None
         center_move_stats["evaluated"] += 1
         ids = np.asarray(current["candidate_bank_indices"], dtype=np.int64)
         labels = np.asarray(current["region_indices"], dtype=np.int64)
         pool_sets = [set(map(int, p)) for p in new_patch["bank_pools"]]
-        keep_mask = np.array([int(ids[k]) in pool_sets[int(labels[k])] for k in range(64)], dtype=bool)
-        evicted_count = int(64 - np.count_nonzero(keep_mask))
+        keep_mask = np.array([int(ids[k]) in pool_sets[int(labels[k])] for k in range(total_electrodes)], dtype=bool)
+        evicted_count = int(total_electrodes - np.count_nonzero(keep_mask))
         if evicted_count == 0:
             repaired_ids, repaired_labels = ids.copy(), labels.copy()
             affected_regs = [region_r]
@@ -979,12 +1065,23 @@ def bounded_radius_search(domain, engine, combinations, seed, progress=lambda **
             rep_snap, rep_state, new_patch, rng, active_positions=active_pos,
             max_sweeps=SEARCH_BUDGET["regional_polish_sweeps"], phase="center_shift_polish",
         )
+        if margin_guided:
+            floor_ok = min_obj_floor is None or pol_snap["objective"] >= min_obj_floor
+            fs_ok = pol_snap["min_field_sensitivity"] >= current["min_field_sensitivity"] - 0.0025
+            if floor_ok and fs_ok:
+                cur_m = eval_stage_merit(current, stage="stage3")
+                pol_m = eval_stage_merit(pol_snap, stage="stage3")
+                if pol_m > cur_m + tol:
+                    return pol_snap, pol_state, pol_moves, evicted_count
+            return None
         if pol_snap["objective"] > current["objective"] + tol:
             return pol_snap, pol_state, pol_moves, evicted_count
         return None
 
     def paired_2swap_unjam(current, state, patch, rng):
         nonlocal proposal_count
+        if total_electrodes < 4:
+            return current, state, []
         ids = np.asarray(current["candidate_bank_indices"], dtype=np.int64)
         labels = np.asarray(current["region_indices"], dtype=np.int64)
         reg_counts = np.bincount(labels, minlength=n_reg)
@@ -992,8 +1089,8 @@ def bounded_radius_search(domain, engine, combinations, seed, progress=lambda **
         pts = xyz[ids]
         dists = np.linalg.norm(pts[:, None, :] - pts[None, :, :], axis=2)
         pairs = []
-        for i in range(64):
-            for j in range(i + 1, 64):
+        for i in range(total_electrodes):
+            for j in range(i + 1, total_electrodes):
                 if labels[i] == labels[j] and .004 <= dists[i, j] <= .0085:
                     pairs.append((float(dists[i, j]), i, j))
         if not pairs:
@@ -1076,18 +1173,49 @@ def bounded_radius_search(domain, engine, combinations, seed, progress=lambda **
     ranked_starts = sorted(starts, key=lambda item: (-item[0]["objective"], sum(item[0]["candidate_bank_indices"])))
     initial = ranked_starts[0][0].copy()
 
+    screen_limit = int(SEARCH_BUDGET["margin_screen_starts"] if use_margin_proxy else SEARCH_BUDGET["screen_starts"])
+    finalist_limit = int(SEARCH_BUDGET["margin_retained_finalists"] if use_margin_proxy else SEARCH_BUDGET["retained_finalists"])
     screen_pool, seen_centers = [], set()
+    if use_margin_proxy:
+        distinct_starts = []
+        seen_distinct = set()
+        for snap, st in ranked_starts:
+            c_key = tuple(snap["centers"])
+            if c_key not in seen_distinct:
+                distinct_starts.append((snap, st))
+                seen_distinct.add(c_key)
+            if len(distinct_starts) >= int(SEARCH_BUDGET["stage1_margin_shortlist_cap"]):
+                break
+        for snap, _ in distinct_starts:
+            eval_stage_merit(snap, stage="stage1")
+        for snap, st in ranked_starts[:2]:
+            c_key = tuple(snap["centers"])
+            if c_key not in seen_centers:
+                eval_stage_merit(snap, stage="stage1")
+                screen_pool.append((snap, st))
+                seen_centers.add(c_key)
+        by_merit = sorted(distinct_starts, key=lambda item: (-item[0]["stage_merit"], sum(item[0]["candidate_bank_indices"])))
+        for snap, st in by_merit:
+            if len(screen_pool) >= screen_limit:
+                break
+            c_key = tuple(snap["centers"])
+            if c_key not in seen_centers:
+                screen_pool.append((snap, st))
+                seen_centers.add(c_key)
+    else:
+        for snap, st in ranked_starts:
+            key = tuple(snap["centers"])
+            if key not in seen_centers:
+                screen_pool.append((snap, st))
+                seen_centers.add(key)
+            if len(screen_pool) >= screen_limit:
+                break
     for snap, st in ranked_starts:
-        key = tuple(snap["centers"])
-        if key not in seen_centers:
-            screen_pool.append((snap, st))
-            seen_centers.add(key)
-        if len(screen_pool) >= SEARCH_BUDGET["screen_starts"]:
-            break
-    for snap, st in ranked_starts:
-        if len(screen_pool) >= min(len(ranked_starts), max(2, SEARCH_BUDGET["screen_starts"])):
+        if len(screen_pool) >= min(len(ranked_starts), max(2, screen_limit)):
             break
         if all(snap is not existing[0] for existing in screen_pool):
+            if use_margin_proxy:
+                eval_stage_merit(snap, stage="stage1")
             screen_pool.append((snap, st))
 
     screened = []
@@ -1100,22 +1228,42 @@ def bounded_radius_search(domain, engine, combinations, seed, progress=lambda **
         s_patch = domain.patches(snap["centers"])
         upd_snap, upd_st, s_moves, s_conv = fedorov_ascent(
             snap, st, s_patch, s_rng, max_sweeps=1, phase=f"screen_start_{s_idx}")
+        if use_margin_proxy:
+            eval_stage_merit(upd_snap, stage="stage1")
         screened.append((upd_snap, upd_st, s_moves, s_conv))
 
     screened.sort(key=lambda item: (-item[0]["objective"], sum(item[0]["candidate_bank_indices"])))
     finalists, seen_final_centers = [], set()
-    for item in screened:
-        c_key = tuple(item[0]["centers"])
-        if c_key not in seen_final_centers or len(screened) == 1:
-            finalists.append(item)
-            seen_final_centers.add(c_key)
-        if len(finalists) >= SEARCH_BUDGET["retained_finalists"]:
-            break
+    if use_margin_proxy and screened:
+        lead = screened[0]
+        finalists.append((*lead, False))
+        seen_final_centers.add(tuple(lead[0]["centers"]))
+        by_s_merit = sorted(screened, key=lambda item: (-item[0]["stage_merit"], sum(item[0]["candidate_bank_indices"])))
+        for item in by_s_merit:
+            if len(finalists) >= finalist_limit:
+                break
+            c_key = tuple(item[0]["centers"])
+            if c_key not in seen_final_centers and item[0] is not lead[0]:
+                finalists.append((*item, True))
+                seen_final_centers.add(c_key)
+        for item in by_s_merit:
+            if len(finalists) >= min(len(screened), finalist_limit):
+                break
+            if all(item[0] is not f[0] for f in finalists):
+                finalists.append((*item, True))
+    else:
+        for item in screened:
+            c_key = tuple(item[0]["centers"])
+            if c_key not in seen_final_centers or len(screened) == 1:
+                finalists.append((*item, False))
+                seen_final_centers.add(c_key)
+            if len(finalists) >= finalist_limit:
+                break
     if not finalists:
-        finalists = [screened[0]]
+        finalists = [(*screened[0], False)]
 
     optimized_runs = []
-    for f_idx, (cur, st, init_moves, init_conv) in enumerate(finalists):
+    for f_idx, (cur, st, init_moves, init_conv, margin_guided) in enumerate(finalists):
         if past_deadline() and optimized_runs:
             break
         run_trace = list(init_moves)
@@ -1153,9 +1301,17 @@ def bounded_radius_search(domain, engine, combinations, seed, progress=lambda **
                     trial_tuple = list(cur["centers"])
                     trial_tuple[reg_r] = int(cand_center)
                     visited_centers.add(tuple(trial_tuple))
-                    shifted = propose_center_shift(cur, reg_r, cand_center, f_rng)
-                    if shifted is not None and (best_shift is None or shifted[0]["objective"] > best_shift[0]["objective"] + tol):
-                        best_shift = (*shifted, int(cand_center))
+                    shifted = propose_center_shift(
+                        cur, reg_r, cand_center, f_rng,
+                        margin_guided=margin_guided, min_obj_floor=initial["objective"])
+                    if shifted is not None:
+                        cand_cmp = shifted[0]["stage_merit"] if margin_guided else shifted[0]["objective"]
+                        best_cmp = (
+                            (best_shift[0]["stage_merit"] if margin_guided else best_shift[0]["objective"])
+                            if best_shift is not None else -1e9
+                        )
+                        if best_shift is None or cand_cmp > best_cmp + tol:
+                            best_shift = (*shifted, int(cand_center))
                 if best_shift is not None:
                     new_cur, new_st, pol_moves, evicted_n, accepted_c = best_shift
                     center_move_stats["accepted"] += 1
@@ -1186,16 +1342,43 @@ def bounded_radius_search(domain, engine, combinations, seed, progress=lambda **
                     cur, st, domain.patches(cur["centers"]), f_rng,
                     max_sweeps=4, phase=f"finalist_{f_idx}_post_2swap")
                 run_trace.extend(f_moves)
+        if use_margin_proxy:
+            eval_stage_merit(cur, stage="stage3")
         optimized_runs.append((cur, run_trace, one_opt_converged, rounds_completed))
 
-    winner_snap, winner_trace, winner_converged, winner_rounds = max(
-        optimized_runs,
-        key=lambda item: (
-            round(item[0]["objective"], 9),
-            item[0]["field20"] if adaptive else 0.0,
-            -sum(item[0]["candidate_bank_indices"]),
-        ),
-    )
+    if use_margin_proxy:
+        above_initial = [
+            item for item in optimized_runs
+            if item[0]["objective"] + 1e-12 >= initial["objective"]
+        ]
+        if not above_initial:
+            above_initial = optimized_runs
+        best_min_fs = max(item[0]["min_field_sensitivity"] for item in above_initial)
+        best_obj = max(item[0]["objective"] for item in above_initial)
+        eligible_runs = [
+            item for item in above_initial
+            if item[0]["min_field_sensitivity"] >= best_min_fs - 0.0035
+            and item[0]["objective"] >= best_obj - 0.0060
+        ]
+        if not eligible_runs:
+            eligible_runs = above_initial
+        winner_snap, winner_trace, winner_converged, winner_rounds = max(
+            eligible_runs,
+            key=lambda item: (
+                round(item[0]["stage_merit"], 9),
+                round(item[0]["objective"], 9),
+                -sum(item[0]["candidate_bank_indices"]),
+            ),
+        )
+    else:
+        winner_snap, winner_trace, winner_converged, winner_rounds = max(
+            optimized_runs,
+            key=lambda item: (
+                round(item[0]["objective"], 9),
+                item[0]["field20"] if adaptive else 0.0,
+                -sum(item[0]["candidate_bank_indices"]),
+            ),
+        )
     if winner_snap["objective"] + 1e-12 < initial["objective"]:
         raise RuntimeError("Convergent search worsened initial objective")
 
@@ -1203,13 +1386,14 @@ def bounded_radius_search(domain, engine, combinations, seed, progress=lambda **
         w_labels = np.asarray(winner_snap["region_indices"], dtype=np.int64)
         w_ids = np.asarray(winner_snap["candidate_bank_indices"], dtype=np.int64)
         order = np.argsort(w_labels, kind="stable")
-        if not np.array_equal(order, np.arange(64)):
+        if not np.array_equal(order, np.arange(total_electrodes)):
             winner_snap = {
                 **winner_snap,
                 "candidate_bank_indices": w_ids[order].tolist(),
                 "region_indices": w_labels[order].tolist(),
             }
-            winner_snap["geometry"] = domain.validate(winner_snap, adaptive_allocation=True)
+            winner_snap["geometry"] = domain.validate(
+                winner_snap, adaptive_allocation=True, total_electrodes=total_electrodes)
 
     total_cands = max(1, pruning_totals["candidates"])
     diagnostics = {
@@ -1220,6 +1404,7 @@ def bounded_radius_search(domain, engine, combinations, seed, progress=lambda **
         "coordinate_proposals": proposal_count,
         "allocation_mode": "adaptive" if adaptive else "balanced",
         "objective_mode": objective_mode,
+        "physical_electrode_count": total_electrodes,
         "min_adaptive_region_electrodes": MIN_ADAPTIVE_REGION_ELECTRODES if adaptive else None,
         "initial_region_counts": initial["geometry"]["actual_region_counts"],
         "final_region_counts": winner_snap["geometry"]["actual_region_counts"],
@@ -1228,6 +1413,12 @@ def bounded_radius_search(domain, engine, combinations, seed, progress=lambda **
         "screened_start_count": len(screened),
         "finalist_count": len(optimized_runs),
         "center_moves": center_move_stats,
+        "dictionary_margin_proxy": {
+            **margin_stats,
+            "elapsed_seconds": round(float(margin_stats["elapsed_seconds"]), 4),
+            "winner_margin20": winner_snap.get("margin20"),
+            "winner_stage_merit": winner_snap.get("stage_merit"),
+        },
         "pruning": {
             **pruning_totals,
             "pruned_before_exact_tail_fraction": float(1.0 - pruning_totals["exact_tail_evals"] / total_cands),
@@ -1273,7 +1464,10 @@ class LocalRadiusComputer:
         progress(stage="loading", message="构建共享信号协方差缓存", progress=.12)
         self.adjacency = build_surface_edge_graph(self.vertices, self.faces).adjacency
         self.areas = vertex_area_weights(self.vertices, self.faces) * 10000
-        self.engine = LayoutSearchMetrics(self.hc[:, :self.n], self.hb[:, :self.n], self.weights)
+        self.engine = LayoutSearchMetrics(
+            self.hc[:, :self.n], self.hb[:, :self.n], self.weights,
+            dictionary_xyz_mm=self.source_xyz_mm,
+        )
         self._engines = {None: self.engine}
         dependency_names = ["local_radius_compute.py", "area_budget_study.py", "artifacts.py", "layout_search_metrics.py", "noise_models.py",
             "multiregion_geometry.py", "multiregion_search.py", "packing_pilot.py", "prototype_localization.py",
@@ -1313,8 +1507,11 @@ class LocalRadiusComputer:
                 data = {"source_xyz_mm": self.source_xyz_mm, "generation_xyz_mm": self.generation_xyz_mm}
                 weights, generation = data_prior.apply(self.root, data, prior, self.weights, self.generation_weights)
                 kernel = data_prior.kernel(prior)
-                engine = LayoutSearchMetrics(self.hc[:, :self.n], self.hb[:, :self.n], weights, noise_kernel=None if kernel is None
-                                             else (self.candidate_xyz_mm, self.reference_xyz_mm, *kernel))
+                engine = LayoutSearchMetrics(
+                    self.hc[:, :self.n], self.hb[:, :self.n], weights,
+                    noise_kernel=None if kernel is None else (self.candidate_xyz_mm, self.reference_xyz_mm, *kernel),
+                    dictionary_xyz_mm=self.source_xyz_mm,
+                )
                 self._engines[key] = (engine, weights, generation)
             return self._engines[key]
         kernel = noise_models.field_kernel(model)
@@ -1329,14 +1526,16 @@ class LocalRadiusComputer:
         return evaluate_grid_localization(field[:, :self.n], field[:, self.n:], self.source_xyz_mm, self.generation_xyz_mm,
             source_moment_am=1e-8, physical_electrode_noise_std_v=sigma,
             noise_seed=SEED, layout_id=layout_id, noise_repetitions=16, generation_source_weights=generation,
-            physical_noise_covariance_v2=covariance, noise_model=noise_models.describe(model))
+            physical_noise_covariance_v2=covariance, noise_model=noise_models.describe(model),
+            expected_electrodes=int(field.shape[0]))
 
-    def compute(self, raw, progress=lambda **kwargs: None):
+    def compute(self, raw, progress=lambda **kwargs: None, *, enable_localization_proxy=True):
         started = time.perf_counter()
         deadline = started + float(SEARCH_BUDGET["soft_deadline_seconds"])
         request = validate_request(raw)
         adaptive = request.get("allocation_mode") == "adaptive"
         objective_mode = request.get("objective_mode", "min")
+        total_electrodes = int(request.get("electrode_count", 64))
         seed = search_seed(request)
         rois = request_rois(request)
         progress(stage="geometry", message="构建ROI约束路径与不接触区域", progress=.16)
@@ -1348,19 +1547,24 @@ class LocalRadiusComputer:
         else:
             model = request.get("noise_model")
         engine = self.engine_for(model, prior)[0]
+        use_margin_shortlist = bool(enable_localization_proxy and objective_mode == "composite" and engine.has_nonlocal_margin)
         combinations, center_selection = select_radius_center_combinations(
             self.vertices, self.centers, rois, seed,
             maximum_combinations=SEARCH_BUDGET["initial_center_combinations"],
             domain=domain, signal_power=engine.diagonal_signal_power(),
-            adaptive_allocation=adaptive)
+            adaptive_allocation=adaptive, total_electrodes=total_electrodes,
+            engine=engine, use_margin_proxy=use_margin_shortlist)
         winner, diagnostics = bounded_radius_search(
             domain, engine, combinations, seed, progress,
-            deadline_monotonic=deadline, adaptive_allocation=adaptive, objective_mode=objective_mode)
+            deadline_monotonic=deadline, adaptive_allocation=adaptive,
+            objective_mode=objective_mode, total_electrodes=total_electrodes,
+            enable_localization_proxy=enable_localization_proxy)
         obj_desc = (
             "0.55*min(field_relative20,sensitivity_tail)+0.30*field_relative20+0.15*information_relative20"
             if objective_mode == "composite" else "min(field_relative20,sensitivity_tail)"
         )
-        provenance = {**self.provenance, "search_seed": seed, "localization_noise_seed": SEED,
+        provenance = {**self.provenance, "physical_electrode_count": total_electrodes,
+            "search_seed": seed, "localization_noise_seed": SEED,
             "region_roi_ids": list(rois), "center_selection": center_selection,
             "allocation_mode": "adaptive" if adaptive else "balanced",
             "objective_mode": objective_mode,
@@ -1369,6 +1573,7 @@ class LocalRadiusComputer:
                 "search_seed_excludes_allocation_mode": True} if adaptive else {}),
             **({"composite_weights": list(COMPOSITE_WEIGHTS),
                 "search_seed_excludes_objective_mode": True} if objective_mode == "composite" else {}),
+            **({"search_seed_excludes_electrode_count": True} if "electrode_count" in request else {}),
             **({"noise_model": noise_models.describe(model), "search_seed_excludes_noise_model": True} if model and not prior else {})}
         if prior is not None:
             prior_files = ["src/compact_eeg/workflows/data_prior.py", "src/compact_eeg/workflows/eeg_recording.py", data_prior.ATLAS_PATH]
@@ -1380,13 +1585,13 @@ class LocalRadiusComputer:
             "diagnostics": {**diagnostics, "center_combinations": [list(c) for c in combinations],
                 "center_selection": center_selection}}
         if winner is None:
-            result.update(message="在当前候选网格、4mm间距和有限搜索预算内，未构造出满足严格区域约束的64点布局；这不是数学不可行证明。", elapsed_seconds=time.perf_counter() - started)
+            result.update(message=f"在当前候选网格、4mm间距和有限搜索预算内，未构造出满足严格区域约束的{total_electrodes}点布局；这不是数学不可行证明。", elapsed_seconds=time.perf_counter() - started)
             return result
         selected = np.asarray(winner["candidate_bank_indices"], int)
         layout_id = hashlib.sha256(self.bank_ids[selected].astype("<i8").tobytes()).hexdigest()[:24]
-        geometry = domain.validate(winner, adaptive_allocation=adaptive)
+        geometry = domain.validate(winner, adaptive_allocation=adaptive, total_electrodes=total_electrodes)
         progress(stage="metrics", message="冻结点位，评价重建、敏感度及源定位", progress=.84)
-        field = engine.evaluate(selected, snr_db=(20,))
+        field = engine.evaluate(selected, snr_db=(20,), count=total_electrodes)
         condition = field["conditions"][0]
         key = json.dumps([model, prior], sort_keys=True)
         if key not in self._baselines:
@@ -1421,5 +1626,5 @@ class LocalRadiusComputer:
         return result
 
 
-__all__ = ["LocalRadiusComputer", "RadiusDomain", "MIN_ADAPTIVE_REGION_ELECTRODES", "validate_request", "search_seed",
+__all__ = ["LocalRadiusComputer", "RadiusDomain", "MIN_ADAPTIVE_REGION_ELECTRODES", "ELECTRODE_COUNTS", "validate_request", "search_seed",
            "request_rois", "bounded_radius_search", "select_radius_center_combinations"]

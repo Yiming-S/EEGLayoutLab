@@ -189,8 +189,9 @@ export function createContactsLayer(
     recordedOptions = recorded;
     if (
       recorded &&
-      (recorded.xyzMm.length !== 64 ||
-        recorded.regionIndices.length !== 64 ||
+      (recorded.xyzMm.length < 2 ||
+        recorded.xyzMm.length > 64 ||
+        recorded.regionIndices.length !== recorded.xyzMm.length ||
         recorded.referenceXyzMm.length !== 64)
     )
       throw new Error('实验布局必须含64个记录坐标');
@@ -252,8 +253,8 @@ export function createContactsLayer(
         contact.userData.electrodeIndex = i;
         contacts.push(contact);
       });
-      regionPointCount = 64;
-      canvas.dataset.electrodeCount = '64';
+      regionPointCount = recorded.xyzMm.length;
+      canvas.dataset.electrodeCount = String(recorded.xyzMm.length);
       canvas.dataset.layoutSource = 'recorded-fem';
       canvas.dataset.layoutId = recorded.id;
       canvas.dataset.patchCount = String(

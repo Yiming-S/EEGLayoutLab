@@ -44,7 +44,7 @@ export class ElectrodeEditorService extends DesignEvaluationService {
   validate(result, request) { return validateEditorResult(result, request); }
   async context(request) {
     const parent = await this.queue.library.get(request.parent_id);
-    if (parent?.status !== 'completed' || !parent.layout?.regionPatchVertexIndices) throw new Error('Choose a completed layout with saved region boundaries');
+    if (parent?.status !== 'completed' || !parent.layout?.regionPatchVertexIndices || parent.layout.xyzMm?.length !== 64) throw new Error('Choose a completed layout with saved region boundaries');
     if (parent.request?.noise_model) throw new Error('The electrode editor scores with independent noise; choose a layout searched under independent noise');
     const parent_digest = hash(parent);
     if (request.action === 'evaluate' && request.parent_digest !== parent_digest) throw new Error('Parent changed; reload the layout before editing');
@@ -79,9 +79,9 @@ export class ElectrodeEditorService extends DesignEvaluationService {
   async parents(visible = rows => rows) {
     const library = await this.queue.library.list();
     const records = [];
-    for (const summary of visible(library.records).filter(r => r.status === 'completed' && ['strict_area', 'cache'].includes(r.dataset_id) && !r.request?.noise_model)) {
+    for (const summary of visible(library.records).filter(r => r.status === 'completed' && ['strict_area', 'cache'].includes(r.dataset_id) && !r.request?.noise_model && !r.request?.electrode_count)) {
       const r = await this.queue.library.get(summary.id);
-      if (r?.layout?.regionPatchVertexIndices) records.push(summary);
+      if (r?.layout?.regionPatchVertexIndices && r.layout.xyzMm?.length === 64) records.push(summary);
     }
     return records;
   }

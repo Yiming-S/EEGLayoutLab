@@ -174,3 +174,23 @@ export function normalizeObjectiveMode(value) {
 export function objectiveModeLabel(value) {
   return value === 'composite' ? '子空间信息复合目标' : '';
 }
+
+/** Total physical electrode count for radius search; 64 is omitted as default. */
+export const ELECTRODE_COUNTS = [8, 12, 16, 24, 32, 48, 64];
+
+export function normalizeElectrodeCount(value, regionCount, allocationMode) {
+  if (value === undefined || value === null) return undefined;
+  if (!Number.isInteger(value) || !ELECTRODE_COUNTS.includes(value))
+    throw new Error('电极总数只支持8、12、16、24、32、48、64');
+  if (allocationMode === 'adaptive') {
+    if (value < regionCount * MIN_ADAPTIVE_REGION_ELECTRODES)
+      throw new Error('跨区自适应配额要求电极总数至少为每区4导');
+  } else if (value < regionCount * 2) {
+    throw new Error('电极总数不足以分配到所选区域数（每区至少2导）');
+  }
+  return value === 64 ? undefined : value;
+}
+
+export function electrodeCountLabel(value) {
+  return typeof value === 'number' && value !== 64 ? `${value}导` : '';
+}

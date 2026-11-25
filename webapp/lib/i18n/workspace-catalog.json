@@ -261,5 +261,51 @@
     "source": "草稿优化目标无效",
     "en": "Invalid draft optimization objective."
   },
-  "community_empty_workspace": { "source": "此工作区暂无计算任务", "en": "No computation tasks in this workspace" }
+  "community_empty_workspace": { "source": "此工作区暂无计算任务", "en": "No computation tasks in this workspace" },
+  "electrode_count_title": {
+    "source": "电极总数 K",
+    "en": "Total electrodes K"
+  },
+  "electrode_count_hint": {
+    "source": "默认64导（与标准全头64导参考基线一致）；指定更少导联（如8、16、24、32导）可在固定贴片半径下测试通道饱和拐点。",
+    "en": "Default 64 channels (matching the full-scalp standard64 baseline); specify fewer channels (e.g., 8, 16, 24, 32) to map channel-saturation knees under a fixed patch radius."
+  },
+  "allocation_auto_short": {
+    "source": "自动调配（每区 ≥ 4）",
+    "en": "Adaptive split (≥ 4 per region)"
+  },
+  "allocation_hint_balanced_k": {
+    "source": "固定按 K/R 均分各区电极数，与面积和历史基线口径一致。",
+    "en": "Fixes K/R electrodes per region, matching the area-budget and baseline protocol."
+  },
+  "electrode_count_err_allowed": {
+    "source": "电极总数只支持8、12、16、24、32、48、64",
+    "en": "Total electrode count only supports 8, 12, 16, 24, 32, 48, or 64."
+  },
+  "electrode_count_err_adaptive": {
+    "source": "跨区自适应配额要求电极总数至少为每区4导",
+    "en": "Adaptive cross-region quota requires at least 4 electrodes per region."
+  },
+  "electrode_count_err_balanced": {
+    "source": "电极总数不足以分配到所选区域数（每区至少2导）",
+    "en": "Total electrode count is too small for the selected region count (at least 2 per region)."
+  },
+  "electrode_count_err_draft": {
+    "source": "草稿电极总数无效",
+    "en": "Invalid draft total electrode count."
+  },
+  "design_pending_no_layout_k": {
+    "source": "本次搜索未找到完整布局。可扩大半径、减少电极总数或调整位置范围后再次计算。",
+    "en": "No complete layout was found in this search. Increase the radius, lower the electrode count, or adjust the allowed placement domain and retry."
+  },
+  "worker_no_layout_k": {
+    "source": "在当前候选网格、4mm间距和有限搜索预算内，未构造出满足严格区域约束的{{0}}点布局；这不是数学不可行证明。",
+    "en": "Within the current candidate grid, 4 mm spacing, and bounded search budget, no {{0}}-electrode layout satisfying strict region constraints was constructed; this does not certify mathematical infeasibility."
+  },
+  "electrode_label_8": { "source": "8导", "en": "8 channels" },
+  "electrode_label_12": { "source": "12导", "en": "12 channels" },
+  "electrode_label_16": { "source": "16导", "en": "16 channels" },
+  "electrode_label_24": { "source": "24导", "en": "24 channels" },
+  "electrode_label_32": { "source": "32导", "en": "32 channels" },
+  "electrode_label_48": { "source": "48导", "en": "48 channels" }
 }

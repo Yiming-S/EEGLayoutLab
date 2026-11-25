@@ -2470,6 +2470,18 @@
             "const": "composite",
             "title": "Objective Mode",
             "type": "string"
+          },
+          "electrode_count": {
+            "enum": [
+              8,
+              12,
+              16,
+              24,
+              32,
+              48
+            ],
+            "title": "Electrode Count",
+            "type": "integer"
           }
         },
         "required": [

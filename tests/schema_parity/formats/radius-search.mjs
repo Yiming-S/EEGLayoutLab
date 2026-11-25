@@ -4,7 +4,7 @@
 // raise (tests/service/test_radius_search.py).
 import { readFileSync } from 'node:fs';
 import { MASK_CODES, normalizeRequest } from '../../../webapp/server/local-compute-server.mjs';
-import { DATA_PRIOR_LENGTHS_MM, SPATIAL_NOISE_LENGTHS_MM } from '../../../webapp/contracts/scientific-options.mjs';
+import { DATA_PRIOR_LENGTHS_MM, ELECTRODE_COUNTS, SPATIAL_NOISE_LENGTHS_MM } from '../../../webapp/contracts/scientific-options.mjs';
 import { ABSENT, Raw, collector, createRandom, label, nextUp, raw, toText } from '../support.mjs';
 
 /** Node's option lists, compared with the Python schema's (tests/test_schema_parity.py). */
@@ -12,6 +12,7 @@ export const options = {
   mask_codes: [...MASK_CODES],
   spatial_noise_lengths_mm: [...SPATIAL_NOISE_LENGTHS_MM],
   data_prior_lengths_mm: [...DATA_PRIOR_LENGTHS_MM],
+  electrode_counts: [...ELECTRODE_COUNTS],
 };
 export const name = 'radius-search';
 export const normalize = normalizeRequest;
@@ -45,7 +46,7 @@ for (const key of ['region_count', 'radius_mm', 'mode']) {
   add(`preset-missing-${key}`, preset({ [key]: ABSENT }));
 }
 // Every other field is rejected; AR is a display parameter and cannot start a computation (check-local-compute.mjs).
-for (const key of ['AR', 'ar', 'command', 'seed', 'extra', 'layout', 'request', 'schema', 'region_definition', 'electrode_count',
+for (const key of ['AR', 'ar', 'command', 'seed', 'extra', 'layout', 'request', 'schema', 'region_definition', 'total_electrodes',
   'mask', 'masks', 'mask_code', 'noise', 'prior', 'Region_count', 'region_count ', 'radius', '', '__proto__', 'constructor',
   'toString', 'hasOwnProperty', 'valueOf'])
   add(`extra-${JSON.stringify(key)}`, free({ [key]: 1 }));
@@ -233,6 +234,24 @@ add('objective-composite-adaptive', preset({ allocation_mode: 'adaptive', object
 add('objective-min-dropped', preset({ objective_mode: 'min' }));
 add('objective-null-dropped', preset({ objective_mode: null }));
 add('objective-invalid-rejected', preset({ objective_mode: 'shannon' }));
+for (const count of ELECTRODE_COUNTS) {
+  add(`option-electrode-count-${count}`, preset({ electrode_count: count }));
+}
+for (const [lbl, value] of Object.entries({
+  absent: ABSENT, null: null, default64: 64, float16: raw('16.0'), exp24: raw('2.4e1'), nonStep20: 20, zero: 0, negative: -16,
+  half: 16.5, string16: '16', boolTrue: true, array16: [16], obj: {},
+}))
+  add(`electrode-count-${lbl}`, preset({ electrode_count: value }));
+add('electrode-count-r6-8-rejected', free({ region_count: 6, electrode_count: 8 }));
+add('electrode-count-r6-12-accepted', free({ region_count: 6, electrode_count: 12 }));
+add('electrode-count-r4-adaptive-12-rejected', free({ region_count: 4, allocation_mode: 'adaptive', electrode_count: 12 }));
+add('electrode-count-r4-adaptive-16-accepted', free({ region_count: 4, allocation_mode: 'adaptive', electrode_count: 16 }));
+add('electrode-count-r6-adaptive-16-rejected', free({ region_count: 6, allocation_mode: 'adaptive', electrode_count: 16 }));
+add('electrode-count-r6-adaptive-24-accepted', free({ region_count: 6, allocation_mode: 'adaptive', electrode_count: 24 }));
+add('electrode-count-full-order-shuffled', {
+  electrode_count: 24, objective_mode: 'composite', allocation_mode: 'adaptive',
+  noise_model: SPATIAL, mask_codes: ['PL', 'FM'], mode: 'preset', radius_mm: 30, region_count: 2,
+});
 
 // Raw bytes: the body is decoded as UTF-8 with replacement before JSON.parse.
 for (const [lbl, bytes] of Object.entries({

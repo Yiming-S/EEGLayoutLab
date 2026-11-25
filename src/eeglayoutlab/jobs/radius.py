@@ -66,8 +66,8 @@ def _finite(value: Any) -> bool:
     return jsjson.is_number(value) and math.isfinite(jsjson.to_number(value))
 
 
-def _coordinates(rows: Any) -> bool:
-    return (isinstance(rows, list) and len(rows) == 64
+def _coordinates(rows: Any, expected_len: int = 64) -> bool:
+    return (isinstance(rows, list) and len(rows) == expected_len
             and all(isinstance(row, list) and len(row) == 3 and all(_finite(v) for v in row) for row in rows))
 
 
@@ -76,9 +76,9 @@ def _joined(point: list) -> str:
     return ','.join(jsjson.number_to_string(jsjson.to_number(v)) for v in point)
 
 
-def balanced_count(region: int, regions: int) -> int:
-    """``Math.floor(64 / regions) + Number(region < 64 % regions)``."""
-    return 64 // regions + int(region < 64 % regions)
+def balanced_count(region: int, regions: int, total: int = 64) -> int:
+    """``Math.floor(total / regions) + Number(region < total % regions)``."""
+    return total // regions + int(region < total % regions)
 
 
 def validate_worker_result(result: Any, request: dict) -> None:
@@ -93,17 +93,19 @@ def validate_worker_result(result: Any, request: dict) -> None:
         return
     layout, geometry, metrics = _member(result, 'layout'), _member(result, 'geometry'), _member(result, 'metrics')
     regions = int(request['region_count'])
-    if (not js_truthy(layout) or not _coordinates(_member(layout, 'xyzMm'))
-            or not _coordinates(_member(layout, 'referenceXyzMm'))
-            or len({_joined(row) for row in layout['xyzMm']}) != 64
-            or not isinstance(_member(layout, 'regionIndices'), list) or len(layout['regionIndices']) != 64
+    raw_ec = _member(request, 'electrode_count')
+    expected_count = 64 if raw_ec in (None, UNDEFINED) else int(raw_ec)
+    if (not js_truthy(layout) or not _coordinates(_member(layout, 'xyzMm'), expected_count)
+            or not _coordinates(_member(layout, 'referenceXyzMm'), 64)
+            or len({_joined(row) for row in layout['xyzMm']}) != expected_count
+            or not isinstance(_member(layout, 'regionIndices'), list) or len(layout['regionIndices']) != expected_count
             or not all(jsjson.is_integer(r) and 0 <= r < regions for r in layout['regionIndices'])):
-        raise RadiusResultError('无效64点坐标')
+        raise RadiusResultError(f'无效{expected_count}点坐标')
     labels = layout['regionIndices']
     if _same(_member(request, 'allocation_mode'), 'adaptive'):
         if any(sum(1 for v in labels if v == r) < MIN_ADAPTIVE_REGION_ELECTRODES for r in range(regions)):
             raise RadiusResultError('区域分配错误')
-    elif any(sum(1 for v in labels if v == r) != balanced_count(r, regions) for r in range(regions)):
+    elif any(sum(1 for v in labels if v == r) != balanced_count(r, regions, expected_count) for r in range(regions)):
         raise RadiusResultError('区域分配错误')
     if not js_truthy(geometry) or not _same(_member(geometry, 'union_connected_component_count'), request['region_count']):
         raise RadiusResultError('区域几何无效')
@@ -113,8 +115,8 @@ def validate_worker_result(result: Any, request: dict) -> None:
             or not _finite(area) or area <= 0):
         raise RadiusResultError('区域几何无效')
     xyz = layout['xyzMm']
-    for i in range(64):
-        for j in range(i + 1, 64):
+    for i in range(expected_count):
+        for j in range(i + 1, expected_count):
             if jsjson.hypot(*(a - b for a, b in zip(xyz[i], xyz[j]))) < 4 - 1e-7:
                 raise RadiusResultError('电极间距不足')
     if not js_truthy(metrics):

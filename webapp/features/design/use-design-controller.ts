@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiJson } from '@/client/task-client';
 import { requestKey, type ComputeRequest, type ComputeResult, type ComputeJob, type DataPrior, type SearchNoiseModel } from '@/lib/local-compute';
 import { dataPriorParam, parseDataPriorParam } from '@/lib/data-prior';
-import { NOISE_MODEL_PRESETS, noiseModelId as presetIdFor, normalizeDataPrior } from '../../contracts/scientific-options.mjs';
+import { ELECTRODE_COUNTS, MIN_ADAPTIVE_REGION_ELECTRODES, NOISE_MODEL_PRESETS, noiseModelId as presetIdFor, normalizeDataPrior } from '../../contracts/scientific-options.mjs';
 import { comparisonLink, parseAR, REGION_COUNTS } from '@/lib/lab-workflow';
 import type { SavedRecord } from '@/lib/local-library';
 import { MASK_NAMES } from '@/lib/ui-language';
@@ -14,6 +14,12 @@ const choicesFor = (protocol: Protocol | null, count: number) => placementChoice
 /** Noise presets usable by layout search (brain background is localization-only). */
 export const SEARCH_NOISE_PRESETS = NOISE_MODEL_PRESETS.filter((preset) => preset.search);
 const searchNoise = (id: string) => SEARCH_NOISE_PRESETS.find((preset) => preset.id === id)?.value as SearchNoiseModel | undefined;
+export const minElectrodesFor = (regionCount: number, allocationMode: 'balanced' | 'adaptive') =>
+  allocationMode === 'adaptive' ? regionCount * MIN_ADAPTIVE_REGION_ELECTRODES : regionCount * 2;
+const coerceElectrodeCount = (current: number, regionCount: number, allocationMode: 'balanced' | 'adaptive') => {
+  const minReq = minElectrodesFor(regionCount, allocationMode);
+  return current >= minReq ? current : (ELECTRODE_COUNTS.find((k) => k >= minReq) ?? 64);
+};
 
 export function useDesignController() {
   const [protocol, setProtocol] = useState<Protocol | null>(null), [ready, setReady] = useState(false), [error, setError] = useState('');
@@ -22,6 +28,7 @@ export function useDesignController() {
   const [regions, setRegions] = useState(2), [choiceId, setChoiceId] = useState('PL,PR'), [radius, setRadius] = useState(35), [ar, setAR] = useState(90);
   const [allocationMode, setAllocationMode] = useState<'balanced' | 'adaptive'>('balanced');
   const [objectiveMode, setObjectiveMode] = useState<'min' | 'composite'>('min');
+  const [electrodeCount, setElectrodeCount] = useState<number>(64);
   const [computed, setComputed] = useState<ComputeResult | null>(null), [status, setStatus] = useState<ComputeJob | null>(null);
   const [notice, setNotice] = useState('');
   const [routeParams, setRouteParams] = useState('');
@@ -53,11 +60,12 @@ export function useDesignController() {
           setRegions(r.region_count); setRadius(r.radius_mm); setChoiceId(key);
           setAllocationMode(r.allocation_mode === 'adaptive' && r.region_count > 1 ? 'adaptive' : 'balanced');
           setObjectiveMode(r.objective_mode === 'composite' ? 'composite' : 'min');
+          setElectrodeCount(r.electrode_count ?? 64);
           setCustomSlots(r.mask_codes ? [...r.mask_codes] : []);
           setNoiseModelId(presetIdFor(r.noise_model));
           setDataPrior((normalizeDataPrior(r.data_prior) as DataPrior | undefined) ?? null);
           if (!choicesFor(p, r.region_count).some((c) => c.id === key)) setExtraChoice({ id: key, label: r.mask_codes!.map((m) => MASKS[m] ?? m).join(' + '), mode: r.mode, maskCodes: r.mask_codes });
-        } else { setEditing(false); setRegions(record.region_count); }
+        } else { setEditing(false); setRegions(record.region_count); setElectrodeCount(64); }
       }
       if (q.get('draft') === '1') {
         const r = Number(q.get('r')), a = Number(q.get('radius')), mode = q.get('mode');
@@ -69,9 +77,12 @@ export function useDesignController() {
         if (!['balanced', 'adaptive'].includes(alloc) || (alloc === 'adaptive' && r === 1)) throw new Error('草稿配额模式无效');
         const obj = q.get('objective') ?? 'min';
         if (!['min', 'composite'].includes(obj)) throw new Error('草稿优化目标无效');
+        const ec = q.has('electrodes') ? Number(q.get('electrodes')) : 64;
+        if (!Number.isInteger(ec) || !ELECTRODE_COUNTS.includes(ec) || ec < minElectrodesFor(r, alloc as 'balanced' | 'adaptive')) throw new Error('草稿电极总数无效');
         setRegions(r); setRadius(a); setChoiceId(mode === 'choose' ? '' : mode === 'preset' ? masks.join(',') : mode!);
         setAllocationMode(alloc as 'balanced' | 'adaptive');
         setObjectiveMode(obj as 'min' | 'composite');
+        setElectrodeCount(ec);
         setCustomSlots(mode === 'preset' || mode === 'choose' ? masks : []);
         if (mode === 'preset') setExtraChoice({ id: masks.join(','), label: masks.map((m) => MASKS[m]).join(' + '), mode, maskCodes: masks });
         const noise = q.get('noise') ?? 'iid';
@@ -100,8 +111,9 @@ export function useDesignController() {
     return { region_count: regions, radius_mm: radius, mode: choice.mode, ...(choice.mode === 'preset' ? { mask_codes: choice.maskCodes } : {}),
       ...(noise_model && !dataPrior ? { noise_model } : {}), ...(dataPrior ? { data_prior: dataPrior } : {}),
       ...(allocationMode === 'adaptive' && regions > 1 ? { allocation_mode: 'adaptive' as const } : {}),
-      ...(objectiveMode === 'composite' ? { objective_mode: 'composite' as const } : {}) };
-  }, [choice, regions, radius, noiseModelId, dataPrior, allocationMode, objectiveMode]);
+      ...(objectiveMode === 'composite' ? { objective_mode: 'composite' as const } : {}),
+      ...(electrodeCount !== 64 ? { electrode_count: electrodeCount as ComputeRequest['electrode_count'] } : {}) };
+  }, [choice, regions, radius, noiseModelId, dataPrior, allocationMode, objectiveMode, electrodeCount]);
   const result = editing && request && computed && requestKey(computed.request) === requestKey(request) ? computed : null;
   const currentStatus = request && status && requestKey(status.request) === requestKey(request) ? status : null;
   const layout = editing ? result?.layout : source?.layout;
@@ -110,7 +122,7 @@ export function useDesignController() {
   const metrics = editing ? result?.metrics : source?.metrics;
   const here = useMemo(() => {
     const q = new URLSearchParams(routeParams);
-    for (const key of ['saved', 'from', 'draft', 'r', 'radius', 'mode', 'masks', 'noise', 'prior', 'allocation', 'objective', 'layoutRecord', 'layoutState', 'layoutChannels', 'layoutRegions']) q.delete(key);
+    for (const key of ['saved', 'from', 'draft', 'r', 'radius', 'mode', 'masks', 'noise', 'prior', 'allocation', 'objective', 'electrodes', 'layoutRecord', 'layoutState', 'layoutChannels', 'layoutRegions']) q.delete(key);
     q.set('ar', String(ar));
     if (originId) q.set(originKind, originId);
     if (draft) {
@@ -121,14 +133,17 @@ export function useDesignController() {
       if (dataPrior) q.set('prior', dataPriorParam(dataPrior));
       if (allocationMode === 'adaptive' && regions > 1) q.set('allocation', 'adaptive');
       if (objectiveMode === 'composite') q.set('objective', 'composite');
+      if (electrodeCount !== 64) q.set('electrodes', String(electrodeCount));
     }
     return '/design?' + q.toString();
-  }, [ar, originId, originKind, draft, regions, radius, choice, customSlots, noiseModelId, dataPrior, allocationMode, objectiveMode, routeParams]);
+  }, [ar, originId, originKind, draft, regions, radius, choice, customSlots, noiseModelId, dataPrior, allocationMode, objectiveMode, electrodeCount, routeParams]);
   useEffect(() => { if (ready) window.history.replaceState(null, '', here); }, [ready, here]);
   const changeRegions = (n: number) => {
     if (n === regions) return;
+    const nextAlloc = n === 1 ? 'balanced' : allocationMode;
     setDraft(true); setRegions(n);
     if (n === 1) setAllocationMode('balanced');
+    setElectrodeCount((prev) => coerceElectrodeCount(prev, n, nextAlloc));
     setCustomSlots([]);
     if (choice?.mode === 'preset' && choice.maskCodes?.length !== n) { setChoiceId(''); setNotice('区域数量已改变，请重新选择各区域的部位。'); }
   };
@@ -150,27 +165,34 @@ export function useDesignController() {
   };
   const selectAllocationMode = (mode: 'balanced' | 'adaptive') => {
     if (regions === 1 && mode === 'adaptive') return;
-    setAllocationMode(mode); setDraft(true);
+    setAllocationMode(mode);
+    setElectrodeCount((prev) => coerceElectrodeCount(prev, regions, mode));
+    setDraft(true);
   };
   const selectObjectiveMode = (mode: 'min' | 'composite') => {
     setObjectiveMode(mode); setDraft(true);
   };
+  const selectElectrodeCount = (total: number) => {
+    if (!ELECTRODE_COUNTS.includes(total) || total < minElectrodesFor(regions, allocationMode)) return;
+    setElectrodeCount(total); setDraft(true);
+  };
   const startRadius = () => {
     if (!source) return;
-    setRegions(source.region_count); setChoiceId(source.mode.includes('whole') ? 'whole_surface' : 'low_hair'); setRadius(35); setAllocationMode('balanced'); setObjectiveMode('min'); setNoiseModelId('iid'); setDataPrior(null); setDataPriorSource('');
+    setRegions(source.region_count); setChoiceId(source.mode.includes('whole') ? 'whole_surface' : 'low_hair'); setRadius(35); setAllocationMode('balanced'); setObjectiveMode('min'); setElectrodeCount(64); setNoiseModelId('iid'); setDataPrior(null); setDataPriorSource('');
     setCustomSlots([]);
     setEditing(true); setDraft(true);
     setNotice('已新建每区半径约束方案：仅保留区域数和允许位置域，半径初始值为35 mm。区域中心、64点位置和指标由新配置重新计算。');
   };
-  const pendingText = currentStatus?.status === 'no_layout' ? '本次搜索未找到完整64点布局。可扩大半径或调整位置范围后再次计算。' :
+  const pendingText = currentStatus?.status === 'no_layout' ? '本次搜索未找到完整布局。可扩大半径、减少电极总数或调整位置范围后再次计算。' :
     currentStatus && ['failed', 'timeout', 'cancelled'].includes(currentStatus.status) ? currentStatus.message :
     currentStatus && ['queued', 'running', 'cancelling'].includes(currentStatus.status) ? '当前方案正在计算，完成后显示布局与指标。' :
     !choice ? '请先选择与区域数量兼容的位置组合。' : undefined;
   const comparison = comparisonLink(source, ar);
-  // Signal simulation and the electrode editor keep independent noise and the area prior.
+  // Signal simulation and the electrode editor keep 64 channels, independent noise and the area prior.
   const shown = editing ? request : source?.request;
   const correlatedNoise = Boolean(shown?.noise_model || shown?.data_prior);
+  const nonStandardCount = Boolean(shown?.electrode_count);
   const savedId = layout ? editing ? currentStatus?.status === 'completed' ? currentStatus.key : null : source?.id ?? null : null;
-  const receptionId = correlatedNoise ? null : savedId;
-  return { error, ready, ar, comparison, here, savedId, receptionId, correlatedNoise, count, source, notice, settingsRef, editing, radius, regions, allocationMode, selectAllocationMode, objectiveMode, selectObjectiveMode, choices, choice, customSlots, selectChoice, selectSlot, changeRegions, startRadius, setRadius, noiseModelId, selectNoiseModel, dataPrior, dataPriorSource, selectDataPrior, setDraft, setAR, request, originId, setComputed, setStatus, metrics, layout, geometry, pendingText, currentStatus };
+  const receptionId = correlatedNoise || nonStandardCount ? null : savedId;
+  return { error, ready, ar, comparison, here, savedId, receptionId, correlatedNoise, count, source, notice, settingsRef, editing, radius, regions, electrodeCount, selectElectrodeCount, allocationMode, selectAllocationMode, objectiveMode, selectObjectiveMode, choices, choice, customSlots, selectChoice, selectSlot, changeRegions, startRadius, setRadius, noiseModelId, selectNoiseModel, dataPrior, dataPriorSource, selectDataPrior, setDraft, setAR, request, originId, setComputed, setStatus, metrics, layout, geometry, pendingText, currentStatus };
 }

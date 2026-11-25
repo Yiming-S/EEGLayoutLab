@@ -1,5 +1,5 @@
 import type { SavedSummary } from './local-library';
-import { protocolName, recordAllocationLabel, recordConditionLabels, recordNoiseLabel, recordObjectiveLabel } from './ui-language.ts';
+import { protocolName, recordAllocationLabel, recordConditionLabels, recordElectrodeLabel, recordNoiseLabel, recordObjectiveLabel } from './ui-language.ts';
 
 /** Address of a layout's page: by its layout key, or by one of its records (the page finds the key). */
 export function layoutHref(target: { key: string } | { id: string }, ar = 90) {
@@ -40,8 +40,8 @@ export function groupByLayout(records: SavedSummary[]) {
 
 /** The conditions of one evaluation, one label each: protocol, allocation, noise, non-default conditions, robustness. */
 export function evaluationLabels(record: SavedSummary) {
-  const noise = recordNoiseLabel(record), allocation = recordAllocationLabel(record), objective = recordObjectiveLabel(record);
-  return [protocolName(record.dataset_id), ...(allocation ? [allocation] : []), ...(objective ? [objective] : []), ...(noise ? [noise] : []), ...recordConditionLabels(record), ...(record.robustness ? ['跨会话稳健性'] : [])];
+  const noise = recordNoiseLabel(record), allocation = recordAllocationLabel(record), objective = recordObjectiveLabel(record), electrodes = recordElectrodeLabel(record);
+  return [protocolName(record.dataset_id), ...(electrodes ? [electrodes] : []), ...(allocation ? [allocation] : []), ...(objective ? [objective] : []), ...(noise ? [noise] : []), ...recordConditionLabels(record), ...(record.robustness ? ['跨会话稳健性'] : [])];
 }
 
 const completed = (records: SavedSummary[]) => records.filter(record => record.status === 'completed' && finished(record));

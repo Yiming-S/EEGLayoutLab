@@ -1,5 +1,5 @@
 import { createAccessPolicy } from './http/access-policy.mjs';
-import { DATA_PRIOR_FILES, MIN_ADAPTIVE_REGION_ELECTRODES, normalizeAllocationMode, normalizeDataPrior, normalizeNoiseModel, normalizeObjectiveMode } from '../contracts/scientific-options.mjs';
+import { DATA_PRIOR_FILES, MIN_ADAPTIVE_REGION_ELECTRODES, normalizeAllocationMode, normalizeDataPrior, normalizeElectrodeCount, normalizeNoiseModel, normalizeObjectiveMode } from '../contracts/scientific-options.mjs';
 import { startPythonWorker } from './jobs/python-worker.mjs';
 import { executionSlotFor } from './jobs/execution-slot.mjs';
 import { runtimeConfig } from './runtime/config.mjs';
@@ -34,19 +34,21 @@ const hash = (value) => createHash('sha256').update(value).digest('hex');
 
 export function normalizeRequest(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('配置必须是JSON对象');
-  if (Object.keys(input).some((key) => !['region_count', 'radius_mm', 'mode', 'mask_codes', 'noise_model', 'data_prior', 'allocation_mode', 'objective_mode'].includes(key))) {
+  if (Object.keys(input).some((key) => !['region_count', 'radius_mm', 'mode', 'mask_codes', 'noise_model', 'data_prior', 'allocation_mode', 'objective_mode', 'electrode_count'].includes(key))) {
     throw new Error('配置含未支持字段');
   }
-  // Independent noise, balanced quota and min objective are defaults and omitted, keeping existing keys and seeds.
+  // Independent noise, balanced quota, min objective and 64 electrodes are defaults and omitted, keeping existing keys and seeds.
   const noiseModel = normalizeNoiseModel(input.noise_model, { allowBrainBackground: false });
   const prior = normalizeDataPrior(input.data_prior, { noiseModel });
   const { region_count, radius_mm, mode } = input;
   if (![1, 2, 3, 4, 6].includes(region_count)) throw new Error('区域数只支持1、2、3、4、6');
   const allocationMode = normalizeAllocationMode(input.allocation_mode, region_count);
   const objectiveMode = normalizeObjectiveMode(input.objective_mode);
+  const electrodeCount = normalizeElectrodeCount(input.electrode_count, region_count, allocationMode);
   const options = { ...(noiseModel ? { noise_model: noiseModel } : {}), ...(prior ? { data_prior: prior } : {}),
     ...(allocationMode ? { allocation_mode: allocationMode } : {}),
-    ...(objectiveMode ? { objective_mode: objectiveMode } : {}) };
+    ...(objectiveMode ? { objective_mode: objectiveMode } : {}),
+    ...(electrodeCount ? { electrode_count: electrodeCount } : {}) };
   if (!Number.isInteger(radius_mm) || radius_mm < 15 || radius_mm > 80 || radius_mm % 5) {
     throw new Error('半径须为15–80 mm，步长5 mm');
   }
@@ -74,21 +76,22 @@ export function validateWorkerResult(result, request) {
     return;
   }
   const layout = result.layout, geometry = result.geometry, metrics = result.metrics;
-  const coordinates = (rows) => Array.isArray(rows) && rows.length === 64 &&
+  const expectedCount = request.electrode_count ?? 64;
+  const coordinates = (rows, len) => Array.isArray(rows) && rows.length === len &&
     rows.every((row) => Array.isArray(row) && row.length === 3 && row.every(Number.isFinite));
-  if (!layout || !coordinates(layout.xyzMm) || !coordinates(layout.referenceXyzMm) ||
-      new Set(layout.xyzMm.map((row) => row.join(','))).size !== 64 ||
-      !Array.isArray(layout.regionIndices) || layout.regionIndices.length !== 64 ||
-      !layout.regionIndices.every((r) => Number.isInteger(r) && r >= 0 && r < request.region_count)) throw new Error('无效64点坐标');
+  if (!layout || !coordinates(layout.xyzMm, expectedCount) || !coordinates(layout.referenceXyzMm, 64) ||
+      new Set(layout.xyzMm.map((row) => row.join(','))).size !== expectedCount ||
+      !Array.isArray(layout.regionIndices) || layout.regionIndices.length !== expectedCount ||
+      !layout.regionIndices.every((r) => Number.isInteger(r) && r >= 0 && r < request.region_count)) throw new Error(`无效${expectedCount}点坐标`);
   const counts = Array.from({ length: request.region_count }, (_, r) => layout.regionIndices.filter((v) => v === r).length);
   if (request.allocation_mode === 'adaptive'
     ? counts.some((count) => count < MIN_ADAPTIVE_REGION_ELECTRODES)
-    : counts.some((count, r) => count !== Math.floor(64 / request.region_count) + Number(r < 64 % request.region_count))) throw new Error('区域分配错误');
+    : counts.some((count, r) => count !== Math.floor(expectedCount / request.region_count) + Number(r < expectedCount % request.region_count))) throw new Error('区域分配错误');
   if (!geometry || geometry.union_connected_component_count !== request.region_count ||
       !Number.isFinite(geometry.common_graph_radius_mm) || geometry.common_graph_radius_mm <= 0 ||
       geometry.common_graph_radius_mm > request.radius_mm + 1e-7 ||
       !Number.isFinite(geometry.union_area_cm2) || geometry.union_area_cm2 <= 0) throw new Error('区域几何无效');
-  for (let i = 0; i < 64; i++) for (let j = i + 1; j < 64; j++) {
+  for (let i = 0; i < expectedCount; i++) for (let j = i + 1; j < expectedCount; j++) {
     if (Math.hypot(...layout.xyzMm[i].map((x, axis) => x - layout.xyzMm[j][axis])) < 4 - 1e-7) throw new Error('电极间距不足');
   }
   const names = ['field_relative', 'sensitivity_tail', 'localization_relative'];
@@ -269,7 +272,7 @@ export class LocalComputeQueue {
               }
             } catch (error) { void this.finish(job, 'failed', `计算结果校验失败：${error.message}`); return; }
             job.result = terminalResult;
-            void this.finish(job, terminalResult.status, terminalResult.status === 'completed' ? '当前配置已计算' : '本次搜索预算内未构造出64点布局');
+            void this.finish(job, terminalResult.status, terminalResult.status === 'completed' ? '当前配置已计算' : `本次搜索预算内未构造出${job.request.electrode_count ?? 64}点布局`);
           } else {
             void this.finish(job, 'failed', job.spawnError ? `Python启动失败：${job.spawnError}` : '计算未成功完成；错误记录已保存，可重新计算');
           }

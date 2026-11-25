@@ -109,7 +109,8 @@ export async function receptionLayouts(queue) {
       ['cache', 'strict_area'].includes(r.dataset_id) &&
       r.status === 'completed' &&
       !r.request?.noise_model &&
-      !r.request?.data_prior,
+      !r.request?.data_prior &&
+      !r.request?.electrode_count,
   );
   const store = queue.store ?? new RecordStore(queue.root);
   const entries = await store.keys('design');
@@ -139,6 +140,9 @@ export async function receptionV2Context(service, request) {
   if (
     !record ||
     record.status !== 'completed' ||
+    !record.layout ||
+    record.request?.electrode_count ||
+    (Array.isArray(record.layout.xyzMm) && record.layout.xyzMm.length !== 64) ||
     !['cache', 'strict_area', 'design_evaluation'].includes(record.dataset_id)
   )
     throw new Error('需要完整的已保存布局或已评价坐标');

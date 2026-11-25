@@ -21,16 +21,20 @@ from .types import js_integer
 
 __all__ = [
     'RadiusSearchRequest', 'normalize_request', 'canonical', 'MASK_CODES', 'REGION_COUNTS', 'RADII_MM', 'MODES',
+    'ELECTRODE_COUNTS',
 ]
 
 # Node's MASK_CODES (local-compute-server.mjs), compared by tests/test_schema_parity.py.
 MASK_CODES = ('PL', 'PR', 'AL', 'AR', 'FL', 'FM', 'FR', 'OL', 'OR')
 REGION_COUNTS = (1, 2, 3, 4, 6)
+ELECTRODE_COUNTS = (8, 12, 16, 24, 32, 48, 64)
+NONDEFAULT_ELECTRODE_COUNTS = (8, 12, 16, 24, 32, 48)
+MIN_ADAPTIVE_REGION_ELECTRODES = 4
 # 15-80 mm in steps of 5.
 RADII_MM = tuple(range(15, 81, 5))
 MODES = ('whole_surface', 'low_hair', 'preset')
 FIELDS = ('region_count', 'radius_mm', 'mode', 'mask_codes', 'noise_model', 'data_prior', 'allocation_mode',
-          'objective_mode')
+          'objective_mode', 'electrode_count')
 
 # Node's messages, verbatim.
 NOT_OBJECT = '配置必须是JSON对象'
@@ -47,6 +51,9 @@ REGION_COUNT = '区域数只支持1、2、3、4、6'
 ALLOCATION_MODE = '区域通道配额模式无效'
 ALLOCATION_SINGLE = '单区域不支持跨区自适应配额'
 OBJECTIVE_MODE = '搜索优化目标模式无效'
+ELECTRODE_COUNT = '电极总数只支持8、12、16、24、32、48、64'
+ELECTRODE_COUNT_ADAPTIVE = '跨区自适应配额要求电极总数至少为每区4导'
+ELECTRODE_COUNT_BALANCED = '电极总数不足以分配到所选区域数（每区至少2导）'
 RADIUS = '半径须为15–80 mm，步长5 mm'
 MODE = '不支持的区域模式'
 PRESET_MASKS = '该组合的细分解剖掩膜尚未建立；请选择已支持的耳后、耳周、前额或眶周代理区域'
@@ -144,6 +151,21 @@ def _objective_mode(value: Any) -> Literal['composite'] | None:
     return 'composite'
 
 
+def _electrode_count(value: Any, region_count: int, allocation_mode: str | None) -> int | None:
+    """``normalizeElectrodeCount(value, regionCount, allocationMode)``: non-default count or ``None`` for 64."""
+    if value is None:
+        return None
+    if not jsjson.is_integer(value) or jsjson.to_number(value) not in ELECTRODE_COUNTS:
+        raise ValueError(ELECTRODE_COUNT)
+    total = int(jsjson.to_number(value))
+    if allocation_mode == 'adaptive':
+        if total < region_count * MIN_ADAPTIVE_REGION_ELECTRODES:
+            raise ValueError(ELECTRODE_COUNT_ADAPTIVE)
+    elif total < region_count * 2:
+        raise ValueError(ELECTRODE_COUNT_BALANCED)
+    return None if total == 64 else total
+
+
 def normalize_request(value: Any) -> dict[str, Any]:
     """``normalizeRequest(value)``: the canonical request; raises ``ValueError`` with Node's message where Node
     throws, checking in Node's order. ``value`` is a ``jsjson.parse`` value or plain Python data (tuples count as
@@ -160,9 +182,11 @@ def normalize_request(value: Any) -> dict[str, Any]:
     region_count = int(jsjson.to_number(region_count))
     allocation_mode = _allocation_mode(value.get('allocation_mode'), region_count)
     objective_mode = _objective_mode(value.get('objective_mode'))
+    electrode_count = _electrode_count(value.get('electrode_count'), region_count, allocation_mode)
     options = {**({'noise_model': noise_model} if noise_model else {}), **({'data_prior': prior} if prior else {}),
                **({'allocation_mode': allocation_mode} if allocation_mode else {}),
-               **({'objective_mode': objective_mode} if objective_mode else {})}
+               **({'objective_mode': objective_mode} if objective_mode else {}),
+               **({'electrode_count': electrode_count} if electrode_count else {})}
     if not jsjson.is_integer(radius_mm) or jsjson.to_number(radius_mm) not in RADII_MM:
         raise ValueError(RADIUS)
     if not (isinstance(mode, str) and mode in MODES):
@@ -201,6 +225,8 @@ class RadiusSearchRequest(BaseModel):
     data_prior: DataPrior = Field(default=None, json_schema_extra=_absent_default)
     allocation_mode: Literal['adaptive'] = Field(default=None, json_schema_extra=_absent_default)
     objective_mode: Literal['composite'] = Field(default=None, json_schema_extra=_absent_default)
+    electrode_count: Annotated[Literal[NONDEFAULT_ELECTRODE_COUNTS], BeforeValidator(js_integer)] = Field(  # type: ignore[valid-type]
+        default=None, json_schema_extra=_absent_default)
 
     @model_validator(mode='before')
     @classmethod
@@ -220,6 +246,8 @@ class RadiusSearchRequest(BaseModel):
             out['allocation_mode'] = self.allocation_mode
         if self.objective_mode is not None:
             out['objective_mode'] = self.objective_mode
+        if self.electrode_count is not None:
+            out['electrode_count'] = self.electrode_count
         return out
 
 

@@ -270,7 +270,8 @@ def reception_layouts(library: Any) -> dict:
     records = [record for record in listed['records']
                if record.get('dataset_id') in ('cache', 'strict_area') and _same(record.get('status'), 'completed')
                and not js_truthy(_option(record.get('request'), 'noise_model'))
-               and not js_truthy(_option(record.get('request'), 'data_prior'))]
+               and not js_truthy(_option(record.get('request'), 'data_prior'))
+               and not js_truthy(_option(record.get('request'), 'electrode_count'))]
     warnings = list(listed['warnings'])
     for key in library.store.keys('design'):
         try:
