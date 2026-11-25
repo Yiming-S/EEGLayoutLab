@@ -241,6 +241,65 @@
           }
         }
       }
+    },
+    "/api/normalize/source-reception": {
+      "post": {
+        "operationId": "normalize_source_reception",
+        "summary": "Validate a source-reception request and return its canonical form",
+        "description": "Diagnostic endpoint. Reproduces normalizeReceptionRequest, with normalizeSourceRequest for requests without mode (webapp/contracts/source-reception.mjs).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceReceptionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The canonical request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NormalizedRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not valid JSON or not a valid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The body is larger than 65,536 bytes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not application/json.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -614,6 +673,82 @@
           "region_assignment"
         ],
         "title": "CoordinateSourceV3",
+        "type": "object"
+      },
+      "CrossRegionReception": {
+        "additionalProperties": false,
+        "description": "One fixed source in each of one to six regions, each listed once and in the order of the region list.",
+        "properties": {
+          "record_id": {
+            "description": "The library record of the layout: a lowercase SHA-256 hex digest.",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "waveform": {
+            "enum": [
+              "burst",
+              "rhythm"
+            ],
+            "title": "Waveform",
+            "type": "string"
+          },
+          "artifact_scale": {
+            "enum": [
+              0,
+              0.5,
+              1,
+              2,
+              4
+            ],
+            "title": "Artifact Scale",
+            "type": "number"
+          },
+          "seed": {
+            "maximum": 9999,
+            "minimum": 0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "mode": {
+            "const": "cross_region",
+            "title": "Mode",
+            "type": "string"
+          },
+          "region_definition": {
+            "const": "dk40-six-roi-v1",
+            "description": "The source ROI atlas, kept in the identity when sent.",
+            "title": "Region Definition",
+            "type": "string"
+          },
+          "brain_regions": {
+            "items": {
+              "enum": [
+                "frontal",
+                "central",
+                "parietal",
+                "occipital",
+                "temporal_left",
+                "temporal_right"
+              ],
+              "type": "string"
+            },
+            "maxItems": 6,
+            "minItems": 1,
+            "title": "Brain Regions",
+            "type": "array",
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "record_id",
+          "waveform",
+          "artifact_scale",
+          "seed",
+          "mode",
+          "brain_regions"
+        ],
+        "title": "CrossRegionReception",
         "type": "object"
       },
       "DataPrior": {
@@ -1268,6 +1403,76 @@
         "title": "MniConversion",
         "type": "object"
       },
+      "MultiSourceReception": {
+        "additionalProperties": false,
+        "description": "Six generation sources within one region.",
+        "properties": {
+          "record_id": {
+            "description": "The library record of the layout: a lowercase SHA-256 hex digest.",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "waveform": {
+            "enum": [
+              "burst",
+              "rhythm"
+            ],
+            "title": "Waveform",
+            "type": "string"
+          },
+          "artifact_scale": {
+            "enum": [
+              0,
+              0.5,
+              1,
+              2,
+              4
+            ],
+            "title": "Artifact Scale",
+            "type": "number"
+          },
+          "seed": {
+            "maximum": 9999,
+            "minimum": 0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "mode": {
+            "const": "multi_source",
+            "title": "Mode",
+            "type": "string"
+          },
+          "region_definition": {
+            "const": "dk40-six-roi-v1",
+            "description": "The source ROI atlas, kept in the identity when sent.",
+            "title": "Region Definition",
+            "type": "string"
+          },
+          "brain_region": {
+            "enum": [
+              "frontal",
+              "central",
+              "parietal",
+              "occipital",
+              "temporal_left",
+              "temporal_right"
+            ],
+            "title": "Brain Region",
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_id",
+          "waveform",
+          "artifact_scale",
+          "seed",
+          "mode",
+          "brain_region"
+        ],
+        "title": "MultiSourceReception",
+        "type": "object"
+      },
       "NormalizedRequest": {
         "type": "object",
         "title": "NormalizedRequest",
@@ -1363,6 +1568,144 @@
           "mode"
         ],
         "title": "RadiusSearchRequest",
+        "type": "object"
+      },
+      "SingleSourceReception": {
+        "additionalProperties": false,
+        "description": "One frozen generation source, by its index.",
+        "properties": {
+          "record_id": {
+            "description": "The library record of the layout: a lowercase SHA-256 hex digest.",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "waveform": {
+            "enum": [
+              "burst",
+              "rhythm"
+            ],
+            "title": "Waveform",
+            "type": "string"
+          },
+          "artifact_scale": {
+            "enum": [
+              0,
+              0.5,
+              1,
+              2,
+              4
+            ],
+            "title": "Artifact Scale",
+            "type": "number"
+          },
+          "seed": {
+            "maximum": 9999,
+            "minimum": 0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "mode": {
+            "const": "single_source",
+            "title": "Mode",
+            "type": "string"
+          },
+          "region_definition": {
+            "const": "dk40-six-roi-v1",
+            "description": "The source ROI atlas, kept in the identity when sent.",
+            "title": "Region Definition",
+            "type": "string"
+          },
+          "source_index": {
+            "maximum": 255,
+            "minimum": 0,
+            "title": "Source Index",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "record_id",
+          "waveform",
+          "artifact_scale",
+          "seed",
+          "mode",
+          "source_index"
+        ],
+        "title": "SingleSourceReception",
+        "type": "object"
+      },
+      "SourceReceptionRequest": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/SourceReceptionV1"
+          },
+          {
+            "$ref": "#/components/schemas/SingleSourceReception"
+          },
+          {
+            "$ref": "#/components/schemas/MultiSourceReception"
+          },
+          {
+            "$ref": "#/components/schemas/CrossRegionReception"
+          }
+        ]
+      },
+      "SourceReceptionV1": {
+        "additionalProperties": false,
+        "description": "A v1 request (no ``mode``): the six generation sources nearest to the region's fixed coordinate anchor.",
+        "properties": {
+          "record_id": {
+            "description": "The library record of the layout: a lowercase SHA-256 hex digest.",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "brain_region": {
+            "enum": [
+              "frontal",
+              "central",
+              "parietal",
+              "occipital",
+              "temporal_left",
+              "temporal_right"
+            ],
+            "title": "Brain Region",
+            "type": "string"
+          },
+          "waveform": {
+            "enum": [
+              "burst",
+              "rhythm"
+            ],
+            "title": "Waveform",
+            "type": "string"
+          },
+          "artifact_scale": {
+            "enum": [
+              0,
+              0.5,
+              1,
+              2,
+              4
+            ],
+            "title": "Artifact Scale",
+            "type": "number"
+          },
+          "seed": {
+            "maximum": 9999,
+            "minimum": 0,
+            "title": "Seed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "record_id",
+          "brain_region",
+          "waveform",
+          "artifact_scale",
+          "seed"
+        ],
+        "title": "SourceReceptionV1",
         "type": "object"
       },
       "SpatialNoise": {

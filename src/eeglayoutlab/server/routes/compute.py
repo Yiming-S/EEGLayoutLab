@@ -1,4 +1,4 @@
-"""The job routes of every task kind and the compute services behind them (phase 2 slices 4 to 6): Node's
+"""The job routes of every task kind and the compute services behind them (phase 2 slices 4 to 7): Node's
 ``communityMiddleware`` (community-queue.mjs:489-551) for one local user.
 
 - ``POST /api/{kind}/lookup``: 200 with ``WorkspaceQueue.submit(kind, body, lookup_only=True)``: ``{hit: false}``,
@@ -35,18 +35,29 @@ routes behind these (``ElectrodeEditorService.handle``: ``Editor request too lar
 read the saved result``) never answer in its composed service, whose queue routes come first; other paths under
 ``/api/electrode-editor`` are 404 ``Unknown editor endpoint`` (``app.node_fallback``).
 
+A signal-reception request (``source-reception``, at most 4,096 bytes) is v1 without ``mode`` and v2 with it
+(``schemas.source_reception``); a layout the service refuses (not a saved 64-point layout, one searched under
+another noise model, the legacy multi-source protocol) and a context that cannot be formed (the forward bank or the
+candidates changed, the runtime inspector failed) are a 400 with Node's message. A completed receipt's view reads
+its stored result through the identity of today (``模型或代码已更新，请重新提交`` once that changed); its original
+download is ``GET /api/community/records/<id>/result`` (``routes.community``). ``GET
+/api/source-reception/catalog`` is Node's ``sourceCatalog``: the v2 worker's ``--catalog`` under the native
+interpreter, one run shared by the requests that arrive while it runs; a failure is Node's 500 ``计算记录无法读取``
+(``computeMiddleware``'s catch). Other paths under ``/api/source-reception`` are 404 ``未知源实验接口``.
+
 ``ComputeHost`` holds the services of one process: the radius search (``jobs.radius.RadiusJobs``), the coordinate
-evaluation (``jobs.design.DesignJobs``) and the electrode editor (``jobs.editor.EditorJobs``, which reads its parents
-from the library), both on the radius search's record store, as Node's ``DesignEvaluationService`` and
-``ElectrodeEditorService`` use their queue's; the workspace queue (``jobs.queue.WorkspaceQueue`` in
-``W/.eeglayoutlab``) over the kinds wired so far (``jobs.kinds``) with the workspace's electrode-name annotations
+evaluation (``jobs.design.DesignJobs``), the electrode editor (``jobs.editor.EditorJobs``, which reads its parents
+from the library) and signal reception (``jobs.reception.ReceptionJobs``, which reads its layouts from the library
+too), all on the radius search's record store, as Node's ``DesignEvaluationService``, ``ElectrodeEditorService`` and
+``SourceReceptionService`` use their queue's; the workspace queue (``jobs.queue.WorkspaceQueue`` in
+``W/.eeglayoutlab``) over the four kinds (``jobs.kinds``) with the workspace's electrode-name annotations
 (``jobs.annotations.ElectrodeAnnotations.local``: written to ``W/annotations/electrode-names``, read from there, then
 from Node's ``R/results/v2/design_evaluation_jobs/electrode_annotations``); and the execution slot the services
 share, with the installation lock on ``R/results/v2``, so one worker of any kind runs at a time. The application's
 lifespan starts it (the queue's restart rules, ``recover()`` and its dispatcher) and closes it (Node's ``dispose``:
 no new dispatch, the running worker stopped with ``server_restart`` or ``restart`` and awaited, the queue written
-once more). A kind without an adapter (the signal simulation until slice 7), and every kind of an application whose
-lifespan never ran, is an unknown endpoint: 404 ``Unknown queue endpoint``, before any body is read.
+once more, the runtime inspectors and catalog runs stopped). Every kind of an application whose lifespan never ran
+is an unknown endpoint: 404 ``Unknown queue endpoint``, before any body is read (the catalog: ``未知源实验接口``).
 
 The modules of ``eeglayoutlab.jobs`` are imported when the services start, not when the application is built.
 """
@@ -73,6 +84,7 @@ if TYPE_CHECKING:
     from ...jobs.library import Library
     from ...jobs.queue import WorkspaceQueue
     from ...jobs.radius import RadiusJobs
+    from ...jobs.reception import ReceptionJobs
     from ...jobs.runtime import RuntimeConfig
     from ...jobs.slot import ExecutionSlot
     from ..app import ServiceConfig
@@ -80,6 +92,8 @@ if TYPE_CHECKING:
 LOG = logging.getLogger('eeglayoutlab.server')
 
 UNKNOWN_ENDPOINT = 'Unknown queue endpoint'
+# Node's answer to a failure of computeMiddleware's own routes (the signal catalog among them).
+UNREADABLE = '计算记录无法读取'
 # Node's messages (community-queue.mjs), which the interface may show.
 UNSUPPORTED_QUERY = 'Unsupported task query.'
 INVALID_ANNOTATION = 'Invalid electrode name annotation.'
@@ -98,15 +112,27 @@ class Refusal(Exception):
         self.status = status
 
 
+class _Library:
+    """The library a factory gives, built on first use: ``get(id)`` for signal reception, which reads its layouts
+    through it as Node's ``SourceReceptionService`` reads ``queue.library``."""
+
+    def __init__(self, factory: Callable[[], 'Library']):
+        self.factory = factory
+
+    def get(self, id: Any) -> Any:
+        return self.factory().get(id)
+
+
 class ComputeHost:
     """The compute services of one service process, built and started by ``start`` and stopped by ``close``.
 
     ``runtime`` gives the root and interpreters (the library routes' ``RuntimeConfig``, so both read one
-    ``EEG_COMPUTE_PYTHON``). ``library`` gives the ``jobs.library.Library`` the editor reads its parents from (the
-    library routes' ``library``, as Node's editor and library routes share ``queue.library``); a host without it
-    builds one on first use, on the same root, interpreters, annotations and radius search. ``radius_options``,
-    ``design_options``, ``editor_options`` and ``queue_options`` are passed to ``RadiusJobs``, ``DesignJobs``,
-    ``EditorJobs`` and ``WorkspaceQueue`` (tests set a timeout, a clock or a bound there before the lifespan starts).
+    ``EEG_COMPUTE_PYTHON``). ``library`` gives the ``jobs.library.Library`` the editor and signal reception read their
+    layouts from (the library routes' ``library``, as Node's editor, reception and library routes share
+    ``queue.library``); a host without it builds one on first use, on the same root, interpreters, annotations and
+    radius search. ``radius_options``, ``design_options``, ``editor_options``, ``reception_options`` and
+    ``queue_options`` are passed to ``RadiusJobs``, ``DesignJobs``, ``EditorJobs``, ``ReceptionJobs`` and
+    ``WorkspaceQueue`` (tests set a timeout, a clock or a bound there before the lifespan starts).
     ``failure`` is the message of a start that failed, or of the queue's last write at shutdown when it failed; the
     command line reports it and exits 1, as Node's host does when its ``dispose`` throws (start.mjs)."""
 
@@ -117,11 +143,13 @@ class ComputeHost:
         self.radius_options: dict[str, Any] = {}
         self.design_options: dict[str, Any] = {}
         self.editor_options: dict[str, Any] = {}
+        self.reception_options: dict[str, Any] = {}
         self.queue_options: dict[str, Any] = {}
         self.slot: Optional[ExecutionSlot] = None
         self.radius: Optional[RadiusJobs] = None
         self.design: Optional[DesignJobs] = None
         self.editor: Optional[EditorJobs] = None
+        self.reception: Optional[ReceptionJobs] = None
         self.annotations: Optional[ElectrodeAnnotations] = None
         self.queue: Optional[WorkspaceQueue] = None
         self.failure: Optional[str] = None
@@ -133,8 +161,8 @@ class ComputeHost:
         """The queue's directory, ``W/.eeglayoutlab``."""
         return nodepath.join(nodepath.resolve(self.config.user.workspace), STATE)
 
-    def _build(self) -> tuple['ExecutionSlot', 'RadiusJobs', 'DesignJobs', 'EditorJobs', 'ElectrodeAnnotations',
-                              'WorkspaceQueue']:
+    def _build(self) -> tuple['ExecutionSlot', 'RadiusJobs', 'DesignJobs', 'EditorJobs', 'ReceptionJobs',
+                              'ElectrodeAnnotations', 'WorkspaceQueue']:
         from ...jobs.annotations import WORKSPACE_ANNOTATIONS, ElectrodeAnnotations
         from ...jobs.design import DesignJobs
         from ...jobs.editor import EditorJobs
@@ -142,6 +170,7 @@ class ComputeHost:
         from ...jobs.library import Library
         from ...jobs.queue import WorkspaceQueue
         from ...jobs.radius import RadiusJobs
+        from ...jobs.reception import ReceptionJobs
         from ...jobs.runtime import runtime_config
         from ...jobs.slot import ExecutionSlot, InstallationLock
 
@@ -160,11 +189,16 @@ class ComputeHost:
             lambda: Library(runtime.repository_root, runtime, workspace_annotations, radius=radius))
         editor = EditorJobs(runtime.repository_root, runtime.native_python, library, execution_slot=slot,
                             store=radius.store, **self.editor_options)
+        # Node's SourceReceptionService: v2 runs under the native interpreter, v1 under the radius search's
+        # (queue.python); one runtime-digest memo per service.
+        reception = ReceptionJobs(runtime.repository_root, runtime.native_python, _Library(library),
+                                  compute_python=runtime.python, execution_slot=slot, store=radius.store,
+                                  **self.reception_options)
         annotations = ElectrodeAnnotations.local(workspace_annotations, runtime.repository_root)
-        queue = WorkspaceQueue(self.directory, community_adapters(radius, design, editor), slot=slot,
+        queue = WorkspaceQueue(self.directory, community_adapters(radius, design, editor, reception), slot=slot,
                                annotations=annotations, cache_only=self.config.cache_only,
                                clear_interrupted=self.config.clear_interrupted, **self.queue_options)
-        return slot, radius, design, editor, annotations, queue
+        return slot, radius, design, editor, reception, annotations, queue
 
     async def start(self) -> None:
         """Builds the services (``queue.json`` is loaded or created and the restart rules applied, in a worker
@@ -178,7 +212,7 @@ class ComputeHost:
             return
         self._loop = asyncio.get_running_loop()
         try:
-            (self.slot, self.radius, self.design, self.editor, self.annotations,
+            (self.slot, self.radius, self.design, self.editor, self.reception, self.annotations,
              self.queue) = await asyncio.to_thread(self._build)
             if self._stop_requested:
                 self._stop_now()
@@ -201,8 +235,8 @@ class ComputeHost:
     def stop_soon(self) -> None:
         """Node's synchronous ``dispose`` from a signal handler: on the services' event loop, the queue stops
         scheduling, the services refuse new work and stop their running worker (the radius search's with
-        ``server_restart``, the coordinate evaluation's and the editor's with ``restart``), and the queue is written (a
-        launch still in flight goes back to ``queued``). ``close`` then waits for the worker's records.
+        ``server_restart``, the other kinds' with ``restart``), and the queue is written (a launch still in flight goes
+        back to ``queued``). ``close`` then waits for the worker's records.
         Before the services exist the request is kept, and ``start`` applies it; once the loop is closed it does
         nothing."""
         self._stop_requested = True
@@ -215,7 +249,9 @@ class ComputeHost:
             pass  # the loop is closed: the services have stopped
 
     def _services(self) -> list[Any]:
-        return [service for service in (self.radius, self.design, self.editor) if service is not None]
+        # createLocalComputeService's dispose order: signal reception, the coordinate evaluation, the editor, then the
+        # radius search.
+        return [service for service in (self.reception, self.design, self.editor, self.radius) if service is not None]
 
     def _stop_now(self) -> None:
         queue = self.queue
@@ -247,6 +283,11 @@ class ComputeHost:
             reason = getattr(queue.unsaved, 'strerror', None) or str(queue.unsaved)
             self.failure = (f'Cannot write the workspace queue {queue.path} at shutdown: {reason}. The next start '
                             'applies its restart rules to the file as it was.')
+
+    async def catalog(self) -> Any:
+        """``sourceCatalog``: the 256 frozen generation sources of signal reception (``ReceptionJobs.catalog``)."""
+        assert self.reception is not None
+        return await self.reception.catalog()
 
     def wired(self, kind: str) -> Optional['WorkspaceQueue']:
         """The started queue when it has an adapter for ``kind``, else ``None``."""
@@ -307,6 +348,12 @@ def _unknown(request: Request) -> Response:
     return error_response(404, node_fallback(raw_path(request.scope)) or 'Not Found')
 
 
+async def json_answer(status: int, value: Any) -> Response:
+    """``json_response`` written in a worker thread: a signal result is about 1 to 8 MB of JSON, whose text the
+    port of ``JSON.stringify`` takes a second or more to write, so health and polling keep answering meanwhile."""
+    return await asyncio.to_thread(json_response, status, value)
+
+
 def add_routes(app: FastAPI, config: 'ServiceConfig', compute: ComputeHost) -> None:
     def submit(kind: str, lookup: bool) -> Callable[[Request], Any]:
         async def endpoint(request: Request) -> Response:
@@ -318,7 +365,7 @@ def add_routes(app: FastAPI, config: 'ServiceConfig', compute: ComputeHost) -> N
                 value = await queue.submit(kind, raw, lookup_only=lookup)
             except Exception as error:  # noqa: BLE001 - Node's catch block
                 return failure_response(error)
-            return json_response(200 if lookup else 202, value)
+            return await json_answer(200 if lookup else 202, value)
         return endpoint
 
     def view(kind: str) -> Callable[[Request], Any]:
@@ -334,7 +381,7 @@ def add_routes(app: FastAPI, config: 'ServiceConfig', compute: ComputeHost) -> N
                 job = await queue.view(queue.own(id, kind), True, annotation_id)
             except Exception as error:  # noqa: BLE001 - Node's catch block
                 return failure_response(error)
-            return json_response(200, {'job': job})
+            return await json_answer(200, {'job': job})
         return endpoint
 
     def cancel(kind: str) -> Callable[[Request], Any]:
@@ -349,9 +396,21 @@ def add_routes(app: FastAPI, config: 'ServiceConfig', compute: ComputeHost) -> N
                 job = await queue.cancel(id, kind)
             except Exception as error:  # noqa: BLE001 - Node's catch block
                 return failure_response(error)
-            return json_response(202, {'job': job})
+            return await json_answer(202, {'job': job})  # a finished receipt's view carries its result
         return endpoint
 
+    async def catalog(request: Request) -> Response:
+        if compute.reception is None:
+            return _unknown(request)
+        try:
+            value = await compute.catalog()
+        except Exception:  # noqa: BLE001 - computeMiddleware's catch block
+            LOG.exception('the signal catalog failed')
+            return error_response(500, UNREADABLE)
+        return json_response(200, value)
+
+    app.add_api_route('/api/source-reception/catalog', catalog, methods=['GET'], include_in_schema=False,
+                      name='reception_catalog')
     # The identifier is read from the path parameters rather than declared as a parameter (routes.library).
     for kind in KINDS:
         name = kind.replace('-', '_')

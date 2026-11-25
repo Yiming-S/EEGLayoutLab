@@ -932,3 +932,89 @@ class EditorCases:
                 'identity': jsjson.stringify(context['identity']), 'admission': jsjson.stringify(context['admission']),
                 'parent': jsjson.stringify(context['parent']), 'parent_digest': context['parent_digest'],
                 'key': context['key'], 'worker_input': jsjson.stringify(service.worker_input(job))}
+
+
+# --- Signal reception's contexts (phase 2 slice 7) ---------------------------------------------------------------
+
+# Reception roots (tests/service/reception_support.py ``reception_root``) by name: editor roots with the reception
+# files, a design-root or library variant, or one of reception_root's own variants (``reception``).
+RECEPTION_ROOTS: dict[str, dict] = {
+    'reception-base': {},
+    'reception-table': {'table': True},
+    'reception-simnibs': {'runtime': 'simnibs'},
+    'reception-no-library': {'editor': 'no_library'},
+    'reception-broken-bank': {'broken': 'bank_sha'},
+    'reception-broken-candidates': {'broken': 'candidate_sha'},
+    'reception-no-v1-script': {'reception': 'no_v1_script'},
+    'reception-no-v2-code': {'reception': 'no_v2_code'},
+    'reception-no-atlas': {'reception': 'no_atlas'},
+    'reception-no-workflow': {'reception': 'no_workflow'},
+    'reception-legacy-inspector': {'reception': 'legacy_inspector'},
+    'reception-bad-digest': {'reception': 'bad_digest'},
+    'reception-inspector-fails': {'reception': 'inspector_fails'},
+}
+RECEPTION_ROOT_CONFIGS: dict[str, tuple[str, ...]] = {'reception-base': ('default', 'explicit')}
+# Every parent on the base root, these elsewhere; each with a v1 request and v2's three modes, with and without the
+# atlas definition (``single-atlas`` is the interface's single-source request; ``multi-legacy`` on a radius cache is
+# v2's legacy refusal).
+RECEPTION_SOME = ('strict', 'cache', 'cache-other-code', 'cache-spatial', 'historical', 'design', 'missing')
+RECEPTION_REQUESTS = ('v1', 'single', 'single-atlas', 'multi', 'multi-legacy', 'cross', 'cross-legacy')
+# Values the routes never pass (the context takes the request as it is): its members are read as in V8.
+RECEPTION_ODD_REQUESTS = ('null', 'empty', 'unnormalized', 'mode-only')
+
+
+def reception_case_ids() -> list[str]:
+    """The ids of ``reception_context_cases``, without building a root: ``<root>/<config>/<request>-<parent>``."""
+    ids = []
+    for root in RECEPTION_ROOTS:
+        for config in RECEPTION_ROOT_CONFIGS.get(root, ('default',)):
+            for parent in (EDITOR_PARENTS if root == 'reception-base' else RECEPTION_SOME):
+                ids += [f'{root}/{config}/{request}-{parent}' for request in RECEPTION_REQUESTS]
+    return ids + [f'reception-base/default/odd-{name}' for name in RECEPTION_ODD_REQUESTS]
+
+
+def reception_request(kind: str, record_id: str) -> dict:
+    """The canonical request of ``kind`` (``RECEPTION_REQUESTS``) for a parent."""
+    from eeglayoutlab.schemas.source_reception import REGION_DEFINITION, normalize_reception_request
+
+    from .reception_support import cross, multi, single, v1
+
+    raw = {'v1': lambda: v1(record_id), 'single': lambda: single(record_id),
+           'single-atlas': lambda: single(record_id, region_definition=REGION_DEFINITION),
+           'multi': lambda: multi(record_id), 'multi-legacy': lambda: multi(record_id, definition=False),
+           'cross': lambda: cross(record_id, ['occipital', 'frontal']),
+           'cross-legacy': lambda: cross(record_id, ['central'], definition=False)}[kind]()
+    return normalize_reception_request(raw)
+
+
+def build_reception_roots(base: Path) -> dict[str, dict]:
+    """Every root of ``RECEPTION_ROOTS`` under ``base``, by name (``reception_root``'s ``{root, tree, ids}``)."""
+    from .reception_support import reception_root
+
+    return {name: reception_root(base / name, **options) for name, options in RECEPTION_ROOTS.items()}
+
+
+def reception_context_cases(roots: dict[str, dict]) -> list[dict]:
+    """The driver's ``contexts`` cases ``{id, root, python?, request}`` over built reception roots."""
+    cases = []
+    for name in RECEPTION_ROOTS:
+        built = roots[name]
+        for config in RECEPTION_ROOT_CONFIGS.get(name, ('default',)):
+            for parent in (EDITOR_PARENTS if name == 'reception-base' else RECEPTION_SOME):
+                cases += [{'id': f'{name}/{config}/{request}-{parent}', 'root': built['root'], **CONFIGS[config],
+                           'request': reception_request(request, built['ids'][parent])}
+                          for request in RECEPTION_REQUESTS]
+    base, cache = roots['reception-base']['root'], roots['reception-base']['ids']['cache']
+    odd = {'null': None, 'empty': {}, 'unnormalized': {'record_id': cache, 'mode': 'single_source'},
+           'mode-only': {'mode': 'single_source'}}
+    assert tuple(odd) == RECEPTION_ODD_REQUESTS
+    cases += [{'id': f'reception-base/default/odd-{name}', 'root': base, 'request': request}
+              for name, request in odd.items()]
+    return cases
+
+
+def run_reception_node(cases: list[dict], scratch: Path, reuse: bool = False) -> dict:
+    """Runs ``parity/reception_run.mjs`` in mode ``contexts`` once over ``cases``; returns the results by id."""
+    from .reception_support import run_node as run_reception_driver
+
+    return run_reception_driver({'mode': 'contexts', 'reuse': reuse, 'cases': cases}, scratch, 'reception-contexts')

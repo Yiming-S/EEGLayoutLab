@@ -35,6 +35,18 @@ alters the editor's workflow file, an input of every editor identity, before it 
 the finish time of its parent's radius record, so the parent's digest changes). The root also holds two stored edits
 neither host computed (``stored_edit``), whose hits are cached receipts. ``editor_steps`` gives the HTTP steps both
 hosts run on it, and ``editor_tree`` reads the records they wrote.
+
+Signal reception (slice 7): ``reception_compute_root`` builds a reception root (``reception_support.reception_root``:
+an editor root with the reception workflow files and stub runtime inspectors) whose two reception workers are
+``RECEPTION_WORKER`` and whose ``scripts/design_evaluation.py`` is ``DESIGN_WORKER``, so that the kinds share one
+queue and one slot. ``RECEPTION_WORKER`` is reception_support's stand-in, which plays the behaviour
+``R/reception-plan.json`` names for a request's seed (``RECEPTION_MODES``): ``hold``, ``fail``, ``stale`` (it writes
+the result of the next seed) or ``change`` (it alters ``scripts/source_reception.py``, an input of every reception
+identity, before it answers). The root also holds a stored v1 result neither host computed (``stored_reception``),
+whose hit is a cached receipt. ``reception_steps`` gives the HTTP steps both hosts run on it (a ``FILE`` step writes
+or removes a file of the root between two requests), ``reception_tree`` reads the records they wrote, and
+``reception_masked`` puts the answers in the compared form: each saved result longer than ``BRIEF`` bytes by the
+SHA-256 of its text, and Node's records scope ``current_browser`` as the workspace's.
 """
 from __future__ import annotations
 
@@ -61,6 +73,10 @@ from .editor_support import (
 )
 from .key_parity_support import NODE_ENV, design_root
 from .library_support import code_tree, forward_inputs, offline_datasets, radius_result, write
+from .reception_support import (
+    BRIEF, CATALOG, FAKE_WORKER as RECEPTION_FAKE_WORKER, SOURCE_JOBS, SOURCE_V2_JOBS, brief, cross, fixture,
+    multi, reception_root, single, v1,
+)
 from .service_support import TOKENS, loopback_client, service_config
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -150,9 +166,10 @@ def json_body(response: Any) -> Any:
 @contextlib.contextmanager
 def serving(root: Path, workspace: Path, *, cache_only: bool = False, clear_interrupted: bool = False,
             radius_options: Optional[dict] = None, queue_options: Optional[dict] = None,
-            csrf: bool = True) -> Iterator[tuple[Service, Any]]:
-    """The application on ``root`` and ``workspace`` with its lifespan running, and a loopback client that holds
-    the session cookie (and sends the CSRF token unless ``csrf`` is false)."""
+            csrf: bool = True, lifespan: bool = True) -> Iterator[tuple[Service, Any]]:
+    """The application on ``root`` and ``workspace`` with its lifespan running (not with ``lifespan`` false: no
+    compute service is started), and a loopback client that holds the session cookie (and sends the CSRF token
+    unless ``csrf`` is false)."""
     config = dataclasses.replace(service_config(root, None, workspace),
                                  runtime=runtime_config(str(root), sys.executable, env={}),
                                  cache_only=cache_only, clear_interrupted=clear_interrupted)
@@ -160,6 +177,9 @@ def serving(root: Path, workspace: Path, *, cache_only: bool = False, clear_inte
     app.compute.radius_options.update(radius_options or {})
     app.compute.queue_options.update(queue_options or {})
     client = loopback_client(app, csrf=csrf)
+    if not lifespan:
+        yield app, client
+        return
     with client:
         yield app, client
 
@@ -433,6 +453,235 @@ def editor_compute_root(directory: Path) -> dict:
 def editor_tree(root: Path) -> dict[str, str]:
     """``R/results/v2/electrode_editor_jobs``."""
     return tree(Path(root) / EDITOR_JOBS)
+
+
+# --- Signal reception -------------------------------------------------------------------------------------------------
+
+RECEPTION_PLAN = 'reception-plan.json'
+# A code file of every reception identity (v1's and v2's), which the ``change`` worker alters.
+RECEPTION_CHANGED = 'scripts/source_reception.py'
+RECEPTION_WORKERS = ('scripts/run_source_reception.py', 'scripts/run_source_reception_v2.py')
+# The seed of a v1 request of the ``cache`` parent that picks a behaviour of the plan.
+RECEPTION_MODES = {'hold': 1, 'fail': 2, 'stale': 3, 'change': 4}
+_REQUEST = "    data = json.load(handle)\n"
+assert RECEPTION_FAKE_WORKER.count(_REQUEST) == 1
+RECEPTION_WORKER = RECEPTION_FAKE_WORKER.replace(_REQUEST, _REQUEST + (
+    f"if os.path.exists(os.path.join(root, {RECEPTION_PLAN!r})):\n"
+    f"    with open(os.path.join(root, {RECEPTION_PLAN!r}), encoding='utf-8') as handle:\n"
+    "        mode = json.load(handle).get(str(data['request']['seed']), mode)\n"
+    "if mode == 'change':\n"
+    f"    with open(os.path.join(root, {RECEPTION_CHANGED!r}), 'a', encoding='utf-8') as handle:\n"
+    "        handle.write('# changed during the run\\n')\n"
+    "if mode == 'stale':\n"
+    "    data['request'] = dict(data['request'], seed=data['request']['seed'] + 1)\n"))
+
+
+def reception_requests(ids: dict[str, str]) -> dict[str, dict]:
+    """The reception requests of the routes' tests, by name: v1 of the ``cache`` parent (``v1``) and with the seed
+    of a behaviour (``RECEPTION_MODES``), v2's three modes (``single`` of the strict-area parent, ``multi`` of the
+    ``cache`` parent, ``cross`` of the saved coordinate evaluation) and the stored result's request (``stored``, v1 of
+    the strict-area parent)."""
+    return {'v1': v1(ids['cache']), 'single': single(ids['strict']), 'multi': multi(ids['cache']),
+            'cross': cross(ids['design'], ['occipital', 'frontal']), 'stored': v1(ids['strict']),
+            **{mode: v1(ids['cache'], seed=seed) for mode, seed in RECEPTION_MODES.items()}}
+
+
+def reception_context(root: Any, request: dict) -> dict:
+    """The reception context of ``request`` on ``root`` as the service computes it (``sys.executable``, no
+    ``EEG_COMPUTE_PYTHON``): ``{record, identity, key}``."""
+    import asyncio
+
+    from eeglayoutlab.jobs.library import Library
+    from eeglayoutlab.jobs.reception import ReceptionJobs
+
+    runtime = runtime_config(str(root), sys.executable, env={})
+    jobs = ReceptionJobs(runtime.repository_root, runtime.native_python, Library(runtime.repository_root, runtime),
+                         compute_python=runtime.python)
+
+    async def run() -> dict:
+        try:
+            return await jobs.context(jobs.normalize(request))
+        finally:
+            await jobs.aclose()
+    return asyncio.run(run())
+
+
+def reception_key(root: Any, request: dict) -> str:
+    return reception_context(root, request)['key']
+
+
+def stored_reception(root: Any, request: dict, identity: Optional[dict] = None, *,
+                     finished_at: str = STORED_AT) -> str:
+    """Writes the ``cache.json`` a reception run would publish for ``request`` (its context computed here, as both
+    hosts compute it; a v2 record holds the context's identity, or ``identity``) with a fixed finish time; returns
+    the key."""
+    from eeglayoutlab.jobs.reception import _hash
+    from eeglayoutlab.schemas.source_reception import normalize_reception_request
+
+    context = reception_context(root, request)
+    value = fixture(normalize_reception_request(request), context['record']['layout'])
+    key = context['key']
+    if 'mode' in request:
+        path = f'{SOURCE_V2_JOBS}/{key}/cache.json'
+        record = {'key': key, 'identity': context['identity'] if identity is None else identity, 'result': value}
+    else:
+        assert identity is None
+        path = f'{SOURCE_JOBS}/{key}/cache.json'
+        record = {'key': key, 'result': value}
+    write(Path(root), path, {**record, 'result_sha256': _hash(value), 'finished_at': finished_at})
+    return key
+
+
+def reception_compute_root(directory: Path) -> dict:
+    """A reception root (``reception_support.reception_root``) with ``RECEPTION_WORKER`` as both workers,
+    ``DESIGN_WORKER``, the plan and the stored result of ``requests['stored']``. Returns ``{root, ids, requests,
+    stored}``: the root string (its real path), the parents' ids, the requests by name and the stored result's key."""
+    built = reception_root(directory)
+    root, ids = built['tree'], built['ids']
+    for script in RECEPTION_WORKERS:
+        write(Path(root), script, RECEPTION_WORKER)
+    write(Path(root), 'scripts/design_evaluation.py', DESIGN_WORKER)
+    write(Path(root), RECEPTION_PLAN, {str(seed): mode for mode, seed in RECEPTION_MODES.items()})
+    requests = reception_requests(ids)
+    return {'root': root, 'ids': ids, 'requests': requests, 'stored': stored_reception(root, requests['stored'])}
+
+
+def reception_tree(root: Path) -> dict[str, str]:
+    """``R/results/v2/source_reception_jobs`` and ``source_reception_v2_jobs``, by path below ``R/results/v2``."""
+    return {**{f'source_reception_jobs/{path}': text for path, text in tree(Path(root) / SOURCE_JOBS).items()},
+            **{f'source_reception_v2_jobs/{path}': text for path, text in tree(Path(root) / SOURCE_V2_JOBS).items()}}
+
+
+def briefed_tree(records: dict[str, str]) -> dict[str, str]:
+    """``masked_tree`` of a reception tree, each text longer than ``BRIEF`` bytes by its SHA-256."""
+    return {path: brief(text) for path, text in masked_tree(records).items()}
+
+
+_SR = '/api/source-reception'
+_CR = '/api/community/records'
+# The text of a cache.json whose checksum fails: ``{k0}`` is the key of the first receipt.
+_TAMPERED = '{"key":"{k0}","result":{"a":1},"result_sha256":"' + '0' * 64 + '"}'
+
+
+def reception_steps(built: dict) -> list[dict]:
+    """Signal reception on ``reception_compute_root``'s root ``built``. Receipts: {0} v1 (computed, key {k0}), {1}
+    the stored result (cached), {2} single, {3} multi, {4} cross, {5} hold (cancelled), {6} a coordinate evaluation
+    queued behind it, {7} fail (cancelled while queued), {8} fail, {9} stale, {10} change."""
+    ids, r = built['ids'], built['requests']
+    a = r['v1']
+    return [
+        {'method': 'GET', 'path': f'{_SR}/health'},
+        {'method': 'GET', 'path': _CR},
+        {'method': 'GET', 'path': f'{_SR}/catalog'},
+        # A lookup miss creates no receipt; a v1 request runs, then is the stored receipt.
+        {'method': 'POST', 'path': f'{_SR}/lookup', 'body': a},
+        {'method': 'GET', 'path': _CR},
+        {'method': 'POST', 'path': f'{_SR}/jobs', 'body': a},
+        {'method': 'GET', 'path': f'{_SR}/jobs/{{0}}', 'until': TERMINAL},
+        {'method': 'POST', 'path': f'{_SR}/jobs', 'body': a},
+        {'method': 'POST', 'path': f'{_SR}/lookup', 'body': a},
+        # A stored result neither host computed: its lookup is one cached receipt, which the submit reuses.
+        {'method': 'POST', 'path': f'{_SR}/lookup', 'body': r['stored']},
+        {'method': 'POST', 'path': f'{_SR}/jobs', 'body': r['stored']},
+        {'method': 'GET', 'path': f'{_SR}/jobs/{{1}}'},
+        # The three modes of v2.
+        {'method': 'POST', 'path': f'{_SR}/jobs', 'body': r['single']},
+        {'method': 'GET', 'path': f'{_SR}/jobs/{{2}}', 'until': TERMINAL},
+        {'method': 'POST', 'path': f'{_SR}/jobs', 'body': r['multi']},
+        {'method': 'GET', 'path': f'{_SR}/jobs/{{3}}', 'until': TERMINAL},
+        {'method': 'POST', 'path': f'{_SR}/jobs', 'body': r['cross']},
+        {'method': 'GET', 'path': f'{_SR}/jobs/{{4}}', 'until': TERMINAL},
+        # The records list and the original downloads.
+        {'method': 'GET', 'path': _CR},
+        {'method': 'GET', 'path': f'{_CR}/{{0}}/result'},
+        {'method': 'GET', 'path': f'{_CR}/{{1}}/result'},
+        {'method': 'GET', 'path': f'{_CR}/{{4}}/result'},
+        # A running worker: joins, the health's active job, a coordinate evaluation and a reception queued behind
+        # it, cancellations; the evaluation runs once the slot is free.
+        {'method': 'POST', 'path': f'{_SR}/jobs', 'body': r['hold']},
+        {'method': 'GET', 'path': f'{_SR}/jobs/{{5}}', 'until': ('running',), 'progress': True},
+        {'method': 'GET', 'path': f'{_SR}/health'},
+        {'method': 'POST', 'path': f'{_SR}/jobs', 'body': r['hold']},
+        {'method': 'POST', 'path': f'{_SR}/lookup', 'body': r['hold']},
+        {'method': 'POST', 'path': '/api/design-evaluation/jobs', 'body': DESIGN_REQUESTS['done']},
+        {'method': 'POST', 'path': f'{_SR}/jobs', 'body': r['fail']},
+        {'method': 'GET', 'path': '/api/community/status'},
+        {'method': 'GET', 'path': '/api/design-evaluation/health'},
+        {'method': 'GET', 'path': f'{_CR}/{{5}}/result'},
+        {'method': 'POST', 'path': f'{_SR}/jobs/{{7}}/cancel'},
+        {'method': 'POST', 'path': f'{_SR}/jobs/{{5}}/cancel'},
+        {'method': 'GET', 'path': f'{_SR}/jobs/{{5}}', 'until': TERMINAL},
+        {'method': 'POST', 'path': f'{_SR}/jobs/{{5}}/cancel'},
+        {'method': 'GET', 'path': '/api/design-evaluation/jobs/{6}', 'until': TERMINAL},
+        {'method': 'POST', 'path': f'{_SR}/jobs', 'body': r['fail']},
+        {'method': 'GET', 'path': f'{_SR}/jobs/{{8}}', 'until': TERMINAL},
+        {'method': 'POST', 'path': f'{_SR}/jobs', 'body': r['stale']},
+        {'method': 'GET', 'path': f'{_SR}/jobs/{{9}}', 'until': TERMINAL},
+        # Receipts without a saved result, of another kind or unknown, and the community routes' 404s.
+        {'method': 'GET', 'path': f'{_CR}/{{8}}/result'},
+        {'method': 'GET', 'path': f'{_CR}/{{7}}/result'},
+        {'method': 'GET', 'path': f'{_CR}/{{5}}/result'},
+        {'method': 'GET', 'path': f'{_CR}/{{6}}/result'},
+        {'method': 'GET', 'path': f'{_CR}/{_UNKNOWN}/result'},
+        {'method': 'GET', 'path': f'{_CR}/not-a-receipt/result'},
+        {'method': 'GET', 'path': f'{_CR}/{{0}}'},
+        {'method': 'POST', 'path': _CR},
+        {'method': 'POST', 'path': f'{_CR}/{{0}}/result'},
+        {'method': 'GET', 'path': _CR},
+        # Refusals: the parent's checks, the request format, the body rules, the token, the routes.
+        {'method': 'POST', 'path': f'{_SR}/jobs', 'body': v1(ids['missing'])},
+        {'method': 'POST', 'path': f'{_SR}/lookup', 'body': v1(ids['historical'])},
+        {'method': 'POST', 'path': f'{_SR}/jobs', 'body': v1(ids['design'])},
+        {'method': 'POST', 'path': f'{_SR}/jobs', 'body': v1(ids['cache-prior'])},
+        {'method': 'POST', 'path': f'{_SR}/jobs', 'body': single(ids['missing'])},
+        {'method': 'POST', 'path': f'{_SR}/lookup', 'body': single(ids['cache-spatial'])},
+        {'method': 'POST', 'path': f'{_SR}/jobs', 'body': multi(ids['cache'], definition=False)},
+        {'method': 'POST', 'path': f'{_SR}/jobs', 'body': {**a, 'ar': 90}},
+        {'method': 'POST', 'path': f'{_SR}/jobs', 'body': {**r['single'], 'source_index': 256}},
+        {'method': 'POST', 'path': f'{_SR}/jobs', 'body': None},
+        {'method': 'POST', 'path': f'{_SR}/jobs', 'raw': padded(a, 4096)},
+        {'method': 'POST', 'path': f'{_SR}/lookup', 'raw': padded(a, 4097)},
+        {'method': 'POST', 'path': f'{_SR}/jobs', 'raw': '{}', 'type': 'text/plain'},
+        {'method': 'POST', 'path': f'{_SR}/jobs', 'raw': '{"record_id":'},
+        {'method': 'POST', 'path': f'{_SR}/jobs', 'body': a, 'token': False},
+        {'method': 'POST', 'path': f'{_SR}/jobs/{{0}}/cancel', 'token': False},
+        {'method': 'POST', 'path': f'{_SR}/jobs/{{0}}/cancel'},
+        {'method': 'GET', 'path': f'{_SR}/jobs/{_UNKNOWN}'},
+        {'method': 'POST', 'path': f'{_SR}/jobs/{_UNKNOWN}/cancel'},
+        {'method': 'GET', 'path': f'{_SR}/jobs/not-a-receipt'},
+        {'method': 'GET', 'path': f'{_SR}/other'},
+        {'method': 'GET', 'path': f'{_SR}/jobs'},
+        {'method': 'POST', 'path': f'{_SR}/jobs/{{0}}'},
+        {'method': 'POST', 'path': f'{_SR}/catalog'},
+        {'method': 'GET', 'path': f'{_SR}/jobs/{{6}}'},
+        {'method': 'GET', 'path': '/api/design-evaluation/jobs/{0}'},
+        # The catalog worker fails: computeMiddleware's 500.
+        {'method': 'FILE', 'path': 'stub/catalog.txt', 'text': 'exit:3'},
+        {'method': 'GET', 'path': f'{_SR}/catalog'},
+        {'method': 'FILE', 'path': 'stub/catalog.txt', 'text': jsjson.stringify({**CATALOG, 'sources': []})},
+        {'method': 'GET', 'path': f'{_SR}/catalog'},
+        {'method': 'FILE', 'path': 'stub/catalog.txt', 'text': jsjson.stringify(CATALOG)},
+        {'method': 'GET', 'path': f'{_SR}/catalog'},
+        # The saved result of {0} fails its checks, then is gone; the receipt's view keeps the result it holds.
+        {'method': 'FILE', 'path': f'{SOURCE_JOBS}/{{k0}}/cache.json', 'text': 'not json'},
+        {'method': 'GET', 'path': f'{_CR}/{{0}}/result'},
+        {'method': 'POST', 'path': f'{_SR}/lookup', 'body': a},
+        {'method': 'FILE', 'path': f'{SOURCE_JOBS}/{{k0}}/cache.json', 'text': _TAMPERED},
+        {'method': 'GET', 'path': f'{_CR}/{{0}}/result'},
+        {'method': 'FILE', 'path': f'{SOURCE_JOBS}/{{k0}}/cache.json', 'text': None},
+        {'method': 'GET', 'path': f'{_CR}/{{0}}/result'},
+        {'method': 'GET', 'path': f'{_SR}/jobs/{{0}}'},
+        {'method': 'GET', 'path': _CR},
+        # The worker changes the reception code: the run fails, the cached receipt's view is stale, and its
+        # original download is still served.
+        {'method': 'POST', 'path': f'{_SR}/jobs', 'body': r['change']},
+        {'method': 'GET', 'path': f'{_SR}/jobs/{{10}}', 'until': TERMINAL},
+        {'method': 'GET', 'path': f'{_SR}/jobs/{{1}}'},
+        {'method': 'GET', 'path': f'{_CR}/{{1}}/result'},
+        {'method': 'POST', 'path': f'{_SR}/lookup', 'body': r['stored']},
+        {'method': 'GET', 'path': f'{_SR}/health'},
+        {'method': 'GET', 'path': '/api/community/status'},
+    ]
 
 
 # --- Parity with Node's composed service --------------------------------------------------------------------------
@@ -714,6 +963,48 @@ def masked(answers: list[dict], token: str) -> list[dict]:
     return out
 
 
+_RESULT = '"result":'
+
+
+def _briefed(text: str) -> str:
+    """``text`` with each ``"result"`` member whose value is an object or array longer than ``BRIEF`` characters
+    replaced by ``"sha256:<hex of its exact text>"``: a signal result is about 1 MB, which the port of
+    ``JSON.stringify`` takes about a second to write again, and it holds no id or time to mask."""
+    if len(text) <= BRIEF:
+        return text
+    decoder = json.JSONDecoder()
+    out: list[str] = []
+    at = 0
+    while True:
+        index = text.find(_RESULT, at)
+        if index < 0:
+            break
+        start = index + len(_RESULT)
+        out.append(text[at:start])
+        at = start
+        if text[start:start + 1] not in ('{', '['):
+            continue
+        end = decoder.raw_decode(text, start)[1]
+        span = text[start:end]
+        out.append('"sha256:' + hashlib.sha256(span.encode('utf-8')).hexdigest() + '"' if len(span) > BRIEF
+                   else span)
+        at = end
+    out.append(text[at:])
+    return ''.join(out)
+
+
+def reception_masked(answers: list[dict], token: str, node: bool = False) -> list[dict]:
+    """``masked`` of answers that may carry signal results (``_briefed``); ``node`` reads Node's records scope,
+    one browser's (``current_browser``), as the workspace's."""
+    out = []
+    for answer in answers:
+        body = answer['body']
+        if node:
+            body = body.replace('"scope":"current_browser"', '"scope":"workspace"', 1)
+        out.append({**answer, 'body': _briefed(body)})
+    return masked(out, token)
+
+
 def masked_tree(tree: dict[str, str]) -> dict[str, str]:
     """A record tree with batch and job ids and times masked; keys are kept."""
     ids: list[str] = []
@@ -778,12 +1069,21 @@ def run_python(root: Path, workspace: Path, steps: list[dict] = STEPS) -> dict:
     """The same steps through the Python application, as the driver sends them: ``{N}`` is the N-th distinct id
     in the bodies so far (``{aN}`` the N-th annotation id, ``{kN}`` the N-th key), POSTs carry the CSRF token unless
     the step says ``token: false``, a step with ``chunks`` sends its body one byte at a time, a step with ``until``
-    is repeated until its job reaches one of those statuses (with ``progress``, a progress above 0)."""
+    is repeated until its job reaches one of those statuses (with ``progress``, a progress above 0), and a ``FILE``
+    step writes ``text`` to its path below the root (removes the file when ``text`` is ``None``)."""
     answers: list[dict] = []
     seen: dict[str, list[str]] = {'': [], 'a': [], 'k': []}
     with serving(root, workspace, csrf=False) as (app, client):
         for step in steps:
             target = _target(step['path'], seen)
+            if step['method'] == 'FILE':
+                path = Path(root) / target
+                if step['text'] is None:
+                    path.unlink()
+                else:
+                    path.write_bytes(_target(step['text'], seen).encode('utf-8'))
+                answers.append({'method': 'FILE', 'path': step['path'], 'status': 0, 'type': None, 'body': ''})
+                continue
             headers = {}
             if step['method'] == 'POST':
                 headers['content-type'] = step.get('type', 'application/json')
@@ -812,5 +1112,5 @@ def run_python(root: Path, workspace: Path, steps: list[dict] = STEPS) -> dict:
             answers.append({'method': step['method'], 'path': step['path'], 'status': status, 'type': kind,
                             'body': body})
     return {'answers': answers, 'token': TOKENS.csrf, 'tree': jobs_tree(root), 'queue': queue_file(workspace),
-            'design_tree': design_tree(root), 'editor_tree': editor_tree(root),
+            'design_tree': design_tree(root), 'editor_tree': editor_tree(root), 'reception_tree': reception_tree(root),
             'annotations': annotation_tree(workspace / WORKSPACE_ANNOTATIONS)}

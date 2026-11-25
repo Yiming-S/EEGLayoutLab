@@ -164,7 +164,9 @@ Source requests reject unknown fields, mixed source selectors, arbitrary
 coordinates and direction overrides. The optional atlas definition stays in the
 request identity. Existing source normalization and result validation are shared
 by the service through `webapp/server/contracts/source-reception.mjs`; old module
-exports remain available.
+exports remain available. The HTTP rules of both versions are the
+`source-reception` format of `eeglayoutlab.schemas`, which also gives Node's
+rejection messages.
 
 The design object uses `schema: eeg-electrode-design/1`,
 `coordinate_system: ernie_native_mm`, and `unit: mm`. It contains 64 distinct

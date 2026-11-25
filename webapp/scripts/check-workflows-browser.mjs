@@ -4,9 +4,16 @@ import { chromium } from 'playwright';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { translateText } from '../lib/i18n/core.ts';
+import { openServiceSession, playwrightCookies } from './helpers/service-session.mjs';
 
-const base = process.env.EEG_TEST_URL || 'http://127.0.0.1:4317';
+// The isolated Node host at EEG_TEST_URL, or the Python service (eeglayoutlab serve, on a copy of the
+// installation): with EEG_SERVICE_RUNTIME (its <workspace>/.eeglayoutlab/runtime.json) or EEG_SERVICE_TOKEN and
+// EEG_TEST_URL, the browser holds its session cookie. The signal-simulation steps run on both from slice 7.
+const service = process.env.EEG_SERVICE_RUNTIME || process.env.EEG_SERVICE_TOKEN
+  ? await openServiceSession({ base: process.env.EEG_TEST_URL }) : null;
+const base = service?.base || process.env.EEG_TEST_URL || 'http://127.0.0.1:4317';
 const origin = new URL(base);
+const sessionCookies = service ? playwrightCookies(service) : [];
 assert.ok(origin.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(origin.hostname) && origin.port !== '3000', 'Use an explicit isolated loopback server, never the working app.');
 const project = resolve(import.meta.dirname, '../..');
 const output = process.env.EEG_QA_OUTPUT || join(project, 'artifacts/web-refactor/2026-11-13/workflows-browser');
@@ -70,7 +77,7 @@ try {
   browser = await chromium.launch({ headless: true, executablePath: process.env.EEG_BROWSER_EXECUTABLE || undefined,
     args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   context = await browser.newContext({ viewport: { width: 1440, height: 1100 }, acceptDownloads: true });
-  await context.addCookies([{ name: 'eeg-layout-language', value: 'en', url: origin.origin }]);
+  await context.addCookies([{ name: 'eeg-layout-language', value: 'en', url: origin.origin }, ...sessionCookies]);
   page = await context.newPage(); observe(page);
   const records = (await read('/api/local-compute/library')).records;
   const radius = records.find(r => r.dataset_id === 'cache' && r.compatible && r.request?.region_count === 2 && r.request?.radius_mm === 35 && r.request?.mask_codes?.join(',') === 'AL,AR');
@@ -105,7 +112,7 @@ try {
 
   await check('Chinese findings, layout list and draft controls retain their localized labels and AR', async () => {
     const zh = await browser.newContext({ viewport: { width: 1440, height: 1050 } });
-    await zh.addCookies([{ name: 'eeg-layout-language', value: 'zh-CN', url: origin.origin }]);
+    await zh.addCookies([{ name: 'eeg-layout-language', value: 'zh-CN', url: origin.origin }, ...sessionCookies]);
     const target = await zh.newPage(); observe(target);
     try {
       await target.goto(base + '/findings?ar=39&r=2&area=120', { waitUntil: 'networkidle' });

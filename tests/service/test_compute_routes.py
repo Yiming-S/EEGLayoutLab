@@ -1,6 +1,7 @@
-"""The job routes (``eeglayoutlab.server.routes.compute`` and ``.community``, phase 2 slices 4 to 6) end to end:
-the application with its lifespan, the workspace queue, the radius search, the coordinate evaluation and the
-electrode editor on synthetic roots whose workers are fakes (tests/service/compute_support.py), over HTTP.
+"""The job routes (``eeglayoutlab.server.routes.compute`` and ``.community``, phase 2 slices 4 to 7) end to end:
+the application with its lifespan, the workspace queue, the radius search, the coordinate evaluation, the electrode
+editor and signal reception on synthetic roots whose workers are fakes (tests/service/compute_support.py), over
+HTTP.
 
 - A submission is queued (202), dispatched, run by the worker and polled to its result; asked again it is the
   stored result's receipt (Node's ``{hit: true, job}``), and the library lists the new record.
@@ -15,7 +16,7 @@ electrode editor on synthetic roots whose workers are fakes (tests/service/compu
 - Restart: a second application on the same workspace fails the interrupted receipt, runs the queued one, promotes
   a receipt whose result was stored, and an unconfirmed spawn blocks dispatch until ``--clear-interrupted``.
 - Node's body limits per kind, media type and JSON checks, the CSRF token of writes, the view's query rules,
-  unknown receipts and the 404 of unwired kinds.
+  unknown receipts and receipts of another kind.
 - Parity: the same steps against Node's composed service (``createLocalComputeService``) on the same root, with the
   same fake worker, give the same statuses and bodies (ids, times and the token masked, Node's ``online_visitors``
   dropped) and the same record tree under ``R/results/v2/local_app_jobs``; on a root whose ``results`` is a link
@@ -43,9 +44,26 @@ electrode editor on synthetic roots whose workers are fakes (tests/service/compu
   Node's shares ``queue.library``. Parity: ``editor_steps`` on Node's composed service and here give the same answers
   and the same records under ``R/results/v2/electrode_editor_jobs`` and ``design_evaluation_jobs``, and an edit whose
   parent changed while it waited fails at dispatch with Node's message.
+- Signal reception (``/api/source-reception``, on the stand-in workers of reception_support): v1 and v2 requests run
+  to their results and are records of the workspace (``/api/community/records``, newest first, bounded catalog
+  metadata, no waveforms), whose original downloads are ``/api/community/records/<id>/result``; asked again each is
+  the stored receipt. A lookup miss writes nothing; a stored result neither host computed is one cached receipt,
+  whose cancel answers its view, written off the event loop. Reception shares the queue and the slot with the
+  coordinate evaluation: a running reception holds a queued evaluation back until it is cancelled; identical
+  requests join; a worker failure, a result for another request and a code change during the run fail with Node's
+  messages and store nothing. A code change after close turns
+  the view of a stored receipt failed while its original download is still served; a saved result that is gone or
+  fails its checks answers Node's status and message. A restart fails the interrupted reception and promotes one
+  whose result was stored, with the stored finish time and the parent's catalog, not one whose record names
+  another identity. The catalog is the v2 worker's (a failure is Node's 500 ``计算记录无法读取``); ``stop_soon``
+  and ``--cache-only`` reach reception; its body limit is 4,096 bytes; CSRF; Node's 404s. Parity:
+  ``reception_steps`` on Node's composed service and here give the same answers (each saved result compared by its
+  digest, Node's records scope read as the workspace's) and the same records under
+  ``R/results/v2/source_reception_jobs``, ``source_reception_v2_jobs`` and ``design_evaluation_jobs``.
 """
 from __future__ import annotations
 
+import copy
 import logging
 import os
 from pathlib import Path
@@ -68,15 +86,17 @@ from eeglayoutlab.jobs.radius import WORKER_SCRIPT  # noqa: E402
 from eeglayoutlab.schemas import jsjson  # noqa: E402
 
 from .compute_support import (  # noqa: E402
-    CHANGED_INPUT, DESIGN_JOBS, DESIGN_REQUESTS, DESIGN_STEPS, NODE_ANNOTATIONS, REQUESTS, SOURCE, STORED_AT,
-    TERMINAL, WORKSPACE_ANNOTATIONS, annotation_tree, cache_digests, chunked, compute_root, design_compute_root,
-    design_key, design_tree, design_view, editor_compute_root, editor_context, editor_key, editor_steps, editor_tree,
-    envelope, json_body, jobs_tree, key_of, masked, masked_tree, names, padded, poll, post, queue_file, run_node,
-    run_python, serving, stored_edit, wait_for, write_queue,
+    CHANGED_INPUT, DESIGN_JOBS, DESIGN_REQUESTS, DESIGN_STEPS, NODE_ANNOTATIONS, RECEPTION_CHANGED, REQUESTS, SOURCE,
+    STORED_AT, TERMINAL, WORKSPACE_ANNOTATIONS, annotation_tree, briefed_tree, cache_digests, chunked, compute_root,
+    design_compute_root, design_key, design_tree, design_view, editor_compute_root, editor_context, editor_key,
+    editor_steps, editor_tree, envelope, json_body, jobs_tree, key_of, masked, masked_tree, names, padded, poll, post,
+    queue_file, reception_compute_root, reception_context, reception_key, reception_masked, reception_steps,
+    reception_tree, run_node, run_python, serving, stored_edit, stored_reception, wait_for, write_queue,
 )
 from .editor_support import EDITOR_CODE, EDITOR_JOBS, REPORT, STALE, evaluate, prepare, tampered_report  # noqa: E402
 from .key_parity_support import EDITOR_ACCEPTED  # noqa: E402
 from .library_support import radius_result, write, write_cache  # noqa: E402
+from .reception_support import SOURCE_JOBS, SOURCE_V2_JOBS  # noqa: E402
 
 LOOKUP = '/api/local-compute/lookup'
 JOBS = '/api/local-compute/jobs'
@@ -346,6 +366,14 @@ def test_the_services_share_one_record_store_and_one_execution_slot(site):
         # The coordinate evaluation runs under the same slot into the same store; its names go to W.
         assert compute.design.execution_slot is compute.slot and compute.design.store is compute.radius.store
         assert compute.queue.annotations is compute.annotations
+        # So does signal reception, which reads its layouts through the library routes' library: v2 and the
+        # catalog under the native interpreter, v1 under the radius search's.
+        reception = compute.reception
+        assert reception.execution_slot is compute.slot and reception.store is compute.radius.store
+        assert reception.library.factory() is library
+        runtime = compute.runtime()
+        assert (reception.python, reception.compute_python) == (runtime.native_python, runtime.python)
+        assert compute.queue.adapters['source-reception'].service is reception
         assert compute.slot.paused and not compute.slot.busy
         assert error(post(client, JOBS, REQUESTS['done'])) == (503, MAINTENANCE, 'service_unavailable')
         assert queue_file(workspace)['schema'] == 'eeglayoutlab-queue/1'
@@ -523,7 +551,7 @@ def test_writes_need_the_csrf_token(site):
     assert queue_file(workspace)['tasks'] == []
 
 
-def test_unknown_receipts_queries_and_unwired_kinds(site):
+def test_unknown_receipts_queries_and_receipts_of_other_kinds(site):
     root, workspace, _ = site
     with serving(root, workspace) as (app, client):
         id = json_body(post(client, JOBS, REQUESTS['none']))['job']['id']
@@ -540,13 +568,9 @@ def test_unknown_receipts_queries_and_unwired_kinds(site):
         assert error(client.get(f'{JOBS}/not-an-id'))[1:] == ('未知计算接口', 'not_found')
         assert error(client.get(JOBS))[1] == 'Unknown queue endpoint'
         assert error(client.post(f'{JOBS}/{id}'))[1] == 'Unknown queue endpoint'
-        # A kind without an adapter (slice 7) is an unknown endpoint before any body is read.
-        assert error(post(client, '/api/source-reception/jobs', 'x' * 100000)) == (
-            404, 'Unknown queue endpoint', 'not_found')
-        assert error(client.get(f'/api/source-reception/jobs/{id}'))[1] == 'Unknown queue endpoint'
-        # The coordinate evaluation and the editor read their bodies (65,536 and 32,768 bytes at most) and see only
-        # their own receipts.
-        for kind in ('design-evaluation', 'electrode-editor'):
+        # The other kinds read their bodies (65,536, 32,768 and 4,096 bytes at most) and see only their own
+        # receipts.
+        for kind in ('design-evaluation', 'electrode-editor', 'source-reception'):
             assert error(post(client, f'/api/{kind}/jobs', 'x' * 100000)) == (413, '配置过大', 'request_too_large')
             assert error(client.get(f'/api/{kind}/jobs/{id}')) == (404, NOT_FOUND, 'not_found')
             assert error(post(client, f'/api/{kind}/jobs/{id}/cancel')) == (404, NOT_FOUND, 'not_found')
@@ -1502,3 +1526,481 @@ def test_the_editor_routes_answer_and_write_as_node_does(tmp_path):
     statuses = [answer['status'] for answer in actual]
     assert {200, 202, 400, 403, 404, 413, 415} <= set(statuses)
     assert sum(path.endswith('/cache.json') for path in node_editor) == 6
+
+
+# --- Signal reception -------------------------------------------------------------------------------------------------
+
+RECEPTION = '/api/source-reception'
+RECEPTION_JOBS = f'{RECEPTION}/jobs'
+RECEPTION_LOOKUP = f'{RECEPTION}/lookup'
+RECORDS = '/api/community/records'
+COMPLETED = '源—接收对照已计算并保存'
+HIT = '已读取同一源、布局和干扰条件的已有结果'
+WORKER_FAILED = '源实验未完成；错误记录已保存，没有替换为旧分数'
+CHANGED_DURING_RUN = '结果校验失败：计算期间模型、源代码或原始布局已变化'
+SAVED_MISSING = '计算记录无法读取，请重新提交'
+
+
+@pytest.fixture
+def reception_site(tmp_path):
+    """A reception root (``reception_compute_root``: parents of every kind, the stand-in workers of both reception
+    versions and of the coordinate evaluation, the plan and a stored v1 result), its real path and a workspace."""
+    built = reception_compute_root(tmp_path / 'reception')
+    workspace = tmp_path / 'workspace'
+    workspace.mkdir()
+    return built, Path(built['root']), workspace
+
+
+def submit_reception(client: Any, body: Any) -> dict:
+    answer = post(client, RECEPTION_JOBS, body)
+    assert answer.status_code == 202, answer.text
+    return json_body(answer)
+
+
+def poll_reception(client: Any, id: str, statuses: tuple[str, ...] = TERMINAL) -> dict:
+    return poll(client, id, statuses, kind='source-reception')
+
+
+def record_ids(client: Any) -> list[str]:
+    return [record['id'] for record in json_body(client.get(RECORDS))['records']]
+
+
+def test_a_reception_runs_to_its_result_and_is_a_record_of_the_workspace(reception_site):
+    """check-source-reception-live.mjs's flow on the stand-in workers: a v1 and a v2 request run to their results,
+    stored under their kind's record tree; asked again each is the stored receipt. ``/api/community/records`` lists
+    them newest first with their catalog (the parent's label, counts and masks, the protocol and the conditions'
+    scores: under 1 KiB, no waveforms), and ``/api/community/records/<id>/result`` is each receipt's saved result."""
+    from eeglayoutlab.jobs.queue import RECORDS_SCHEMA
+
+    built, root, workspace = reception_site
+    r, ids = built['requests'], built['ids']
+    with serving(root, workspace) as (app, client):
+        assert json_body(client.get(RECORDS)) == {'schema': RECORDS_SCHEMA, 'scope': 'workspace',
+                                                  'receipt_limit': 1000, 'records': []}
+        job = submit_reception(client, r['v1'])['job']
+        assert (job['kind'], job['status'], job['message']) == ('source-reception', 'queued', '已加入计算队列')
+        done = poll_reception(client, job['id'])
+        assert (done['status'], done['message'], done['cached'], done['progress']) == ('completed', COMPLETED,
+                                                                                        False, 1)
+        assert done['result']['schema_version'] == 'source-reception/1' and done['result']['request'] == r['v1']
+        assert done['key'] == reception_key(root, r['v1'])
+        assert (root / SOURCE_JOBS / done['key'] / 'cache.json').is_file()
+        v2 = poll_reception(client, submit_reception(client, r['single'])['job']['id'])
+        assert (v2['status'], v2['result']['schema_version']) == ('completed', 'source-reception/2')
+        assert (root / SOURCE_V2_JOBS / v2['key'] / 'cache.json').is_file()
+        again = submit_reception(client, r['v1'])
+        assert again['hit'] is True and again['job']['id'] == job['id']
+        assert (again['job']['message'], again['job']['result']) == (HIT, done['result'])
+        listed = json_body(client.get(RECORDS))
+        assert [record['id'] for record in listed['records']] == [v2['id'], job['id']]
+        text = jsjson.stringify(listed)
+        assert 'waveforms' not in text and 'result' not in listed['records'][0]
+        catalog = listed['records'][1]['catalog']
+        assert len(jsjson.stringify(catalog)) < 1024
+        assert {name: catalog[name] for name in ('parent_label', 'region_count', 'mask_codes', 'location_mode',
+                                                 'electrode_count', 'parent_id', 'protocol')} == {
+            **parent_catalog(client, ids['cache']), 'parent_id': ids['cache'], 'protocol': 'source-reception/1'}
+        assert [row['condition'] for row in catalog['conditions']] == ['clean', 'ecg', 'eog', 'mixed']
+        assert listed['records'][0]['catalog']['protocol'] == 'source-reception/2'
+        for receipt in (done, v2):
+            saved = client.get(f'{RECORDS}/{receipt["id"]}/result')
+            assert saved.status_code == 200 and json_body(saved) == {'result': receipt['result']}
+
+
+def test_a_reception_lookup_miss_writes_nothing_and_a_stored_result_is_one_cached_receipt(reception_site):
+    """check-local-data-library.mjs:121 for signal reception: lookups of every version and mode miss without a
+    record, a lock or a receipt; the stored result neither host computed is one cached receipt with the stored
+    finish time, which later lookups and submits reuse. Nothing is written under the record trees."""
+    built, root, workspace = reception_site
+    r, stored = built['requests'], built['stored']
+    before = reception_tree(root)
+    with serving(root, workspace) as (app, client):
+        for name in ('v1', 'single', 'multi', 'cross', 'hold'):
+            assert json_body(post(client, RECEPTION_LOOKUP, r[name])) == {'hit': False}
+        assert queue_file(workspace)['tasks'] == [] and record_ids(client) == []
+        assert reception_tree(root) == before and not (root / LOCK).exists()
+        first = json_body(post(client, RECEPTION_LOOKUP, r['stored']))
+        job = first['job']
+        assert first['hit'] is True
+        assert (job['status'], job['cached'], job['message'], job['finished_at'], job['key']) == (
+            'completed', True, HIT, STORED_AT, stored)
+        again = submit_reception(client, r['stored'])
+        assert again['hit'] is True and again['job']['id'] == job['id']
+        assert json_body(post(client, RECEPTION_LOOKUP, r['stored']))['job']['id'] == job['id']
+        assert [(task['id'], task['status'], task['cached']) for task in queue_file(workspace)['tasks']] == [
+            (job['id'], 'completed', True)]
+        view = json_body(client.get(f'{RECEPTION_JOBS}/{job["id"]}'))['job']
+        assert (view['status'], view['result']) == ('completed', job['result'])
+        assert record_ids(client) == [job['id']]
+        assert json_body(client.get(f'{RECORDS}/{job["id"]}/result')) == {'result': job['result']}
+    assert reception_tree(root) == before and not (root / LOCK).exists()
+
+
+def test_a_cancel_of_a_finished_receipt_is_its_view_written_off_the_event_loop(reception_site, monkeypatch):
+    """A cancel of a receipt that is no longer pending answers its view (Node's ``cancel``), which for a completed
+    signal receipt holds the whole result: that answer is written in a worker thread, as views and submit answers
+    are, so health and polling keep answering meanwhile."""
+    import asyncio
+
+    from eeglayoutlab.server.routes import compute
+
+    built, root, workspace = reception_site
+    write_answer, on_loop = compute.json_response, []
+
+    def spy(status: int, value: Any) -> Any:
+        try:
+            asyncio.get_running_loop()
+            on_loop.append(True)
+        except RuntimeError:  # a worker thread runs no event loop
+            on_loop.append(False)
+        return write_answer(status, value)
+
+    with serving(root, workspace) as (app, client):
+        job = submit_reception(client, built['requests']['stored'])['job']
+        view = json_body(client.get(f'{RECEPTION_JOBS}/{job["id"]}'))
+        monkeypatch.setattr(compute, 'json_response', spy)
+        answer = post(client, f'{RECEPTION_JOBS}/{job["id"]}/cancel')
+        assert answer.status_code == 202 and on_loop == [False]
+        assert json_body(answer) == view and view['job']['status'] == 'completed' and view['job']['result']
+
+
+def test_reception_shares_the_queue_and_the_slot_with_the_coordinate_evaluation(reception_site):
+    """A running reception is the health's active job and holds a coordinate evaluation and another reception
+    queued; an identical request joins it. Cancelled while queued, a receipt never runs; the running worker stops,
+    and then the evaluation runs. A worker failure and a result for another request fail with Node's messages, and
+    no failed or stopped run is stored."""
+    built, root, workspace = reception_site
+    r = built['requests']
+    with serving(root, workspace) as (app, client):
+        held = submit_reception(client, r['hold'])['job']
+        wait_for(lambda: poll_reception(client, held['id'], ('running',))['progress'] == 0.25)
+        active = json_body(client.get(f'{RECEPTION}/health'))['active_job']
+        assert (active['id'], active['status'], 'result' in active) == (held['id'], 'running', False)
+        assert submit_reception(client, r['hold'])['job']['id'] == held['id']
+        design = json_body(post(client, '/api/design-evaluation/jobs', DESIGN_REQUESTS['done']))['job']
+        queued = submit_reception(client, r['fail'])['job']
+        assert (design['status'], queued['status'], queued['queue_position']) == ('queued', 'queued', 2)
+        status = json_body(client.get('/api/community/status'))
+        assert (status['running_tasks'], status['queued_tasks']) == (1, 2)
+        time.sleep(0.3)  # the dispatcher has every chance to start the evaluation, and must not
+        assert poll(client, design['id'], ('queued',), kind='design-evaluation')['status'] == 'queued'
+        cancelled = json_body(post(client, f'{RECEPTION_JOBS}/{queued["id"]}/cancel'))['job']
+        assert cancelled['status'] == 'cancelled'
+        stopping = json_body(post(client, f'{RECEPTION_JOBS}/{held["id"]}/cancel'))['job']
+        assert (stopping['status'], stopping['message']) == ('cancelling', '正在停止源实验')
+        stopped = poll_reception(client, held['id'])
+        assert (stopped['status'], stopped['message'], stopped['result']) == (
+            'cancelled', '计算已停止；没有缓存未完成结果', None)
+        assert poll(client, design['id'], kind='design-evaluation')['status'] == 'completed'
+        failed = poll_reception(client, submit_reception(client, r['fail'])['job']['id'])
+        assert (failed['status'], failed['message'], failed['result']) == ('failed', WORKER_FAILED, None)
+        stale = poll_reception(client, submit_reception(client, r['stale'])['job']['id'])
+        assert (stale['status'], stale['message']) == ('failed', '结果校验失败：源实验结果身份不一致')
+        assert json_body(client.get(f'{RECEPTION}/health'))['active_job'] is None
+        assert record_ids(client) == []
+    for key in (held['key'], queued['key'], stale['key']):
+        assert not (root / SOURCE_JOBS / key / 'cache.json').exists()
+
+
+def test_a_reception_whose_identity_changed_is_not_served_but_its_original_download_is(reception_site):
+    """A code change while the worker runs fails the run with Node's message and stores nothing. After the service
+    no longer holds the job, a receipt's view prepares its request again: the computed and the cached receipt then
+    ask for a new submission and their lookups miss, while their original downloads are still the saved results
+    (check-community-queue.mjs:212 over HTTP)."""
+    from eeglayoutlab.jobs.queue import VIEW_KEY_CHANGED
+
+    built, root, workspace = reception_site
+    r = built['requests']
+    with serving(root, workspace) as (app, client):
+        computed = poll_reception(client, submit_reception(client, r['v1'])['job']['id'])
+        cached = submit_reception(client, r['stored'])['job']
+        changed = poll_reception(client, submit_reception(client, r['change'])['job']['id'])
+        assert (changed['status'], changed['message'], changed['result']) == ('failed', CHANGED_DURING_RUN, None)
+        assert (root / RECEPTION_CHANGED).read_text(encoding='utf-8').endswith('# changed during the run\n')
+        assert not (root / SOURCE_JOBS / changed['key'] / 'cache.json').exists()
+        # The service still holds the computed job: its view is the result it holds.
+        assert json_body(client.get(f'{RECEPTION_JOBS}/{computed["id"]}'))['job']['result'] == computed['result']
+    with serving(root, workspace) as (app, client):
+        for receipt in (computed, cached):
+            view = json_body(client.get(f'{RECEPTION_JOBS}/{receipt["id"]}'))['job']
+            assert (view['status'], view['message'], view['result']) == ('failed', VIEW_KEY_CHANGED, None)
+            assert json_body(client.get(f'{RECORDS}/{receipt["id"]}/result')) == {'result': receipt['result']}
+        for name in ('v1', 'stored'):
+            assert json_body(post(client, RECEPTION_LOOKUP, r[name])) == {'hit': False}
+        assert record_ids(client) == [cached['id'], computed['id']]
+
+
+def test_a_saved_result_that_is_gone_or_fails_its_checks_answers_nodes_status_and_message(reception_site, caplog):
+    """``/api/community/records/<id>/result`` reads the record as Node's ``savedResult`` does: text that is not JSON,
+    a checksum or key that does not match, a v2 identity without its layout, an invalid saved layout, a record over
+    32 MiB and a missing record are each Node's 400 and message; an unreadable record (not for the superuser) is
+    its 500. An unknown receipt, one of another kind and one without a saved result are Node's 404s; other paths
+    under ``/api/community/`` are ``Unknown community endpoint``."""
+    import re as regex
+
+    from eeglayoutlab.jobs.reception import CACHE_LIMIT, _hash
+    from eeglayoutlab.server.app import INTERNAL_MESSAGE
+
+    built, root, workspace = reception_site
+    r = built['requests']
+    with serving(root, workspace) as (app, client):
+        computed = poll_reception(client, submit_reception(client, r['single'])['job']['id'])
+        failed = poll_reception(client, submit_reception(client, r['fail'])['job']['id'])
+        design = poll(client, json_body(post(client, '/api/design-evaluation/jobs', DESIGN_REQUESTS['done']))['job']
+                      ['id'], kind='design-evaluation')
+        url = f'{RECORDS}/{computed["id"]}/result'
+        path = root / SOURCE_V2_JOBS / computed['key'] / 'cache.json'
+        text = path.read_text(encoding='utf-8')
+        cache = jsjson.parse(text)
+        assert json_body(client.get(url)) == {'result': computed['result']}
+        no_layout = {**cache, 'identity': {name: value for name, value in cache['identity'].items()
+                                           if name != 'layout'}}
+        regions = copy.deepcopy(cache)
+        regions['result']['layout']['regionIndices'] = [i % 5 for i in range(64)]
+        regions['result_sha256'] = _hash(regions['result'])
+        cases = [
+            ('not json', NOT_JSON_MESSAGE),
+            (regex.sub(r'"result_sha256":"[a-f0-9]{64}"', '"result_sha256":"' + '0' * 64 + '"', text), TAMPERED),
+            (text.replace(computed['key'], 'f' * 64, 1), TAMPERED),
+            (jsjson.stringify(no_layout), TAMPERED),
+            (jsjson.stringify(regions), '保存的信号布局坐标或区域标签无效'),
+        ]
+        for body, message in cases:
+            path.write_text(body, encoding='utf-8')
+            assert error(client.get(url)) == (400, message, 'invalid_request'), message
+        path.write_text('x', encoding='utf-8')
+        os.truncate(path, CACHE_LIMIT + 1)
+        assert error(client.get(url)) == (400, '结果记录过大', 'invalid_request')
+        path.write_text(text, encoding='utf-8')
+        if os.geteuid() != 0:  # the superuser reads a file of mode 000
+            path.chmod(0o000)
+            try:
+                with caplog.at_level(logging.ERROR, logger='eeglayoutlab'):
+                    assert error(client.get(url)) == (500, INTERNAL_MESSAGE, 'internal_error')
+            finally:
+                path.chmod(0o600)
+        assert json_body(client.get(url)) == {'result': computed['result']}
+        path.unlink()
+        assert error(client.get(url)) == (400, SAVED_MISSING, 'invalid_request')
+        # The receipt's view still holds the result of the job the service ran.
+        assert json_body(client.get(f'{RECEPTION_JOBS}/{computed["id"]}'))['job']['result'] == computed['result']
+        assert error(client.get(f'{RECORDS}/{failed["id"]}/result')) == (404, SAVED_MISSING, 'not_found')
+        for id in (UNKNOWN_ID, design['id']):
+            assert error(client.get(f'{RECORDS}/{id}/result')) == (404, NOT_FOUND, 'not_found')
+        for target in (f'{RECORDS}/not-a-receipt/result', f'{RECORDS}/{computed["id"]}', f'{RECORDS}/',
+                       f'{RECORDS}/{computed["id"]}/result/'):
+            assert error(client.get(target)) == (404, 'Unknown community endpoint', 'not_found'), target
+        assert error(post(client, RECORDS, {})) == (404, 'Unknown community endpoint', 'not_found')
+        for target in (RECORDS, url):
+            assert client.get(target, headers={'origin': 'http://evil.example'}).status_code == 403
+
+
+NOT_JSON_MESSAGE = '请求内容不是有效的JSON'
+TAMPERED = '结果记录校验失败'
+
+
+def test_a_restart_fails_an_interrupted_reception_and_promotes_one_whose_result_was_stored(reception_site):
+    """Closing the service stops a running reception; the next instance fails its receipt with the interrupted
+    message. A receipt left running although its result was stored comes back completed and cached, with the
+    finish time Node's reconciliation takes from ``cache.json`` and the parent's catalog; one whose result was never
+    stored stays failed, and so does one whose v2 record is a lookup hit but names another identity than its key's.
+    Node's ``inspectReceipt`` refuses that one at its ``cache.identity`` comparison, before ``savedResult`` (which
+    would refuse it too: that identity does not give the key again), as ``stored_finish`` does; test_source's
+    ``stored_finish`` test pins the identity comparison alone."""
+    from eeglayoutlab.jobs.queue import group_alive
+    from eeglayoutlab.schemas.source_reception import normalize_reception_request
+
+    built, root, workspace = reception_site
+    r, ids, stored = built['requests'], built['ids'], built['stored']
+    with serving(root, workspace) as (app, client):
+        held = submit_reception(client, r['hold'])['job']
+        wait_for(lambda: poll_reception(client, held['id'], ('running',))['progress'] == 0.25)
+        pid = app.compute.reception.active_pid()
+        assert pid and group_alive(pid)
+    wait_for(lambda: not group_alive(pid))
+    state = queue_file(workspace)
+    assert [(task['id'], task['status']) for task in state['tasks']] == [(held['id'], 'running')]
+    context = reception_context(root, r['single'])
+    altered = stored_reception(root, r['single'], {**context['identity'], 'version': 'another model'})
+    assert altered == context['key']
+
+    def running(id: str, request: dict, key: str, sequence: int) -> dict:
+        return {'id': id, 'sequence': sequence, 'kind': 'source-reception', 'key': key, 'request': request,
+                'status': 'running', 'created_at': '2026-11-24T08:00:00.000Z', 'progress': 0.25, 'cached': False,
+                'catalog': {}, 'backend_id': f'{sequence}' * 8 + '-0000-4000-8000-000000000000'}
+
+    promoted_task = running('22222222-2222-4222-8222-222222222222', r['stored'], stored, 2)
+    lost = running('33333333-3333-4333-8333-333333333333', r['v1'], reception_key(root, r['v1']), 3)
+    # The queue's own form of the request, so the receipt passes the request and key checks and reaches the record's.
+    kept = running('44444444-4444-4444-8444-444444444444', normalize_reception_request(r['single']), altered, 4)
+    state['tasks'] += [promoted_task, lost, kept]
+    state['sequence'] = 4
+    write_queue(workspace, state)
+    with serving(root, workspace) as (app, client):
+        for id in (held['id'], lost['id'], kept['id']):
+            failed = poll_reception(client, id)
+            assert (failed['status'], failed['message']) == ('failed', INTERRUPTED_MESSAGE)
+        promoted = poll_reception(client, promoted_task['id'])
+        assert (promoted['status'], promoted['cached'], promoted['progress'], promoted['finished_at']) == (
+            'completed', True, 1, STORED_AT)
+        assert promoted['result']['request'] == r['stored']
+        catalog = promoted['catalog']
+        assert {name: catalog[name] for name in ('parent_label', 'region_count', 'mask_codes', 'location_mode',
+                                                 'electrode_count', 'parent_id', 'protocol')} == {
+            **parent_catalog(client, ids['strict']), 'parent_id': ids['strict'], 'protocol': 'source-reception/1'}
+        assert len(catalog['conditions']) == 4
+        assert record_ids(client) == [promoted_task['id']]
+        assert json_body(client.get(f'{RECORDS}/{promoted_task["id"]}/result')) == {'result': promoted['result']}
+        # The altered record is still a lookup hit: only the reconciliation checks the identity it names.
+        assert json_body(post(client, RECEPTION_LOOKUP, r['single']))['hit'] is True
+        again = submit_reception(client, r['hold'])['job']
+        assert again['id'] != held['id'] and again['status'] in ('queued', 'running')
+    tasks = {task['id']: task for task in queue_file(workspace)['tasks']}
+    assert 'backend_id' not in tasks[promoted_task['id']] and tasks[promoted_task['id']]['status'] == 'completed'
+
+
+def test_the_signal_catalog_is_the_v2_workers_and_a_failure_is_nodes_500(reception_site, caplog):
+    """``GET /api/source-reception/catalog`` prints the v2 worker's ``--catalog`` as it is checked; a worker that
+    fails or prints another schema is Node's 500 ``计算记录无法读取`` (computeMiddleware's catch), logged, and the next
+    request runs it again. Before the services start, the catalog and the records routes are Node's 404s."""
+    from .reception_support import CATALOG
+
+    built, root, workspace = reception_site
+    with serving(root, workspace, lifespan=False) as (app, client):
+        assert error(client.get(f'{RECEPTION}/catalog')) == (404, '未知源实验接口', 'not_found')
+        for target in (RECORDS, f'{RECORDS}/{UNKNOWN_ID}/result'):
+            assert error(client.get(target)) == (404, 'Unknown community endpoint', 'not_found')
+        assert error(post(client, RECEPTION_JOBS, built['requests']['v1'])) == (
+            404, 'Unknown queue endpoint', 'not_found')
+    with serving(root, workspace) as (app, client):
+        answer = client.get(f'{RECEPTION}/catalog')
+        assert answer.status_code == 200 and answer.text == jsjson.stringify(CATALOG)
+        catalog = root / 'stub/catalog.txt'
+        failures = ('exit:3', jsjson.stringify({**CATALOG, 'schema_version': 'source-catalog/0'}),
+                    jsjson.stringify({**CATALOG, 'sources': CATALOG['sources'][1:]}), 'null', '', '{')
+        with caplog.at_level(logging.ERROR, logger='eeglayoutlab'):
+            for text in failures:
+                catalog.write_text(text, encoding='utf-8')
+                assert error(client.get(f'{RECEPTION}/catalog')) == (500, '计算记录无法读取', 'internal_error'), text
+        assert sum('the signal catalog failed' in record.getMessage() for record in caplog.records) == len(failures)
+        catalog.write_text(jsjson.stringify(CATALOG), encoding='utf-8')
+        assert json_body(client.get(f'{RECEPTION}/catalog')) == CATALOG
+        assert error(post(client, f'{RECEPTION}/catalog', {})) == (404, '未知源实验接口', 'not_found')
+    assert queue_file(workspace)['tasks'] == []
+
+
+def test_stop_soon_and_cache_only_reach_signal_reception(reception_site):
+    """``ComputeHost.stop_soon`` stops a running reception's worker while the service answers, and nothing is stored
+    for it; under ``--cache-only`` the stored result is served and new receptions are refused."""
+    from eeglayoutlab.jobs.queue import group_alive
+
+    built, root, workspace = reception_site
+    r = built['requests']
+    with serving(root, workspace) as (app, client):
+        held = submit_reception(client, r['hold'])['job']
+        wait_for(lambda: poll_reception(client, held['id'], ('running',))['progress'] == 0.25)
+        pid = app.compute.reception.active_pid()
+        assert pid and group_alive(pid)
+        app.compute.stop_soon()
+        wait_for(lambda: not group_alive(pid))
+        assert app.compute.reception.disposed
+        assert json_body(client.get('/api/community/status'))['available'] is False
+    assert not (root / SOURCE_JOBS / held['key'] / 'cache.json').exists()
+    with serving(root, workspace, cache_only=True) as (app, client):
+        health = json_body(client.get(f'{RECEPTION}/health'))
+        assert (health['maintenance'], health['drained']) == (True, True)
+        assert submit_reception(client, r['stored'])['hit'] is True
+        assert error(post(client, RECEPTION_JOBS, r['v1'])) == (503, MAINTENANCE, 'service_unavailable')
+        assert json_body(post(client, RECEPTION_LOOKUP, r['v1'])) == {'hit': False}
+
+
+def test_reception_writes_need_the_csrf_token_and_fit_the_kind_limit(reception_site):
+    """Reception's writes carry the CSRF token; its body may take 4,096 bytes, not one more, and may arrive one byte
+    per chunk; v1 requests (without ``mode``) and v2's are accepted, a field of neither is Node's refusal; Node's 404s
+    under ``/api/source-reception``."""
+    built, root, workspace = reception_site
+    r = built['requests']
+    with serving(root, workspace, csrf=False) as (app, client):
+        for path in (RECEPTION_LOOKUP, RECEPTION_JOBS, f'{RECEPTION_JOBS}/{UNKNOWN_ID}/cancel'):
+            assert error(post(client, path, r['v1'])) == (403, CSRF_REFUSAL, 'request_forbidden')
+        assert error(post(client, RECEPTION_JOBS, r['v1'], **{'x-eeg-compute-token': 'f' * 64}))[0] == 403
+    assert queue_file(workspace)['tasks'] == []
+    with serving(root, workspace) as (app, client):
+        assert json_body(post(client, RECEPTION_LOOKUP, padded(r['v1'], 4096))) == {'hit': False}
+        assert error(post(client, RECEPTION_LOOKUP, padded(r['v1'], 4097))) == (413, '配置过大', 'request_too_large')
+        assert error(post(client, RECEPTION_JOBS, '{}', **{'content-type': 'text/plain'})) == (
+            415, 'JSON required', 'unsupported_media_type')
+        assert error(post(client, RECEPTION_JOBS, '{"record_id":')) == (400, NOT_JSON_MESSAGE, 'invalid_request')
+        for body in ({**r['v1'], 'ar': 90}, {**r['single'], 'mode': 'other'}, [], None):
+            assert error(post(client, RECEPTION_JOBS, body))[0::2] == (400, 'invalid_request'), body
+        token = json_body(client.get(f'{RECEPTION}/health'))['token']
+        data = jsjson.stringify(r['multi']).encode('utf-8')
+        status, headers, text = chunked(app, client, 'POST', RECEPTION_JOBS, data,
+                                        {'content-type': 'application/json', 'x-eeg-compute-token': token})
+        assert status == 202, text
+        id = jsjson.parse(text)['job']['id']
+        assert poll_reception(client, id)['result']['source']['mode'] == 'multi_source'
+        assert error(client.get(f'{RECEPTION_JOBS}/{UNKNOWN_ID}')) == (404, NOT_FOUND, 'not_found')
+        assert error(client.get(f'/api/design-evaluation/jobs/{id}')) == (404, NOT_FOUND, 'not_found')
+        for path in (f'{RECEPTION_JOBS}/not-a-receipt', f'{RECEPTION}/other', f'{RECEPTION}/jobs/{id}/',
+                     f'{RECEPTION}s'):
+            assert error(client.get(path)) == (404, '未知源实验接口', 'not_found'), path
+        assert error(client.get(RECEPTION_JOBS))[1] == 'Unknown queue endpoint'
+        assert error(client.post(f'{RECEPTION_JOBS}/{id}'))[1] == 'Unknown queue endpoint'
+        assert error(client.get(f'{RECEPTION_JOBS}/{id}/cancel'))[1] == 'Unknown queue endpoint'
+
+
+@needs_node
+def test_the_reception_routes_answer_and_write_as_node_does(tmp_path):
+    """compute_support.reception_steps against Node's composed service and the Python application on the same
+    reception root (built again at the same path for Python), with the same stand-in workers: every answer (each
+    saved result by its digest, Node's records scope read as the workspace's), and the records under
+    ``R/results/v2/source_reception_jobs``, ``source_reception_v2_jobs`` and ``design_evaluation_jobs``."""
+    directory = tmp_path / 'reception'
+    built = reception_compute_root(directory)
+    root = Path(built['root'])
+    steps = reception_steps(built)
+    scratch = tmp_path / 'node'
+    scratch.mkdir()
+    theirs = run_node(root, scratch, steps)
+    node_reception, node_design = reception_tree(root), design_tree(root)
+    directory.rename(tmp_path / 'reception.node')
+    again = reception_compute_root(directory)
+    assert (again['root'], again['ids'], again['stored']) == (built['root'], built['ids'], built['stored'])
+    workspace = tmp_path / 'workspace'
+    workspace.mkdir()
+    ours = run_python(root, workspace, steps)
+    expected = reception_masked(cache_digests(theirs['answers'], node_design), theirs['token'], node=True)
+    actual = reception_masked(cache_digests(ours['answers'], ours['design_tree']), ours['token'])
+    for step, (node, python) in enumerate(zip(expected, actual)):
+        assert python == node, f'step {step}: {python} != {node}'
+    assert len(actual) == len(expected)
+    assert briefed_tree(ours['reception_tree']) == briefed_tree(node_reception)
+    assert masked_tree(ours['design_tree']) == masked_tree(node_design)
+    # What the steps reached: every outcome of a reception, the refusals, the records and the saved results.
+    outcomes: dict[str, set] = {}
+    refusals = set()
+    for answer in actual:
+        if answer['method'] == 'FILE':
+            continue
+        body = jsjson.parse(answer['body'])
+        if answer['status'] >= 400:
+            refusals.add((answer['status'], body['error']))
+        job = body.get('job') if isinstance(body, dict) else None
+        if isinstance(job, dict) and job.get('kind') == 'source-reception':
+            outcomes.setdefault(job['status'], set()).add(job['message'])
+    assert {'completed', 'cancelled', 'cancelling', 'failed', 'queued', 'running'} <= set(outcomes)
+    assert {COMPLETED, HIT} <= outcomes['completed']
+    assert {WORKER_FAILED, '结果校验失败：源实验结果身份不一致', CHANGED_DURING_RUN, '模型或代码已更新，请重新提交',
+            SAVED_MISSING} <= outcomes['failed']
+    assert {(400, TAMPERED), (400, NOT_JSON_MESSAGE), (400, SAVED_MISSING), (400, '已有前向库布局使用原多源协议'),
+            (404, SAVED_MISSING), (404, NOT_FOUND), (404, 'Unknown community endpoint'), (404, '未知源实验接口'),
+            (404, 'Unknown queue endpoint'), (403, CSRF_REFUSAL), (413, '配置过大'), (415, 'JSON required'),
+            (500, '计算记录无法读取')} <= refusals
+    listed = [jsjson.parse(answer['body']) for answer in actual if answer['path'] == RECORDS
+              and answer['method'] == 'GET']
+    assert [len(body['records']) for body in listed] == [0, 0, 5, 5, 5]
+    saved = [answer for answer in actual if answer['path'].endswith('/result') and answer['status'] == 200]
+    assert len(saved) == 4 and all(jsjson.parse(answer['body'])['result'].startswith('sha256:') for answer in saved)
+    assert sorted(path.split('/')[0] for path in node_reception if path.endswith('/cache.json')) == [
+        'source_reception_jobs'] + ['source_reception_v2_jobs'] * 3

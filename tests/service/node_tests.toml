@@ -72,7 +72,6 @@ target = "tests/service/test_fingerprint.py::test_cache_keys_carry_the_interpret
 disposition = "C"
 mirror = "tests/test_api_contracts.py::test_shared_request_corpus"
 formats = ["design-evaluation", "radius-search", "source-reception"]
-slice = 7
 note = "the worker validators; each format's HTTP normalizer is mirrored by test_variant_parity"
 
 [sites."check-api-contracts.mjs::source service compatibility exports keep the same pure validators"]
@@ -92,14 +91,12 @@ note = "also stays in Node (openapi-typescript --check)"
 disposition = "C"
 mirror = "tests/test_schema_parity.py::test_variant_parity"
 formats = ["source-reception"]
-slice = 7
-note = "reception v2 with region_definition 'dk40-six-roi-v1'"
+note = "normalizeReceptionRequest with region_definition 'dk40-six-roi-v1': the site's requests are the cross-subset-atlas-* and node-test-atlas-* variants of the source-reception corpus, whose Node messages test_source_request.py::test_normalize_reception_request_gives_node_canonical_or_node_message checks; the browser sourceKey half stays in Node"
 
 [sites."check-atlas-roi-contract.mjs::all new UI modes use the atlas version; scientific context hashes both membership and definition"]
-disposition = "pending"
-slice = 7
-module = "tests/service/test_key_parity.py"
-note = "the server half (the ROI files enter the v2 identity); the UI half stays in Node"
+disposition = "P"
+target = "tests/service/test_key_parity.py::test_all_new_ui_modes_use_the_atlas_version_scientific_context_hashes_both_membership_and_definition"
+note = "the server half: the ROI membership code, the atlas and its definition enter the v2 code identity of the requests with region_definition and of no other, on Node's contexts, and a change of either file changes those keys alone; the UI half (use-reception-controller.ts) stays in Node"
 
 [sites."check-atlas-roi-contract.mjs::atlas assets contain no local user paths; research ROI merges are disjoint by hemisphere"]
 disposition = "N"
@@ -243,16 +240,14 @@ reason = "R1"
 note = "visit logs and per-visitor rate limits"
 
 [sites."check-community-queue.mjs::signal catalog uses bounded metadata and excludes waveform arrays, other browsers and duplicate keys"]
-disposition = "pending"
-slice = 7
-module = "tests/service/test_queue.py"
-note = "the workspace signal catalog; the owner parts are dropped (R1)"
+disposition = "P"
+target = "tests/service/test_queue.py::test_the_signal_catalog_uses_bounded_metadata_without_waveforms_and_lists_the_newest_receipt_per_key"
+note = "the workspace signal catalog (scope workspace); the owner parts are dropped (R1); over HTTP in test_compute_routes.py::test_a_reception_runs_to_its_result_and_is_a_record_of_the_workspace"
 
 [sites."check-community-queue.mjs::saved signal HTTP downloads are owner-only and bypass current identity preparation"]
-disposition = "pending"
-slice = 7
-module = "tests/service/test_queue.py"
-note = "saved signal downloads; the owner part is dropped (R1)"
+disposition = "P"
+target = "tests/service/test_queue.py::test_saved_signal_downloads_bypass_current_identity_preparation"
+note = "saved signal downloads; the owner part is dropped (R1); over HTTP, with the foreign-origin 403s, in test_compute_routes.py::test_a_reception_whose_identity_changed_is_not_served_but_its_original_download_is and test_compute_routes.py::test_a_saved_result_that_is_gone_or_fails_its_checks_answers_nodes_status_and_message"
 
 # --- check-community-status.mjs ---------------------------------------------------------------------------------------
 
@@ -321,7 +316,7 @@ disposition = "N"
 [sites."check-coordinate-bundles.mjs::evaluations under other conditions are library records with their conditions, never signal-simulation parents"]
 disposition = "P"
 target = "tests/service/test_bundle.py::test_evaluations_under_other_conditions_are_library_records_with_their_conditions"
-note = "its assertIndependentNoiseParent assertion ports with signal reception v2 in slice 7"
+note = "the assertIndependentNoiseParent assertions through jobs.reception.assert_independent_noise_parent (slice 7)"
 
 # --- check-coordinate-interop.mjs -------------------------------------------------------------------------------------
 
@@ -408,25 +403,24 @@ module = "tests/service/test_projects.py"
 disposition = "C"
 mirror = "tests/test_schema_parity.py::test_variant_parity"
 formats = ["source-reception"]
-slice = 7
+note = "normalizeReceptionRequest: the 63 subsets, sent reversed, are the cross-subset-* variants of the source-reception corpus; test_source_request.py::test_normalization_does_not_change_its_input checks that the input is not changed; the browser sourceKey half stays in Node"
 
 [sites."check-cross-region-contract.mjs::cross-region mode rejects invalid selection shape and mixed-mode fields"]
 disposition = "C"
 mirror = "tests/test_schema_parity.py::test_variant_parity"
 formats = ["source-reception"]
-slice = 7
+note = "the site's selections and mixed fields are the node-test-cross-shape-* and node-test-cross-mixed-* variants of the source-reception corpus, whose Node messages test_source_request.py::test_normalize_reception_request_gives_node_canonical_or_node_message checks"
 
 [sites."check-cross-region-contract.mjs::legacy request keys survive and new mode, selected set, and physical conditions remain distinct"]
 disposition = "C"
 mirror = "tests/test_schema_parity.py::test_variant_parity"
 formats = ["source-reception"]
-slice = 7
+note = "the site's requests are the node-test-legacy-* variants of the source-reception corpus (canonical bytes and messages); the browser sourceKey half stays in Node"
 
 [sites."check-cross-region-contract.mjs::K=1, 3, 6 results are accepted, while source mapping and shape corruption is rejected"]
-disposition = "pending"
-slice = 7
-module = "tests/service/test_source.py"
-note = "the reception v2 result validator"
+disposition = "P"
+target = "tests/service/test_source.py::test_k1_3_6_results_are_accepted_while_source_mapping_and_shape_corruption_is_rejected"
+note = "all sixteen corruptions; every validateReceptionResult message on the run path (invalid-v2) in test_source.py::test_run_path_writes_the_bytes_and_reports_the_states_of_node"
 
 [sites."check-cross-region-contract.mjs::real source adapter deduplicates permuted selections and restores a pending canonical request"]
 disposition = "P"
@@ -2194,72 +2188,60 @@ module = "tests/service/test_studies.py"
 # --- check-runtime-identity-cache.mjs ---------------------------------------------------------------------------------
 
 [sites."check-runtime-identity-cache.mjs::warm runtime checks preserve digest with no new inspector and isolate returned values"]
-disposition = "pending"
-slice = 7
-module = "tests/service/test_runtime_digest.py"
+disposition = "P"
+target = "tests/service/test_runtime_digest.py::test_warm_runtime_checks_preserve_digest_with_no_new_inspector_and_isolate_returned_values"
 
 [sites."check-runtime-identity-cache.mjs::same-size writes invalidate even when mtime is restored"]
-disposition = "pending"
-slice = 7
-module = "tests/service/test_runtime_digest.py"
+disposition = "P"
+target = "tests/service/test_runtime_digest.py::test_same_size_writes_invalidate_even_when_mtime_is_restored"
 
 [sites."check-runtime-identity-cache.mjs:55"]
-disposition = "pending"
-slice = 7
-module = "tests/service/test_runtime_digest.py"
+disposition = "P"
+target = "tests/service/test_runtime_digest.py::test_numerical_discovery_invalidates_the_cached_inspection"
 note = "title `numerical discovery ${mutation} invalidates the cached inspection`"
 
 [sites."check-runtime-identity-cache.mjs::missing dependencies fail closed and repaired inputs retry"]
-disposition = "pending"
-slice = 7
-module = "tests/service/test_runtime_digest.py"
+disposition = "P"
+target = "tests/service/test_runtime_digest.py::test_missing_dependencies_fail_closed_and_repaired_inputs_retry"
 
 [sites."check-runtime-identity-cache.mjs::simultaneous cold and warm queries share a single inspection/check"]
-disposition = "pending"
-slice = 7
-module = "tests/service/test_runtime_digest.py"
+disposition = "P"
+target = "tests/service/test_runtime_digest.py::test_simultaneous_cold_and_warm_queries_share_a_single_inspection_check"
 
 [sites."check-runtime-identity-cache.mjs::failed inspection is not reused and observations changed during inspection are rejected"]
-disposition = "pending"
-slice = 7
-module = "tests/service/test_runtime_digest.py"
+disposition = "P"
+target = "tests/service/test_runtime_digest.py::test_failed_inspection_is_not_reused_and_observations_changed_during_inspection_are_rejected"
 
 [sites."check-runtime-identity-cache.mjs::environment keys and bounded least-recently-used entries stay independent"]
-disposition = "pending"
-slice = 7
-module = "tests/service/test_runtime_digest.py"
+disposition = "P"
+target = "tests/service/test_runtime_digest.py::test_environment_keys_and_bounded_least_recently_used_entries_stay_independent"
 
 [sites."check-runtime-identity-cache.mjs::launcher symlink and an earlier PATH executable invalidate the current digest"]
-disposition = "pending"
-slice = 7
-module = "tests/service/test_runtime_digest.py"
+disposition = "P"
+target = "tests/service/test_runtime_digest.py::test_launcher_symlink_and_an_earlier_path_executable_invalidate_the_current_digest"
 
 [sites."check-runtime-identity-cache.mjs:107"]
-disposition = "pending"
-slice = 7
-module = "tests/service/test_runtime_digest.py"
+disposition = "P"
+target = "tests/service/test_runtime_digest.py::test_an_earlier_path_symlink_becoming_executable_invalidates_the_digest"
 note = "title `an earlier PATH symlink becoming executable via ${change} invalidates the digest`"
 
 [sites."check-runtime-identity-cache.mjs:135"]
-disposition = "pending"
-slice = 7
-module = "tests/service/test_runtime_digest.py"
+disposition = "P"
+target = "tests/service/test_runtime_digest.py::test_symlink_traversal_retains_operating_system_path_semantics"
 note = "title `symlink/../ traversal in ${invocation} retains operating-system path semantics`"
 
 [sites."check-runtime-identity-cache.mjs::legacy digest-only inspectors are accepted but not cached"]
-disposition = "pending"
-slice = 7
-module = "tests/service/test_runtime_digest.py"
+disposition = "P"
+target = "tests/service/test_runtime_digest.py::test_legacy_digest_only_inspectors_are_accepted_but_not_cached"
 
 [sites."check-runtime-identity-cache.mjs::an implicit platform executable search path is inspected each time"]
-disposition = "pending"
-slice = 7
-module = "tests/service/test_runtime_digest.py"
+disposition = "P"
+target = "tests/service/test_runtime_digest.py::test_an_implicit_platform_executable_search_path_is_inspected_each_time"
 
 [sites."check-runtime-identity-cache.mjs::zero entry budget disables retention; malformed runtime output fails"]
-disposition = "pending"
-slice = 7
-module = "tests/service/test_runtime_digest.py"
+disposition = "P"
+target = "tests/service/test_runtime_digest.py::test_zero_entry_budget_disables_retention_malformed_runtime_output_fails"
+note = "Node's own cache with its inspector runner on stub inspector scripts in test_runtime_digest.py::test_stub_inspectors_match_node"
 
 # --- check-runtime-storage.mjs ----------------------------------------------------------------------------------------
 
@@ -2334,10 +2316,9 @@ disposition = "P"
 target = "tests/service/test_runtime_config.py::test_native_services_use_the_managed_interpreter_over_radius_overrides"
 
 [sites."check-service-storage.mjs::source identity uses its injected native context without a design service"]
-disposition = "pending"
-slice = 7
-module = "tests/service/test_key_parity.py"
-note = "reception v1 identity on synthetic roots"
+disposition = "P"
+target = "tests/service/test_key_parity.py::test_source_identity_uses_its_injected_native_context_without_a_design_service"
+note = "the v2 context with an injected native context and the legacy inspector; the v1 and v2 contexts against Node's own service in test_key_parity.py::test_reception_context_parity"
 
 # --- check-showcase.mjs -----------------------------------------------------------------------------------------------
 
@@ -2409,55 +2390,50 @@ disposition = "N"
 disposition = "C"
 mirror = "tests/test_schema_parity.py::test_variant_parity"
 formats = ["source-reception"]
-slice = 7
-note = "reception v1 (normalizeSourceRequest)"
+note = "reception v1 (normalizeSourceRequest): the site's requests are the node-test-source-bounded-* variants of the source-reception corpus, whose Node messages test_source_request.py::test_normalize_reception_request_gives_node_canonical_or_node_message checks"
 
 [sites."check-source-reception.mjs::source result rejects stale coordinates, missing/duplicate conditions and clipped negative scores"]
-disposition = "pending"
-slice = 7
-module = "tests/service/test_source.py"
+disposition = "P"
+target = "tests/service/test_source.py::test_source_result_rejects_stale_coordinates_missing_duplicate_conditions_and_clipped_negative_scores"
+note = "every validateSourceResult message on the run path (invalid-v1) in test_source.py::test_run_path_writes_the_bytes_and_reports_the_states_of_node"
 
 [sites."check-source-reception.mjs::waveform composition keeps brain, artifacts and electronic noise separate; AR is display-only"]
 disposition = "N"
 
 [sites."check-source-reception.mjs::cache miss is read-only; source and radius computations share capacity in both directions"]
-disposition = "pending"
-slice = 7
-module = "tests/service/test_source.py"
+disposition = "P"
+target = "tests/service/test_source.py::test_cache_miss_is_read_only_source_and_radius_computations_share_capacity_in_both_directions"
+note = "with Node's context stub and fake children; over HTTP in test_compute_routes.py::test_a_reception_lookup_miss_writes_nothing_and_a_stored_result_is_one_cached_receipt and test_compute_routes.py::test_reception_shares_the_queue_and_the_slot_with_the_coordinate_evaluation"
 
 [sites."check-source-reception.mjs::completed result survives service restart; cache corruption and scientific identity changes miss"]
-disposition = "pending"
-slice = 7
-module = "tests/service/test_source.py"
+disposition = "P"
+target = "tests/service/test_source.py::test_completed_result_survives_service_restart_cache_corruption_and_scientific_identity_changes_miss"
 
 [sites."check-source-reception.mjs::timeout/cancellation do not free capacity before process close and never cache a score"]
-disposition = "pending"
-slice = 7
-module = "tests/service/test_source.py"
+disposition = "P"
+target = "tests/service/test_source.py::test_timeout_cancellation_do_not_free_capacity_before_process_close_and_never_cache_a_score"
 
 [sites."check-source-reception.mjs::model changes during computation and mismatched worker results cannot become cache hits"]
-disposition = "pending"
-slice = 7
-module = "tests/service/test_source.py"
+disposition = "P"
+target = "tests/service/test_source.py::test_model_changes_during_computation_and_mismatched_worker_results_cannot_become_cache_hits"
+note = "over HTTP in test_compute_routes.py::test_a_reception_whose_identity_changed_is_not_served_but_its_original_download_is"
 
 [sites."check-source-reception.mjs::source API shares existing local-origin and session-token protections"]
 disposition = "P"
 target = "tests/service/test_access.py::test_source_api_shares_local_origin_and_session_token_protections"
 
 [sites."check-source-reception.mjs::original signal download survives changed identity and rejects corrupt or mismatched saved results"]
-disposition = "pending"
-slice = 7
-module = "tests/service/test_source.py"
+disposition = "P"
+target = "tests/service/test_source.py::test_original_signal_download_survives_changed_identity_and_rejects_corrupt_or_mismatched_saved_results"
+note = "over HTTP in test_compute_routes.py::test_a_saved_result_that_is_gone_or_fails_its_checks_answers_nodes_status_and_message"
 
 [sites."check-source-reception.mjs::v2 original download requires its frozen identity layout even when the result checksum is recomputed"]
-disposition = "pending"
-slice = 7
-module = "tests/service/test_source.py"
+disposition = "P"
+target = "tests/service/test_source.py::test_v2_original_download_requires_its_frozen_identity_layout_even_when_the_result_checksum_is_recomputed"
 
 [sites."check-source-reception.mjs::v1 and v2 signal simulation both refuse a layout searched under correlated noise"]
-disposition = "pending"
-slice = 7
-module = "tests/service/test_source.py"
+disposition = "P"
+target = "tests/service/test_source.py::test_v1_and_v2_signal_simulation_both_refuse_a_layout_searched_under_correlated_noise"
 
 # --- check-source-result-reading.mjs ----------------------------------------------------------------------------------
 
@@ -2473,8 +2449,7 @@ disposition = "N"
 disposition = "C"
 mirror = "tests/test_schema_parity.py::test_variant_parity"
 formats = ["source-reception"]
-slice = 7
-note = "reception v2; the browser sourceKey half stays in Node"
+note = "reception v2: the site's requests are the node-test-upgrade-* variants of the source-reception corpus, whose Node messages test_source_request.py::test_normalize_reception_request_gives_node_canonical_or_node_message checks; the browser sourceKey half stays in Node"
 
 [sites."check-source-upgrade.mjs::field display uses both complete previews for a common scale, and common-target residuals"]
 disposition = "N"
@@ -2498,9 +2473,8 @@ disposition = "P"
 target = "tests/service/test_bundle.py::test_synthetic_completed_native_record_resolves_evaluated_coordinates_not_unprojected_inputs"
 
 [sites."check-source-upgrade.mjs::v2 validator rejects wrong source identity before accepting display data"]
-disposition = "pending"
-slice = 7
-module = "tests/service/test_source.py"
+disposition = "P"
+target = "tests/service/test_source.py::test_v2_validator_rejects_wrong_source_identity_before_accepting_display_data"
 
 # --- check-surface-patches.mjs ----------------------------------------------------------------------------------------
 
@@ -2756,6 +2730,7 @@ note = "retargeted in slice 4 (EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN); it com
 [scripts."check-source-reception-live.mjs"]
 kind = "live"
 slice = 7
+note = "retargeted in slice 7: the Python service through EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN, Node at EEG_TEST_URL otherwise (with its visitor cookie); it computes a v1 reception of the first completed two-region AL,AR 35 mm cache row the library lists, whose code identity need not be current (a stale row is received with compatible false, as in Node), checks /api/community/records and the saved download, and writes its report under EEG_REPOSITORY_ROOT/webapp/outputs, so run it on a copy of the installation"
 
 [scripts."check-head-viewer.mjs"]
 kind = "browser"
@@ -2769,7 +2744,7 @@ note = "depends on static serving without sidecars"
 [scripts."check-workflows-browser.mjs"]
 kind = "browser"
 slice = 10
-note = "its reception steps from slice 7"
+note = "the browser holds the Python service's session cookie (EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN) from slice 7, so all its checks run on both hosts, its v2 signal simulation and the cancelled one among them; it needs a compatible AL,AR 35 mm radius row (check-app-live.mjs computes one) and writes jobs, so run it on a copy of the installation"
 
 [scripts."check-coordinate-names-browser.mjs"]
 kind = "browser"

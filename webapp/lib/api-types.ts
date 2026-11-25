@@ -14,6 +14,8 @@ export type DesignEvaluationBody = Schemas['DesignEvaluationBody'];
 export type RadiusSearchRequest = Schemas['RadiusSearchRequest'];
 /** The body of POST /api/electrode-editor/jobs: a preparation or an evaluation of 64 stable slots. */
 export type ElectrodeEditorRequest = Schemas['ElectrodeEditorRequest'];
+/** The body of POST /api/source-reception/jobs and /lookup: a v1 request (no mode) or a v2 request of one mode. */
+export type SourceReceptionRequest = Schemas['SourceReceptionRequest'];
 // The coordinate-source types are in webapp/contracts/coordinate-source.ts, next to their validator.
 
 export type PerturbationRadius = DesignEvaluationRequest['radius_mm'];

@@ -10,10 +10,11 @@ import * as coordinateSource from './formats/coordinate-source.mjs';
 import * as designEvaluation from './formats/design-evaluation.mjs';
 import * as electrodeEditor from './formats/electrode-editor.mjs';
 import * as radiusSearch from './formats/radius-search.mjs';
+import * as sourceReception from './formats/source-reception.mjs';
 import { internalFault } from '../../webapp/server/http/public-errors.mjs';
 import { referenceCorpora } from './reference.mjs';
 
-const FORMATS = [coordinateSource, designEvaluation, electrodeEditor, radiusSearch];
+const FORMATS = [coordinateSource, designEvaluation, electrodeEditor, radiusSearch, sourceReception];
 
 const output = process.argv[2];
 if (!output) throw new Error('usage: generate.mjs <output.json>');

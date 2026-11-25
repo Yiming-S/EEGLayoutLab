@@ -13,15 +13,19 @@
 //   and the CSRF token of the health answer unless `token` is false; with `chunks` its UTF-8 bytes go one per
 //   chunk of a streamed body;
 // - with `until` (statuses) the GET is repeated every 20 ms until body.job.status is one of them (and, with
-//   `progress`, body.job.progress > 0), for at most settle_ms.
+//   `progress`, body.job.progress > 0), for at most settle_ms;
+// - a step {method: 'FILE', path, text} sends nothing: it writes `text` (UTF-8, its `{N}`, `{aN}` and `{kN}`
+//   replaced too) to `path` below the root, or removes that file when `text` is null, and is recorded as
+//   {method: 'FILE', path, status: 0, type: null, body: ''}.
 // Each answer is recorded as {method, path, status, type, body} (the body as text). The token is recorded too.
 // The root's workers are the fakes of tests/service/compute_support.py (the radius search's, and on an editor root
-// the coordinate evaluation's and the electrode editor's, all three kinds sharing the one queue and slot); the
-// records they write stay under the root, which must be a synthetic root. The scheduler's state goes to
+// the coordinate evaluation's and the electrode editor's, on a reception root also both reception workers, all
+// kinds sharing the one queue and slot); the records they write stay under the root, which must be a synthetic
+// root. The scheduler's state goes to
 // <queueDirectory>, a scratch directory, never R/results/web-service of a real installation.
 import { createServer } from 'node:http';
-import { readFileSync, writeFileSync } from 'node:fs';
-import { isAbsolute } from 'node:path';
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { isAbsolute, join } from 'node:path';
 import { createLocalComputeService } from '../../../webapp/server/local-compute-server.mjs';
 
 const [specPath, outPath] = process.argv.slice(2);
@@ -51,8 +55,15 @@ const answers = [];
 let token;
 try {
   token = (await (await fetch(`${base}/api/local-compute/health`)).json()).token;
+  const substitute = text => text.replace(/\{([ak]?)(\d+)\}/g, (_, kind, n) => seen[kind][Number(n)]);
   for (const step of spec.steps) {
-    const target = step.path.replace(/\{([ak]?)(\d+)\}/g, (_, kind, n) => seen[kind][Number(n)]);
+    const target = substitute(step.path);
+    if (step.method === 'FILE') {
+      const file = join(spec.root, target);
+      if (step.text === null) rmSync(file); else writeFileSync(file, substitute(step.text));
+      answers.push({ method: 'FILE', path: step.path, status: 0, type: null, body: '' });
+      continue;
+    }
     const headers = { 'accept-encoding': 'identity' };
     let payload;
     if (step.method === 'POST') {

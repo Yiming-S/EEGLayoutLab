@@ -18,8 +18,12 @@ hook:
   durable (its records written, its active slot cleared and the permit released). The queue finalizes receipts
   from it, never from a poll of the service's bounded job map (jobs.md section 5.6, pitfall).
 - ``await finished_at(prepared, job)`` (optional): the finish time of the stored result a lookup ``job`` came from,
-  for a kind whose views have none (the coordinate evaluation and the electrode editor: Node's reconciliation reads
-  it from ``cache.json``). The queue's startup ``recover()`` uses it in place of the view's ``finished_at``.
+  once the record passes the checks of Node's reconciliation (the coordinate evaluation, the electrode editor and
+  signal reception: Node's reconciliation reads it from ``cache.json``). The queue's startup ``recover()`` uses it in
+  place of the view's ``finished_at``.
+- ``await saved_result(key, request)`` (signal reception only): the stored result of a completed receipt for its
+  original download, checked against the protocol it was saved under, without preparing the identity again
+  (Node's ``savedResult``; ``GET /api/community/records/<id>/result``).
 
 ``ServiceAdapter`` is Node's ``adapter(service, normalize, context)``. It expects Node's service surface in
 snake_case: ``lookup(request, ctx)``, ``submit(prepared)``, ``jobs`` (id -> job), ``view(job)``, ``active``,
@@ -30,7 +34,9 @@ keeps answering health and polling. ``local_compute_adapter`` builds the radius 
 (``normalize_request`` and ``identity_for``), ``design_evaluation_adapter`` the coordinate evaluation's
 (``DesignAdapter``: the service's own ``normalize`` and ``context``, after the ``design-submission/1`` envelope) and
 ``electrode_editor_adapter`` the electrode editor's (``StoredResultAdapter`` over ``jobs.editor.EditorJobs``: its
-``normalize`` and ``context``, which Node's adapter calls as they are).
+``normalize`` and ``context``, which Node's adapter calls as they are) and ``source_reception_adapter`` signal
+reception's (``ReceptionAdapter`` over ``jobs.reception.ReceptionJobs``: Node's ``normalizeReceptionRequest``, which
+is the service's ``normalize``, its ``context`` and its ``savedResult``).
 """
 from __future__ import annotations
 
@@ -41,10 +47,11 @@ from typing import Any, Awaitable, Callable, Optional, Protocol, Union
 
 from .identity import UNDEFINED, js_truthy
 
-__all__ = ['KINDS', 'Adapter', 'ServiceAdapter', 'StoredResultAdapter', 'DesignAdapter', 'local_compute_adapter',
-           'design_evaluation_adapter', 'electrode_editor_adapter', 'community_adapters', 'call', 'resolve']
+__all__ = ['KINDS', 'Adapter', 'ServiceAdapter', 'StoredResultAdapter', 'DesignAdapter', 'ReceptionAdapter',
+           'local_compute_adapter', 'design_evaluation_adapter', 'electrode_editor_adapter', 'source_reception_adapter',
+           'community_adapters', 'call', 'resolve']
 
-# The kinds the routes accept (community-queue.mjs:494); slice 4 wires 'local-compute', slice 5 'design-evaluation',
+# The kinds the routes accept (community-queue.mjs:494); slice 4 wired 'local-compute', slice 5 'design-evaluation',
 # slice 6 'electrode-editor' and slice 7 'source-reception'.
 KINDS = ('local-compute', 'source-reception', 'design-evaluation', 'electrode-editor')
 
@@ -155,10 +162,11 @@ class ServiceAdapter:
 
 
 class StoredResultAdapter(ServiceAdapter):
-    """``adapter(service, normalize, context)`` for a service built on ``jobs.design.DesignJobs`` (the coordinate
-    evaluation and the electrode editor): its lookup's views have no finish time, so ``finished_at`` gives the
-    stored record's, as Node's reconciliation (scripts/inspect_service_reconciliation.mjs) reads it from
-    ``cache.json`` for both kinds."""
+    """``adapter(service, normalize, context)`` for a service with a ``stored_finish`` (the coordinate evaluation and
+    the electrode editor, built on ``jobs.design.DesignJobs``, and signal reception): ``finished_at`` gives the stored
+    record's finish time once the record passes the checks of Node's reconciliation
+    (scripts/inspect_service_reconciliation.mjs, which reads it from ``cache.json`` for these kinds); the design
+    lookup's views have none."""
 
     async def finished_at(self, prepared: dict, job: dict) -> Any:
         """The stored record's ``finished_at`` (the service's ``stored_finish``: the record checks of Node's
@@ -191,6 +199,15 @@ class DesignAdapter(StoredResultAdapter):
         return prepared
 
 
+class ReceptionAdapter(StoredResultAdapter):
+    """Signal reception's adapter (community-adapters.mjs:15-16): the plain adapter with the stored finish time, and
+    Node's ``savedResult``."""
+
+    async def saved_result(self, key: Any, request: Any) -> Any:
+        """``savedResult(key, request)``: the service's ``saved_result``; the identity is not prepared again."""
+        return await self.service.saved_result(key, request)
+
+
 def local_compute_adapter(service: Any) -> ServiceAdapter:
     """The radius search (``'local-compute'``): ``normalize_request`` and the service's ``identity_for``."""
     # Imported here: the radius-search format needs Pydantic, which the native runtime does not have.
@@ -211,10 +228,20 @@ def electrode_editor_adapter(service: Any) -> StoredResultAdapter:
     return StoredResultAdapter(service, service.normalize, service.context)
 
 
-def community_adapters(radius: Any, design: Any = None, editor: Any = None) -> dict[str, Adapter]:
-    """``communityAdapters(queue, normalizeRequest)`` for the kinds wired so far: the radius search and, when given,
-    the coordinate evaluation and the electrode editor."""
+def source_reception_adapter(service: Any) -> ReceptionAdapter:
+    """Signal reception (``'source-reception'``, ``jobs.reception.ReceptionJobs``): the service's ``normalize``
+    (``normalizeReceptionRequest``: v1 without ``mode``, v2 with it) and ``context``, the stored finish time and the
+    saved result."""
+    return ReceptionAdapter(service, service.normalize, service.context)
+
+
+def community_adapters(radius: Any, design: Any = None, editor: Any = None,
+                       reception: Any = None) -> dict[str, Adapter]:
+    """``communityAdapters(queue, normalizeRequest)``: the radius search and, when given, the coordinate evaluation,
+    the electrode editor and signal reception, in Node's order."""
     adapters: dict[str, Adapter] = {'local-compute': local_compute_adapter(radius)}
+    if reception is not None:
+        adapters['source-reception'] = source_reception_adapter(reception)
     if design is not None:
         adapters['design-evaluation'] = design_evaluation_adapter(design)
     if editor is not None:

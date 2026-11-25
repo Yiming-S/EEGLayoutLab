@@ -12,7 +12,7 @@ from typing import Any, Callable, Mapping
 
 from pydantic import TypeAdapter
 
-from . import coordinate_source, electrode_editor, options, radius_search, submission
+from . import coordinate_source, electrode_editor, options, radius_search, source_reception, submission
 
 
 @dataclass(frozen=True)
@@ -84,6 +84,15 @@ REQUEST_FORMATS: dict[str, RequestFormat] = {
                 'spatial_noise_lengths_mm': options.SPATIAL_NOISE_LENGTHS_MM,
                 'data_prior_lengths_mm': options.DATA_PRIOR_LENGTHS_MM,
             },
+        ),
+        RequestFormat(
+            name='source-reception',
+            schema_name='SourceReceptionRequest',
+            body=source_reception.SourceReceptionRequest,
+            canonical=source_reception.canonical,
+            node='normalizeReceptionRequest, with normalizeSourceRequest for requests without mode '
+                 '(webapp/contracts/source-reception.mjs)',
+            options={'source_regions': source_reception.SOURCE_REGIONS},
         ),
     )
 }

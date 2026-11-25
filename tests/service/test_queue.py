@@ -342,6 +342,88 @@ def test_dispose_during_identity_preparation_cannot_enqueue_or_launch_a_late_tas
     run(main())
 
 
+def test_the_signal_catalog_uses_bounded_metadata_without_waveforms_and_lists_the_newest_receipt_per_key(tmp_path):
+    """check-community-queue.mjs:189 without its owners (R1): the catalog of a signal receipt is under 1 KiB and
+    holds no waveform; ``records()`` lists the newest completed signal receipt of each key in the workspace (another
+    browser's key, which Node hides, is the same workspace's here), with scope ``workspace``, and is the same after a
+    restart."""
+    from eeglayoutlab.jobs.queue import RECORDS_SCHEMA
+
+    q, f = make(tmp_path)
+    request = {'record_id': 'a' * 64, 'mode': 'multi_source', 'brain_region': 'frontal', 'waveform': 'burst',
+               'artifact_scale': 1, 'seed': 2026, 'region_definition': 'dk40-six-roi-v1'}
+    layout = {'xyzMm': [[0, 0, 0] for _ in range(64)]}
+    prepared = {'request': request, 'key': 'b' * 64,
+                'ctx': {'record': {'label': 'AL + AR', 'region_count': 2, 'mode': 'preset',
+                                   'request': {'mask_codes': ['AL', 'AR']}, 'layout': layout}}}
+    result = {'schema_version': 'source-reception/2', 'layout': layout,
+              'conditions': [{'condition': 'mixed', 'field_retention': None, 'baseline': {'explained_energy': -1},
+                              'candidate': {'explained_energy': -2}}],
+              'waveforms': {'baseline': {'brain_uv': ['large data'] * 1000}}}
+    metadata = receipt_catalog('source-reception', prepared, result)
+    assert metadata['electrode_count'] == 64 and metadata['mask_codes'] == ['AL', 'AR']
+    assert metadata['conditions'][0]['baseline_explained_energy'] == -1
+    assert metadata['conditions'][0]['field_retention'] is None
+    assert 'waveforms' not in jsjson.stringify(metadata) and len(jsjson.stringify(metadata)) < 1024
+    first = q._receipt('source-reception', prepared, 'completed')
+    first['catalog'] = metadata
+    later = {**first, 'id': str(uuid.uuid4()), 'sequence': first['sequence'] + 1,
+             'created_at': '2026-10-04T00:00:00Z'}
+    q.tasks.append(later)
+    q.sequence = later['sequence']
+    other = q._receipt('source-reception', {**prepared, 'key': 'c' * 64}, 'completed')
+    # Receipts of other kinds or not completed are not signal records.
+    q._receipt('design-evaluation', {'request': {'n': 1}, 'key': 'd' * 64}, 'completed')
+    q._receipt('source-reception', {**prepared, 'key': 'e' * 64}, 'failed')
+    own = q.records()
+    assert [record['id'] for record in own['records']] == [other['id'], later['id']]
+    assert (own['schema'], own['scope'], own['receipt_limit']) == (RECORDS_SCHEMA, 'workspace', 1000)
+    assert list(own) == ['schema', 'scope', 'receipt_limit', 'records']
+    assert own['records'][1]['catalog'] == metadata
+    assert 'owners' not in jsjson.stringify(own) and 'waveforms' not in jsjson.stringify(own)
+    q.dispose()
+    g, _ = make(tmp_path)
+    assert g.records() == own
+    g.dispose()
+
+
+def test_saved_signal_downloads_bypass_current_identity_preparation(tmp_path):
+    """check-community-queue.mjs:212 without its owners (R1): ``saved_result(id)`` hands the receipt's key and request
+    to the adapter's ``saved_result`` and never prepares the request again; an unknown receipt or one of another kind
+    is Node's 404 ``任务不存在或不属于当前浏览器``, one that is not completed its 404 ``计算记录无法读取，请重新提交``.
+    The HTTP routes are test_compute_routes.py's."""
+    from eeglayoutlab.jobs.queue import NOT_FOUND, VIEW_CACHE_MISSING
+
+    async def main() -> None:
+        q, f = make(tmp_path)
+        adapter = f.adapters['source-reception']
+        queued = (await q.submit('source-reception', {'n': 3}))['job']
+        result = {'schema_version': 'source-reception/1', 'original': True}
+        calls = {'prepared': 0, 'downloaded': 0}
+
+        async def prepare(raw: Any) -> dict:
+            calls['prepared'] += 1
+            raise ValueError('Current identity has changed')
+
+        async def saved_result(key: Any, request: Any) -> Any:
+            assert (key, request) == ('original-key', {'n': 2})
+            calls['downloaded'] += 1
+            return result
+        adapter.prepare, adapter.saved_result = prepare, saved_result
+        task = q._receipt('source-reception', {'request': {'n': 2}, 'key': 'original-key'}, 'completed')
+        assert await q.saved_result(task['id']) == result
+        assert calls == {'prepared': 0, 'downloaded': 1}
+        design = q._receipt('design-evaluation', {'request': {'n': 2}, 'key': 'original-key'}, 'completed')
+        for id, message in ((str(uuid.uuid4()), NOT_FOUND), (design['id'], NOT_FOUND),
+                            (queued['id'], VIEW_CACHE_MISSING)):
+            with pytest.raises(QueueError) as refused:
+                await q.saved_result(id)
+            assert (refused.value.status, refused.value.message) == (404, message)
+        assert calls == {'prepared': 0, 'downloaded': 1}
+        q.dispose()
+    run(main())
+
+
 # --- check-abuse-limits.mjs -------------------------------------------------------------------------------------
 
 def test_a_lookup_of_a_computed_result_keeps_the_computed_receipt_and_writes_nothing_new(tmp_path):

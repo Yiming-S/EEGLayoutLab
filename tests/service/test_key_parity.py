@@ -25,10 +25,20 @@ interpreter configuration of the base root and on variants where the parent's re
 editor's code or the design inputs differ; the configuration, context members, identity, admission, parent record,
 parent digest, key and worker input, or the refusal by Node's message.
 
+Signal reception's contexts (slice 7: ``SourceReceptionService.context``, v1's and v2's identity and key) are
+compared through tests/service/parity/reception_run.mjs (mode ``contexts``) on reception roots (tests/service/
+reception_support.py ``reception_root``): a v1 request and v2's three modes, with and without the atlas definition,
+for each kind of parent, on the base root's interpreter configurations and on variants where the design inputs, the
+library, the reception code, the atlas definition or the stub runtime inspector differ; the configuration, context
+members, record, identity and key, or the refusal (Node's message, an error's code, an inspector's exit code). The
+storage test's injected native context (check-service-storage.mjs:50) and the atlas files of the v2 code identity
+(check-atlas-roi-contract.mjs:26, its server half) are ported here.
+
 With ``EEG_KEY_PARITY_ROOT=<checkout>`` the same comparisons also run on that real installation (marked
 ``data_bundle``; the radius identity also for every stored radius request, the editor's context for every parent the
-editor offers and every stored editor request), and every stored design and editor cache and every batch
-``request.json`` must re-derive its key. Nothing is written under that root.
+editor offers and every stored editor request, the reception context for every stored reception request), and every
+stored design and editor cache and every batch ``request.json`` must re-derive its key. With ``-m native_runtime``,
+v2's context there, its real runtime inspector included, is Node's. Nothing is written under that root.
 """
 from __future__ import annotations
 
@@ -49,11 +59,13 @@ from eeglayoutlab.server.workspace import LOCAL_OWNER
 from .key_parity_support import (
     BAD_UTF8_NAME, BANK, CONDA_META, CONFIGS, EDITOR_ACCEPTED, EDITOR_PARENTS, EDITOR_ROOT_CONFIGS, EDITOR_SOME,
     LINE_TERMINATOR_DIST_INFO, NATIVE, NATIVE_DIST_INFO, PRIOR, RADIUS_CODE_NAMES, RADIUS_KEY_REQUESTS,
-    RADIUS_ROOT_CONFIGS, RADIUS_ROOTS, REQUESTS, ROOTS, SPATIAL, TABLE_DIR, Case, EditorCases, EnvelopeCases,
-    PythonCases, all_requests, browser_submission, build_roots, canonical_requests, coordinate_sources, design_root,
+    RADIUS_ROOT_CONFIGS, RADIUS_ROOTS, RECEPTION_REQUESTS, RECEPTION_ROOT_CONFIGS, RECEPTION_ROOTS, RECEPTION_SOME,
+    REQUESTS, ROOTS, SPATIAL, TABLE_DIR, Case, EditorCases, EnvelopeCases, PythonCases, all_requests,
+    browser_submission, build_reception_roots, build_roots, canonical_requests, coordinate_sources, design_root,
     digest, editor_case_ids, editor_context_cases, envelope_outcome, needs_node, node_outcome, radius_cases,
-    radius_corpus, radius_outcome, radius_root, require, run_annotations_node, run_editor_node, run_library_node,
-    run_node, spec_case, synthetic_cases,
+    radius_corpus, radius_outcome, radius_root, reception_case_ids, reception_context_cases, reception_request,
+    require, run_annotations_node, run_editor_node, run_library_node, run_node, run_reception_node, spec_case,
+    synthetic_cases,
 )
 
 CASES = synthetic_cases()
@@ -802,3 +814,350 @@ def test_real_root_editor_context_parity(tmp_path):
         print(f'editor cache {key[:12]} {stored[key]["action"]}: {state}')
     print(f'editor parents prepared: {len(offered) - len(refused)} of {len(offered)}; refused for their geometry or '
           f'admission: {", ".join(id[:12] for id in refused) or "none"}')
+
+
+# --- Signal reception's contexts (slice 7) ---------------------------------------------------------------------------
+
+RECEPTION_CASE_IDS = reception_case_ids()
+
+
+@pytest.fixture(scope='session')
+def reception_synthetic(tmp_path_factory):
+    """Node's and Python's contexts over every reception case, each side with one service per root and
+    configuration (and so one runtime memo), in the same order."""
+    require('pydantic')  # the library, the design context and the request schema
+    from .reception_support import ReceptionCases
+
+    base = tmp_path_factory.mktemp('reception-parity')
+    roots = build_reception_roots(base / 'roots')
+    cases = reception_context_cases(roots)
+    node = run_reception_node(cases, base, reuse=True)
+    python = ReceptionCases(reuse=True)
+    try:
+        ours = {case['id']: python.run(case) for case in cases}
+    finally:
+        python.close()
+    return roots, {case['id']: case for case in cases}, node, ours
+
+
+@needs_node
+@pytest.mark.parametrize('case_id', RECEPTION_CASE_IDS)
+def test_reception_context_parity(case_id, reception_synthetic):
+    _, _, node, ours = reception_synthetic
+    assert ours[case_id] == node_outcome(node['by_id'][case_id])
+
+
+@needs_node
+def test_reception_variants_reach_their_branches(reception_synthetic):
+    # Parity alone would also pass if a fixture missed its branch; these pin what each variant exercises.
+    from eeglayoutlab.jobs.identity import RECEPTION_V2_WORKFLOW, RECEPTION_WORKFLOW
+    from eeglayoutlab.jobs.integrity import BANK_POINTER, InputIntegrity
+    from eeglayoutlab.jobs.reception import (BANK_MISMATCH, CANDIDATE_MISMATCH, LEGACY_MULTI, NOISE, V1_CACHE_SCHEMA,
+                                             V1_CODE, V1_LAYOUT, V2_CACHE_SCHEMA, V2_CODE, V2_LAYOUT)
+    from eeglayoutlab.jobs.runtime_digest import INVALID_DIGEST
+
+    from .reception_support import RECEPTION_FILES, RUNTIME_TEXT, RECEPTION_VARIANTS
+
+    roots, cases, node, _ = reception_synthetic
+    result = node['by_id']
+    ok = lambda case_id: result[case_id]['ok'] and result[case_id]  # noqa: E731
+    message = lambda case_id: node_outcome(result[case_id]).get('message')  # noqa: E731
+    code = lambda case_id: node_outcome(result[case_id]).get('code')  # noqa: E731
+    v2 = RECEPTION_REQUESTS[1:]
+    assert {options.get('reception') for options in RECEPTION_ROOTS.values()} == set(RECEPTION_VARIANTS)
+
+    # Which parents each version takes on the base root, in Node's order of checks: a completed library layout of
+    # a radius cache or the strict area for v1, also a saved coordinate evaluation for v2; independent noise only;
+    # v2's region-labelled multi-source protocol, or the atlas one, for a library layout.
+    accepted = ('strict', 'strict-2', 'strict-null-localization', 'cache', 'cache-unpatched', 'cache-geometry',
+                'cache-admission', 'cache-other-code')
+    unusable = ('historical', 'offline', 'strict-no-layout', 'cache-zero-patches', 'cache-no-layout', 'missing')
+    for config in RECEPTION_ROOT_CONFIGS['reception-base']:
+        for parent in accepted:
+            assert ok(f'reception-base/{config}/v1-{parent}'), parent
+            assert message(f'reception-base/{config}/multi-legacy-{parent}') == LEGACY_MULTI, parent
+        for parent in (*unusable, 'design'):
+            assert message(f'reception-base/{config}/v1-{parent}') == V1_LAYOUT, parent
+        for parent in unusable:
+            for request in v2:
+                assert message(f'reception-base/{config}/{request}-{parent}') == V2_LAYOUT, (parent, request)
+        for parent in ('cache-prior', 'cache-spatial'):
+            for request in RECEPTION_REQUESTS:
+                assert message(f'reception-base/{config}/{request}-{parent}') == NOISE, (parent, request)
+    for parent in (*accepted, 'design'):
+        for request in v2:
+            if request != 'multi-legacy' or parent == 'design':
+                assert ok(f'reception-base/default/{request}-{parent}'), (parent, request)
+                # v2 runs under the native interpreter: the explicit one is not there.
+                assert code(f'reception-base/explicit/{request}-{parent}') == 'ENOENT', (parent, request)
+    assert set(EDITOR_PARENTS) == {*accepted, *unusable, 'design', 'cache-prior', 'cache-spatial'}
+
+    # v1's identity: the record's id and layout, the reception inputs' digests, two threads; no interpreter.
+    base = roots['reception-base']['root']
+    first = ok('reception-base/default/v1-strict')
+    assert first['keys'] == ['record', 'identity', 'key']
+    identity, record = jsjson.parse(first['identity']), jsjson.parse(first['record'])
+    assert list(identity) == ['version', 'record_id', 'layout', 'digests', 'threads']
+    assert (identity['version'], identity['record_id'], identity['layout'], identity['threads']) == \
+        (V1_CACHE_SCHEMA, record['id'], record['layout'], 2)
+    assert list(identity['digests']) == list(dict.fromkeys([*RECEPTION_WORKFLOW, BANK_POINTER, BANK,
+                                                            'data/candidates.npz', 'data/report.json', *V1_CODE]))
+    assert identity['digests']['scripts/source_reception.py'] == digest('reception script')
+    assert first['key'] == request_key(cases['reception-base/default/v1-strict']['request'], identity)
+    assert ok('reception-base/explicit/v1-strict')['key'] == first['key']
+
+    # v2's: the design identity of {} under the native interpreter, the v2 code, the frozen layout and its
+    # provenance, the layout's scope, the runtime inspector's digest, one thread.
+    single = ok('reception-base/default/single-strict')
+    identity, record = jsjson.parse(single['identity']), jsjson.parse(single['record'])
+    assert list(identity) == ['version', 'forward', 'code', 'layout', 'record_provenance', 'layout_scope',
+                              'numerical_runtime_sha256', 'threads']
+    forward = py_identity.design_context(base, single['config']['nativePython'], InputIntegrity(base), {})
+    assert (identity['version'], identity['forward'], identity['layout'], identity['record_provenance'],
+            identity['numerical_runtime_sha256'], identity['threads']) == \
+        (V2_CACHE_SCHEMA, forward.identity, record['layout'], record['provenance'], digest(RUNTIME_TEXT), 1)
+    assert list(identity['code']) == list(dict.fromkeys([*RECEPTION_V2_WORKFLOW, *V2_CODE]))
+    assert identity['code']['scripts/inspect_reception_runtime.py'] == \
+        digest(RECEPTION_FILES['scripts/inspect_reception_runtime.py'])
+    assert single['key'] == request_key(cases['reception-base/default/single-strict']['request'], identity)
+    scopes = {parent: jsjson.parse(ok(f'reception-base/default/single-{parent}')['identity'])['layout_scope']
+              for parent in (*accepted, 'design')}
+    historical = {'cache-geometry', 'cache-admission', 'cache-other-code'}  # radius caches the library calls stale
+    assert {parent for parent, scope in scopes.items()
+            if scope == 'historical_frozen_coordinates_not_requalified'} == historical
+    assert {scope for parent, scope in scopes.items() if parent not in historical} == \
+        {'saved_coordinates_no_new_layout_optimization'}
+    assert jsjson.parse(ok('reception-base/default/single-design')['record'])['dataset_id'] == 'design_evaluation'
+    keys = [ok(f'reception-base/default/{request}-{parent}')['key'] for parent in (*accepted, 'design')
+            for request in RECEPTION_REQUESTS if ok(f'reception-base/default/{request}-{parent}')]
+    assert len(set(keys)) == len(keys)
+
+    # The variants.
+    table = jsjson.parse(ok('reception-table/default/single-strict')['identity'])
+    assert table['forward'] != identity['forward'] and table['code'] == identity['code']
+    assert ok('reception-simnibs/default/single-strict') is False
+    assert ok('reception-simnibs/default/v1-strict')
+    assert code('reception-simnibs/default/single-strict') == 'EACCES'  # its interpreter cannot be run
+    assert result['reception-simnibs/default/v1-strict']['config']['nativePython'].endswith(f'/{NATIVE}/bin/python')
+    for parent in RECEPTION_SOME:
+        assert message(f'reception-no-library/default/v1-{parent}') == V1_LAYOUT, parent
+        for request in v2:
+            assert message(f'reception-no-library/default/{request}-{parent}') == V2_LAYOUT, (parent, request)
+    assert message('reception-broken-bank/default/v1-strict') == BANK_MISMATCH
+    assert message('reception-broken-candidates/default/v1-strict') == CANDIDATE_MISMATCH
+    for name in ('broken-bank', 'broken-candidates'):  # the design context refuses first
+        assert message(f'reception-{name}/default/single-strict') not in (None, BANK_MISMATCH, CANDIDATE_MISMATCH)
+    for parent in ('strict', 'cache', 'design'):
+        for request in RECEPTION_REQUESTS:
+            if request == 'v1' and parent == 'design' or request == 'multi-legacy' and parent != 'design':
+                continue
+            case_id = f'{{name}}/default/{request}-{parent}'
+            definition = request in ('single-atlas', 'multi', 'cross')
+            assert code(case_id.format(name='reception-no-v1-script')) == 'ENOENT'  # in both identities
+            assert code(case_id.format(name='reception-no-workflow')) == 'ENOENT'
+            assert bool(ok(case_id.format(name='reception-no-v2-code'))) == (request == 'v1')
+            assert bool(ok(case_id.format(name='reception-no-atlas'))) == (not definition)
+            if request != 'v1':
+                legacy = jsjson.parse(ok(case_id.format(name='reception-legacy-inspector'))['identity'])
+                assert legacy['numerical_runtime_sha256'] == digest(RUNTIME_TEXT)
+                assert message(case_id.format(name='reception-bad-digest')) == INVALID_DIGEST
+                assert code(case_id.format(name='reception-inspector-fails')) == 2
+            else:
+                for name in ('legacy-inspector', 'bad-digest', 'inspector-fails'):
+                    assert ok(case_id.format(name=f'reception-{name}'))
+
+    # Values the routes never pass: read as V8 reads them.
+    assert message('reception-base/default/odd-null') == "Cannot read properties of null (reading 'mode')"
+    assert message('reception-base/default/odd-empty') == V1_LAYOUT
+    assert message('reception-base/default/odd-mode-only') == V2_LAYOUT
+    odd = ok('reception-base/default/odd-unnormalized')
+    assert odd['key'] == request_key(cases['reception-base/default/odd-unnormalized']['request'],
+                                     jsjson.parse(odd['identity']))
+
+
+@needs_node
+def test_all_new_ui_modes_use_the_atlas_version_scientific_context_hashes_both_membership_and_definition(
+        reception_synthetic, tmp_path):
+    """check-atlas-roi-contract.mjs:26, the server half: the ROI membership code, the atlas and its definition enter
+    the v2 code identity of every request with ``region_definition`` and of no other, so a change of either file
+    changes those keys alone."""
+    from eeglayoutlab.jobs.reception import ATLAS_CODE
+
+    from .reception_support import ReceptionCases, reception_root
+
+    _, cases, node, _ = reception_synthetic
+    checked = 0
+    for case_id, case in cases.items():
+        if not node['by_id'][case_id]['ok'] or not isinstance(case['request'], dict) or 'mode' not in case['request']:
+            continue
+        code = jsjson.parse(node['by_id'][case_id]['identity'])['code']
+        assert [name for name in ATLAS_CODE if name in code] == \
+            (list(ATLAS_CODE) if 'region_definition' in case['request'] else []), case_id
+        checked += 1
+    assert checked > 50
+    built = reception_root(tmp_path / 'atlas')
+    kinds = ('single', 'single-atlas', 'multi', 'cross', 'cross-legacy')
+    requests = {kind: reception_request(kind, built['ids']['strict']) for kind in kinds}
+
+    def keys() -> dict:
+        python = ReceptionCases()
+        return {kind: python.run({'id': kind, 'root': built['root'], 'request': request})['key']
+                for kind, request in requests.items()}
+    before = keys()
+    for name in ATLAS_CODE[1:]:  # the atlas, then its definition
+        path = Path(built['tree']) / name
+        path.write_bytes(path.read_bytes() + b' ')
+        after = keys()
+        assert all(after[kind] != before[kind] for kind in ('single-atlas', 'multi', 'cross')), name
+        assert all(after[kind] == before[kind] for kind in ('single', 'cross-legacy')), name
+        before = after
+
+
+def test_source_identity_uses_its_injected_native_context_without_a_design_service(tmp_path):
+    """check-service-storage.mjs:50: v2's ``forward`` comes from the injected native context (called once with
+    ``{}``), the code digests from the service's inputs and the runtime digest from the legacy inspector (here a
+    Python one under ``sys.executable``, Node's being a script for its own executable); the request is used as it
+    is."""
+    require('pydantic')
+    import asyncio
+    import sys
+
+    from eeglayoutlab.jobs.reception import ReceptionJobs
+    from eeglayoutlab.jobs.slot import ExecutionSlot
+
+    record = {'id': 'a' * 64, 'dataset_id': 'strict_area', 'status': 'completed', 'layout': {'id': 'layout'},
+              'provenance': {'file': 'frozen.json'}}
+    runtime_hash = 'b' * 64
+    forward = {'schema': 'design-evaluation-cache/1', 'digests': {'fixture': 'c' * 64}, 'python': sys.executable,
+               'threads': 1}
+    calls = []
+
+    class Library:
+        async def get(self, id):
+            return record
+
+    class Inputs:
+        def digest_all(self, names):
+            return {name: 'd' * 64 for name in names}
+
+    def native_context(request):
+        assert request == {}
+        calls.append(request)
+        return {'identity': forward}
+    (tmp_path / 'scripts').mkdir()
+    (tmp_path / 'scripts/inspect_reception_runtime.py').write_text(
+        "import json\nprint(json.dumps({'schema': 'reception-runtime-digest/1', 'sha256': '%s'}))\n" % runtime_hash,
+        encoding='utf-8')
+    source = ReceptionJobs(str(tmp_path), sys.executable, Library(), native_context=native_context, inputs=Inputs(),
+                           execution_slot=ExecutionSlot())
+    request = {'record_id': record['id'], 'mode': 'single_source'}
+
+    async def scenario():
+        try:
+            return await source.context(request)
+        finally:
+            await source.aclose()
+    context = asyncio.run(scenario())
+    assert len(calls) == 1
+    assert context['identity']['forward'] == forward
+    assert context['identity']['numerical_runtime_sha256'] == runtime_hash
+    assert context['key'] == jsjson.sha256_hex({'request': request, 'identity': context['identity']})
+
+
+def _stored_receptions() -> dict:
+    """The installation's reception caches by ``(kind, key)``, parsed."""
+    stored = {}
+    for kind in ('source_reception_jobs', 'source_reception_v2_jobs'):
+        directory = Path(REAL_ROOT) / 'results/v2' / kind
+        for entry in sorted(directory.iterdir()) if directory.is_dir() else ():
+            cache = entry / 'cache.json'
+            if KEY.fullmatch(entry.name) and cache.is_file():
+                stored[(kind, entry.name)] = jsjson.parse(cache.read_bytes().decode('utf-8', errors='replace'))
+    return stored
+
+
+@pytest.mark.data_bundle
+@real_root
+@needs_node
+def test_real_root_reception_caches_rederive_their_keys(tmp_path):
+    """Every stored reception cache of the installation, read only: its request's context today through Node and
+    Python (they agree; whether that key is still the directory's is printed, inputs move on), its original download
+    (``savedResult``) and the queue's startup finish time from the record as stored, and the time pure-Python
+    ``JSON.stringify`` takes for the result."""
+    require('pydantic')
+    import asyncio
+    import time
+
+    from eeglayoutlab.jobs.library import Library
+    from eeglayoutlab.jobs.reception import ReceptionJobs
+    from eeglayoutlab.jobs.slot import ExecutionSlot
+    from eeglayoutlab.schemas.source_reception import normalize_reception_request
+
+    from .reception_support import ReceptionCases
+
+    stored = _stored_receptions()
+    if not stored:
+        pytest.skip('the installation holds no reception cache')
+    requests = {key: normalize_reception_request(cache['result']['request']) for (_, key), cache in stored.items()}
+    cases = [{'id': key, 'root': REAL_ROOT, 'request': request} for key, request in requests.items()]
+    node = run_reception_node(cases, tmp_path, reuse=True)['by_id']
+    python = ReceptionCases(reuse=True)
+    try:
+        outcomes = {case['id']: python.run(case) for case in cases}
+    finally:
+        python.close()
+    config = py_runtime.runtime_config(REAL_ROOT, env={})
+    service = ReceptionJobs(config.repository_root, config.native_python, Library(config.repository_root, config),
+                            compute_python=config.python, execution_slot=ExecutionSlot())
+    try:
+        for (kind, key), cache in stored.items():
+            outcome = outcomes[key]
+            assert outcome == node_outcome(node[key]), key
+            state = ('key matches' if outcome['ok'] and outcome['key'] == key else
+                     f'key differs ({outcome["key"][:12]})' if outcome['ok'] else
+                     f'refused: {outcome.get("message") or outcome.get("code")}')
+            saved = asyncio.run(service.saved_result(key, requests[key]))
+            assert saved == cache['result'], key
+            finished = asyncio.run(service.stored_finish(key, requests[key], cache.get('identity'), cache['result']))
+            assert finished == cache['finished_at'], key
+            started = time.perf_counter()
+            text = jsjson.stringify(cache['result'])
+            print(f'\n{kind} {key[:12]}: {state}; saved result and finish time read back; JSON.stringify of its '
+                  f'{len(text) / 1e6:.1f} MB result {time.perf_counter() - started:.2f} s')
+    finally:
+        asyncio.run(service.aclose())
+
+
+@pytest.mark.native_runtime
+@needs_node
+def test_real_runtime_reception_v2_context_parity(tmp_path):
+    """v2's context on the installation (``EEG_KEY_PARITY_ROOT``, read only; the native interpreter runs the real
+    runtime inspector with ``PYTHONDONTWRITEBYTECODE=1``) for the parent of a stored reception record, in each mode:
+    Node's and Python's outcome, ``numerical_runtime_sha256`` and key are equal."""
+    require('pydantic')
+    from eeglayoutlab.jobs.runtime import native_python_path
+
+    from .reception_support import ReceptionCases
+
+    if not REAL_ROOT or not os.path.exists(native_python_path(REAL_ROOT)):
+        pytest.skip('EEG_KEY_PARITY_ROOT with the native runtime is required to run the real inspector')
+    parents = [cache['result']['request']['record_id'] for cache in _stored_receptions().values()]
+    if not parents:
+        pytest.skip('the installation holds no reception record to take a parent from')
+    cases = [{'id': kind, 'root': REAL_ROOT, 'request': reception_request(kind, parents[0])}
+             for kind in RECEPTION_REQUESTS[1:]]
+    node = run_reception_node(cases, tmp_path, reuse=True)['by_id']
+    python = ReceptionCases(reuse=True)
+    try:
+        outcomes = {case['id']: python.run(case) for case in cases}
+    finally:
+        python.close()
+    digests = set()
+    for case in cases:
+        assert outcomes[case['id']] == node_outcome(node[case['id']]), case['id']
+        if outcomes[case['id']]['ok']:
+            digests.add(jsjson.parse(outcomes[case['id']]['identity'])['numerical_runtime_sha256'])
+    assert len(digests) == 1, outcomes
+    print(f'\nreception v2 on {parents[0][:12]}: numerical_runtime_sha256 {digests.pop()}; ' + ', '.join(
+        f'{case_id} {outcome["key"][:12] if outcome["ok"] else outcome.get("message") or outcome.get("code")}'
+        for case_id, outcome in outcomes.items()))

@@ -84,6 +84,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/normalize/source-reception": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validate a source-reception request and return its canonical form
+         * @description Diagnostic endpoint. Reproduces normalizeReceptionRequest, with normalizeSourceRequest for requests without mode (webapp/contracts/source-reception.mjs).
+         */
+        post: operations["normalize_source_reception"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -244,6 +264,42 @@ export interface components {
             conversion: (components["schemas"]["MniConversion"] | components["schemas"]["LabelConversion"] | components["schemas"]["HeadRegistration"]) | null;
             /** Region Assignment */
             region_assignment: components["schemas"]["FileRegionAssignment"] | components["schemas"]["BalancedRegionAssignment"];
+        };
+        /**
+         * CrossRegionReception
+         * @description One fixed source in each of one to six regions, each listed once and in the order of the region list.
+         */
+        CrossRegionReception: {
+            /**
+             * Record Id
+             * @description The library record of the layout: a lowercase SHA-256 hex digest.
+             */
+            record_id: string;
+            /**
+             * Waveform
+             * @enum {string}
+             */
+            waveform: "burst" | "rhythm";
+            /**
+             * Artifact Scale
+             * @enum {number}
+             */
+            artifact_scale: 0 | 0.5 | 1 | 2 | 4;
+            /** Seed */
+            seed: number;
+            /**
+             * Mode
+             * @constant
+             */
+            mode: "cross_region";
+            /**
+             * Region Definition
+             * @description The source ROI atlas, kept in the identity when sent.
+             * @constant
+             */
+            region_definition?: "dk40-six-roi-v1";
+            /** Brain Regions */
+            brain_regions: ("frontal" | "central" | "parietal" | "occipital" | "temporal_left" | "temporal_right")[];
         };
         /**
          * DataPrior
@@ -505,6 +561,45 @@ export interface components {
             /** Max Surface Distance Mm */
             max_surface_distance_mm: number;
         };
+        /**
+         * MultiSourceReception
+         * @description Six generation sources within one region.
+         */
+        MultiSourceReception: {
+            /**
+             * Record Id
+             * @description The library record of the layout: a lowercase SHA-256 hex digest.
+             */
+            record_id: string;
+            /**
+             * Waveform
+             * @enum {string}
+             */
+            waveform: "burst" | "rhythm";
+            /**
+             * Artifact Scale
+             * @enum {number}
+             */
+            artifact_scale: 0 | 0.5 | 1 | 2 | 4;
+            /** Seed */
+            seed: number;
+            /**
+             * Mode
+             * @constant
+             */
+            mode: "multi_source";
+            /**
+             * Region Definition
+             * @description The source ROI atlas, kept in the identity when sent.
+             * @constant
+             */
+            region_definition?: "dk40-six-roi-v1";
+            /**
+             * Brain Region
+             * @enum {string}
+             */
+            brain_region: "frontal" | "central" | "parietal" | "occipital" | "temporal_left" | "temporal_right";
+        };
         /** NormalizedRequest */
         NormalizedRequest: {
             /** @description The request as Node's normalizer returns it. */
@@ -538,6 +633,71 @@ export interface components {
             mask_codes?: ("PL" | "PR" | "AL" | "AR" | "FL" | "FM" | "FR" | "OL" | "OR")[];
             noise_model?: components["schemas"]["SpatialNoise"];
             data_prior?: components["schemas"]["DataPrior"];
+        };
+        /**
+         * SingleSourceReception
+         * @description One frozen generation source, by its index.
+         */
+        SingleSourceReception: {
+            /**
+             * Record Id
+             * @description The library record of the layout: a lowercase SHA-256 hex digest.
+             */
+            record_id: string;
+            /**
+             * Waveform
+             * @enum {string}
+             */
+            waveform: "burst" | "rhythm";
+            /**
+             * Artifact Scale
+             * @enum {number}
+             */
+            artifact_scale: 0 | 0.5 | 1 | 2 | 4;
+            /** Seed */
+            seed: number;
+            /**
+             * Mode
+             * @constant
+             */
+            mode: "single_source";
+            /**
+             * Region Definition
+             * @description The source ROI atlas, kept in the identity when sent.
+             * @constant
+             */
+            region_definition?: "dk40-six-roi-v1";
+            /** Source Index */
+            source_index: number;
+        };
+        SourceReceptionRequest: components["schemas"]["SourceReceptionV1"] | components["schemas"]["SingleSourceReception"] | components["schemas"]["MultiSourceReception"] | components["schemas"]["CrossRegionReception"];
+        /**
+         * SourceReceptionV1
+         * @description A v1 request (no ``mode``): the six generation sources nearest to the region's fixed coordinate anchor.
+         */
+        SourceReceptionV1: {
+            /**
+             * Record Id
+             * @description The library record of the layout: a lowercase SHA-256 hex digest.
+             */
+            record_id: string;
+            /**
+             * Brain Region
+             * @enum {string}
+             */
+            brain_region: "frontal" | "central" | "parietal" | "occipital" | "temporal_left" | "temporal_right";
+            /**
+             * Waveform
+             * @enum {string}
+             */
+            waveform: "burst" | "rhythm";
+            /**
+             * Artifact Scale
+             * @enum {number}
+             */
+            artifact_scale: 0 | 0.5 | 1 | 2 | 4;
+            /** Seed */
+            seed: number;
         };
         /** SpatialNoise */
         SpatialNoise: {
@@ -729,6 +889,57 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RadiusSearchRequest"];
+            };
+        };
+        responses: {
+            /** @description The canonical request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NormalizedRequest"];
+                };
+            };
+            /** @description The body is not valid JSON or not a valid request. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The body is larger than 65,536 bytes. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The content type is not application/json. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    normalize_source_reception: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceReceptionRequest"];
             };
         };
         responses: {

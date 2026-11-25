@@ -18,6 +18,10 @@ cancel and dispatch:
   execution slot), answers a hit with one cached receipt per kind, key and status (reused, written only when new),
   joins a pending task of the same kind and key, and otherwise appends a ``queued`` receipt. A lookup never adds a
   queued task. A shutdown or a failed write during any await refuses the request (503) before anything is added.
+- ``records`` lists the newest completed signal-reception receipt of each key (``GET /api/community/records``,
+  the receipts' small catalog metadata, never their results), and ``saved_result`` reads the stored result of one
+  such receipt for its original download without preparing its identity again (``GET
+  /api/community/records/<id>/result``).
 - ``tick`` (dispatch) re-prepares the next queued task and fails it with ``排队后模型或代码已更新，请重新提交`` when
   its key changed; it persists the spawn intent (``starting``) before ``adapter.start``. A start that confirms it
   launched nothing (``busy``) puts the task back in its place; one that throws keeps the intent, which blocks
@@ -85,8 +89,8 @@ from .kinds import Adapter, resolve
 
 __all__ = [
     'QUEUE_FILE', 'QUEUE_SCHEMA', 'STATUSES', 'PENDING', 'RECEIPT_LIMITS', 'MAX_QUEUED', 'STATS_JOBS',
-    'INTERRUPTED_MESSAGE', 'QueueError', 'QueueStateError', 'WorkspaceQueue', 'retain_receipts', 'task_view',
-    'receipt_catalog', 'public_message', 'boot_id', 'group_alive', 'iso',
+    'RECORDS_SCHEMA', 'RECORDS_SCOPE', 'INTERRUPTED_MESSAGE', 'QueueError', 'QueueStateError', 'WorkspaceQueue',
+    'retain_receipts', 'task_view', 'receipt_catalog', 'public_message', 'boot_id', 'group_alive', 'iso',
 ]
 
 QUEUE_FILE = 'queue.json'
@@ -100,6 +104,10 @@ TERMINAL = tuple(status for status in STATUSES if status not in PENDING)
 RECEIPT_LIMITS = {'computed': 1000, 'cached': 300}
 MAX_QUEUED = 50
 STATS_JOBS = 12
+# GET /api/community/records: Node's schema; the scope is the workspace (Node's is 'current_browser').
+RECORDS_SCHEMA = 'browser-experiment-records/1'
+RECORDS_SCOPE = 'workspace'
+RECORDS_KIND = 'source-reception'
 RETRY_SECONDS = 1.0
 _OUTCOME_LIMIT = 64
 
@@ -827,6 +835,33 @@ class WorkspaceQueue:
         return status
 
     status = stats
+
+    def records(self) -> dict:
+        """``records(visitor)`` (``GET /api/community/records``) for the workspace: the newest completed
+        signal-reception receipt of each key, newest first, as ``taskView`` gives it (its catalog metadata, never its
+        result). ``receipt_limit`` is the bound on computed receipts; ``scope`` is ``workspace``."""
+        newest: dict[str, dict] = {}
+        for task in self.tasks:
+            if task['kind'] != RECORDS_KIND or task['status'] != 'completed':
+                continue
+            previous = newest.get(task['key'])
+            if previous is None or task['sequence'] > previous['sequence']:
+                newest[task['key']] = task
+        listed = sorted(newest.values(), key=lambda task: task['sequence'], reverse=True)
+        return {'schema': RECORDS_SCHEMA, 'scope': RECORDS_SCOPE, 'receipt_limit': self.receipt_limits['computed'],
+                'records': [task_view(task) for task in listed]}
+
+    async def saved_result(self, id: Any) -> Any:
+        """The stored result of the completed signal-reception receipt ``id`` (``GET
+        /api/community/records/<id>/result``): the kind's ``saved_result(key, request)``, which checks the record
+        against the protocol it was saved under and never prepares the identity again, so a result stays readable
+        after the model or the code changed. Raises ``QueueError`` 404 for an unknown receipt (Node's message) or
+        one that is not completed (``计算记录无法读取，请重新提交``), and what the kind's read raises."""
+        task = self.own(id, RECORDS_KIND)
+        if task['status'] != 'completed':
+            raise QueueError(VIEW_CACHE_MISSING, 404)
+        adapter = self._adapter(RECORDS_KIND)
+        return await resolve(adapter.saved_result(task['key'], task['request']))
 
     # Submit and cancel --------------------------------------------------------------------------------------------
 

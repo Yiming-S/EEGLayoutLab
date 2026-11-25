@@ -40,6 +40,7 @@ from eeglayoutlab.jobs.bundle import (  # noqa: E402
 from eeglayoutlab.jobs.design_result import DesignResultError  # noqa: E402
 from eeglayoutlab.jobs.identity import JSTypeError  # noqa: E402
 from eeglayoutlab.jobs.library import Library, area_records, radius_records  # noqa: E402
+from eeglayoutlab.jobs.reception import ReceptionError, assert_independent_noise_parent  # noqa: E402
 from eeglayoutlab.jobs.reception_records import design_reception_record  # noqa: E402
 from eeglayoutlab.jobs.runtime import runtime_config  # noqa: E402
 from eeglayoutlab.schemas import jsjson  # noqa: E402
@@ -204,7 +205,7 @@ def test_coordinate_exports_reject_source_results_that_no_longer_match_displayed
 
 
 def test_evaluations_under_other_conditions_are_library_records_with_their_conditions(tmp_path):
-    """:163, the library half (``assertIndependentNoiseParent`` is reception v2: slice 7)."""
+    """:163, with reception v2's ``assertIndependentNoiseParent`` (``jobs.reception``, slice 7)."""
     for index, (extra, condition) in enumerate((
             ({'noise_model': SPATIAL}, {'noise_model': SPATIAL}),
             ({'conductivity_scenario': 'skull_x2'}, {'conductivity_scenario': 'skull_x2'}),
@@ -213,9 +214,12 @@ def test_evaluations_under_other_conditions_are_library_records_with_their_condi
         assert fx['record']['evaluation_condition'] == condition
         assert design_reception_record(str(fx['root']), fx['id']) is None
         assert experiment_bundle(str(fx['root']), fx['record'])['record']['evaluation_condition'] == condition
+        with pytest.raises(ReceptionError, match='独立噪声'):
+            assert_independent_noise_parent(fx['record'])
     fx = coordinate_fixture(tmp_path / 'default')
     assert 'evaluation_condition' not in fx['record']
     assert design_reception_record(str(fx['root']), fx['id']) == fx['record']
+    assert_independent_noise_parent(fx['record'])
 
 
 # --- check-source-upgrade.mjs -------------------------------------------------------------------------------------
