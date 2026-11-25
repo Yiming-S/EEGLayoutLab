@@ -92,6 +92,7 @@
   "study_choose_saved": {"source": "选择已保存布局", "en": "Choose a saved layout"},
   "method_intro": {"source": "完整的方法说明写在项目文档中，按主题分章；本页是目录。首次操作请查看“使用指南”。", "en": "The full method is written in the project documentation, one chapter per topic; this page is its index. For first steps, see the “User Guide”."},
   "method_local": {"source": "文档由本机服务提供（/docs/）。", "en": "The documentation is served by the local service (/docs/)."},
+  "method_published": {"source": "文档与本站一起发布（/docs/）。", "en": "The documentation is published with this site (/docs/)."},
   "method_github": {"source": "文档链接打开GitHub上的原文；用本机服务（eeglayoutlab）运行并构建文档后，链接改为本机的/docs/。", "en": "Documentation links open the text on GitHub; when the local service (eeglayoutlab) runs with the documentation built, they open /docs/ on this machine."},
   "method_moved": {"source": "“{{0}}”一节已移到文档。", "en": "The section “{{0}}” has moved to the documentation."},
   "method_open_chapter": {"source": "打开该章节", "en": "Open that chapter"},
@@ -173,5 +174,13 @@
   "term_ar_text": {"source": "你设定的合格线：三项保留率都达到它才算合格。改变它只重新判断，不重新计算。", "en": "The pass line you set: a layout passes when all three retentions reach it. Changing it re-judges the results without recomputing them."},
   "term_head": {"source": "头模是什么？", "en": "What is a head model?"},
   "term_head_text": {"source": "用于仿真的头部模型（由MRI重建的头皮、颅骨和脑组织）。默认是Ernie；其他头模用来检查结论是否只适用于一个人的头。", "en": "The head used in the simulation (scalp, skull and brain tissue reconstructed from MRI). The default is Ernie; other heads check whether a conclusion holds beyond one person's head."},
-  "term_more": {"source": "详细说明", "en": "Details"}
+  "term_more": {"source": "详细说明", "en": "Details"},
+  "method_reference_list": {"source": "完整参考文献（按主题）", "en": "Full reference list (by topic)"},
+  "library_search_placeholder": {"source": "部位、区域数、面积或编号，例如：耳后 2区", "en": "Site, region count, area or ID, e.g. behind ear 2 regions"},
+  "library_search_missing": {"source": "没有记录包含：", "en": "No record contains: "},
+  "library_search_none_together": {"source": "没有记录同时符合全部查找词。", "en": "No record matches all the search words together."},
+  "library_search_try": {"source": "可以换个说法，例如“耳后”“前额”“2区”“120 cm²”，或", "en": "Try other words, such as “behind the ear”, “forehead”, “2 regions” or “120 cm²”, or"},
+  "library_search_clear": {"source": "清空查找", "en": "clear the search"},
+  "picker_search_missing": {"source": "没有布局包含：", "en": "No layout contains: "},
+  "picker_search_none_together": {"source": "没有布局同时符合全部查找词。", "en": "No layout matches all the search words together."}
 }

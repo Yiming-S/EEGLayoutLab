@@ -10,6 +10,7 @@ import type { EditorRecord } from '@/lib/electrode-editor';
 import { protocolName } from '@/lib/ui-language';
 import { evaluationLabels, layoutHref, primaryRecord } from '@/lib/layout-page';
 import { SOURCE_REGIONS } from '@/lib/source-regions';
+import { matchesSearch, parseSearch, searchTarget, unmatchedWords } from '@/lib/library-search';
 import { buildRecordCatalog, catalogViewLink, groupConditionVariants, latestPerCondition, matchesCatalogFilters, parseCatalogView, locationName,
   type CatalogEntry, type CatalogRow, type CatalogView, type ExperimentReceipt } from '@/lib/records-catalog';
 
@@ -81,15 +82,20 @@ export function useLibraryController() {
   };
   const groupTitle = (entry: CatalogEntry) => 'summary' in entry ? localizedRecordTitle({ ...entry.summary, evaluation_condition: undefined }, locale) : title(entry);
   const conditionTitle = (entry: CatalogEntry) => 'summary' in entry ? evaluationLabels(entry.summary).map(label => tx(label)).join(' · ') : title(entry);
-  const matched = useMemo(() => catalog.filter(entry => {
-    if (!matchesCatalogFilters(entry, view)) return false;
+  // Each entry's search target is built once per catalog and language, not on every keystroke.
+  const targets = useMemo(() => new Map(catalog.map(entry => {
     const parent = data?.records.find(record => record.id === entry.parent_id);
-    const search = ['summary' in entry ? recordSearchText(entry.summary) : '', parent ? recordSearchText(parent) : '',
-      title(entry), entry.id, entry.parent_id ?? '', ...entry.locations.flatMap(location => [location, locationName(location), tx(locationName(location))])].join(' ').toLowerCase();
-    return search.includes(view.search.toLowerCase());
-  }).sort((a, b) => view.sort === 'name' ? title(a).localeCompare(title(b)) || a.id.localeCompare(b.id)
+    return [entry.id, searchTarget(['summary' in entry ? recordSearchText(entry.summary) : '', parent ? recordSearchText(parent) : '', title(entry),
+      ...entry.locations.flatMap(location => [location, locationName(location), tx(locationName(location))])],
+    { regionCount: entry.region_count, electrodeCount: entry.electrode_count, locations: entry.locations, ids: [entry.id, entry.parent_id ?? ''] })];
+  })), [catalog, data, title, tx]);
+  const searchWords = useMemo(() => parseSearch(view.search), [view.search]);
+  const filtered = useMemo(() => catalog.filter(entry => matchesCatalogFilters(entry, view)), [catalog, view]);
+  /** Words of the query that no record under the other filters contains, so the page can name them. */
+  const searchMisses = useMemo(() => unmatchedWords(searchWords, filtered.map(entry => targets.get(entry.id)!)), [searchWords, filtered, targets]);
+  const matched = useMemo(() => filtered.filter(entry => matchesSearch(targets.get(entry.id)!, searchWords)).sort((a, b) => view.sort === 'name' ? title(a).localeCompare(title(b)) || a.id.localeCompare(b.id)
     : view.sort === 'electrodes' ? (a.electrode_count ?? Infinity) - (b.electrode_count ?? Infinity) || a.id.localeCompare(b.id)
-      : (view.sort === 'oldest' ? 1 : -1) * ((Date.parse(a.finished_at ?? '') || 0) - (Date.parse(b.finished_at ?? '') || 0)) || a.id.localeCompare(b.id)), [catalog, view, data, title, tx]);
+      : (view.sort === 'oldest' ? 1 : -1) * ((Date.parse(a.finished_at ?? '') || 0) - (Date.parse(b.finished_at ?? '') || 0)) || a.id.localeCompare(b.id)), [filtered, targets, searchWords, view.sort, title]);
   const choices = useMemo(() => showSuperseded ? matched : matched.filter(entry => !superseded.has(entry.id)), [matched, superseded, showSuperseded]);
   const foldedCount = matched.length - choices.length;
   // Study cases of one design (one row per head, noise or conductivity condition) page as one row.
@@ -135,5 +141,5 @@ export function useLibraryController() {
   const electrodeCounts = [...new Set(catalog.flatMap(entry => entry.electrode_count === null ? [] : [entry.electrode_count]))].sort((a, b) => a - b);
   const locations = [...new Set(catalog.flatMap(entry => entry.locations))];
   const regionCounts = [...new Set(catalog.flatMap(entry => entry.region_count === null ? [] : [entry.region_count]))].sort((a, b) => a - b);
-  return { rows, isExpanded, toggleGroup, groupPrimary, groupTitle, conditionTitle, latestPerCondition, showSuperseded, setShowSuperseded, foldedCount, ar, setAR, labHref, here, layout, selected, loading, setLoading, retry, setRetry, error, view, changeView, electrodeCounts, locations, regionCounts, data, catalogWarnings, catalog, listed, id, title, protocol, score, choose, choices, displayPage, setView, pages, explicitSelection, related };
+  return { rows, isExpanded, toggleGroup, groupPrimary, groupTitle, conditionTitle, latestPerCondition, showSuperseded, setShowSuperseded, foldedCount, ar, setAR, labHref, here, layout, selected, loading, setLoading, retry, setRetry, error, view, changeView, electrodeCounts, locations, regionCounts, data, catalogWarnings, catalog, listed, id, title, protocol, score, choose, choices, displayPage, setView, pages, explicitSelection, related, searchWords, searchMisses };
 }

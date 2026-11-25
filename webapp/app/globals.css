@@ -5,7 +5,7 @@
 @custom-variant dark (&:is(.dark *));
 
 /* Geist and Geist Mono (SIL OFL 1.1, public/fonts/geist/OFL.txt), served from this build so that
-   offline and packaged builds download nothing. Other scripts, including CJK, use system fonts. */
+   offline and packaged builds download nothing. Other scripts, including CJK, use curated system sans. */
 @font-face {
   font-family: 'Geist';
   font-style: normal;
@@ -83,116 +83,125 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
+  --radius-sm: calc(var(--radius) * 0.65);
+  --radius-md: calc(var(--radius) * 0.85);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-xl: calc(var(--radius) * 1.35);
+  --radius-2xl: calc(var(--radius) * 1.65);
+  --radius-3xl: calc(var(--radius) * 2);
+  --radius-4xl: calc(var(--radius) * 2.4);
 }
 
 body {
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans);
   min-height: 100vh;
   text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
 }
 
+/* Swiss Monograph & Archival Instrument palette:
+   Warm archival stone paper + matte carbon ink + zero teal/cyan UI cast.
+   Chromatic saturation is reserved strictly for scientific plots & semantic readings. */
 :root {
-  --font-geist-sans: 'Geist', ui-sans-serif, system-ui, sans-serif;
-  --font-geist-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  --background: oklch(0.968 0.008 150);
-  --foreground: oklch(0.245 0.035 210);
+  --font-geist-sans:
+    'Geist', 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC',
+    'Source Han Sans SC', 'Microsoft YaHei UI', ui-sans-serif, system-ui,
+    -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-geist-mono:
+    'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    monospace;
+  --background: oklch(0.972 0.004 85);
+  --foreground: oklch(0.182 0.004 85);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.182 0.004 85);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.5 0.105 178);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.47 0.015 210);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.89 0.012 170);
-  --input: oklch(0.89 0.012 170);
-  --ring: oklch(0.59 0.09 178);
-  /* Outcome colours: pass, shortfall and errors. Text tokens meet 4.5:1 on white and on their surface. */
-  --success: oklch(0.47 0.1 172);
-  --success-surface: oklch(0.96 0.03 172);
-  --warning: oklch(0.5 0.11 62);
-  --warning-surface: oklch(0.97 0.035 85);
-  --danger: oklch(0.5 0.17 27);
-  --danger-surface: oklch(0.97 0.02 27);
-  /* Deep teal of the logo, selected primary tabs and the 3D stage. */
-  --brand: #102f3a;
-  --brand-foreground: #78dfcc;
-  /* Secondary body text on light panels (was #60757b and its neighbours). */
-  --ink-soft: oklch(0.52 0.022 210);
-  /* Series colours for region-count charts, distinguishable in hue and lightness. */
-  --chart-1: #0d8178;
-  --chart-2: #c08030;
-  --chart-3: #7b6fc2;
-  --chart-4: #bc577c;
-  --chart-5: #416ca0;
-  --chart-threshold: #aa792a;
-  --chart-reference: #73878a;
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --popover-foreground: oklch(0.182 0.004 85);
+  --primary: oklch(0.202 0.005 265);
+  --primary-foreground: oklch(0.985 0.003 85);
+  --secondary: oklch(0.946 0.005 85);
+  --secondary-foreground: oklch(0.215 0.005 85);
+  --muted: oklch(0.948 0.005 85);
+  --muted-foreground: oklch(0.515 0.006 85);
+  --accent: oklch(0.942 0.006 85);
+  --accent-foreground: oklch(0.195 0.005 85);
+  --destructive: oklch(0.545 0.195 26);
+  --border: oklch(0.892 0.005 85);
+  --input: oklch(0.868 0.006 85);
+  --ring: oklch(0.32 0.01 265);
+  /* Semantic outcome colours: botanical forest, warm ochre, Swiss vermilion. */
+  --success: oklch(0.445 0.105 152);
+  --success-surface: oklch(0.96 0.02 152);
+  --warning: oklch(0.505 0.12 64);
+  --warning-surface: oklch(0.966 0.026 78);
+  --danger: oklch(0.505 0.175 26);
+  --danger-surface: oklch(0.966 0.018 26);
+  --brand: #151514;
+  --brand-foreground: #faf9f6;
+  --ink-soft: oklch(0.435 0.006 85);
+  /* Publication-grade multi-series chart palette */
+  --chart-1: #2451d8;
+  --chart-2: #c85a17;
+  --chart-3: #6e44ff;
+  --chart-4: #b82952;
+  --chart-5: #3d6b5e;
+  --chart-threshold: #b45309;
+  --chart-reference: #78756e;
+  --radius: 0.5rem;
+  --sidebar: oklch(0.982 0.003 85);
+  --sidebar-foreground: oklch(0.182 0.004 85);
+  --sidebar-primary: oklch(0.202 0.005 265);
+  --sidebar-primary-foreground: oklch(0.985 0.003 85);
+  --sidebar-accent: oklch(0.946 0.005 85);
+  --sidebar-accent-foreground: oklch(0.195 0.005 85);
+  --sidebar-border: oklch(0.898 0.005 85);
+  --sidebar-ring: oklch(0.55 0.01 85);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --success: oklch(0.75 0.12 172);
-  --success-surface: oklch(0.3 0.05 172);
-  --warning: oklch(0.8 0.12 75);
-  --warning-surface: oklch(0.3 0.05 75);
-  --danger: oklch(0.75 0.15 27);
-  --danger-surface: oklch(0.3 0.06 27);
-  --ink-soft: oklch(0.75 0.02 210);
-  --brand: #0b202a;
-  --brand-foreground: #78dfcc;
-  --chart-1: #4fc3b4;
-  --chart-2: #e0a75a;
-  --chart-3: #a99ff0;
-  --chart-4: #e88aad;
-  --chart-5: #7fa6d8;
-  --chart-threshold: #e0a75a;
-  --chart-reference: #9fb1b4;
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: oklch(0.152 0.003 270);
+  --foreground: oklch(0.958 0.004 85);
+  --card: oklch(0.194 0.004 270);
+  --card-foreground: oklch(0.958 0.004 85);
+  --popover: oklch(0.202 0.004 270);
+  --popover-foreground: oklch(0.958 0.004 85);
+  --primary: oklch(0.952 0.004 85);
+  --primary-foreground: oklch(0.162 0.003 270);
+  --secondary: oklch(0.238 0.005 270);
+  --secondary-foreground: oklch(0.945 0.004 85);
+  --muted: oklch(0.232 0.004 270);
+  --muted-foreground: oklch(0.685 0.006 85);
+  --accent: oklch(0.248 0.005 270);
+  --accent-foreground: oklch(0.958 0.004 85);
+  --destructive: oklch(0.685 0.185 24);
+  --border: oklch(1 0 0 / 9.5%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.75 0.01 85);
+  --success: oklch(0.75 0.115 152);
+  --success-surface: oklch(0.265 0.038 152);
+  --warning: oklch(0.79 0.12 72);
+  --warning-surface: oklch(0.268 0.04 72);
+  --danger: oklch(0.74 0.15 26);
+  --danger-surface: oklch(0.268 0.048 26);
+  --ink-soft: oklch(0.735 0.006 85);
+  --brand: #f2f0ec;
+  --brand-foreground: #121214;
+  --chart-1: #6b8aff;
+  --chart-2: #f08c4b;
+  --chart-3: #a88eff;
+  --chart-4: #f47296;
+  --chart-5: #6ec4ac;
+  --chart-threshold: #f0a04b;
+  --chart-reference: #9b9890;
+  --sidebar: oklch(0.188 0.003 270);
+  --sidebar-foreground: oklch(0.958 0.004 85);
+  --sidebar-primary: oklch(0.952 0.004 85);
+  --sidebar-primary-foreground: oklch(0.162 0.003 270);
+  --sidebar-accent: oklch(0.238 0.005 270);
+  --sidebar-accent-foreground: oklch(0.958 0.004 85);
+  --sidebar-border: oklch(1 0 0 / 9.5%);
+  --sidebar-ring: oklch(0.68 0.01 85);
 }
 
 @layer base {
@@ -206,50 +215,210 @@ body {
     @apply font-sans;
     scroll-behavior: smooth;
   }
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.022em;
+  }
+
+  /* Precision linear fader across browsers */
+  input[type='range'] {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 1.25rem;
+    background: transparent;
+    cursor: pointer;
+  }
+  input[type='range']:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+  input[type='range']::-webkit-slider-runnable-track {
+    height: 0.25rem;
+    border-radius: 9999px;
+    background: color-mix(in oklch, var(--muted) 70%, var(--foreground) 14%);
+  }
+  input[type='range']::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    margin-top: -0.34rem;
+    height: 0.95rem;
+    width: 0.95rem;
+    border-radius: 9999px;
+    border: 2px solid var(--primary);
+    background: var(--card);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+    transition:
+      transform 120ms ease,
+      box-shadow 120ms ease;
+  }
+  input[type='range']:hover:not(:disabled)::-webkit-slider-thumb {
+    transform: scale(1.08);
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.24),
+      0 0 0 3px color-mix(in oklch, var(--primary) 12%, transparent);
+  }
+  input[type='range']:focus-visible::-webkit-slider-thumb {
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.24),
+      0 0 0 3px color-mix(in oklch, var(--primary) 22%, transparent);
+  }
+  input[type='range']::-moz-range-track {
+    height: 0.25rem;
+    border-radius: 9999px;
+    background: color-mix(in oklch, var(--muted) 70%, var(--foreground) 14%);
+  }
+  input[type='range']::-moz-range-thumb {
+    height: 0.95rem;
+    width: 0.95rem;
+    border-radius: 9999px;
+    border: 2px solid var(--primary);
+    background: var(--card);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  }
+
+  /* Precision progress bar */
+  progress {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 0.375rem;
+    overflow: hidden;
+    border: 0;
+    border-radius: 9999px;
+    background-color: var(--muted);
+  }
+  progress::-webkit-progress-bar {
+    border-radius: 9999px;
+    background-color: var(--muted);
+  }
+  progress::-webkit-progress-value {
+    border-radius: 9999px;
+    background-color: var(--primary);
+    transition: width 220ms ease;
+  }
+  progress::-moz-progress-bar {
+    border-radius: 9999px;
+    background-color: var(--primary);
+  }
 }
 
 @layer components {
-  .lab-page { @apply min-h-screen bg-background text-foreground; }
-  html { scroll-padding-top: var(--workspace-header-height, 9rem); }
-  .lab-container { @apply mx-auto max-w-[1500px] px-4 pb-8 sm:px-6 lg:px-8; }
-  .lab-panel { @apply rounded-xl border border-border bg-card p-5; }
-  .lab-label { @apply block text-sm font-medium; }
-  .lab-select { @apply mt-2 h-11 w-full rounded-lg border border-input bg-card px-3 text-sm font-normal outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground; }
-  /* Text fields and text areas; same frame as .lab-select but free height. */
-  .lab-input { @apply mt-2 block min-h-11 w-full rounded-lg border border-input bg-card px-3 py-2.5 text-sm font-normal outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground; }
-  .lab-eyebrow { @apply text-xs font-semibold tracking-wide text-primary; }
+  .lab-page {
+    @apply min-h-screen bg-background text-foreground;
+  }
+  html {
+    scroll-padding-top: var(--workspace-header-height, 8rem);
+  }
+  .lab-container {
+    @apply mx-auto max-w-[1440px] px-4 pb-12 sm:px-6 lg:px-8;
+  }
+  .lab-panel {
+    @apply rounded-xl border border-border bg-card p-5 sm:p-6;
+    box-shadow: 0 1px 2px rgba(20, 20, 19, 0.03);
+  }
+  .dark .lab-panel {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.32);
+  }
+  .lab-subpanel {
+    @apply rounded-lg border border-border/80 bg-secondary/45 p-3.5;
+  }
+  .lab-table-frame {
+    @apply overflow-x-auto rounded-lg border border-border bg-card;
+  }
+  .lab-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 0.75rem;
+    border: 1px solid var(--border);
+    background-color: var(--card);
+    background-image: radial-gradient(
+      rgba(20, 20, 19, 0.065) 1px,
+      transparent 1px
+    );
+    background-size: 16px 16px;
+    box-shadow: 0 1px 2px rgba(20, 20, 19, 0.03);
+  }
+  .dark .lab-hero {
+    background-image: radial-gradient(
+      rgba(255, 255, 255, 0.055) 1px,
+      transparent 1px
+    );
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  }
+  .lab-label {
+    @apply block text-sm font-medium text-foreground/95;
+  }
+  .lab-select {
+    @apply mt-2 h-10 w-full rounded-lg border border-input bg-card px-3 text-sm font-normal text-foreground shadow-[0_1px_1px_rgba(0,0,0,0.02)] transition-colors outline-none hover:border-foreground/30 focus:border-foreground focus:ring-2 focus:ring-ring/15 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground;
+  }
+  select.lab-select {
+    appearance: none;
+    padding-right: 2.25rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23575653' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.7rem center;
+    background-size: 1rem 1rem;
+  }
+  .dark select.lab-select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a3a19b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  }
+  .lab-input {
+    @apply mt-2 block min-h-10 w-full rounded-lg border border-input bg-card px-3 py-2 text-sm font-normal text-foreground shadow-[0_1px_1px_rgba(0,0,0,0.02)] transition-colors outline-none hover:border-foreground/30 focus:border-foreground focus:ring-2 focus:ring-ring/15 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground;
+  }
+  .lab-eyebrow {
+    @apply inline-flex items-center gap-1.5 font-mono text-xs font-medium tracking-[0.08em] text-muted-foreground uppercase;
+  }
+  .lab-chip {
+    @apply inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary/65 px-2.5 py-0.5 font-mono text-xs font-medium text-ink-soft;
+  }
+  .lab-link-pill {
+    @apply inline-flex items-center gap-1 rounded-lg border border-border bg-card px-3 py-1.5 text-[0.8125rem] font-medium text-foreground/85 shadow-[0_1px_1px_rgba(0,0,0,0.02)] transition-colors hover:border-foreground/30 hover:bg-secondary/65 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring;
+  }
   .brain-stage {
     background:
       radial-gradient(
-        circle at 52% 38%,
-        rgba(105, 196, 186, 0.2),
-        transparent 34%
+        circle at 50% 40%,
+        rgba(255, 255, 255, 0.07),
+        transparent 42%
       ),
-      radial-gradient(
-        circle at 20% 85%,
-        rgba(58, 104, 128, 0.2),
-        transparent 38%
-      ),
-      linear-gradient(145deg, #102c38 0%, #0b202a 58%, #071820 100%);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+      linear-gradient(160deg, #1b1b1e 0%, #121214 60%, #0b0b0d 100%);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
   }
 
   .head-stage {
-    background: radial-gradient(ellipse at 50% 48%, #fff 30%, #f3f6f7 100%);
-    border: 1px solid #dce3e7;
-    box-shadow: 0 16px 48px rgba(25, 43, 57, 0.06);
+    background: radial-gradient(ellipse at 50% 46%, #ffffff 36%, #f1efe9 100%);
+    border: 1px solid #e2dfd7;
+    box-shadow:
+      0 12px 32px -18px rgba(20, 20, 19, 0.09),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  }
+  .dark .head-stage {
+    background: radial-gradient(ellipse at 50% 46%, #202024 28%, #121215 100%);
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow:
+      0 14px 36px -18px rgba(0, 0, 0, 0.6),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
   }
 
   .head-tool {
-    @apply border-[#d7e0e5] bg-white/95 text-[#364e5a] shadow-sm hover:bg-[#edf3f5] hover:text-[#173640];
+    @apply border-[#dcd9d0] bg-white/95 text-[#3b3a37] shadow-2xs hover:bg-[#f2f0ea] hover:text-[#141413];
+  }
+  .dark .head-tool {
+    @apply border-white/12 bg-[#1c1c20]/95 text-zinc-200 shadow-2xs hover:bg-[#27272c] hover:text-white;
   }
 
   .head-choice {
-    @apply rounded-lg px-3 py-2 text-sm font-medium text-[#5a6e79] transition-colors hover:bg-[#edf3f5];
+    @apply rounded-md px-3 py-1.5 text-sm font-medium text-[#63615c] transition-colors hover:bg-[#efede7];
+  }
+  .dark .head-choice {
+    @apply text-zinc-300 hover:bg-white/8;
   }
 
   .head-choice[aria-pressed='true'] {
-    @apply bg-[#1d4858] text-white;
+    @apply bg-[#18181b] text-white shadow-2xs;
+  }
+  .dark .head-choice[aria-pressed='true'] {
+    @apply bg-primary text-primary-foreground shadow-2xs;
   }
 
   .brain-stage::after {
@@ -258,18 +427,18 @@ body {
     pointer-events: none;
     content: '';
     background-image:
-      linear-gradient(rgba(125, 221, 205, 0.045) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(125, 221, 205, 0.045) 1px, transparent 1px);
-    background-size: 34px 34px;
+      linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+    background-size: 32px 32px;
     mask-image: radial-gradient(circle at center, black 15%, transparent 78%);
   }
 
   .section-kicker {
-    @apply flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.15em] text-primary;
+    @apply flex items-center gap-2 font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground;
   }
 
   .method-title {
-    @apply mt-2 text-2xl font-semibold tracking-[-0.025em] text-foreground sm:text-3xl;
+    @apply mt-2 text-2xl font-semibold tracking-[-0.028em] text-foreground sm:text-3xl;
   }
 
   .method-lead {
@@ -281,7 +450,7 @@ body {
   }
 
   .method-panel {
-    @apply rounded-2xl border border-border bg-card p-5;
+    @apply rounded-xl border border-border bg-card p-5 shadow-2xs;
   }
 
   .method-panel h3 {

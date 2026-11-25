@@ -379,6 +379,8 @@ ECG and EOG are set only in signal simulation, with assumed spatial fields. MI a
 
 The references below document the external modeling methods. They do not validate this application's layouts or implementation.
 
+The [reference list](references.md) gives the full citation of every work the project draws on, grouped by topic, with what each supports and where it sets limits.
+
 - Nielsen JD, Puonti O, Xue R, Thielscher A, Madsen KH (2023). [Evaluating the influence of anatomical accuracy and electrode positions on EEG forward solutions](https://doi.org/10.1016/j.neuroimage.2023.120259). *NeuroImage*, 277, 120259.
 - Saturnino GB, Madsen KH, Thielscher A (2019). [Electric field simulations for transcranial brain stimulation using FEM: an efficient implementation and error analysis](https://doi.org/10.1088/1741-2552/ab41ba). *Journal of Neural Engineering*, 16, 066032.
 - [SimNIBS coordinate conventions](https://simnibs.github.io/simnibs/build/html/documentation/coordinates.html) and [example dataset release](https://github.com/simnibs/example-dataset/releases/tag/v4.1).

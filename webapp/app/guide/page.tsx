@@ -1,13 +1,15 @@
 'use client';
 /* oxlint-disable next/no-html-link-for-pages -- preserve established vinext navigation */
 import { useEffect, useState } from 'react';
+import { ArrowUpRight } from 'lucide-react';
 import { SiteHeader } from '@/components/site-header';
 import { MethodBackLink } from '@/components/method-context';
 import { DocumentationLink } from '@/components/documentation-navigation';
+import { buttonVariants } from '@/components/ui/button';
 import { useLanguage } from '@/components/language-provider';
 import { parseAR } from '@/lib/lab-workflow';
 import { SHOWCASE } from '@/lib/showcase';
-import { USAGE_EXPLANATIONS } from '@/lib/usage-guide';
+import { USAGE_EXPLANATIONS, guideStepHref } from '@/lib/usage-guide';
 
 // One step per area of the interface; each opens its page and the matching method chapter.
 const STEPS = [
@@ -28,29 +30,48 @@ export default function GuidePage() {
     restore(); window.addEventListener('popstate', restore);
     return () => window.removeEventListener('popstate', restore);
   }, []);
-  // The showcase has no workspace, projects or computation: those steps open the findings instead.
-  const href = (path: string) => (SHOWCASE && ['/', '/projects', '/design', '/reception'].includes(path) ? '/findings' : path) + '?ar=' + ar;
   return <main className="lab-page">
     <SiteHeader current="guide" />
-    <div className="lab-container max-w-5xl space-y-7 py-6">
-      <header>
-        <MethodBackLink />
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{tx('使用指南')}</h1>
-        <p className="mt-4 text-base leading-7 text-muted-foreground">{tx('工作区汇总最近的工作；布局板块新建和查找布局；分析板块提出问题；研究结果是已发表的实验；文档包括本指南与建模原理。')}</p>
-      </header>
-      <nav aria-label={tx('使用指南目录')} className="grid gap-3 rounded-xl border bg-card p-5 text-base sm:grid-cols-2">
-        {STEPS.map(step => <a key={step.id} href={'#' + step.id} className="text-primary underline underline-offset-4">{tx(USAGE_EXPLANATIONS[step.paragraph][0])}</a>)}
-      </nav>
-      {STEPS.map(step => <section key={step.id} id={step.id} aria-labelledby={step.id + '-title'} className="lab-panel scroll-mt-40 space-y-4">
-        <h2 id={step.id + '-title'} className="text-xl font-semibold">{tx(USAGE_EXPLANATIONS[step.paragraph][0])}</h2>
-        <p className="text-base leading-8">{tx(step.note)}</p>
-        <p className="text-base leading-8 text-muted-foreground">{tx(USAGE_EXPLANATIONS[step.paragraph][1])}</p>
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t pt-4 text-base">
-          <a href={href(step.path)} className="font-semibold text-primary underline underline-offset-4">{tx(step.action)}</a>
-          {step.id === 'usage-design' && <a href={'/coordinates?ar=' + ar} className="text-primary underline underline-offset-4">{tx('坐标导入')}</a>}
-          <DocumentationLink target="method" section={step.section} className="text-primary underline underline-offset-4">{tx('查看对应计算原理')}</DocumentationLink>
+    <div className="lab-container max-w-5xl space-y-5 py-6">
+      <header className="lab-hero overflow-hidden">
+        <div className="bg-card/90 p-6 sm:p-7">
+          <MethodBackLink />
+          <h1 className="mt-2 text-2xl font-semibold tracking-[-0.03em] sm:text-[1.75rem]">{tx('使用指南')}</h1>
+          <p className="mt-2.5 max-w-3xl text-sm leading-7 text-ink-soft">{tx('工作区汇总最近的工作；布局板块新建和查找布局；分析板块提出问题；研究结果是已发表的实验；文档包括本指南与建模原理。')}</p>
         </div>
-      </section>)}
+        <nav aria-label={tx('使用指南目录')} className="grid border-t border-border bg-secondary/30 sm:grid-cols-2 lg:grid-cols-3">
+          {STEPS.map((step, index) => (
+            <a
+              key={step.id}
+              href={'#' + step.id}
+              className="group flex items-center gap-3 border-b border-border/70 px-4 py-3 text-[0.8125rem] font-medium text-foreground transition-colors hover:bg-card sm:border-r"
+            >
+              <span className="font-mono text-[11px] font-medium text-muted-foreground">
+                {String(index + 1).padStart(2, '0')}
+              </span>
+              <span className="truncate">{tx(USAGE_EXPLANATIONS[step.paragraph][0])}</span>
+            </a>
+          ))}
+        </nav>
+      </header>
+      {STEPS.map((step, index) => { const href = guideStepHref(step.path, ar, SHOWCASE); return <section key={step.id} id={step.id} aria-labelledby={step.id + '-title'} className="lab-panel scroll-mt-36 space-y-3">
+        <div className="flex items-baseline gap-3">
+          <span aria-hidden="true" className="rounded border border-border bg-secondary/75 px-2 py-0.5 font-mono text-[11px] font-semibold text-foreground">
+            {String(index + 1).padStart(2, '0')}
+          </span>
+          <h2 id={step.id + '-title'} className="text-base font-semibold sm:text-lg">{tx(USAGE_EXPLANATIONS[step.paragraph][0])}</h2>
+        </div>
+        <p className="text-sm leading-7 text-foreground/95">{tx(step.note)}</p>
+        <p className="text-[0.8125rem] leading-6.5 text-ink-soft">{tx(USAGE_EXPLANATIONS[step.paragraph][1])}</p>
+        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3.5">
+          {href && <a href={href} className={buttonVariants({ size: 'sm' })}>
+            {tx(step.action)}
+            <ArrowUpRight aria-hidden className="size-3.5" />
+          </a>}
+          {step.id === 'usage-design' && <a href={'/coordinates?ar=' + ar} className="lab-link-pill">{tx('坐标导入')}</a>}
+          <DocumentationLink target="method" section={step.section} className="lab-link-pill">{tx('查看对应计算原理')}</DocumentationLink>
+        </div>
+      </section>; })}
     </div>
   </main>;
 }

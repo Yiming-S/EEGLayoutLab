@@ -6,6 +6,7 @@ import { useLanguage } from '@/components/language-provider';
 import { RuntimeMessage } from '@/components/runtime-message';
 import type { SavedRecord } from '@/lib/local-library';
 import { fetchReproducibilityBundle, layoutExportAvailability, layoutExportFile, type ExportFile, type LayoutExportKind } from '@/lib/layout-exports';
+import { SHOWCASE } from '@/lib/showcase';
 
 const options: { kind: LayoutExportKind; label: string; note: string }[] = [
   { kind: 'coordinates_csv', label: '电极坐标 CSV', note: 'Ernie原生毫米坐标；保留原电极顺序与区域编号。' },
@@ -23,7 +24,7 @@ function download(file: ExportFile) {
   try { anchor.click(); } finally { anchor.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 1000); }
 }
 
-export function LayoutExportMenu({ record, ar }: { record: SavedRecord; ar: number }) {
+export function LayoutExportMenu({ record, ar, showcase = SHOWCASE }: { record: SavedRecord; ar: number; showcase?: boolean }) {
   const { locale, tx } = useLanguage();
   const request = useRef<AbortController | null>(null);
   const [state, setState] = useState<{ id: string; kind: LayoutExportKind; pending: boolean; error: string | null; ready: boolean } | null>(null);
@@ -53,14 +54,20 @@ export function LayoutExportMenu({ record, ar }: { record: SavedRecord; ar: numb
         {options.map((option) => {
           const needsDesign = option.kind === 'coordinates_csv' || option.kind === 'design_json';
           const blocked = needsDesign && !availability.design;
+          const label = showcase && option.kind === 'bundle_json' ? '脱敏展示副本 JSON'
+            : showcase && option.kind === 'result_json' ? '展示记录 JSON' : option.label;
+          const note = showcase && option.kind === 'bundle_json'
+            ? '含脱敏结果及副本校验值；原始文件摘要和科学编号仅作来源引用，不能用此副本重算。'
+            : showcase && option.kind === 'result_json'
+              ? '展示用指标、坐标与脱敏来源字段；不是原始计算缓存。' : option.note;
           return <button key={option.kind} type="button" disabled={!!active?.pending || blocked} onClick={() => void run(option.kind)}
             className="block w-full rounded-lg px-3 py-2.5 text-left transition hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-45">
-            <span className="block text-sm font-semibold text-foreground">{tx(option.label)}</span>
-            <span className="mt-1 block text-xs font-normal leading-5 text-muted-foreground">{tx(blocked ? availability.reason! : option.note)}</span>
+            <span className="block text-sm font-semibold text-foreground">{tx(label)}</span>
+            <span className="mt-1 block text-xs font-normal leading-5 text-muted-foreground">{tx(blocked ? availability.reason! : note)}</span>
           </button>;
         })}
       </div>
-      {active?.pending && <output className="block px-3 py-2 text-xs font-normal text-muted-foreground">{tx('正在读取复现实验包…')}</output>}
+      {active?.pending && <output className="block px-3 py-2 text-xs font-normal text-muted-foreground">{tx(showcase ? '正在读取并校验展示副本…' : '正在读取复现实验包…')}</output>}
       {active?.ready && <output className="block px-3 py-2 text-xs font-normal leading-5 text-muted-foreground">{tx('文件已准备下载，可在浏览器下载列表中查看。')}</output>}
       {active?.error && <div className="m-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm font-normal">
         <div role="alert"><RuntimeMessage message={active.error} /></div>

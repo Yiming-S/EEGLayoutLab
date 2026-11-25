@@ -8,6 +8,7 @@ import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
   ChartNoAxesCombined,
+  ChevronDown,
   Download,
   Info,
   RefreshCcw,
@@ -26,7 +27,7 @@ import {
 import { SiteHeader } from '@/components/site-header';
 import { parseAR, methodLink } from '@/lib/lab-workflow';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import {
   atSnr,
   checkResults,
@@ -42,9 +43,8 @@ const ClusterHeadViewer = lazy(() =>
   })),
 );
 const RADII = [20, 30, 40, 50];
-const SELECT_STYLE =
-  'h-11 w-full rounded-xl border border-border bg-white px-3 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary';
-const PANEL_STYLE = 'rounded-2xl border border-border bg-white p-5 sm:p-6';
+const SELECT_STYLE = 'lab-select';
+const PANEL_STYLE = 'lab-panel';
 const mm = (value?: number | null) =>
   value == null ? '未计算' : `${value.toFixed(2)} mm`;
 
@@ -60,11 +60,11 @@ function MetricCard({
   const { tx } = useLanguage();
   return (
     <div className={PANEL_STYLE}>
-      <h3 className="text-sm font-medium text-ink-soft">{tx(label)}</h3>
-      <p className="my-2 font-mono text-3xl font-semibold tracking-tight text-brand">
+      <h3 className="text-xs font-medium text-ink-soft">{tx(label)}</h3>
+      <p className="my-2 font-mono text-2xl font-semibold tracking-tight text-primary tabular-nums sm:text-3xl">
         {tx(value)}
       </p>
-      <p className="text-sm leading-6 text-ink-soft">{tx(detail)}</p>
+      <p className="text-xs leading-5 text-ink-soft">{tx(detail)}</p>
     </div>
   );
 }
@@ -103,14 +103,14 @@ function PerformanceCurve({
           : `相对全头64点 · ${snr} dB · 最小电极间距 ${spacing} mm`)}
       </p>
       <figure
-        className="h-[310px] w-full"
+        className="h-[310px] w-full rounded-xl border border-border/65 bg-muted/20 p-3"
         aria-label={
           tx(sensitivity
             ? '敏感度随已计算半径变化，数值见下方配置表'
             : '信号重建保留率随已计算半径变化，数值见下方配置表')
         }
       >
-        <ResponsiveContainer width="100%" height={310}>
+        <ResponsiveContainer width="100%" height="100%">
           <LineChart
             data={rows}
             margin={{ top: 12, right: 16, left: 0, bottom: 5 }}
@@ -119,20 +119,20 @@ function PerformanceCurve({
             <CartesianGrid
               strokeDasharray="3 3"
               vertical={false}
-              stroke="#e0e8e5"
+              stroke="var(--border)"
             />
             <XAxis
               dataKey="radius"
               type="number"
               domain={[20, 50]}
               ticks={RADII}
-              tick={{ fontSize: 14 }}
+              tick={{ fontSize: 12 }}
               tickFormatter={(v) => tx(`${v} mm`)}
             />
             <YAxis
               domain={[0, 'auto']}
               width={48}
-              tick={{ fontSize: 14 }}
+              tick={{ fontSize: 12 }}
               tickFormatter={(v) => tx(`${v}%`)}
             />
             <Tooltip
@@ -140,12 +140,12 @@ function PerformanceCurve({
               formatter={(v) =>
                 tx(typeof v === 'number' ? `${v.toFixed(2)}%` : '未计算')
               }
-              contentStyle={{ borderRadius: 12, fontSize: 14 }}
+              contentStyle={{ borderRadius: 12, borderColor: 'var(--border)', fontSize: 13 }}
             />
-            <Legend wrapperStyle={{ fontSize: 14, paddingTop: 14 }} />
+            <Legend wrapperStyle={{ fontSize: 13, paddingTop: 12 }} />
             <ReferenceLine
               y={100}
-              stroke="#73868c"
+              stroke="var(--chart-reference)"
               strokeDasharray="4 4"
               ifOverflow="extendDomain"
             />
@@ -156,7 +156,7 @@ function PerformanceCurve({
                 dataKey={family.id}
                 name={tx(family.label)}
                 stroke={family.color}
-                strokeWidth={2.5}
+                strokeWidth={2.25}
                 dot={{ r: 4 }}
                 activeDot={{ r: 6 }}
                 connectNulls={false}
@@ -166,7 +166,7 @@ function PerformanceCurve({
           </LineChart>
         </ResponsiveContainer>
       </figure>
-      <p className="mt-3 text-sm leading-6 text-ink-soft">
+      <p className="mt-3 text-xs leading-6 text-ink-soft">
         {tx("虚线为全头基准的100%相对值。连线仅连接已计算点，不产生中间半径的估计。")}</p>
     </section>
   );
@@ -229,14 +229,14 @@ export default function ResultsPage() {
   const localization = atSnr(selected?.localization ?? null, snr);
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
+    <main className="lab-page">
       <SiteHeader current="results" arPercent={ar} returnHref={here} />
-      <div className="mx-auto max-w-[1500px] space-y-6 px-4 py-7 sm:px-6 lg:px-8">
-        <a className="inline-block text-sm font-semibold text-primary underline" href={'/findings?ar=' + ar}>{tx("← 返回当前已有结果")}</a>
+      <div className="lab-container space-y-6 py-6">
+        <a className="lab-link-pill" href={'/findings?ar=' + ar}>{tx("← 返回当前已有结果")}</a>
         <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
-            <div className="mb-3 flex flex-wrap gap-2">
-              <Badge className="bg-brand text-white">
+            <div className="mb-2.5 flex flex-wrap gap-2">
+              <Badge className="bg-brand text-brand-foreground">
                 {tx("已计算 · 固定64电极")}</Badge>
               <Badge
                 variant="outline"
@@ -244,16 +244,16 @@ export default function ResultsPage() {
               >
                 {tx("早期单头模原型 · 未做跨头模验证")}</Badge>
             </div>
-            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               {tx("历史原型：双区域初始布局")}</h1>
-            <p className="mt-3 max-w-3xl text-base leading-7 text-ink-soft">
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-ink-soft sm:text-base">
               {tx("同样64个电极，集中到两个区域后，保留了多少全头电位场信息？切换已计算配置查看结果与实际点位。")}</p>
           </div>
           <a
             href={methodLink(here, ar, '#first-batch')}
-            className="inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-primary"
+            className="lab-link-pill shrink-0 text-sm"
           >
-            {tx("本批怎么算 ")}<ArrowRight className="size-4" />
+            {tx("本批怎么算 ")}<ArrowRight className="size-3.5" />
           </a>
         </header>
 
@@ -273,7 +273,7 @@ export default function ResultsPage() {
         {tx(data && (
           <>
             <section
-              className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+              className="grid gap-3.5 sm:grid-cols-2 xl:grid-cols-4"
               aria-label={tx("本批实验规模")}
             >
               {tx([
@@ -290,10 +290,10 @@ export default function ResultsPage() {
               ].map(([label, value]) => (
                 <div
                   key={label}
-                  className="rounded-xl border border-border bg-white px-4 py-3"
+                  className={PANEL_STYLE}
                 >
-                  <p className="text-sm text-ink-soft">{tx(label)}</p>
-                  <p className="mt-1 text-base font-semibold">{tx(value)}</p>
+                  <p className="text-xs font-medium text-ink-soft">{tx(label)}</p>
+                  <p className="mt-1.5 text-sm font-semibold sm:text-base">{tx(value)}</p>
                 </div>
               )))}
             </section>
@@ -302,8 +302,8 @@ export default function ResultsPage() {
               className={`${PANEL_STYLE} space-y-4`}
               aria-label={tx("选择已计算配置")}
             >
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-[2fr_1fr_1fr_1.2fr]">
-                <label className="space-y-2 text-sm font-semibold">
+              <div className="grid gap-4 rounded-xl border border-border/65 bg-muted/30 p-3.5 sm:grid-cols-2 xl:grid-cols-[2fr_1fr_1fr_1.2fr]">
+                <label className="lab-label">
                   {tx("区域组合")}<select
                     aria-label={tx("仿真区域组合")}
                     value={family}
@@ -317,7 +317,7 @@ export default function ResultsPage() {
                     )))}
                   </select>
                 </label>
-                <label className="space-y-2 text-sm font-semibold">
+                <label className="lab-label">
                   {tx("区域半径上限")}<select
                     aria-label={tx("已计算区域半径")}
                     value={radius}
@@ -331,7 +331,7 @@ export default function ResultsPage() {
                     )))}
                   </select>
                 </label>
-                <label className="space-y-2 text-sm font-semibold">
+                <label className="lab-label">
                   {tx("最小电极间距约束")}<select
                     aria-label={tx("仿真最小电极间距")}
                     value={spacing}
@@ -345,7 +345,7 @@ export default function ResultsPage() {
                     )))}
                   </select>
                 </label>
-                <label className="space-y-2 text-sm font-semibold">
+                <label className="lab-label">
                   {tx("参考噪声条件")}<select
                     aria-label={tx("仿真SNR")}
                     value={snr}
@@ -365,7 +365,7 @@ export default function ResultsPage() {
                   </select>
                 </label>
               </div>
-              <p className="text-sm leading-6 text-ink-soft">
+              <p className="text-xs leading-5 text-ink-soft">
                 {tx("半径是坐标区域裁剪后的图路径上限，点距是欧氏弦距，采用离散几何定义。本历史批次仅包含2个区域；1、3、4、6区域请查看首页后续实验。所有布局使用按标准64导标定的同一物理噪声强度。")}</p>
             </section>
 
@@ -396,7 +396,7 @@ export default function ResultsPage() {
                     }
                   />
                 </section>
-                <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_310px]">
+                <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
                   <div className="min-w-0">
                     <Suspense
                       fallback={
@@ -413,35 +413,35 @@ export default function ResultsPage() {
                       />
                     </Suspense>
                   </div>
-                  <aside className={`${PANEL_STYLE} h-fit space-y-5`}>
+                  <aside className={`${PANEL_STYLE} h-fit space-y-4`}>
                     <div>
                       <h2 className="text-lg font-semibold">
                         {tx("这64个点来自计算记录")}</h2>
-                      <p className="mt-2 text-sm leading-6 text-ink-soft">
+                      <p className="mt-1.5 text-xs leading-5 text-ink-soft">
                         {tx("位置取自本批FEM的MRI坐标，仅换算单位；触点外观沿法向抬高1.2 mm用于显示，计算使用原始坐标。基准为BioSemi64名称匹配的Ernie-SPM12全头模板。")}</p>
                     </div>
-                    <dl className="space-y-3 text-sm">
-                      <div className="flex justify-between gap-3">
-                        <dt>{tx("配置编号")}</dt>
-                        <dd className="font-mono">
+                    <dl className="divide-y divide-border/65 rounded-xl border border-border/70 bg-muted/30 px-3.5 py-1 text-xs">
+                      <div className="flex justify-between gap-3 py-2">
+                        <dt className="text-muted-foreground">{tx("配置编号")}</dt>
+                        <dd className="font-mono font-medium tabular-nums">
                           {tx(selected.index + 1)} / {tx(data.configuration_count)}
                         </dd>
                       </div>
                       {tx(selected.region_areas_cm2.map((area, i) => (
-                        <div className="flex justify-between gap-3" key={i}>
-                          <dt>{tx("区域 ")}{tx(i + 1)} {tx(" · 候选面积")}</dt>
-                          <dd className="font-mono">{tx(area.toFixed(2))} cm²</dd>
+                        <div className="flex justify-between gap-3 py-2" key={i}>
+                          <dt className="text-muted-foreground">{tx("区域 ")}{tx(i + 1)} {tx(" · 候选面积")}</dt>
+                          <dd className="font-mono font-medium tabular-nums">{tx(area.toFixed(2))} cm²</dd>
                         </div>
                       )))}
                     </dl>
-                    <p className="text-sm leading-6 text-ink-soft">
+                    <p className="text-xs leading-5 text-ink-soft">
                       {tx("候选贴片面积是离散近似，不等于电极凸包面积。耳后邻近和耳周均为近似坐标掩膜，尚未审核为严格无毛区域。")}</p>
-                    <div className="rounded-xl border border-warning/40 bg-warning-surface p-4 text-sm leading-6 text-warning">
-                      <Info className="mb-2 size-5" />
+                    <div className="rounded-xl border border-warning/30 bg-warning-surface/75 p-3.5 text-xs leading-5 text-warning">
+                      <Info className="mb-1.5 size-4" />
                       {tx("本历史批次采用预设位置进行性能评价；群体阈值与最小面积需另行验证。")}</div>
                     <a
                       href="https://github.com/simnibs/example-dataset/releases/tag/v4.1"
-                      className="block text-sm text-primary underline"
+                      className="lab-link-pill"
                     >
                       {tx("头模：SimNIBS Ernie · CC BY-NC 4.0")}</a>
                   </aside>
@@ -449,12 +449,12 @@ export default function ResultsPage() {
               </>
             ) : (
               <section
-                className="rounded-2xl border border-warning/40 bg-warning-surface p-6"
+                className="rounded-2xl border border-warning/35 bg-warning-surface/80 p-6"
                 aria-live="polite"
               >
                 <h2 className="text-lg font-semibold text-warning">
                   {tx("本历史批次未找到该配置的完整布局")}</h2>
-                <p className="mt-2 text-base leading-7 text-warning">
+                <p className="mt-2 text-sm leading-6 text-warning">
                   {tx("20 mm半径、6 mm点距下，本批贪心构造未找到完整64点布局，该条件的几何可行性仍待判定。可选择30、40、50 mm，或4 mm点距。")}</p>
               </section>
             ))}
@@ -475,23 +475,23 @@ export default function ResultsPage() {
             </div>
 
             <section className={PANEL_STYLE}>
-              <h2 className="flex items-center gap-2 text-xl font-semibold">
+              <h2 className="flex items-center gap-2 text-lg font-semibold">
                 <ChartNoAxesCombined className="size-5 text-primary" />
                 {tx("已计算配置对比 · ")}{tx(snr)} dB / {tx(spacing)} {tx(" mm点距")}</h2>
-              <p className="mt-2 text-sm leading-6 text-ink-soft">
+              <p className="mt-1.5 text-sm leading-6 text-ink-soft">
                 {tx("每格为“信号重建相对保留率 / 幅度保留率（最差10%）”；点击数值可切换3D点位。全头64点的两项相对值均为100%，作为本批相对比较基准。")}</p>
-              <div className="mt-4 overflow-x-auto">
+              <div className="lab-table-frame mt-4">
                 <table className="w-full min-w-[660px] text-left text-sm">
                   <caption className="sr-only">
                     {tx("区域半径与各组合的已计算物理保留率")}</caption>
                   <thead>
-                    <tr className="border-b border-border">
-                      <th scope="col" className="p-3 font-semibold">
+                    <tr className="border-b border-border/75 bg-muted/55 text-xs font-semibold tracking-wide text-ink-soft">
+                      <th scope="col" className="px-4 py-3">
                         {tx("半径上限")}</th>
                       {tx(RESULT_FAMILIES.map((f) => (
                         <th
                           scope="col"
-                          className="p-3 font-semibold"
+                          className="px-3 py-3"
                           key={f.id}
                         >
                           {tx(f.label)}
@@ -503,9 +503,9 @@ export default function ResultsPage() {
                     {tx(RADII.map((r) => (
                       <tr
                         key={r}
-                        className="border-b border-border last:border-0"
+                        className="border-b border-border/65 last:border-0"
                       >
-                        <th scope="row" className="p-3 font-medium">
+                        <th scope="row" className="px-4 py-3 font-mono font-medium tabular-nums">
                           {tx(r)} mm
                         </th>
                         {tx(RESULT_FAMILIES.map((f) => {
@@ -529,7 +529,7 @@ export default function ResultsPage() {
                                     setFamily(f.id);
                                     setRadius(r);
                                   }}
-                                  className={`rounded-lg px-2 py-3 text-left font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${family === f.id && radius === r ? 'bg-primary/10 font-semibold text-primary' : 'hover:bg-background'}`}
+                                  className={`rounded-lg px-2.5 py-2 text-left font-mono text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${family === f.id && radius === r ? 'bg-primary/12 font-semibold text-primary ring-1 ring-inset ring-primary/22' : 'hover:bg-muted/70'}`}
                                 >
                                   {tx(retentionPercent(score?.field_relative))} /{tx(' ')}
                                   {tx(retentionPercent(
@@ -537,7 +537,7 @@ export default function ResultsPage() {
                                   ))}
                                 </button>
                               ) : (
-                                <span className="px-2 text-ink-soft">
+                                <span className="px-2 text-xs text-ink-soft">
                                   {tx("未生成")}</span>
                               ))}
                             </td>
@@ -551,24 +551,24 @@ export default function ResultsPage() {
             </section>
 
             <section className={PANEL_STYLE}>
-              <h2 className="text-xl font-semibold">
+              <h2 className="text-lg font-semibold">
                 {tx("定位诊断子实验 · 固定30 mm / 6 mm · ")}{tx(snr)} dB
               </h2>
-              <p className="mt-2 max-w-4xl text-sm leading-6 text-ink-soft">
+              <p className="mt-1.5 max-w-4xl text-sm leading-6 text-ink-soft">
                 {tx("这四个布局在计算性能前选定，与上方半径和点距选择无关。每项为256个源×16次噪声，共4,096次模拟试验。生成源不在反演字典上，但使用同一头模和导电率，仍存在同模型反演偏差。")}</p>
-              <div className="mt-4 overflow-x-auto">
+              <div className="lab-table-frame mt-4">
                 <table className="w-full min-w-[560px] text-left text-sm">
                   <caption className="sr-only">
                     {tx("固定原型定位误差，单位毫米")}</caption>
                   <thead>
-                    <tr className="border-b border-border">
-                      <th scope="col" className="p-3">
+                    <tr className="border-b border-border/75 bg-muted/55 text-xs font-semibold tracking-wide text-ink-soft">
+                      <th scope="col" className="px-4 py-3">
                         {tx("布局")}</th>
-                      <th scope="col" className="p-3">
+                      <th scope="col" className="px-3 py-3">
                         {tx("中位误差")}</th>
-                      <th scope="col" className="p-3">
+                      <th scope="col" className="px-3 py-3">
                         {tx("P90误差")}</th>
-                      <th scope="col" className="p-3">
+                      <th scope="col" className="px-4 py-3">
                         {tx("P95误差")}</th>
                     </tr>
                   </thead>
@@ -589,33 +589,33 @@ export default function ResultsPage() {
                       return (
                         <tr
                           key={row.name}
-                          className="border-b border-border last:border-0"
+                          className="border-b border-border/65 last:border-0"
                         >
-                          <th scope="row" className="p-3 font-medium">
+                          <th scope="row" className="px-4 py-3 font-medium">
                             {row.name}
                           </th>
-                          <td className="p-3 font-mono">
+                          <td className="px-3 py-3 font-mono tabular-nums">
                             {tx(mm(loc?.median_mm))}
                           </td>
-                          <td className="p-3 font-mono">{tx(mm(loc?.p90_mm))}</td>
-                          <td className="p-3 font-mono">{tx(mm(loc?.p95_mm))}</td>
+                          <td className="px-3 py-3 font-mono tabular-nums">{tx(mm(loc?.p90_mm))}</td>
+                          <td className="px-4 py-3 font-mono tabular-nums">{tx(mm(loc?.p95_mm))}</td>
                         </tr>
                       );
                     }))}
                   </tbody>
                 </table>
               </div>
-              <p className="mt-4 rounded-xl bg-warning-surface p-4 text-sm leading-6 text-warning">
+              <p className="mt-4 rounded-xl border border-warning/30 bg-warning-surface/75 p-3.5 text-xs leading-5 text-warning">
                 {tx("独立无噪声检查中，全头基准仍有10.73 mm中位误差、20.57 mm的P90误差。这些误差反映固定法向离散字典的匹配限制；人体定位精度与群体阈值需独立验证。")}</p>
             </section>
 
             <section className={`${PANEL_STYLE} space-y-4`}>
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-xl font-semibold">{tx("数据来源与适用范围")}</h2>
+                <h2 className="text-lg font-semibold">{tx("数据来源与适用范围")}</h2>
                 <a
                   href="/data/fixed64_results.json"
                   download="fixed64_results.json"
-                  className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2 text-sm font-semibold text-primary"
+                  className={buttonVariants({ variant: 'outline', size: 'sm' })}
                 >
                   <Download className="size-4" />
                   {tx("下载结果与64点坐标")}</a>
@@ -630,24 +630,26 @@ export default function ResultsPage() {
                 <li>
                   {tx("本页筛选并展示已保存的早期原型。新布局可在布局设计页计算并判定AR，跨头模验证另列阶段。")}</li>
               </ul>
-              <details className="rounded-xl border border-border p-4 text-sm">
-                <summary className="cursor-pointer font-semibold">
-                  {tx("查看可追溯标识")}</summary>
-                <dl className="mt-4 space-y-3 break-all font-mono text-xs leading-6 text-ink-soft">
+              <details className="group/trace rounded-xl border border-border/70 bg-muted/25 p-3.5 text-sm">
+                <summary className="flex cursor-pointer list-none items-center justify-between font-semibold select-none [&::-webkit-details-marker]:hidden">
+                  <span>{tx("查看可追溯标识")}</span>
+                  <ChevronDown aria-hidden className="size-4 text-muted-foreground transition-transform group-open/trace:rotate-180" />
+                </summary>
+                <dl className="mt-3 space-y-2.5 break-all font-mono text-xs leading-5 text-ink-soft">
                   <div>
-                    <dt>Run</dt>
+                    <dt className="font-sans text-muted-foreground">Run</dt>
                     <dd>{tx(data.run_id)}</dd>
                   </div>
                   <div>
-                    <dt>{tx("原始报告 SHA-256")}</dt>
+                    <dt className="font-sans text-muted-foreground">{tx("原始报告 SHA-256")}</dt>
                     <dd>{tx(data.provenance.report_sha256)}</dd>
                   </div>
                   <div>
-                    <dt>{tx("前向矩阵 SHA-256")}</dt>
+                    <dt className="font-sans text-muted-foreground">{tx("前向矩阵 SHA-256")}</dt>
                     <dd>{tx(data.provenance.forward_sha256)}</dd>
                   </div>
                   <div>
-                    <dt>{tx("指标数据 SHA-256")}</dt>
+                    <dt className="font-sans text-muted-foreground">{tx("指标数据 SHA-256")}</dt>
                     <dd>{tx(data.provenance.metrics_sha256)}</dd>
                   </div>
                 </dl>

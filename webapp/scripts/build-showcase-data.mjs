@@ -13,11 +13,11 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
+import { DISPLAY_COPY_REDACTION_POLICY, DISPLAY_COPY_REFERENCE_SCOPE, DISPLAY_COPY_SERIALIZATION, LOCAL_PRIVATE_PATH, SHOWCASE_DISPLAY_COPY_SCHEMA, displayCopyDigest, verifyShowcaseDisplayCopy } from '../lib/showcase-display-copy.ts';
 
 export const SHOWCASE_DATA_SCHEMA = 'eeglayoutlab-showcase-data/1';
 const webapp = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const HOME_PATH = /(?:\/Users|\/home)\/[^/"\s]+(?=\/)/g;
-const LOCAL_PATH = /\/Users\/|\/home\/|\/private\/var\/|\/var\/folders\//;
 
 /** Replaces home-directory prefixes in every string; returns the value and the number replaced. */
 export function redactHomePaths(value) {
@@ -29,6 +29,48 @@ export function redactHomePaths(value) {
     return item;
   };
   return { value: walk(value), count };
+}
+
+/** A display copy has its own integrity; original hashes are references, never replacement cache keys. */
+export async function showcaseDisplayCopy(bundle) {
+  if (bundle?.schema !== 'eeg-reproducibility-bundle/1' || !bundle.original_record || !bundle.reproduction)
+    throw new Error('Expected an original reproducibility bundle');
+  if (bundle.original_record.result_sha256 !== undefined &&
+      bundle.original_record.result_sha256 !== await displayCopyDigest(bundle.original_record.result))
+    throw new Error('Original result checksum mismatch before showcase redaction');
+  const { value: clean } = redactHomePaths(bundle);
+  const { key, result_sha256, identity, ...displayRecord } = clean.original_record;
+  const { identity: reproductionIdentity, scope: _scope, ...displayContext } = clean.reproduction;
+  const payload = {
+    schema: SHOWCASE_DISPLAY_COPY_SCHEMA,
+    record_id: clean.record_id,
+    record: clean.record,
+    source_reference: {
+      verification: DISPLAY_COPY_REFERENCE_SCOPE,
+      original_bundle_schema: clean.schema,
+      source_file: clean.source,
+      scientific_key: key ?? null,
+      result_sha256: result_sha256 ?? null,
+    },
+    redaction: { policy: DISPLAY_COPY_REDACTION_POLICY, original_included: false },
+    search: clean.search,
+    snapshots: clean.snapshots,
+    coordinate_note: typeof clean.coordinate_note === 'string'
+      ? clean.coordinate_note.replaceAll('original_record.', 'display_record.') : null,
+    display_record: { ...displayRecord, ...(identity === undefined ? {} : { redacted_identity: identity }) },
+    display_context: { ...displayContext, ...(reproductionIdentity === undefined ? {} : { redacted_identity: reproductionIdentity }) },
+  };
+  if (LOCAL_PRIVATE_PATH.test(JSON.stringify(payload))) throw new Error('Display copy still contains a local path after redaction');
+  const integrity = {
+    algorithm: 'SHA-256',
+    serialization: DISPLAY_COPY_SERIALIZATION,
+    display_record_sha256: await displayCopyDigest(payload.display_record),
+    result_sha256: payload.display_record.result === undefined ? null : await displayCopyDigest(payload.display_record.result),
+    payload_sha256: await displayCopyDigest(payload),
+  };
+  const copy = { ...payload, integrity };
+  await verifyShowcaseDisplayCopy(copy);
+  return copy;
 }
 
 /** A host's health with its session token removed and computation marked unavailable. */
@@ -78,7 +120,7 @@ async function main() {
   const put = (path, body) => {
     const { value, count } = redactHomePaths(body);
     const text = JSON.stringify(value);
-    if (LOCAL_PATH.test(text)) throw new Error(`${path} still contains a local path after redaction`);
+    if (LOCAL_PRIVATE_PATH.test(text)) throw new Error(`${path} still contains a local path after redaction`);
     redacted += count;
     files.set(path, text);
   };
@@ -88,8 +130,11 @@ async function main() {
   put('/api/local-compute/library', library);
   for (const record of library.records) {
     put(`/api/local-compute/library/${record.id}`, await get(`/api/local-compute/library/${record.id}`));
-    if (curation.library.records.some((entry) => entry.id === record.id && entry.bundle))
-      put(`/api/local-compute/library/${record.id}/bundle`, await get(`/api/local-compute/library/${record.id}/bundle`));
+    if (curation.library.records.some((entry) => entry.id === record.id && entry.bundle)) {
+      const original = await get(`/api/local-compute/library/${record.id}/bundle`);
+      redacted += redactHomePaths(original).count;
+      put(`/api/local-compute/library/${record.id}/bundle`, await showcaseDisplayCopy(original));
+    }
   }
   const onlyPublished = (body) => ({ ...body, records: body.records.filter((record) => published.has(record.id)) });
   put('/api/electrode-editor/parents', onlyPublished(await get('/api/electrode-editor/parents')));

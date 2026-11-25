@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseElectrodeLabels } from '../lib/bids-electrodes.ts';
 import { ERNIE_MNI_MAPPING } from '../lib/ernie-mni.ts';
-import { FIGURE_REGION_COLORS, figureSpacing, layoutFigureSvg, projectLayout } from '../lib/layout-figure.ts';
+import { FIGURE_REGION_COLORS, figureSpacing, layoutFigureSvg, projectLayout, sharedFigureRadius } from '../lib/layout-figure.ts';
 
 const names = ERNIE_MNI_MAPPING.golden.standard64.names;
 const labels = regions => parseElectrodeLabels({ name: 'labels.tsv', text: 'name\tregion\n' + names.map((name, index) => name + '\t' + regions(index)).join('\n') + '\n' });
@@ -40,4 +40,19 @@ void test('the electrode positions fit inside the figure above the legend', () =
   assert.equal(ys.length, 64);
   assert.ok(Math.max(...ys) < 665 && Math.min(...ys) > 70);
   assert.ok(figureSpacing(labels(index => index % 2)) > 16, 'standard64 names do not collide');
+});
+
+void test('side-by-side figures share a scale that fits both sets of electrodes', () => {
+  const standard = labels(index => index % 2);
+  const lower = { ...standard, xyz_mm: [[0, -35, -200], ...standard.xyz_mm.slice(1)] };
+  const headRadius = svg => Number(svg.match(/<circle cx="320" cy="352" r="([\d.]+)"/)?.[1]);
+  const [standardRadius, lowerRadius] = [standard, lower].map(design => headRadius(layoutFigureSvg(design, text)));
+  assert.ok(standardRadius > lowerRadius);
+  const radius = sharedFigureRadius([standard, lower]);
+  assert.equal(sharedFigureRadius([lower, standard]), radius);
+  for (const design of [standard, lower]) {
+    assert.equal(headRadius(layoutFigureSvg(design, text, { radius })), Math.round(radius * 100) / 100);
+    assert.ok(projectLayout(design.xyz_mm).every(point => point.r * radius <= 290 + 1e-9));
+  }
+  assert.ok(figureSpacing(standard, radius) < figureSpacing(standard));
 });

@@ -60,6 +60,16 @@ export function projectLayout(xyz: readonly Point[]) {
   });
 }
 
+/** Electrodes below the landmark plane lie outside the circle. Fit all of them inside the figure. */
+function fittedRadius(points: readonly { r: number }[]) {
+  return Math.min(MAX_RADIUS, FIT_RADIUS / Math.max(1, ...points.map(p => p.r)));
+}
+
+/** One scale that fits every layout shown side by side. */
+export function sharedFigureRadius(designs: readonly ElectrodeDesign[]) {
+  return Math.min(MAX_RADIUS, ...designs.map(design => fittedRadius(projectLayout(validateDesign(design).xyz_mm))));
+}
+
 function marker(shape: (typeof SHAPES)[number], x: number, y: number, size: number, fill: string) {
   const s = size / 2, ring = `fill="${fill}" stroke="${INK.surface}" stroke-width="1.5"`;
   const polygon = (points: number[][]) => `<polygon points="${points.map(([px, py]) => `${fixed(x + px)},${fixed(y + py)}`).join(' ')}" ${ring}/>`;
@@ -72,18 +82,18 @@ function marker(shape: (typeof SHAPES)[number], x: number, y: number, size: numb
 }
 
 /** Closest pair of projected electrodes in figure pixels; names collide below about 16 px. */
-export function figureSpacing(design: ElectrodeDesign) {
-  const disc = projectLayout(validateDesign(design).xyz_mm), scale = Math.min(MAX_RADIUS, FIT_RADIUS / Math.max(1, ...disc.map(p => p.r)));
+export function figureSpacing(design: ElectrodeDesign, radius?: number) {
+  const disc = projectLayout(validateDesign(design).xyz_mm), scale = radius ?? fittedRadius(disc);
   let closest = Infinity;
   disc.forEach((a, i) => disc.slice(i + 1).forEach(b => { closest = Math.min(closest, Math.hypot(a.x - b.x, a.y - b.y) * scale); }));
   return closest;
 }
 
-export function layoutFigureSvg(input: ElectrodeDesign, text: FigureText, { labels = true } = {}) {
+export function layoutFigureSvg(input: ElectrodeDesign, text: FigureText, { labels = true, radius: sharedRadius }:
+  { labels?: boolean; radius?: number } = {}) {
   const design = validateDesign(input), names = design.electrode_names ?? design.xyz_mm.map((_, index) => `E${index + 1}`);
   const disc = projectLayout(design.xyz_mm), count = Math.max(...design.region_indices) + 1;
-  // Electrodes below the landmark plane lie outside the circle; shrink the head so every one fits.
-  const radius = Math.min(MAX_RADIUS, FIT_RADIUS / Math.max(1, ...disc.map(p => p.r)));
+  const radius = sharedRadius ?? fittedRadius(disc);
   const at = (p: { x: number; y: number }) => ({ x: CENTRE.x + p.x * radius, y: CENTRE.y - p.y * radius });
   const { x: cx, y: cy } = CENTRE, r = radius;
   const head = [

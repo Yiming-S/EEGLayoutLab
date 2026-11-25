@@ -25,8 +25,8 @@ export function ShowcaseBanner() {
     <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 sm:px-6 lg:px-8">
       <Eye aria-hidden className="size-4 shrink-0" />
       <span className="font-semibold">{tx('只读展示版')}</span>
-      <span className="text-white/85 max-sm:hidden">{tx('可浏览示例结果、三维头模和方法说明；计算、保存与导入需要安装本地版。')}</span>
-      <a className="font-medium underline underline-offset-4 hover:text-white" href={SHOWCASE_INSTALL_URL} target="_blank" rel="noreferrer">{tx('安装说明')}</a>
+      <span className="text-brand-foreground/85 max-sm:hidden">{tx('可浏览示例结果、三维头模和方法说明；计算、保存与导入需要安装本地版。')}</span>
+      <a className="font-medium underline underline-offset-4 hover:opacity-80" href={SHOWCASE_INSTALL_URL} target="_blank" rel="noreferrer">{tx('安装说明')}</a>
     </div>
   </div>;
 }

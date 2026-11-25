@@ -65,7 +65,7 @@ export function VisitorNotice({ status, className }: { status: Status | null; cl
   const { tx } = useLanguage();
   if (!hasVisitorCounts(status)) return null;
   return <details className={cn('text-xs text-muted-foreground', className)}>
-    <summary className="cursor-pointer">{tx('访客与访问记录')}</summary>
+    <summary className="cursor-pointer hover:text-foreground">{tx('访客与访问记录')}</summary>
     <p className="mt-2">{tx('在线访客')}：{status.online_visitors}</p>
     <p className="mt-2">{tx('在线访客按最近90秒活跃的浏览器估算，同一浏览器多个标签页计为一个。')}</p>
     <p className="mt-2">{tx('无需登录。后台记录IP用于访问日志和限流，日志保留7天，不公开显示。')}</p>
@@ -81,9 +81,9 @@ export function TaskList({ status, failure, act }: ReturnType<typeof useTaskStat
       {!status?.jobs.length && <p className="mt-3 text-muted-foreground">{tx('当前浏览器暂无计算任务')}</p>}
       {status?.jobs.map(task => <div key={task.id} className="mt-3 border-t pt-3">
         <div className="flex justify-between gap-2"><span>{tx(labels[task.kind] || task.kind)}</span><span>{tx(task.cached && task.status === 'completed' ? '已读取已有结果' : labels[task.status] || task.status)}</span></div>
-        <div className="mt-1 text-xs text-muted-foreground">{date(task.created_at, true)} · {task.id.slice(0, 8)}</div>
+        <div className="mt-1 font-mono text-xs text-muted-foreground">{date(task.created_at, true)} · {task.id.slice(0, 8)}</div>
         {task.status === 'queued' && <p className="mt-1 text-xs">{tx(`前方等待任务：${Math.max(0, task.queue_position - 1)}项；按提交顺序执行。`)}</p>}
-        {task.status === 'running' && <div className="mt-2 space-y-1"><p className="text-xs"><RuntimeMessage message={task.message} /></p>{Number.isFinite(task.progress) && <><progress aria-label={tx('计算进度')} max={1} value={task.progress} className="h-2 w-full accent-primary" /><p className="text-xs tabular-nums">{Math.round(Math.max(0, Math.min(1, task.progress!)) * 100)}%</p></>}</div>}
+        {task.status === 'running' && <div className="mt-2 space-y-1"><p className="text-xs"><RuntimeMessage message={task.message} /></p>{Number.isFinite(task.progress) && <><progress aria-label={tx('计算进度')} max={1} value={task.progress} className="h-1.5 w-full" /><p className="font-mono text-xs tabular-nums">{Math.round(Math.max(0, Math.min(1, task.progress!)) * 100)}%</p></>}</div>}
         {['queued', 'running', 'cancelling'].includes(task.status) ? <div className="mt-2 flex flex-wrap gap-2">
             {activeTaskLink(task) && <a className={buttonVariants({ size: 'sm' })} href={activeTaskLink(task)!}>{tx('回到任务页面')}</a>}
             <Button size="sm" variant="outline" onClick={() => void act(task, true)} disabled={task.status === 'cancelling'}>{tx('取消等待或计算')}</Button>
@@ -91,17 +91,39 @@ export function TaskList({ status, failure, act }: ReturnType<typeof useTaskStat
           : ['completed', 'no_layout'].includes(task.status) ? <div className="mt-2 flex flex-wrap gap-2">
             {completedTaskLink(task) && <a className={buttonVariants({ size: 'sm' })} href={completedTaskLink(task)!}>{tx(task.kind === 'source-reception' ? '打开信号实验' : task.kind === 'electrode-editor' ? '打开电极编辑' : '打开结果')}</a>}
             <Button size="sm" variant="outline" onClick={() => void act(task, false)}>{tx('下载计算结果')}</Button>
-          </div> : <details className="mt-2 text-xs"><summary className="cursor-pointer">{tx('查看任务详情')}</summary><p className="mt-2 break-words"><RuntimeMessage message={task.message} /></p><p className="mt-1 break-all text-muted-foreground">{task.id}</p></details>}
+          </div> : <details className="mt-2 text-xs"><summary className="cursor-pointer">{tx('查看任务详情')}</summary><p className="mt-2 break-words"><RuntimeMessage message={task.message} /></p><p className="mt-1 break-all font-mono text-muted-foreground">{task.id}</p></details>}
       </div>)}
       {failure && <p role="alert" className="mt-3 text-danger">{tx(failure)}</p>}
   </>;
 }
 
-/** Header indicator: the queue at a glance; the list itself lives on the workspace home. */
+/** Header indicator: sleek instrument status capsule. */
 export function CommunityStatus() {
   const { tx } = useLanguage();
   const { status } = useTaskStatus();
-  return <a href="/#tasks" className="rounded-lg px-2 py-2 text-xs text-ink-soft hover:bg-secondary" aria-label={tx('查看任务与计算队列')}>
-    {tx('任务 / 队列')}{status ? <> {status.queued_tasks}{status.running_tasks > 0 && <> · {tx('计算中')} {status.running_tasks}</>}</> : <span className="hidden sm:inline"> · {tx('服务未连接')}</span>}
-  </a>;
+  const active = (status?.running_tasks ?? 0) > 0;
+  return (
+    <a
+      href="/#tasks"
+      className="inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-card px-3 text-[0.8125rem] font-medium text-ink-soft shadow-[0_1px_1px_rgba(0,0,0,0.02)] transition-colors hover:border-foreground/30 hover:text-foreground"
+      aria-label={tx('查看任务与计算队列')}
+    >
+      <span
+        aria-hidden
+        className={cn(
+          'size-2 rounded-full',
+          !status ? 'bg-warning' : active ? 'bg-success animate-pulse' : 'bg-foreground/28',
+        )}
+      />
+      <span>{tx('任务 / 队列')}</span>
+      {status ? (
+        <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-xs font-medium text-foreground tabular-nums">
+          {status.queued_tasks}
+          {active && <> · {tx('计算中')} {status.running_tasks}</>}
+        </span>
+      ) : (
+        <span className="hidden text-xs text-muted-foreground sm:inline">· {tx('服务未连接')}</span>
+      )}
+    </a>
+  );
 }

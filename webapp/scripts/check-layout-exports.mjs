@@ -164,6 +164,12 @@ void test('export menu renders five distinct formats in both languages without a
       const invalid = renderToStaticMarkup(React.createElement(LanguageProvider, { initialLocale: locale },
         React.createElement(LayoutExportMenu, { record: { ...fixture(), layout: null }, ar: 32 })));
       assert.equal((invalid.match(/disabled=""/g) ?? []).length, 2);
+      const showcase = renderToStaticMarkup(React.createElement(LanguageProvider, { initialLocale: locale },
+        React.createElement(LayoutExportMenu, { record: fixture(), ar: 32, showcase: true })));
+      assert.equal((showcase.match(/<button/g) ?? []).length, 5);
+      assert.match(showcase, /Redacted display copy JSON|脱敏展示副本 JSON/);
+      assert.doesNotMatch(showcase, /Reproducibility bundle JSON|复现实验包 JSON|The original saved record|原始保存记录/);
+      if (locale === 'en') assert.doesNotMatch(showcase.replace(/<[^>]+>/g, ''), /[\u3400-\u9fff]/);
     }
   } finally { globalThis.fetch = original; }
   assert.equal(calls, 0);

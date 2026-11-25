@@ -22,6 +22,7 @@ import { projectChoiceId, projectRecordChoices } from '../features/projects/proj
 import { buildResearchDelivery, validateResearchDelivery } from '../server/delivery/research-bundle.mjs';
 import { followTask } from '../client/task-client.ts';
 import * as decision from '../lib/design-decision.ts';
+import { isShowcaseDisplayCopy, verifyShowcaseDisplayCopy } from '../lib/showcase-display-copy.ts';
 import { canCompareRecord } from '../lib/workspace-navigation.ts';
 import { safeReturnHref } from '../lib/ui-language.ts';
 import { createHookHarness } from './helpers/hook-harness.mjs';
@@ -230,7 +231,7 @@ void test('opening and refreshing a saved evaluation restores original inputs, e
   const globals = { window: { location, history: { replaceState(_state, _unused, href) { location.search = new URL(href, 'http://localhost').search; } } },
     sessionStorage: { getItem: key => stored.get(key) ?? null, setItem: (key, value) => stored.set(key, value) },
     fetch: async url => { calls.push(url); return { ok: true, json: async () => url === '/api/local-compute/library' ? { schema: 'local-data-library/1', records: [record] } : url.includes('/bundle') ? bundle : { record } }; } };
-  const imports = { ...decision, CONDUCTIVITY_SCENARIOS, NOISE_MODEL_PRESETS, canCompareRecord, safeReturnHref, useLanguage: () => ({ tx: text => text, locale: 'en' }), followTask,
+  const imports = { ...decision, CONDUCTIVITY_SCENARIOS, NOISE_MODEL_PRESETS, canCompareRecord, safeReturnHref, isShowcaseDisplayCopy, verifyShowcaseDisplayCopy, useLanguage: () => ({ tx: text => text, locale: 'en' }), followTask,
     isTaskRunning: job => ['queued', 'running'].includes(job?.status), cancelTask: () => { throw new Error('Unexpected cancellation'); },
     submitTask: async (_kind, body) => { writes.push(body); return { job: { id: randomUUID(), status: 'completed', key: f.key, result } }; } };
   const create = () => createHookHarness({ filename: new URL('../features/decision/use-decision-controller.ts', import.meta.url), exportName: 'useDecisionController', imports, globals, args: ['coordinates'] });

@@ -19,7 +19,7 @@ require('httpx')
 from eeglayoutlab.schemas.registry import REQUEST_FORMATS  # noqa: E402
 from eeglayoutlab.server.app import MAX_BODY_BYTES  # noqa: E402
 from eeglayoutlab.server.openapi import openapi_document, openapi_text  # noqa: E402
-from service.service_support import loopback_client, make_app, static_export  # noqa: E402
+from service.service_support import docs_site, loopback_client, make_app, static_export  # noqa: E402
 
 client = loopback_client(make_app(ROOT), csrf=True)
 JSON = {'content-type': 'application/json'}
@@ -183,11 +183,16 @@ def test_committed_openapi_document_is_current():
 def test_interactive_documentation_pages_are_not_served(tmp_path):
     for path in ('/api/docs', '/api/redoc', '/api/openapi.json/'):
         assert_error(client.get(path), 404, 'not_found')
-    # Outside /api/ they are not pages of the interface either: the static export's 404 page. /docs/ is the
-    # documentation site (mkdocs, design 0004), which answers 503 until it is built, never the interactive pages.
-    pages = loopback_client(make_app(ROOT, static_export(tmp_path / 'static')))
-    for path in ('/docs', '/redoc', '/openapi.json'):
+    # Outside /api/ they are not pages of the interface either: the static export's 404 page.
+    export, site = static_export(tmp_path / 'static'), docs_site(tmp_path / 'site')
+    pages = loopback_client(make_app(ROOT, export, docs=site))
+    for path in ('/redoc', '/openapi.json'):
         response = pages.get(path)
-        expected = 503 if path == '/docs' else 404
-        assert response.status_code == expected and response.headers['content-type'] == 'text/html; charset=utf-8'
+        assert response.status_code == 404 and response.headers['content-type'] == 'text/html; charset=utf-8'
         assert 'swagger' not in response.text.lower() and 'redoc' not in response.text.lower()
+    # /docs is the built documentation site (design 0004), and the page that says how to build it until then.
+    assert pages.get('/docs').headers['location'] == '/docs/'
+    assert pages.get('/docs/').text == (site / 'index.html').read_text(encoding='utf-8')
+    unbuilt = loopback_client(make_app(ROOT, export)).get('/docs')
+    assert unbuilt.status_code == 503 and 'mkdocs build' in unbuilt.text
+    assert 'swagger' not in unbuilt.text.lower() and 'redoc' not in unbuilt.text.lower()

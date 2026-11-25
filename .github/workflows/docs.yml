@@ -1,9 +1,9 @@
 name: Documentation
 
-# Builds the documentation site (mkdocs.yml) in strict mode and keeps it as a workflow artifact.
-# Nothing is deployed: GitHub Pages is planned for the showcase site, and how the two share it is
-# decided later. Versioned documentation for tags (mike) is planned in CONTRIBUTING.md,
-# "Building the documentation".
+# Builds the documentation site (mkdocs.yml) in strict mode on every push and pull request and keeps
+# it as a workflow artifact. Nothing is deployed here: pages.yml publishes the site under /docs/ of
+# the website, beside the showcase. Versioned documentation for tags (mike) is planned in
+# CONTRIBUTING.md, "Building the documentation".
 
 on:
   push:

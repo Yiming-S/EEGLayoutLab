@@ -245,5 +245,13 @@
   "editor.libraryLink": {
     "source": "查看可变电极数的独立编辑记录 →",
     "en": "View separate variable-count editing records →"
+  },
+  "editor.actionsHeading": {
+    "source": "编辑与保存评价",
+    "en": "Edit actions and evaluation"
+  },
+  "editor.selectedCount": {
+    "source": "已选中 {{0}} 个电极",
+    "en": "{{0}} electrodes selected"
   }
 }

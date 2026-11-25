@@ -8,6 +8,7 @@ import * as placements from '../lib/placement-options.ts';
 import * as catalog from '../lib/records-catalog.ts';
 import * as layoutPages from '../lib/layout-page.ts';
 import * as recordLabels from '../lib/i18n/records.ts';
+import * as librarySearch from '../lib/library-search.ts';
 import { preserveResultsContext } from '../lib/results-library.ts';
 import { requestKey } from '../lib/local-compute.ts';
 import { MASK_NAMES, protocolName } from '../lib/ui-language.ts';
@@ -34,7 +35,7 @@ async function controller(t, feature, search, fetchSource) {
   const harness = await createHookHarness({
     filename: new URL(`../features/${feature}/use-${feature}-controller.ts`, import.meta.url),
     exportName: `use${feature[0].toUpperCase() + feature.slice(1)}Controller`, maxTimerMs: Infinity,
-    imports: { apiJson, NOISE_MODEL_PRESETS, presetIdFor: noiseModelId, ...workflow, ...placements, ...catalog, ...layoutPages, ...recordLabels, preserveResultsContext, requestKey,
+    imports: { apiJson, NOISE_MODEL_PRESETS, presetIdFor: noiseModelId, ...workflow, ...placements, ...catalog, ...layoutPages, ...recordLabels, ...librarySearch, preserveResultsContext, requestKey,
       MASK_NAMES, protocolName, SOURCE_REGIONS, useLanguage: () => ({ tx, locale: 'en' }) },
     globals: { window, document: { getElementById: () => null }, fetch: (url, options) => {
       calls.push({ url, options }); return fetchSource(url, options, calls.length);
