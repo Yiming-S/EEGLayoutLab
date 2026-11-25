@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="464" viewBox="0 0 1120 464" fill="none">
+  <rect width="1120" height="464" rx="16" fill="#F6F5F1" />
+  <rect x="0.75" y="0.75" width="1118.5" height="462.5" rx="15.25" stroke="#E2DFD7" stroke-width="1.5" />
+
+  <!-- Header -->
+  <g transform="translate(36, 30)">
+    <text x="0" y="16" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="600" letter-spacing="1.4" fill="#2451D8">TERMINAL CHECKPOINTS</text>
+    <text x="0" y="42" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="21" font-weight="700" letter-spacing="-0.4" fill="#18181B">What a Successful Installation Looks Like in Terminal</text>
+    <text x="0" y="64" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#63615C">Confirm each green checkpoint below before moving to the next step.</text>
+  </g>
+
+  <!-- Terminal Window Frame -->
+  <rect x="36" y="114" width="1048" height="320" rx="12" fill="#161618" stroke="#2D2D32" stroke-width="1.5" />
+  <!-- Window Bar -->
+  <rect x="36" y="114" width="1048" height="34" rx="12" fill="#202024" />
+  <rect x="36" y="136" width="1048" height="12" fill="#202024" />
+  <line x1="36" y1="148" x2="1084" y2="148" stroke="#2D2D32" />
+  <circle cx="58" cy="131" r="5" fill="#52525B" />
+  <circle cx="76" cy="131" r="5" fill="#52525B" />
+  <circle cx="94" cy="131" r="5" fill="#52525B" />
+  <text x="560" y="135" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11.5" fill="#A1A1AA">Terminal — EEGLayoutLab (zsh)</text>
+
+  <!-- Checkpoint A -->
+  <g transform="translate(58, 168)">
+    <rect x="0" y="0" width="94" height="20" rx="4" fill="#1E3A8A" />
+    <text x="47" y="14" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" font-weight="700" fill="#BFDBFE">STEP 2 · DATA</text>
+    <text x="110" y="14" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" fill="#A1A1AA">~/EEGLayoutLab</text>
+    <text x="110" y="36" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12.5" fill="#FAF9F5">$ (cd releases &amp;&amp; shasum -a 256 -c eeglayoutlab-data-v1.tar.gz.sha256)</text>
+    <text x="110" y="55" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12.5" fill="#4ADE80">eeglayoutlab-data-v1.tar.gz: OK</text>
+    <text x="110" y="76" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12.5" fill="#FAF9F5">$ python3 scripts/data_bundle.py install releases/eeglayoutlab-data-v1.tar.gz</text>
+    <text x="110" y="96" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12.5" fill="#FAF9F5">$ python3 scripts/data_bundle.py verify</text>
+    <text x="110" y="115" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12.5" fill="#4ADE80">Verified 21 files (387.41 MiB) against data/manifest.json</text>
+  </g>
+
+  <line x1="58" y1="298" x2="1062" y2="298" stroke="#27272A" />
+
+  <!-- Checkpoint B -->
+  <g transform="translate(58, 312)">
+    <rect x="0" y="0" width="94" height="20" rx="4" fill="#1E3A8A" />
+    <text x="47" y="14" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" font-weight="700" fill="#BFDBFE">STEP 3 · ENV</text>
+    <text x="110" y="14" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12.5" fill="#FAF9F5">$ python3 scripts/bootstrap_runtime.py --execute</text>
+    <text x="110" y="34" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12.5" fill="#4ADE80">Managed Python 3.11 runtime ready at .runtime/simnibs-4.6.0/ · check_environment.py passed</text>
+  </g>
+
+  <line x1="58" y1="360" x2="1062" y2="360" stroke="#27272A" />
+
+  <!-- Checkpoint C -->
+  <g transform="translate(58, 374)">
+    <rect x="0" y="0" width="94" height="20" rx="4" fill="#14532D" />
+    <text x="47" y="14" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" font-weight="700" fill="#86EFAC">STEP 4 · RUN</text>
+    <text x="110" y="14" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12.5" fill="#FAF9F5">$ cd webapp &amp;&amp; npm ci &amp;&amp; npm run build &amp;&amp; npm start</text>
+    <text x="110" y="36" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" font-weight="600" fill="#4ADE80">EEG Layout Lab: http://127.0.0.1:3000 (PID 44538)</text>
+    <text x="536" y="36" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#A1A1AA">← Open this URL in your browser (keep Terminal running)</text>
+  </g>
+</svg>

@@ -20,6 +20,8 @@ Use the native Apple Silicon versions of these tools, without Rosetta. The runti
 
 ## First-time setup
 
+![4-step local installation map showing which commands run in the repository root versus webapp/](images/install-flow.svg)
+
 ### 1. Clone the repository
 
 Open Terminal, sign in with the account that has repository access, and clone the current development source:
@@ -74,7 +76,11 @@ npm ci
 npm run dev
 ```
 
-Open [http://127.0.0.1:3000](http://127.0.0.1:3000) in your browser. Keep Terminal running while using the application. Press **Control + C** in Terminal to stop it.
+![Expected terminal output checkpoints for data verification, Python runtime bootstrap, and starting the local server](images/install-terminal-checkpoints.svg)
+
+Open [http://127.0.0.1:3000](http://127.0.0.1:3000) in your browser. Keep Terminal running while using the application. Press **Control + C** in Terminal to stop it. On first launch, check that the top-right **Tasks / Queue** badge shows `0` (connected):
+
+![Annotated Workspace home screen on first launch showing the five top-bar areas, connected task queue badge, language and theme switcher, and starting options](images/workspace-first-launch.svg)
 
 ## Open after installation
 
