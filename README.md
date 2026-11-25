@@ -29,7 +29,9 @@ The interface supports English and Simplified Chinese. Its Node service runs Pyt
 
 Follow the [source installation guide](docs/source-installation.md) to install the matching model data and prepare the scientific runtime. The Python project uses **Python 3.11**; the web application requires **Node.js 22.13.0 or newer**. The supplied managed scientific runtime targets **Apple Silicon macOS**. **Linux x86_64** has a smaller runtime without SimNIBS that computes from published scalp-node tables. On Windows, follow the Linux steps in WSL2 (not yet tested).
 
-After preparing the data and runtime, build and start the application:
+![4-step local installation map showing which commands run in the repository root versus webapp/](docs/images/install-flow.svg)
+
+After preparing the data and runtime from the repository root (`EEGLayoutLab/`), switch into `webapp/` to build and start the application:
 
 ```sh
 cd webapp
@@ -38,7 +40,11 @@ npm run build
 npm start
 ```
 
-Open [http://127.0.0.1:3000](http://127.0.0.1:3000) and keep the terminal running. For development, use `npm run dev` instead of the build and start commands.
+![Expected terminal output checkpoints for data verification, Python runtime bootstrap, and starting the local server](docs/images/install-terminal-checkpoints.svg)
+
+Open [http://127.0.0.1:3000](http://127.0.0.1:3000) and keep the terminal running. For development, use `npm run dev` instead of the build and start commands. When the page opens, confirm the **Tasks / Queue** badge in the top-right shows `0` (connected) and pick any starting card:
+
+![Annotated Workspace home screen on first launch showing the five top-bar areas, connected task queue badge, language and theme switcher, and starting options](docs/images/workspace-first-launch.svg)
 
 The Python service that will replace this Node host (`eeglayoutlab serve`) is being built slice by slice; keep using the Node host for real work until it is complete ([contributing](CONTRIBUTING.md)). The service also serves the documentation site under `/docs/` once it has been built with MkDocs ([building the documentation](CONTRIBUTING.md#building-the-documentation)); until then, documentation links open on GitHub.
 

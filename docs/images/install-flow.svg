@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="440" viewBox="0 0 1200 440" fill="none">
+  <rect width="1200" height="440" rx="16" fill="#F6F5F1" />
+  <rect x="0.75" y="0.75" width="1198.5" height="438.5" rx="15.25" stroke="#E2DFD7" stroke-width="1.5" />
+
+  <!-- Header -->
+  <g transform="translate(36, 30)">
+    <text x="0" y="16" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="600" letter-spacing="1.4" fill="#2451D8">INSTALLATION MAP · 4 STEPS</text>
+    <text x="0" y="42" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="21" font-weight="700" letter-spacing="-0.4" fill="#18181B">How Local Setup Works — Where Each Command Runs</text>
+    <text x="0" y="64" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#63615C">Steps 1–3 run in the repository root (EEGLayoutLab/). Only Step 4 switches into webapp/ to launch the browser UI.</text>
+  </g>
+
+  <!-- Repo Root Zone Bracket (Steps 1-3) -->
+  <rect x="36" y="114" width="846" height="202" rx="12" fill="#FFFFFF" stroke="#DCD9D0" stroke-width="1.5" />
+  <rect x="52" y="102" width="246" height="24" rx="6" fill="#18181B" />
+  <text x="175" y="118" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="600" fill="#FAF9F5">Run in Repo Root: EEGLayoutLab/</text>
+
+  <!-- Step 01 -->
+  <g transform="translate(52, 138)">
+    <rect width="256" height="162" rx="10" fill="#FAF9F5" stroke="#E5E2DA" />
+    <text x="16" y="26" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="700" fill="#2451D8">01 · CLONE SOURCE</text>
+    <text x="16" y="48" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#18181B">Get Repository</text>
+    <rect x="16" y="62" width="224" height="48" rx="6" fill="#18181B" />
+    <text x="26" y="81" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#A1A1AA">$ gh repo clone Yiming-S/...</text>
+    <text x="26" y="98" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#FAF9F5">$ cd EEGLayoutLab</text>
+    <text x="16" y="130" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#63615C">Sign in with gh auth login first.</text>
+    <text x="16" y="147" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#63615C">Keep this terminal window open.</text>
+  </g>
+
+  <!-- Arrow 1->2 -->
+  <path d="M 313 219 H 329 M 325 214 L 330 219 L 325 224" stroke="#2451D8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Step 02 -->
+  <g transform="translate(334, 138)">
+    <rect width="256" height="162" rx="10" fill="#FAF9F5" stroke="#E5E2DA" />
+    <text x="16" y="26" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="700" fill="#2451D8">02 · MODEL DATA</text>
+    <text x="16" y="48" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#18181B">Install &amp; Verify Bundle</text>
+    <rect x="16" y="62" width="224" height="48" rx="6" fill="#18181B" />
+    <text x="26" y="81" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#FAF9F5">$ python3 scripts/data_bundle.py</text>
+    <text x="26" y="98" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#93C5FD">  install ... &amp;&amp; verify</text>
+    <text x="16" y="130" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#63615C">Downloads 282.5 MiB v0.2.0 data.</text>
+    <text x="16" y="147" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#63615C">Populates data/ &amp; example records.</text>
+  </g>
+
+  <!-- Arrow 2->3 -->
+  <path d="M 595 219 H 611 M 607 214 L 612 219 L 607 224" stroke="#2451D8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Step 03 -->
+  <g transform="translate(616, 138)">
+    <rect width="250" height="162" rx="10" fill="#FAF9F5" stroke="#E5E2DA" />
+    <text x="16" y="26" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="700" fill="#2451D8">03 · PYTHON RUNTIME</text>
+    <text x="16" y="48" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#18181B">Bootstrap Compute Env</text>
+    <rect x="16" y="62" width="218" height="48" rx="6" fill="#18181B" />
+    <text x="26" y="81" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#FAF9F5">$ python3 scripts/</text>
+    <text x="26" y="98" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#93C5FD">  bootstrap_runtime.py --execute</text>
+    <text x="16" y="130" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#63615C">Installs managed Python 3.11.</text>
+    <text x="16" y="147" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#63615C">No manual conda activate needed.</text>
+  </g>
+
+  <!-- Arrow 3->4 -->
+  <path d="M 888 219 H 906 M 902 214 L 907 219 L 902 224" stroke="#2451D8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Webapp Zone (Step 4) -->
+  <rect x="912" y="114" width="252" height="202" rx="12" fill="#FFFFFF" stroke="#2451D8" stroke-opacity="0.45" stroke-width="1.5" />
+  <rect x="928" y="102" width="184" height="24" rx="6" fill="#2451D8" />
+  <text x="1020" y="118" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="600" fill="#FFFFFF">Switch to: webapp/</text>
+
+  <g transform="translate(928, 138)">
+    <rect width="220" height="162" rx="10" fill="#F4F7FF" stroke="#D2DDFC" />
+    <text x="14" y="26" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="700" fill="#2451D8">04 · LAUNCH APP</text>
+    <text x="14" y="48" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#18181B">Build &amp; Open Browser</text>
+    <rect x="14" y="62" width="192" height="48" rx="6" fill="#18181B" />
+    <text x="24" y="81" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#FAF9F5">$ cd webapp &amp;&amp; npm ci</text>
+    <text x="24" y="98" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" fill="#86EFAC">$ npm run build &amp;&amp; npm start</text>
+    <text x="14" y="130" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#3B3A37">Open http://127.0.0.1:3000</text>
+    <text x="14" y="147" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#63615C">Press Ctrl+C in Terminal to stop.</text>
+  </g>
+
+  <!-- Bottom Directory Reference Strip -->
+  <rect x="36" y="336" width="1128" height="74" rx="10" fill="#FFFFFF" stroke="#E2DFD7" />
+  <text x="56" y="361" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="700" fill="#18181B">EXPECTED FOLDER LAYOUT AFTER STEP 3</text>
+  <g transform="translate(56, 385)" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12">
+    <text x="0" y="0" fill="#18181B" font-weight="600">EEGLayoutLab/</text>
+    <text x="118" y="0" fill="#63615C">├─ scripts/</text>
+    <text x="226" y="0" fill="#2451D8" font-weight="600">├─ releases/ (tar.gz + .sha256)</text>
+    <text x="480" y="0" fill="#15803D" font-weight="600">├─ data/ (21 verified files)</text>
+    <text x="716" y="0" fill="#15803D" font-weight="600">├─ .runtime/ (Python 3.11)</text>
+    <text x="936" y="0" fill="#2451D8" font-weight="600">└─ webapp/</text>
+  </g>
+</svg>
