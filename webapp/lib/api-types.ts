@@ -16,6 +16,8 @@ export type RadiusSearchRequest = Schemas['RadiusSearchRequest'];
 export type ElectrodeEditorRequest = Schemas['ElectrodeEditorRequest'];
 /** The body of POST /api/source-reception/jobs and /lookup: a v1 request (no mode) or a v2 request of one mode. */
 export type SourceReceptionRequest = Schemas['SourceReceptionRequest'];
+/** The body of POST /api/robustness-studies: one design in 1 to 12 explicit cases of one protocol. */
+export type RobustnessStudyInput = Schemas['RobustnessStudyInput'];
 // The coordinate-source types are in webapp/contracts/coordinate-source.ts, next to their validator.
 
 export type PerturbationRadius = DesignEvaluationRequest['radius_mm'];

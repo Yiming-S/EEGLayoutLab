@@ -84,6 +84,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/normalize/robustness-study": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validate a robustness-study request and return its canonical form
+         * @description Diagnostic endpoint. Reproduces normalizeStudyInput (webapp/server/studies/protocol.mjs).
+         */
+        post: operations["normalize_robustness_study"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/normalize/source-reception": {
         parameters: {
             query?: never;
@@ -264,6 +284,32 @@ export interface components {
             conversion: (components["schemas"]["MniConversion"] | components["schemas"]["LabelConversion"] | components["schemas"]["HeadRegistration"]) | null;
             /** Region Assignment */
             region_assignment: components["schemas"]["FileRegionAssignment"] | components["schemas"]["BalancedRegionAssignment"];
+        };
+        /**
+         * CrossHeadStudy
+         * @description One case per head package, each listed once, with one seed and one radius for every case.
+         */
+        CrossHeadStudy: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            protocol: "heads";
+            /**
+             * Title
+             * @default Robustness study
+             */
+            title?: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes?: string;
+            design: components["schemas"]["StudyDesign"];
+            /** Cases */
+            cases: components["schemas"]["HeadStudyCase"][];
+            /** Noise Model */
+            noise_model?: components["schemas"]["IidNoise"] | components["schemas"]["SpatialNoise"] | components["schemas"]["BrainBackgroundNoise"];
         };
         /**
          * CrossRegionReception
@@ -469,6 +515,32 @@ export interface components {
             method: "file";
         };
         /**
+         * GridDisplacementStudy
+         * @description Distinct seed/radius pairs of perturbation trials on Ernie.
+         */
+        GridDisplacementStudy: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            protocol: "grid_displacements";
+            /**
+             * Title
+             * @default Robustness study
+             */
+            title?: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes?: string;
+            design: components["schemas"]["StudyDesign"];
+            /** Cases */
+            cases: components["schemas"]["StudyCase"][];
+            /** Noise Model */
+            noise_model?: components["schemas"]["IidNoise"] | components["schemas"]["SpatialNoise"] | components["schemas"]["BrainBackgroundNoise"];
+        };
+        /**
          * HeadRegistration
          * @description Digitized head-frame coordinates registered onto Ernie's scalp by their landmarks.
          */
@@ -502,6 +574,21 @@ export interface components {
             max_surface_distance_mm: number;
             /** Iterations */
             iterations: number;
+        };
+        /**
+         * HeadStudyCase
+         * @description A case of a cross-head study: one head package of the design-evaluation catalog.
+         */
+        HeadStudyCase: {
+            /** Head Id */
+            head_id: string;
+            /** Seed */
+            seed: number;
+            /**
+             * Radius Mm
+             * @enum {integer}
+             */
+            radius_mm: 3 | 6 | 10;
         };
         /**
          * IidNoise
@@ -600,6 +687,38 @@ export interface components {
              */
             brain_region: "frontal" | "central" | "parietal" | "occipital" | "temporal_left" | "temporal_right";
         };
+        /**
+         * NoiseSeedStudy
+         * @description Distinct seeds at one radius: the spread of nominal metrics over noise draws on Ernie, optionally under
+         *     one data-generating conductivity scenario.
+         */
+        NoiseSeedStudy: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            protocol: "noise_seeds";
+            /**
+             * Title
+             * @default Robustness study
+             */
+            title?: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes?: string;
+            design: components["schemas"]["StudyDesign"];
+            /** Cases */
+            cases: components["schemas"]["StudyCase"][];
+            /** Noise Model */
+            noise_model?: components["schemas"]["IidNoise"] | components["schemas"]["SpatialNoise"] | components["schemas"]["BrainBackgroundNoise"];
+            /**
+             * Conductivity Scenario
+             * @default null
+             */
+            conductivity_scenario?: ("skull_x0.5" | "skull_x2") | null;
+        };
         /** NormalizedRequest */
         NormalizedRequest: {
             /** @description The request as Node's normalizer returns it. */
@@ -634,6 +753,7 @@ export interface components {
             noise_model?: components["schemas"]["SpatialNoise"];
             data_prior?: components["schemas"]["DataPrior"];
         };
+        RobustnessStudyInput: components["schemas"]["NoiseSeedStudy"] | components["schemas"]["GridDisplacementStudy"] | components["schemas"]["CrossHeadStudy"];
         /**
          * SingleSourceReception
          * @description One frozen generation source, by its index.
@@ -716,6 +836,58 @@ export interface components {
              * @enum {integer}
              */
             length_mm: 10 | 20 | 40;
+        };
+        /**
+         * StudyCase
+         * @description A case of a noise-seed or grid-displacement study.
+         */
+        StudyCase: {
+            /** Seed */
+            seed: number;
+            /**
+             * Radius Mm
+             * @enum {integer}
+             */
+            radius_mm: 3 | 6 | 10;
+        };
+        /**
+         * StudyDesign
+         * @description The design of every case (``eeg-electrode-design/1``), with presentation metadata that never enters a
+         *     request: 64 electrode names and the coordinate source of an imported layout. Other design fields are dropped.
+         */
+        StudyDesign: {
+            /**
+             * Schema
+             * @constant
+             */
+            schema: "eeg-electrode-design/1";
+            /**
+             * Coordinate System
+             * @constant
+             */
+            coordinate_system: "ernie_native_mm";
+            /**
+             * Unit
+             * @constant
+             */
+            unit: "mm";
+            /**
+             * Name
+             * @default 导入布局
+             */
+            name?: string;
+            /** Xyz Mm */
+            xyz_mm: [
+                number,
+                number,
+                number
+            ][];
+            /** Region Indices */
+            region_indices: number[];
+            /** Electrode Names */
+            electrode_names?: string[];
+            /** Source Metadata */
+            source_metadata?: components["schemas"]["CoordinateSourceV1"] | components["schemas"]["CoordinateSourceV2"] | components["schemas"]["CoordinateSourceV3"];
         };
     };
     responses: never;
@@ -889,6 +1061,57 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RadiusSearchRequest"];
+            };
+        };
+        responses: {
+            /** @description The canonical request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NormalizedRequest"];
+                };
+            };
+            /** @description The body is not valid JSON or not a valid request. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The body is larger than 65,536 bytes. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The content type is not application/json. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    normalize_robustness_study: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RobustnessStudyInput"];
             };
         };
         responses: {

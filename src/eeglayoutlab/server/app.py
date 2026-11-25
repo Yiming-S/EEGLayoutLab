@@ -5,11 +5,14 @@
 API and every other path to the static interface (``server.static``). The API has, so far, the health routes of
 the four task kinds (``routes.health``), the read-only library and catalogs (``routes.library``), the job routes of
 every kind with the workspace queue behind them (``routes.compute``), the task menu's status
-(``routes.community``) and, for every request format, a diagnostic endpoint that returns the canonical request.
+(``routes.community``), the robustness studies (``routes.studies``, which, like Node's study middleware, claim every
+path under ``/api/robustness-studies`` before the other API routes and answer as that middleware does) and, for
+every request format, a diagnostic endpoint that returns the canonical request.
 
 The ASGI lifespan starts the job services (``routes.compute.ComputeHost``: the workspace queue in
-``W/.eeglayoutlab`` with its restart rules and recovery, the radius search, the execution slot) and stops them on
-shutdown; a queue file that cannot be used fails the startup (``lifespan.startup.failed``) and stays as it was.
+``W/.eeglayoutlab`` with its restart rules and recovery, the radius search, the execution slot, then the studies in
+``W/studies`` with their restart recovery) and stops them on shutdown in Node's order; a queue file that cannot be
+used fails the startup (``lifespan.startup.failed``) and stays as it was.
 
 The transport follows the route that serves the Node host's job submissions (``communityMiddleware`` in
 webapp/server/community-queue.mjs), so the interface sees the same answers:
@@ -250,18 +253,22 @@ class Service:
     def __init__(self, config: ServiceConfig):
         from .access import AccessControl
         from .routes.compute import ComputeHost
+        from .routes.studies import StudyRoutes
         from .static import DocsSite, StaticExport
 
         self.config = config
         self.compute = ComputeHost(config)
         self.api = _api(config, self.compute)
+        self.studies = StudyRoutes(self.compute)
         self.static = StaticExport(config.static_dir)
         self.docs = DocsSite(config.docs_dir)
         self.access = AccessControl(self._route, config.tokens, config.port)
 
     async def _route(self, scope: Any, receive: Any, send: Any) -> None:
         path = raw_path(scope)
-        if path.startswith('/api/'):
+        if self.studies.claims(path):
+            await self.studies(scope, receive, send)
+        elif path.startswith('/api/'):
             await self.api(scope, receive, send)
         elif path == '/docs' or path.startswith('/docs/'):
             await self.docs(scope, receive, send)

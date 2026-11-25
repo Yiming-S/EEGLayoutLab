@@ -59,6 +59,15 @@ no new dispatch, the running worker stopped with ``server_restart`` or ``restart
 once more, the runtime inspectors and catalog runs stopped). Every kind of an application whose lifespan never ran
 is an unknown endpoint: 404 ``Unknown queue endpoint``, before any body is read (the catalog: ``未知源实验接口``).
 
+The host also holds the workspace's robustness studies (slice 8, ``routes.studies``): a
+``workspace_studies.RobustnessStudyService`` over the queue (its cases are coordinate evaluations of the queue's
+``design-evaluation`` kind) with its ``StudyStore`` in ``W/studies``, built once the queue has started; its restart
+recovery (running studies become ``paused_recovery``) runs as it starts. The store's ``before_write`` is Node's
+``admit`` without the resource gate (R2): once the services stop, a study write that is not a cancellation is refused
+with 503 ``The service is stopping.``. The services stop in Node's ``dispose`` order: the studies stop first (no new
+pump or submission), then the queue's scheduling and the job services; the pumps and study writes still running are
+awaited (``RobustnessStudyService.flush``) before the queue is written a last time.
+
 The modules of ``eeglayoutlab.jobs`` are imported when the services start, not when the application is built.
 """
 from __future__ import annotations
@@ -88,6 +97,7 @@ if TYPE_CHECKING:
     from ...jobs.runtime import RuntimeConfig
     from ...jobs.slot import ExecutionSlot
     from ..app import ServiceConfig
+    from ..workspace_studies import RobustnessStudyService
 
 LOG = logging.getLogger('eeglayoutlab.server')
 
@@ -132,7 +142,9 @@ class ComputeHost:
     ``queue.library``); a host without it builds one on first use, on the same root, interpreters, annotations and
     radius search. ``radius_options``, ``design_options``, ``editor_options``, ``reception_options`` and
     ``queue_options`` are passed to ``RadiusJobs``, ``DesignJobs``, ``EditorJobs``, ``ReceptionJobs`` and
-    ``WorkspaceQueue`` (tests set a timeout, a clock or a bound there before the lifespan starts).
+    ``WorkspaceQueue`` (tests set a timeout, a clock or a bound there before the lifespan starts); ``study_options``
+    to ``RobustnessStudyService`` (its poll interval, clock or identifiers), except ``store``, which holds options of
+    its ``StudyStore``.
     ``failure`` is the message of a start that failed, or of the queue's last write at shutdown when it failed; the
     command line reports it and exits 1, as Node's host does when its ``dispose`` throws (start.mjs)."""
 
@@ -145,6 +157,7 @@ class ComputeHost:
         self.editor_options: dict[str, Any] = {}
         self.reception_options: dict[str, Any] = {}
         self.queue_options: dict[str, Any] = {}
+        self.study_options: dict[str, Any] = {}
         self.slot: Optional[ExecutionSlot] = None
         self.radius: Optional[RadiusJobs] = None
         self.design: Optional[DesignJobs] = None
@@ -152,14 +165,23 @@ class ComputeHost:
         self.reception: Optional[ReceptionJobs] = None
         self.annotations: Optional[ElectrodeAnnotations] = None
         self.queue: Optional[WorkspaceQueue] = None
+        self.studies: Optional[RobustnessStudyService] = None
         self.failure: Optional[str] = None
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._stop_requested = False
+        self._disposing = False
 
     @property
     def directory(self) -> str:
         """The queue's directory, ``W/.eeglayoutlab``."""
         return nodepath.join(nodepath.resolve(self.config.user.workspace), STATE)
+
+    @property
+    def study_directory(self) -> str:
+        """The studies' directory, ``W/studies``."""
+        from ..workspace_studies import STUDIES
+
+        return nodepath.join(nodepath.resolve(self.config.user.workspace), STUDIES)
 
     def _build(self) -> tuple['ExecutionSlot', 'RadiusJobs', 'DesignJobs', 'EditorJobs', 'ReceptionJobs',
                               'ElectrodeAnnotations', 'WorkspaceQueue']:
@@ -202,10 +224,11 @@ class ComputeHost:
 
     async def start(self) -> None:
         """Builds the services (``queue.json`` is loaded or created and the restart rules applied, in a worker
-        thread), then starts the queue: ``recover()`` and its dispatcher. A stop requested before the services exist
-        (``stop_soon``) stops them as soon as they are built, so nothing is recovered or dispatched. Raises
-        ``QueueStateError`` for a queue file that cannot be used, which stays as it was; ``failure`` then holds the
-        message."""
+        thread), then starts the queue: ``recover()`` and its dispatcher, and then the study service, whose restart
+        recovery runs in the background (a failed one refuses the study requests, not the start). A stop requested
+        before the services exist (``stop_soon``) stops them as soon as they are built, so nothing is recovered or
+        dispatched. Raises ``QueueStateError`` for a queue file that cannot be used, which stays as it was;
+        ``failure`` then holds the message."""
         from ...jobs.queue import QueueStateError
 
         if self.queue is not None:
@@ -218,6 +241,7 @@ class ComputeHost:
                 self._stop_now()
                 return
             await self.queue.start()
+            self.studies = self._study_service(self.queue, self.design.root)
         except QueueStateError as error:
             self.failure = str(error)
             raise
@@ -232,11 +256,29 @@ class ComputeHost:
             LOG.warning('New computations wait for %s. Once no worker of that run is computing, start again with '
                         '--clear-interrupted.', waiting)
 
+    def _study_service(self, queue: 'WorkspaceQueue', root: str) -> 'RobustnessStudyService':
+        """Node's ``RobustnessStudyService({queue, scheduler, beforeWrite: admit})`` for the workspace, on the running
+        loop (its recovery and poll start at once)."""
+        from ..workspace_studies import RobustnessStudyService, StudyStore
+
+        options = dict(self.study_options)
+        store = StudyStore(self.study_directory, before_write=self._admit, **options.pop('store', {}))
+        return RobustnessStudyService(queue, root, store=store, **options)
+
+    def _admit(self) -> None:
+        """Node's ``admit`` (local-compute-server.mjs:445-449) without the resource gate (R2): a study write that
+        is not a cancellation is refused once the services stop."""
+        if self._disposing:
+            from ..workspace_studies import ResourceError
+
+            raise ResourceError('The service is stopping.', 503)
+
     def stop_soon(self) -> None:
-        """Node's synchronous ``dispose`` from a signal handler: on the services' event loop, the queue stops
-        scheduling, the services refuse new work and stop their running worker (the radius search's with
+        """Node's synchronous ``dispose`` from a signal handler: on the services' event loop, the studies stop, the
+        queue stops scheduling, the services refuse new work and stop their running worker (the radius search's with
         ``server_restart``, the other kinds' with ``restart``), and the queue is written (a launch still in flight goes
-        back to ``queued``). ``close`` then waits for the worker's records.
+        back to ``queued``), unless a study is still pumped or written: as Node defers ``scheduler.dispose()``,
+        ``close`` then writes it after them. ``close`` then waits for the worker's records.
         Before the services exist the request is kept, and ``start`` applies it; once the loop is closed it does
         nothing."""
         self._stop_requested = True
@@ -257,25 +299,40 @@ class ComputeHost:
         queue = self.queue
         if queue is None:
             return
+        # Node's dispose: the studies stop before the scheduler (no new pump, submission or study write).
+        self._disposing = True
+        studies = self.studies
+        if studies is not None:
+            studies.stop()
         queue.stop_scheduling()
         for service in self._services():
             service.dispose()
-        queue.dispose()
+        # The scheduler is written last: while a study is pumped or written, close() writes it once they are done.
+        if studies is None or not (studies.inflight or studies.store.pending_writes):
+            queue.dispose()
 
     async def close(self) -> None:
-        """Node's ``dispose`` of the composed service: the queue stops scheduling, the services refuse new work and
-        stop their running worker; once that job's records are written, the queue is written a last time (unless
-        ``stop_soon`` wrote it already) and its dispatcher has left. A receipt that was running stays ``running`` on
-        disk; the next start fails it with ``服务重启中断了计算，可重新提交`` (or promotes it when its result was
-        stored). When that last write failed, ``failure`` says so."""
+        """Node's ``dispose`` of the composed service: the studies stop, the queue stops scheduling, the services
+        refuse new work and stop their running worker; once the studies' pumps and writes have finished (the store
+        is then closed) and that job's records are written, the queue is written a last time (unless ``stop_soon``
+        wrote it already) and its dispatcher has left. A receipt that was running stays ``running`` on disk; the next
+        start fails it with ``服务重启中断了计算，可重新提交`` (or promotes it when its result was stored), and a
+        running study becomes ``paused_recovery``. When the queue's last write failed, ``failure`` says so."""
         queue = self.queue
         if queue is None:
             return
+        self._disposing = True
+        studies = self.studies
+        if studies is not None:
+            studies.stop()
         queue.stop_scheduling()
         services = self._services()
         # Every service refuses new work before any is awaited, as Node disposes them one after another.
         for service in services:
             service.dispose()
+        if studies is not None:
+            # Node's studies.flush() and studies.close() before scheduler.dispose(); a failed recovery is logged.
+            await studies.aclose()
         for service in services:
             await service.aclose()
         await queue.close()

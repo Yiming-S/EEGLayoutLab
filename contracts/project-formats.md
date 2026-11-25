@@ -62,6 +62,6 @@ A project entry may contain `annotation_id`. Its `research-project-snapshot/1` f
 
 ## Repeated studies
 
-Repeated studies use separate `eeg-robustness-study/1` and `eeg-robustness-study-export/1` schemas. They are stored under the configured queue's `studies/` tree and owned by the existing browser session. Each case retains a normalized original `design-evaluation/1` request, scientific key, receipt reference, outcome and verified cache copy. Export includes `cache_json`, the original UTF-8 cache text, and `source_sha256`, its checksum. The parsed `cache` is supplied for reading the values.
+Repeated studies use separate `eeg-robustness-study/1` and `eeg-robustness-study-export/1` schemas. The Node host stores them under the configured queue's `studies/` tree, owned by the existing browser session; the Python service stores them in its workspace, `<workspace>/studies/`, for its one local user. Each case retains a normalized original `design-evaluation/1` request, scientific key, receipt reference, outcome and verified cache copy. Export includes `cache_json`, the original UTF-8 cache text, and `source_sha256`, its checksum. The parsed `cache` is supplied for reading the values.
 
 See `docs/robustness-studies.md` for protocols, case-level summaries and recovery. These study wrappers keep the original scientific evaluation and its default trial/noise counts.

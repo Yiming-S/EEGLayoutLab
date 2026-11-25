@@ -1984,19 +1984,16 @@ disposition = "N"
 # --- check-robustness-aggregation.mjs ---------------------------------------------------------------------------------
 
 [sites."check-robustness-aggregation.mjs::type7 empirical quantiles interpolate known finite observations and retain the actual count"]
-disposition = "pending"
-slice = 8
-module = "tests/service/test_studies.py"
+disposition = "P"
+target = "tests/service/test_studies.py::test_type7_empirical_quantiles_interpolate_known_finite_observations_and_retain_the_actual_count"
 
 [sites."check-robustness-aggregation.mjs::position-study distribution gives each case equal weight while keeping every rejected trial"]
-disposition = "pending"
-slice = 8
-module = "tests/service/test_studies.py"
+disposition = "P"
+target = "tests/service/test_studies.py::test_position_study_distribution_gives_each_case_equal_weight_while_keeping_every_rejected_trial"
 
 [sites."check-robustness-aggregation.mjs::an all-rejected position case stays completed with zero finite trial readings"]
-disposition = "pending"
-slice = 8
-module = "tests/service/test_studies.py"
+disposition = "P"
+target = "tests/service/test_studies.py::test_an_all_rejected_position_case_stays_completed_with_zero_finite_trial_readings"
 
 # --- check-robustness-client.mjs --------------------------------------------------------------------------------------
 
@@ -2065,89 +2062,75 @@ disposition = "N"
 # --- check-robustness-studies.mjs -------------------------------------------------------------------------------------
 
 [sites."check-robustness-studies.mjs::study protocols preserve original normalized requests and keep labels outside scientific identity"]
-disposition = "pending"
-slice = 8
-module = "tests/service/test_studies.py"
+disposition = "P"
+target = "tests/service/test_studies.py::test_study_protocols_preserve_original_normalized_requests_and_keep_labels_outside_scientific_identity"
 
 [sites."check-robustness-studies.mjs::cross-head studies evaluate one head per case at one radius without conductivity scenarios"]
-disposition = "pending"
-slice = 8
-module = "tests/service/test_studies.py"
+disposition = "P"
+target = "tests/service/test_studies.py::test_cross_head_studies_evaluate_one_head_per_case_at_one_radius_without_conductivity_scenarios"
 
 [sites."check-robustness-studies.mjs::empirical summaries use case weights and retain rejected trials and failure counts"]
-disposition = "pending"
-slice = 8
-module = "tests/service/test_studies.py"
+disposition = "P"
+target = "tests/service/test_studies.py::test_empirical_summaries_use_case_weights_and_retain_rejected_trials_and_failure_counts"
 
 [sites."check-robustness-studies.mjs::create and reads launch no jobs, completed cases archive exact original caches and survive receipt cleanup"]
-disposition = "pending"
-slice = 8
-module = "tests/service/test_studies.py"
+disposition = "P"
+target = "tests/service/test_studies.py::test_create_and_reads_launch_no_jobs_completed_cases_archive_exact_original_caches_and_survive_receipt_cleanup"
 
 [sites."check-robustness-studies.mjs::a cross-head study binds one identity per head, then creates and runs every head"]
-disposition = "pending"
-slice = 8
-module = "tests/service/test_studies.py"
+disposition = "P"
+target = "tests/service/test_studies.py::test_a_cross_head_study_binds_one_identity_per_head_then_creates_and_runs_every_head"
 
 [sites."check-robustness-studies.mjs::non-head studies still refuse case identities that differ while preparing"]
-disposition = "pending"
-slice = 8
-module = "tests/service/test_studies.py"
+disposition = "P"
+target = "tests/service/test_studies.py::test_non_head_studies_still_refuse_case_identities_that_differ_while_preparing"
 
 [sites."check-robustness-studies.mjs::non-head study records keep the single shared identity older servers verify"]
-disposition = "pending"
-slice = 8
-module = "tests/service/test_studies.py"
+disposition = "P"
+target = "tests/service/test_studies.py::test_non_head_study_records_keep_the_single_shared_identity_older_servers_verify"
 
 [sites."check-robustness-studies.mjs::legacy records written without per-case identities still load and run"]
-disposition = "pending"
-slice = 8
-module = "tests/service/test_studies.py"
+disposition = "P"
+target = "tests/service/test_studies.py::test_legacy_records_written_without_per_case_identities_still_load_and_run"
 
 [sites."check-robustness-studies.mjs::private study directory and all record operations enforce original browser ownership"]
 disposition = "D"
 reason = "R1"
-note = "per-browser study ownership"
+note = "per-browser study ownership; one local user reads every study of the workspace: test_studies.py::test_reads_and_list_cover_every_study_of_the_workspace"
 
 [sites."check-robustness-studies.mjs::concurrent starts from one browser admit at most one parent study"]
-disposition = "pending"
-slice = 8
-module = "tests/service/test_studies.py"
+disposition = "P"
+target = "tests/service/test_studies.py::test_concurrent_starts_admit_at_most_one_parent_study"
+note = "one study runs at a time per workspace, not per browser (R1)"
 
 [sites."check-robustness-studies.mjs::cancel during case preparation prevents a later child admission"]
-disposition = "pending"
-slice = 8
-module = "tests/service/test_studies.py"
+disposition = "P"
+target = "tests/service/test_studies.py::test_cancel_during_case_preparation_prevents_a_later_child_admission"
 
 [sites."check-robustness-studies.mjs::cancel inside original queue write admission prevents receipt creation"]
-disposition = "pending"
-slice = 8
-module = "tests/service/test_studies.py"
+disposition = "P"
+target = "tests/service/test_studies.py::test_cancel_inside_original_queue_write_admission_prevents_receipt_creation"
 
 [sites."check-robustness-studies.mjs::cancelling a shared queued case removes only the study browser and retains other owners"]
-disposition = "pending"
-slice = 8
-module = "tests/service/test_studies.py"
+disposition = "P"
+target = "tests/service/test_studies.py::test_cancelling_a_queued_case_cancels_its_receipt"
+note = "a workspace receipt has no other owner to keep it queued (R1), so the cancel cancels the receipt itself"
 
 [sites."check-robustness-studies.mjs::restart pauses the parent and a GET never accepts more cases; explicit resume reconciles owned receipts"]
-disposition = "pending"
-slice = 8
-module = "tests/service/test_studies.py"
+disposition = "P"
+target = "tests/service/test_studies.py::test_restart_pauses_the_parent_and_a_get_never_accepts_more_cases_explicit_resume_reconciles_owned_receipts"
 
 [sites."check-robustness-studies.mjs::an uncertain interrupted submission is retained without blindly resubmitting it"]
-disposition = "pending"
-slice = 8
-module = "tests/service/test_studies.py"
+disposition = "P"
+target = "tests/service/test_studies.py::test_an_uncertain_interrupted_submission_is_retained_without_blindly_resubmitting_it"
 
 [sites."check-robustness-studies.mjs::changed scientific identity fails pending cases without new receipts"]
-disposition = "pending"
-slice = 8
-module = "tests/service/test_studies.py"
+disposition = "P"
+target = "tests/service/test_studies.py::test_changed_scientific_identity_fails_pending_cases_without_new_receipts"
 
 [sites."check-robustness-studies.mjs::archive checks exact cache binding and rejects corrupted or symlinked snapshots"]
-disposition = "pending"
-slice = 8
-module = "tests/service/test_studies.py"
+disposition = "P"
+target = "tests/service/test_studies.py::test_archive_checks_exact_cache_binding_and_rejects_corrupted_or_symlinked_snapshots"
 
 [sites."check-robustness-studies.mjs::studies are capped per client network and stale unstarted drafts free their slots"]
 disposition = "D"
@@ -2155,80 +2138,69 @@ reason = "R1"
 note = "per-network study caps and draft pruning"
 
 [sites."check-robustness-studies.mjs::study count, metadata, total-byte and unsafe-root limits fail before scientific submission"]
-disposition = "pending"
-slice = 8
-module = "tests/service/test_studies.py"
+disposition = "P"
+target = "tests/service/test_studies.py::test_metadata_total_byte_and_unsafe_root_limits_fail_before_scientific_submission"
+note = "the study count cap is dropped (R1): a second study is created"
 
 [sites."check-robustness-studies.mjs::a resource refusal pauses the pending case and GET does not retry it"]
-disposition = "D"
-reason = "R2"
-note = "operations ResourceGate"
+disposition = "P"
+target = "tests/service/test_studies.py::test_a_resource_refusal_of_new_work_pauses_the_case_and_reads_never_retry_it"
+note = "the service half; the workspace queue has no resource gate (R2), so the stub adapter raises the resource-safe refusal while the queue admits the case, where Node's beforeNewWork does"
 
 [sites."check-robustness-studies.mjs::default queue admission remains unchanged while internal expected-key and cancellation guards act before receipts"]
-disposition = "pending"
-slice = 8
-module = "tests/service/test_studies.py"
+disposition = "P"
+target = "tests/service/test_studies.py::test_default_admission_is_unchanged_while_expected_key_and_cancellation_guards_act_before_receipts"
 
 [sites."check-robustness-studies.mjs::HTTP study writes require origin/token and reads isolate signed browser sessions"]
-disposition = "pending"
-slice = 8
-module = "tests/service/test_studies.py"
-note = "origin and token; signed browser sessions are dropped (R1)"
+disposition = "P"
+target = "tests/service/test_study_routes.py::test_study_writes_need_the_token_every_request_a_loopback_origin_and_the_session"
+note = "origin, token and session over HTTP; the middleware half (400 for an invalid design and a control body that is not {}, nothing queued) in test_studies.py::test_http_study_requests; signed browser sessions are dropped (R1)"
 
 [sites."check-robustness-studies.mjs::maintenance rejection retains a pending case until an explicit resume"]
-disposition = "D"
-reason = "R6"
-note = "queue maintenance"
+disposition = "P"
+target = "tests/service/test_studies.py::test_a_maintenance_refusal_defers_the_pending_case_until_an_explicit_resume"
+note = "on the workspace queue's cache_only, which replaces the maintenance mode (R6); over HTTP with --cache-only in test_study_routes.py::test_a_cache_only_service_completes_studies_from_stored_results_and_defers_new_cases"
 
 [sites."check-robustness-studies.mjs::stopping during preparation does not label the unsubmitted case as cancelled"]
-disposition = "pending"
-slice = 8
-module = "tests/service/test_studies.py"
+disposition = "P"
+target = "tests/service/test_studies.py::test_stopping_during_preparation_does_not_label_the_unsubmitted_case_as_cancelled"
 
 [sites."check-robustness-studies.mjs::stopping inside queue admission preserves a confirmed unaccepted case for recovery"]
-disposition = "pending"
-slice = 8
-module = "tests/service/test_studies.py"
+disposition = "P"
+target = "tests/service/test_studies.py::test_stopping_inside_queue_admission_preserves_a_confirmed_unaccepted_case_for_recovery"
 
 [sites."check-robustness-studies.mjs::cancel remains usable after an original receipt was removed"]
-disposition = "pending"
-slice = 8
-module = "tests/service/test_studies.py"
+disposition = "P"
+target = "tests/service/test_studies.py::test_cancel_remains_usable_after_an_original_receipt_was_removed"
 
 [sites."check-robustness-studies.mjs::cancelling remaining work preserves an already failed child and its reason"]
-disposition = "pending"
-slice = 8
-module = "tests/service/test_studies.py"
+disposition = "P"
+target = "tests/service/test_studies.py::test_cancelling_remaining_work_preserves_an_already_failed_child_and_its_reason"
 
 [sites."check-robustness-studies.mjs::quota-blocked startup keeps existing research readable and waits for explicit recovery"]
-disposition = "pending"
-slice = 8
-module = "tests/service/test_studies.py"
+disposition = "P"
+target = "tests/service/test_studies.py::test_quota_blocked_startup_keeps_existing_research_readable_and_waits_for_explicit_recovery"
 
 [sites."check-robustness-studies.mjs::cancel clears a transient resource pause and terminal studies cannot resume"]
-disposition = "pending"
-slice = 8
-module = "tests/service/test_studies.py"
+disposition = "P"
+target = "tests/service/test_studies.py::test_cancel_clears_a_transient_resource_pause_and_terminal_studies_cannot_resume"
 
 [sites."check-robustness-studies.mjs::cancelling recovery pauses clears the directory overlay and never revives a cancelled parent"]
-disposition = "pending"
-slice = 8
-module = "tests/service/test_studies.py"
+disposition = "P"
+target = "tests/service/test_studies.py::test_cancelling_recovery_pauses_clears_the_directory_overlay_and_never_revives_a_cancelled_parent"
 
 [sites."check-robustness-studies.mjs::resource admission blocks new work but cannot block cancellation of owned queued work"]
-disposition = "D"
-reason = "R2"
-note = "operations ResourceGate"
+disposition = "P"
+target = "tests/service/test_studies.py::test_resource_admission_blocks_new_work_but_cannot_block_cancellation_of_queued_work"
+note = "the store's before_write is Node's admit (ComputeHost._admit, its dispose guard; the resource gate and quota are R2), and cancellation is a control write that skips it"
 
 [sites."check-robustness-studies.mjs::cancelled completion waits for original-result archive without authorizing later cases"]
-disposition = "pending"
-slice = 8
-module = "tests/service/test_studies.py"
+disposition = "P"
+target = "tests/service/test_studies.py::test_cancelled_completion_waits_for_original_result_archive_without_authorizing_later_cases"
 
 [sites."check-robustness-studies.mjs::explicit parent recovery checks a complete interrupted cache before marking its existing receipt failed"]
-disposition = "pending"
-slice = 8
-module = "tests/service/test_studies.py"
+disposition = "P"
+target = "tests/service/test_studies.py::test_explicit_parent_recovery_checks_a_complete_interrupted_cache_before_marking_its_existing_receipt_failed"
 
 # --- check-runtime-identity-cache.mjs ---------------------------------------------------------------------------------
 
@@ -2828,7 +2800,7 @@ note = "the evaluation part with --cache-only from slice 5 (EEG_SERVICE_RUNTIME 
 [scripts."check-robustness-browser.mjs"]
 kind = "browser"
 slice = 8
-note = "with --cache-only; its Node normalizeDesignRequest import becomes a fixture"
+note = "retargeted in slice 8: the Python service through EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN (run serve with --cache-only), Node at EEG_TEST_URL otherwise; its study inputs and the canonical request of each case come from tests/service/fixtures/robustness (no Node normalizeDesignRequest import), whose 8 cases must be cached on the root first; it writes its report under EEG_REPOSITORY_ROOT/artifacts/research-workflow/2026-11-14/stage5-browser"
 
 [scripts."check-research-workflow-browser.mjs"]
 kind = "browser"

@@ -537,6 +537,78 @@ references write only under their case roots and scratch directories.
     the SHA-256 of its text, Node's records scope `current_browser` read as `workspace`) and the record trees under
     `source_reception_jobs`, `source_reception_v2_jobs` and `design_evaluation_jobs` must be equal.
 
+## Robustness studies
+
+Slice 8 adds the robustness studies: their request format (`schemas.robustness_study`, with the option lists in
+`schemas.study_options`), the protocol and the aggregation (`jobs.studies`), the hardened workspace files
+(`server.workspace_files`), the study store and service (`server.workspace_studies`) and the routes
+(`server.routes.studies`). A study's cases are coordinate evaluations of the slice 4 queue; the study is stored in
+`W/studies/<id>/`, never under R or Q. Everything that computes or writes runs on synthetic roots and workspaces in
+`tmp_path`; the Node references write only under their case roots and scratch directories.
+
+- `test_study_request.py`: `jobs.studies.normalize_study_input` gives Node's normalized study or Node's exact message
+  (its own, and those of `normalizeDesignRequest`, `electrodeNames` and `validateCoordinateSource` it passes on) for
+  every variant of the `robustness-study` corpus (`tests/schema_parity/formats/robustness-study.mjs`, 1,169 variants,
+  429 accepted), and the variants reach every message, protocol and option. Python values follow JavaScript's, the
+  input is never changed, the schema's canonical input normalizes to the same study, and a deeply nested value is a
+  400, not a traceback. Acceptance and canonical bytes through the registry and `/api/normalize/robustness-study`
+  are in the schema parity tests; the status lists come from `webapp/contracts/robustness-study.ts`, checked against
+  the lists of `studies/store.mjs`.
+- `studies_support.py`: `run_driver(mode, cases, scratch, **spec)` runs `parity/studies.mjs`; `StudyFixture` is the
+  `fixture()` of check-robustness-studies.mjs for the workspace: a stand-in design-evaluation adapter
+  (`StubDesignAdapter`, identity `{protocol: 'unchanged-design-evaluation/1', version, head_id?}`, seeded
+  `cache.json` files, optional `hold` and `before_new_work` gates), a `WorkspaceQueue` that is never started, so a
+  submitted case stays `queued`, and the store under `W/studies` with its `before_write` hook. `restart()` builds the
+  service again on the same files. `python_identity`, `python_store` and `python_export` run the driver's modes in
+  Python.
+- `test_studies.py`:
+  - Ports: the 3 sites of check-robustness-aggregation.mjs and 31 sites of check-robustness-studies.mjs (the
+    protocol, identity, store and service sites; the per-browser ownership and the per-network caps stay dropped,
+    R1). Adapted to one local user: one study runs at a time per workspace, a cancel cancels the case's receipt
+    itself (nobody else shares it), and the count caps are gone. The resource refusal of new work is raised by the
+    stub adapter (the workspace queue has no resource gate, R2), and the maintenance refusal is the queue's
+    `cache_only`.
+  - Then what Python adds: the JavaScript numbers and members of the aggregation, the hardened files
+    (`WorkspaceFiles`: links, hard links, a file that changes while it is read, writes one at a time in call
+    order), a case cache that B16's publish still links (or left linked) as `cache.json.<uuid4>.tmp`, which is
+    archived while any other link fails the case, a cancel waiting behind a case's admission write, a running case
+    whose receipt was removed, error answers that show only safe messages, a `cancelling` record without
+    `cancel_requested`, a failed recovery that refuses every request, and the study times `Date.parse` reads.
+  - `parity/studies.mjs` runs Node's own `studies/` code (its header documents each mode):
+    - `aggregate`: `empiricalSummary`, `summarizeStudyCase` and `aggregateStudy` on 63 fixed and 1,500 random
+      inputs. The JSON written, the input after the call and the failures by error name must equal Node's.
+    - `store`: `StudyStore` on 12 cases of 322 steps (creates, updates, control updates, archives, reads, usage,
+      presentation, refusals, and files changed between steps: links, hard links, stray entries, modes, renames).
+      Values, refusals (status, message, code) and the resulting trees (names, types, modes, bytes) must be equal.
+    - `identity`: `RobustnessStudyService.create` with the real design-evaluation adapter over Node's
+      `DesignEvaluationService` on 126 cases (9 study inputs on each of 14 synthetic design roots of
+      `key_parity_support`, broken ones included): the answer, the `study.json` bytes (B18) and the receipt count.
+    - `export`: the check's fixture on 11 scenarios of 96 steps with a pinned clock and pinned identifiers. Every
+      answer, the `study.json` text, the snapshot names and the `eeg-robustness-study-export/1` envelope must be
+      byte-equal.
+    - `dates`: `Number.isFinite(Date.parse(text))` on 4,000 texts; Python reads the ISO format only and never
+      accepts a time Node rejects.
+- `test_study_routes.py` (`server.routes.studies`, the lifespan): the application with its lifespan over HTTP on a
+  design root whose design worker is the stand-in (`compute_support.design_compute_root`). A study is a draft until
+  started, its cases run one at a time as coordinate evaluations, and its export holds each case's original
+  `cache.json` text after the record is removed. Node's middleware order, statuses, messages, codes and headers
+  (`Retry-After` on a resource refusal); every study path is 404 `Study not found.` until the lifespan has
+  started. The token, a loopback origin and the session on every request; a restart that pauses a running study
+  until an explicit resume; `--cache-only`, which completes studies from stored results and defers new cases; and
+  shutdown in Node's dispose order (the studies stop first, their writes and pumps are awaited before the queue's
+  last write, also after `stop_soon`; the held write or pump is released by the shutdown itself, not by a timer).
+  - `parity/compute_routes.mjs` runs the 77 steps of `compute_support.STUDY_STEPS` on Node's composed service (its
+    session pinned to the local owner, a pinned SHA-256 network). The answers (ids, times, revisions, cache digests
+    and the token masked; the members of start and cancel answers that race with the pump dropped), the design
+    record tree and the study trees (Node's `Q/studies`, ours `W/studies`) must be equal.
+  - `fixtures/robustness/` holds the inputs of check-robustness-browser.mjs (`noise_seeds-input.json`, two seeds,
+    and `grid_displacements-input.json`, six seed/radius pairs, of one 2-region AL + AR layout) and
+    `case-requests.json`, the canonical request of each case, which the script looks up instead of importing Node's
+    `normalizeDesignRequest`. The file must be what `robustness_requests()` writes
+    (`PYTHONPATH=src:tests python -m tests.service.test_study_routes` writes it again), the study protocol must give
+    the same requests, and Node's `normalizeDesignRequest` the same text (`parity/robustness_requests.mjs`, usage:
+    `node tests/service/parity/robustness_requests.mjs <out.json>`).
+
 ## Node test map
 
 Exit criterion 3 is that every Node test is ported or mapped. `node_tests.toml` has one entry per `test(` /

@@ -12,7 +12,8 @@ from typing import Any, Callable, Mapping
 
 from pydantic import TypeAdapter
 
-from . import coordinate_source, electrode_editor, options, radius_search, source_reception, submission
+from . import (coordinate_source, electrode_editor, options, radius_search, robustness_study, source_reception,
+               study_options, submission)
 
 
 @dataclass(frozen=True)
@@ -83,6 +84,20 @@ REQUEST_FORMATS: dict[str, RequestFormat] = {
                 'mask_codes': radius_search.MASK_CODES,
                 'spatial_noise_lengths_mm': options.SPATIAL_NOISE_LENGTHS_MM,
                 'data_prior_lengths_mm': options.DATA_PRIOR_LENGTHS_MM,
+            },
+        ),
+        RequestFormat(
+            name='robustness-study',
+            schema_name='RobustnessStudyInput',
+            body=robustness_study.RobustnessStudyInput,
+            canonical=robustness_study.canonical,
+            node='normalizeStudyInput (webapp/server/studies/protocol.mjs)',
+            options={
+                'protocols': study_options.STUDY_PROTOCOLS,
+                'study_statuses': study_options.STUDY_STATUSES,
+                'case_statuses': study_options.CASE_STATUSES,
+                'nominal_metrics': study_options.NOMINAL_METRICS,
+                'trial_metrics': study_options.TRIAL_METRICS,
             },
         ),
         RequestFormat(

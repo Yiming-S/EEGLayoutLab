@@ -29,6 +29,7 @@ from the request data formats below.
 | `/api/design-evaluation` | `action`, `design`, `radius_mm`, `seed` | Action: `evaluate` or `perturb`. Perturbation radius: 3, 6, 10 mm. Seed: integer 0–9999. |
 | `/api/electrode-editor`, preparation | `action`, `parent_id` | Action: `prepare`. Parent is a lowercase 64-character hexadecimal identifier. |
 | `/api/electrode-editor`, evaluation | `action`, `parent_id`, `parent_digest`, `seed`, `slots` | Action: `evaluate`. Parent identity and digest are lowercase 64-character hexadecimal identifiers. Seed: 2026. |
+| `/api/robustness-studies` | `protocol`, `design`, `cases` | Protocol: `noise_seeds`, `grid_displacements` or `heads`. 1–12 cases of `seed` and `radius_mm`, plus `head_id` in a cross-head study. Optional `title`, `notes`, `noise_model`, `conductivity_scenario`. |
 
 The radius request permits `mask_codes`. Preset mode requires exactly
 `region_count` entries drawn from `PL`, `PR`, `AL`, `AR`, `FL`, `FM`, `FR`, `OL`,
@@ -177,6 +178,20 @@ The HTTP normalizer copies the listed design fields and sets `name` to the first
 100 characters of a string, or the existing default `导入布局`. Additional design
 metadata is not forwarded. Unknown fields in the top-level request are rejected.
 Coordinates must already refer to the Ernie native model space.
+
+A robustness study evaluates one design in explicit cases, each normalized as a
+design-evaluation request (`evaluate`, or `perturb` for `grid_displacements`)
+with the study's noise model and conductivity scenario. Noise-seed studies hold
+the radius fixed and grid-displacement studies vary it, each with unique
+seed/radius pairs; a cross-head study names each head package once, shares one
+seed and one radius and takes no conductivity scenario. The title (default
+`Robustness study`) is trimmed, not blank and at most 200 UTF-16 units; notes
+are at most 2000. The design's `electrode_names` and `source_metadata` are kept
+as the study's annotation, outside every request (a source without names gets
+`E1`–`E64`). The HTTP rules are the `robustness-study` format of
+`eeglayoutlab.schemas`, whose canonical value is the normalized study;
+`eeglayoutlab.jobs.studies.normalize_study_input` also gives Node's rejection
+messages.
 
 Editor requests keep 64 stable slots. Each slot contains only `bank_index` and
 boolean `enabled`; the HTTP index bound is integer 0–1,000,000. At least two

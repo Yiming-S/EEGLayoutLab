@@ -1,23 +1,29 @@
 // Node reference for tests/service/test_compute_routes.py: the job routes of Node's composed service over HTTP.
 // Usage: node tests/service/parity/compute_routes.mjs <spec.json> <out.json>
 //
-// spec: {root, queueDirectory, python, owner, steps, settle_ms}. createLocalComputeService(root, {queueDirectory,
-// python}) (the middleware the Node host runs) serves an ephemeral 127.0.0.1 port, its scheduler's session pinned
-// to `owner`. The public service's per-visitor and per-network admission limits, which the Python service does not
-// have, are lifted: the submission rate, the pending tasks per browser and network, and the annotation window. The
-// global queue bound and the electrode-name bounds per receipt stay. Each step is {method, path, body?, raw?, type?,
-// token?, chunks?, until?, progress?}:
+// spec: {root, queueDirectory, python, owner, network?, steps, settle_ms}. createLocalComputeService(root,
+// {queueDirectory, python}) (the middleware the Node host runs) serves an ephemeral 127.0.0.1 port, its scheduler's
+// session pinned to `owner` and `network` (default 'loopback'; a study record needs a SHA-256 there). The public
+// service's per-visitor and per-network admission limits, which the Python service does not have, are lifted: the
+// submission rate, the pending tasks per browser and network, and the annotation window. The global queue bound and
+// the electrode-name bounds per receipt stay. Each step is {method, path, body?, raw?, type?, token?, chunks?, until?,
+// field?, progress?, brief?}:
 // - `{N}` in a path is the N-th distinct UUID string found in the response bodies so far (the receipts), `{aN}`
 //   the N-th distinct "annotation_id" value and `{kN}` the N-th distinct "key" value;
 // - a POST sends `raw` as it is, else JSON.stringify(body), with content-type `type` (default application/json)
 //   and the CSRF token of the health answer unless `token` is false; with `chunks` its UTF-8 bytes go one per
 //   chunk of a streamed body;
 // - with `until` (statuses) the GET is repeated every 20 ms until body.job.status is one of them (and, with
-//   `progress`, body.job.progress > 0), for at most settle_ms;
+//   `progress`, body.job.progress > 0), for at most settle_ms; with `field` (a dot path such as `study.status` or
+//   `study.cases.0.status`) that member of the body is compared instead;
+// - a `brief` step's body is recorded but its ids are not collected for `{N}` (its contents may race with a
+//   study's pump; test_study_routes.py compares it in part);
 // - a step {method: 'FILE', path, text} sends nothing: it writes `text` (UTF-8, its `{N}`, `{aN}` and `{kN}`
 //   replaced too) to `path` below the root, or removes that file when `text` is null, and is recorded as
 //   {method: 'FILE', path, status: 0, type: null, body: ''}.
 // Each answer is recorded as {method, path, status, type, body} (the body as text). The token is recorded too.
+// The robustness studies (RobustnessStudyService of the same composed service) keep their records in
+// <queueDirectory>/studies, which the test reads after the run.
 // The root's workers are the fakes of tests/service/compute_support.py (the radius search's, and on an editor root
 // the coordinate evaluation's and the electrode editor's, on a reception root also both reception workers, all
 // kinds sharing the one queue and slot); the records they write stay under the root, which must be a synthetic
@@ -35,7 +41,7 @@ if (!isAbsolute(spec.queueDirectory ?? '')) throw new Error('spec.queueDirectory
 
 delete process.env.EEG_COMPUTE_PYTHON;
 const service = createLocalComputeService(spec.root, { queueDirectory: spec.queueDirectory, python: spec.python });
-service.scheduler.session = () => ({ id: spec.owner, ip: '127.0.0.1', network: 'loopback' });
+service.scheduler.session = () => ({ id: spec.owner, ip: '127.0.0.1', network: spec.network ?? 'loopback' });
 service.scheduler.rate = () => {};
 service.scheduler.maxPerVisitor = service.scheduler.maxPerNetwork = Number.MAX_SAFE_INTEGER;
 service.scheduler.annotationWindow.take = () => {};
@@ -85,15 +91,23 @@ try {
       response = await fetch(base + target, { method: step.method, headers, ...bodyOptions() });
       body = await response.text();
       if (!step.until) break;
-      const job = JSON.parse(body).job;
-      if (!job) throw new Error(`${target} answered ${response.status}: ${body}`);
-      if (step.until.includes(job.status) && (!step.progress || job.progress > 0)) break;
+      const parsed = JSON.parse(body);
+      if (step.field) {
+        const value = step.field.split('.').reduce((member, name) => member?.[name], parsed);
+        if (step.until.includes(value)) break;
+      } else {
+        const job = parsed.job;
+        if (!job) throw new Error(`${target} answered ${response.status}: ${body}`);
+        if (step.until.includes(job.status) && (!step.progress || job.progress > 0)) break;
+      }
       if (Date.now() > deadline) throw new Error(`${target} did not settle: ${body}`);
       await new Promise(resolve => setTimeout(resolve, 20));
     }
-    remember('', [...body.matchAll(UUID)].map(match => match[1]));
-    remember('a', [...body.matchAll(ANNOTATION)].map(match => match[1]));
-    remember('k', [...body.matchAll(KEY)].map(match => match[1]));
+    if (!step.brief) {
+      remember('', [...body.matchAll(UUID)].map(match => match[1]));
+      remember('a', [...body.matchAll(ANNOTATION)].map(match => match[1]));
+      remember('k', [...body.matchAll(KEY)].map(match => match[1]));
+    }
     answers.push({ method: step.method, path: step.path, status: response.status,
       type: response.headers.get('content-type'), body });
   }

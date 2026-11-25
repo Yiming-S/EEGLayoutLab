@@ -6,28 +6,43 @@ import { isAbsolute, join, relative, resolve } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { chromium } from 'playwright';
 import { translateText } from '../lib/i18n/core.ts';
-import { normalizeDesignRequest } from '../server/design-evaluation-server.mjs';
+import { openServiceSession, playwrightCookies } from './helpers/service-session.mjs';
 
-const root = resolve(import.meta.dirname, '../..'), artifactRoot = join(root, 'artifacts/research-workflow/2026-11-14');
-assert.ok(process.env.EEG_TEST_URL, 'Set the isolated verification URL.');
-const origin = new URL(process.env.EEG_TEST_URL);
+// EEG_REPOSITORY_ROOT is the root the server serves (default this checkout); the report goes below its artifacts. The
+// server is the Node host at EEG_TEST_URL, or the Python service (eeglayoutlab serve --cache-only): with
+// EEG_SERVICE_RUNTIME (its <workspace>/.eeglayoutlab/runtime.json) or EEG_SERVICE_TOKEN and EEG_TEST_URL, the browser
+// holds its session cookie. The study inputs and the canonical request of each case (Python's, equal to Node's
+// normalizeDesignRequest; tests/service/test_study_routes.py checks both) are the fixture of this checkout.
+const root = resolve(process.env.EEG_REPOSITORY_ROOT || resolve(import.meta.dirname, '../..')), artifactRoot = join(root, 'artifacts/research-workflow/2026-11-14');
+const fixture = resolve(import.meta.dirname, '../../tests/service/fixtures/robustness');
+const service = process.env.EEG_SERVICE_RUNTIME || process.env.EEG_SERVICE_TOKEN ? await openServiceSession({ base: process.env.EEG_TEST_URL }) : null;
+assert.ok(service || process.env.EEG_TEST_URL, 'Set the isolated verification URL.');
+const origin = new URL(service?.base || process.env.EEG_TEST_URL);
 assert.ok(origin.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(origin.hostname) && origin.port && origin.port !== '3000' && origin.pathname === '/' && !origin.search && !origin.hash);
 const output = process.env.EEG_QA_OUTPUT || join(artifactRoot, 'stage5-browser'), suffix = relative(artifactRoot, output);
 assert.ok(isAbsolute(output) && suffix && !suffix.startsWith('..') && !isAbsolute(suffix));
 const executablePath = process.env.EEG_BROWSER_EXECUTABLE || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 await access(executablePath); await mkdir(output, { recursive: true, mode: 0o700 });
-const noiseInput = JSON.parse(await readFile(join(artifactRoot, 'stage5-science/noise_seeds-input.json'), 'utf8'));
-const gridInput = JSON.parse(await readFile(join(artifactRoot, 'stage5-science/grid_displacements-input.json'), 'utf8'));
+const noiseInput = JSON.parse(await readFile(join(fixture, 'noise_seeds-input.json'), 'utf8'));
+const gridInput = JSON.parse(await readFile(join(fixture, 'grid_displacements-input.json'), 'utf8'));
+const caseRequests = JSON.parse(await readFile(join(fixture, 'case-requests.json'), 'utf8'));
 assert.equal(noiseInput.cases.length, 2); assert.equal(gridInput.cases.length, 6); assert.deepEqual(noiseInput.design, gridInput.design);
+for (const input of [noiseInput, gridInput]) assert.equal(caseRequests[input.protocol]?.length, input.cases.length);
 const names = Array.from({ length: 64 }, (_, index) => index === 0 ? 'Study-Fp1, left' : index === 1 ? 'Study-Cz "midline"' : index === 2 ? 'Study-电极03' : `Study-Channel-${index + 1}`);
 const source = { schema: 'electrode-coordinate-source/1', format: 'bids-electrodes/1', electrodes_file: 'study-electrodes.tsv', coordsystem_file: 'study-coordsystem.json', coordinate_system: 'ernie_native_mm', unit: 'mm', coordinate_system_description: 'Ernie native frame in millimetres.', region_index_base: 0, region_description: 'Explicit zero-based EEGLayoutLab regions.' };
 const imported = { ...noiseInput.design, electrode_names: names, source_metadata: source }, cached = new Map(), observations = [], requests = [], artifacts = [], secrets = [];
+// The session cookie and the CSRF token never reach the report.
+if (service) secrets.push(service.cookie.slice(service.cookie.indexOf('=') + 1), service.csrf);
 const diagnostics = { pageErrors: [], consoleErrors: [], httpFailures: [], requestFailures: [], blockedWrites: [], routeErrors: [] };
 const hash = value => createHash('sha256').update(typeof value === 'string' ? value : JSON.stringify(value)).digest('hex');
 const scrub = value => typeof value === 'string' ? secrets.reduce((text, secret) => text.replaceAll(secret, '[credential]'), value) : Array.isArray(value) ? value.map(scrub) : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).map(([key, item]) => [key, scrub(item)])) : value;
 const t = (source, locale = 'en') => translateText(source, locale);
 const button = (page, source, locale = 'en') => page.getByRole('button', { name: t(source, locale), exact: true });
 const label = (page, source, locale = 'en') => page.getByLabel(t(source, locale), { exact: true });
+// A FilePicker's button and file-name texts sit inside its field's label: the input is found by the label's text.
+const fileInput = (page, source, locale = 'en') => page.locator('label', { hasText: t(source, locale).trim() }).locator('input[type=file]');
+// A browser write: the Node host's visitor heartbeat, which pages send as they load, writes no study and no job.
+const posted = entry => entry.transport === 'browser' && entry.method === 'POST' && entry.path !== '/api/community/heartbeat';
 let browser, context, page, armed, failure, noiseStudy, gridStudy, cancelledStudy, phase = 'initialization';
 const contexts = [];
 async function check(name, work) {
@@ -45,7 +60,7 @@ async function paused() {
 }
 async function setup(locale, storageState) {
   const target = await browser.newContext({ viewport: { width: 1280, height: 1050 }, serviceWorkers: 'block', acceptDownloads: true, ...(storageState ? { storageState } : {}) }); contexts.push(target);
-  await target.addCookies([{ name: 'eeg-layout-language', value: locale, url: origin.origin }]);
+  await target.addCookies([{ name: 'eeg-layout-language', value: locale, url: origin.origin }, ...(service ? playwrightCookies(service) : [])]);
   await target.route('**/api/**', async route => {
     const request = route.request(), path = new URL(request.url()).pathname, method = request.method();
     try {
@@ -70,7 +85,7 @@ async function waitStudy(studyId, terminal = true) {
   throw new Error('Study did not reach a terminal state.');
 }
 async function draft(protocol, cases, title) {
-  if (!await page.locator('[data-study-design]').count()) { await label(page, '导入64电极CSV或JSON').setInputFiles({ name: 'study-original.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(imported)) }); await page.locator('[data-study-design]').waitFor(); }
+  if (!await page.locator('[data-study-design]').count()) { await fileInput(page, '导入64电极CSV或JSON').setInputFiles({ name: 'study-original.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(imported)) }); await page.locator('[data-study-design]').waitFor(); }
   await label(page, '研究名称').fill(title); await label(page, '研究备注').fill('Browser acceptance: <b>plain text</b>');
   await label(page, '重复评估协议').selectOption(protocol);
   const countCases = () => page.getByLabel(new RegExp('^' + t('案例') + ' [0-9]+ ' + t('随机种子') + '$')).count();
@@ -106,8 +121,7 @@ try {
   context = await setup('en'); page = await context.newPage();
   await check('Require maintenance and exact cached results for all two noise and six grid cases', async () => {
     const health = await paused();
-    for (const input of [noiseInput, gridInput]) for (const entry of input.cases) {
-      const request = normalizeDesignRequest({ action: input.protocol === 'noise_seeds' ? 'evaluate' : 'perturb', design: input.design, ...entry });
+    for (const input of [noiseInput, gridInput]) for (const request of caseRequests[input.protocol]) {
       const value = await api('/api/design-evaluation/lookup', { method: 'POST', headers: { Origin: origin.origin, 'X-EEG-Compute-Token': health.token }, data: request });
       assert.equal(value.hit, true); assert.equal(value.job.cached, true); assert.equal(value.job.status, 'completed'); assert.deepEqual(value.job.request, request); cached.set(JSON.stringify(request), value.job);
     }
@@ -116,21 +130,21 @@ try {
   // Proof lookups use their own visitor so the original per-browser submission limit remains available to the explicit study cases.
   await page.close(); context = await setup('en'); page = await context.newPage();
   await check('The coordinate handoff retains original coordinates, names and file declarations without starting a study', async () => {
-    await navigate('/coordinates'); await label(page, '导入CSV或JSON').setInputFiles({ name: 'study-original.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(imported)) });
+    await navigate('/coordinates'); await fileInput(page, '导入CSV或JSON').setInputFiles({ name: 'study-original.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(imported)) });
     await button(page, '用此坐标创建稳健性研究').waitFor(); await page.waitForLoadState('networkidle'); await button(page, '用此坐标创建稳健性研究').click(); await page.waitForURL('**/robustness?draft=1'); await page.waitForLoadState('networkidle');
     await page.locator('[data-study-design]').waitFor(); assert.equal(await label(page, '研究名称').inputValue(), noiseInput.design.name);
     const handoff = await page.evaluate(() => JSON.parse(sessionStorage.getItem('eeg-robustness-coordinate-draft/1'))); assert.deepEqual(handoff.design, imported);
     assert.equal(requests.filter(entry => entry.transport === 'browser' && entry.method === 'POST' && entry.path === '/api/robustness-studies').length, 0); return { names: 64, original_points: 64, scientific_jobs: 0 };
   });
   await check('Invalid replacement files clear the prior valid design and duplicate cases are rejected before any POST', async () => {
-    await label(page, '导入64电极CSV或JSON').setInputFiles({ name: 'invalid.json', mimeType: 'application/json', buffer: Buffer.from('not JSON') }); await page.getByRole('alert').waitFor(); assert.equal(await page.locator('[data-study-design]').count(), 0); assert.equal(await button(page, '保存研究草稿').isDisabled(), true);
-    await label(page, '导入64电极CSV或JSON').setInputFiles({ name: 'study-original.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(imported)) }); await page.locator('[data-study-design]').waitFor();
+    await fileInput(page, '导入64电极CSV或JSON').setInputFiles({ name: 'invalid.json', mimeType: 'application/json', buffer: Buffer.from('not JSON') }); await page.getByRole('alert').waitFor(); assert.equal(await page.locator('[data-study-design]').count(), 0); assert.equal(await button(page, '保存研究草稿').isDisabled(), true);
+    await fileInput(page, '导入64电极CSV或JSON').setInputFiles({ name: 'study-original.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(imported)) }); await page.locator('[data-study-design]').waitFor();
     await button(page, '添加明确案例').click(); await page.getByLabel(`${t('案例')} 2 ${t('随机种子')}`, { exact: true }).fill('42'); await button(page, '保存研究草稿').click(); await page.getByText(t('案例的种子与半径组合不能重复'), { exact: true }).waitFor();
     await page.getByRole('button', { name: `${t('删除案例')} 2`, exact: true }).click(); return { invalid_file_cleared: true, duplicate_rejected: true, study_posts: 0 };
   });
   await check('Saving and reloading a two-case noise draft does not submit computation', async () => {
-    noiseStudy = await draft('noise_seeds', noiseInput.cases, 'Browser noise study'); const before = requests.filter(entry => entry.transport === 'browser' && entry.method === 'POST').length;
-    await page.reload({ waitUntil: 'networkidle' }); await button(page, '开始此研究').waitFor(); assert.equal(requests.filter(entry => entry.transport === 'browser' && entry.method === 'POST').length, before);
+    noiseStudy = await draft('noise_seeds', noiseInput.cases, 'Browser noise study'); const before = requests.filter(posted).length;
+    await page.reload({ waitUntil: 'networkidle' }); await button(page, '开始此研究').waitFor(); assert.equal(requests.filter(posted).length, before);
     const state = await waitStudy(noiseStudy.id, false); assert.equal(state.status, 'draft'); assert.ok(state.cases.every(entry => !entry.receipt_id)); return { cases: 2, reload_posts: 0 };
   });
   await check('Explicit start completes the two exact cached noise cases and downloads the complete original caches', async () => {
@@ -142,7 +156,9 @@ try {
     const value = await exportStudy(gridStudy, 'grid-study-export.json'); assert.equal(value.study.aggregation.completed_cases, 6); assert.deepEqual(value.study.aggregation.groups.map(group => [group.radius_mm, group.case_count]), [[3, 2], [6, 2], [10, 2]]);
     assert.ok(value.study.cases.every(entry => entry.summary.trials.length === 4 && entry.summary.valid_trials + entry.summary.rejected_trials === 4));
     const rejected = value.study.cases.reduce((sum, entry) => sum + entry.summary.rejected_trials, 0), zeroCases = value.study.cases.filter(entry => entry.summary.valid_trials === 0);
-    assert.equal(rejected, 19); assert.equal(zeroCases.length, 2);
+    // Each case's summary counts the trials of its cached result proven before the study (the stage-5 inputs this fixture replaces gave 19 rejected trials and two cases without a valid one).
+    for (const entry of value.study.cases) { const trials = cached.get(JSON.stringify(entry.request)).result.trials; assert.equal(entry.summary.rejected_trials, trials.filter(trial => trial.status === 'geometry_rejected').length); assert.equal(entry.summary.valid_trials, trials.filter(trial => trial.status === 'completed').length); }
+    assert.ok(rejected > 0 && zeroCases.length > 0, 'The cached grid results need geometry-rejected trials and a case without a valid trial.');
     const zero = page.locator(`[data-study-case="${zeroCases[0].index}"]`); await zero.locator(':scope > summary').click();
     const summary = zero.locator('section').filter({ has: page.getByRole('heading', { name: t('本案例有效偏移摘要'), exact: true }) });
     const readings = await summary.locator('tbody tr').evaluateAll(rows => rows.map(row => [...row.querySelectorAll('td')].map(cell => cell.textContent)));
@@ -154,18 +170,18 @@ try {
     await navigate('/robustness?study=' + gridStudy.id); await page.getByText('研究已完成', { exact: true }).waitFor(); const detail = page.locator('details').filter({ has: page.locator('summary', { hasText: t('查看研究输入坐标与名称', 'zh-CN') }) }).first(); await detail.locator('summary').click();
     const rows = await detail.locator('tbody tr').evaluateAll(values => values.map(row => [...row.querySelectorAll('td')].map(cell => cell.textContent)));
     assert.equal(rows.length, 64); for (const [index, row] of rows.entries()) { assert.equal(row[0], names[index]); assert.deepEqual(row.slice(2).map(Number), noiseInput.design.xyz_mm[index]); }
-    assert.equal(requests.slice(before).filter(entry => entry.transport === 'browser' && entry.method === 'POST').length, 0); await shot('03-grid-restored-zh.png');
+    assert.equal(requests.slice(before).filter(posted).length, 0); await shot('03-grid-restored-zh.png');
     await page.close(); page = await context.newPage(); await navigate('/robustness?study=' + gridStudy.id); await button(page, '编辑新的研究草稿').waitFor(); return { restored_names: 64, restored_points: 64, mutation_posts: 0 };
   });
   await check('Cancelling a saved draft retains both cancelled cases and never creates child receipts', async () => {
-    await button(page, '编辑新的研究草稿').click(); await label(page, '导入64电极CSV或JSON').setInputFiles({ name: 'study-original.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(imported)) }); await page.locator('[data-study-design]').waitFor(); cancelledStudy = await draft('noise_seeds', noiseInput.cases, 'Browser cancelled draft');
+    await button(page, '编辑新的研究草稿').click(); await fileInput(page, '导入64电极CSV或JSON').setInputFiles({ name: 'study-original.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(imported)) }); await page.locator('[data-study-design]').waitFor(); cancelledStudy = await draft('noise_seeds', noiseInput.cases, 'Browser cancelled draft');
     const path = '/api/robustness-studies/' + cancelledStudy.id + '/cancel'; armed = { path, body: {} }; const [response] = await Promise.all([page.waitForResponse(value => new URL(value.url()).pathname === path && value.request().method() === 'POST'), button(page, '取消此研究').click()]); assert.equal(response.status(), 200);
     cancelledStudy = await waitStudy(cancelledStudy.id); assert.equal(cancelledStudy.status, 'cancelled'); assert.ok(cancelledStudy.cases.every(entry => entry.status === 'cancelled' && entry.receipt_id === null)); const value = await exportStudy(cancelledStudy, 'cancelled-study-export.json'); assert.ok(value.cases.every(entry => entry.cache === null && entry.cache_json === null)); await shot('04-draft-cancelled-en.png'); return { retained_cancelled_cases: 2, child_receipts: 0 };
   });
   await check('The form bounds explicit cases at twelve without submitting them', async () => {
-    await button(page, '编辑新的研究草稿').click(); const before = requests.filter(entry => entry.transport === 'browser' && entry.method === 'POST').length;
+    await button(page, '编辑新的研究草稿').click(); const before = requests.filter(posted).length;
     while (await page.getByLabel(new RegExp('^' + t('案例') + ' [0-9]+ ' + t('随机种子') + '$')).count() < 12) await button(page, '添加明确案例').click(); assert.equal(await button(page, '添加明确案例').isDisabled(), true);
-    assert.equal(await page.getByLabel(new RegExp('^' + t('案例') + ' [0-9]+ ' + t('随机种子') + '$')).count(), 12); assert.equal(requests.filter(entry => entry.transport === 'browser' && entry.method === 'POST').length, before); return { case_limit: 12, new_posts: 0 };
+    assert.equal(await page.getByLabel(new RegExp('^' + t('案例') + ' [0-9]+ ' + t('随机种子') + '$')).count(), 12); assert.equal(requests.filter(posted).length, before); return { case_limit: 12, new_posts: 0 };
   });
   await check('Original cached science is unchanged and browser diagnostics contain no unexpected errors', async () => {
     const primaryContext = context; context = await setup('en'); const health = await paused();

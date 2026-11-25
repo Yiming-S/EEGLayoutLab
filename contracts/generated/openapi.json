@@ -242,6 +242,65 @@
         }
       }
     },
+    "/api/normalize/robustness-study": {
+      "post": {
+        "operationId": "normalize_robustness_study",
+        "summary": "Validate a robustness-study request and return its canonical form",
+        "description": "Diagnostic endpoint. Reproduces normalizeStudyInput (webapp/server/studies/protocol.mjs).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RobustnessStudyInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The canonical request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NormalizedRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not valid JSON or not a valid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The body is larger than 65,536 bytes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not application/json.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/normalize/source-reception": {
       "post": {
         "operationId": "normalize_source_reception",
@@ -673,6 +732,71 @@
           "region_assignment"
         ],
         "title": "CoordinateSourceV3",
+        "type": "object"
+      },
+      "CrossHeadStudy": {
+        "additionalProperties": false,
+        "description": "One case per head package, each listed once, with one seed and one radius for every case.",
+        "properties": {
+          "protocol": {
+            "const": "heads",
+            "title": "Protocol",
+            "type": "string"
+          },
+          "title": {
+            "default": "Robustness study",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "notes": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Notes",
+            "type": "string"
+          },
+          "design": {
+            "$ref": "#/components/schemas/StudyDesign"
+          },
+          "cases": {
+            "items": {
+              "$ref": "#/components/schemas/HeadStudyCase"
+            },
+            "maxItems": 12,
+            "minItems": 1,
+            "title": "Cases",
+            "type": "array"
+          },
+          "noise_model": {
+            "discriminator": {
+              "mapping": {
+                "brain_background": "#/components/schemas/BrainBackgroundNoise",
+                "iid": "#/components/schemas/IidNoise",
+                "spatial": "#/components/schemas/SpatialNoise"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/IidNoise"
+              },
+              {
+                "$ref": "#/components/schemas/SpatialNoise"
+              },
+              {
+                "$ref": "#/components/schemas/BrainBackgroundNoise"
+              }
+            ],
+            "title": "Noise Model"
+          }
+        },
+        "required": [
+          "protocol",
+          "design",
+          "cases"
+        ],
+        "title": "CrossHeadStudy",
         "type": "object"
       },
       "CrossRegionReception": {
@@ -1210,6 +1334,71 @@
         "title": "FileRegionAssignment",
         "type": "object"
       },
+      "GridDisplacementStudy": {
+        "additionalProperties": false,
+        "description": "Distinct seed/radius pairs of perturbation trials on Ernie.",
+        "properties": {
+          "protocol": {
+            "const": "grid_displacements",
+            "title": "Protocol",
+            "type": "string"
+          },
+          "title": {
+            "default": "Robustness study",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "notes": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Notes",
+            "type": "string"
+          },
+          "design": {
+            "$ref": "#/components/schemas/StudyDesign"
+          },
+          "cases": {
+            "items": {
+              "$ref": "#/components/schemas/StudyCase"
+            },
+            "maxItems": 12,
+            "minItems": 1,
+            "title": "Cases",
+            "type": "array"
+          },
+          "noise_model": {
+            "discriminator": {
+              "mapping": {
+                "brain_background": "#/components/schemas/BrainBackgroundNoise",
+                "iid": "#/components/schemas/IidNoise",
+                "spatial": "#/components/schemas/SpatialNoise"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/IidNoise"
+              },
+              {
+                "$ref": "#/components/schemas/SpatialNoise"
+              },
+              {
+                "$ref": "#/components/schemas/BrainBackgroundNoise"
+              }
+            ],
+            "title": "Noise Model"
+          }
+        },
+        "required": [
+          "protocol",
+          "design",
+          "cases"
+        ],
+        "title": "GridDisplacementStudy",
+        "type": "object"
+      },
       "HeadRegistration": {
         "additionalProperties": false,
         "description": "Digitized head-frame coordinates registered onto Ernie's scalp by their landmarks.",
@@ -1291,6 +1480,40 @@
           "iterations"
         ],
         "title": "HeadRegistration",
+        "type": "object"
+      },
+      "HeadStudyCase": {
+        "additionalProperties": false,
+        "description": "A case of a cross-head study: one head package of the design-evaluation catalog.",
+        "properties": {
+          "head_id": {
+            "maxLength": 40,
+            "pattern": "^[a-z0-9]+(?:[_-][a-z0-9]+)*$",
+            "title": "Head Id",
+            "type": "string"
+          },
+          "seed": {
+            "maximum": 9999,
+            "minimum": 0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "radius_mm": {
+            "enum": [
+              3,
+              6,
+              10
+            ],
+            "title": "Radius Mm",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "head_id",
+          "seed",
+          "radius_mm"
+        ],
+        "title": "HeadStudyCase",
         "type": "object"
       },
       "IidNoise": {
@@ -1473,6 +1696,87 @@
         "title": "MultiSourceReception",
         "type": "object"
       },
+      "NoiseSeedStudy": {
+        "additionalProperties": false,
+        "description": "Distinct seeds at one radius: the spread of nominal metrics over noise draws on Ernie, optionally under\none data-generating conductivity scenario.",
+        "properties": {
+          "protocol": {
+            "const": "noise_seeds",
+            "title": "Protocol",
+            "type": "string"
+          },
+          "title": {
+            "default": "Robustness study",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "notes": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Notes",
+            "type": "string"
+          },
+          "design": {
+            "$ref": "#/components/schemas/StudyDesign"
+          },
+          "cases": {
+            "items": {
+              "$ref": "#/components/schemas/StudyCase"
+            },
+            "maxItems": 12,
+            "minItems": 1,
+            "title": "Cases",
+            "type": "array"
+          },
+          "noise_model": {
+            "discriminator": {
+              "mapping": {
+                "brain_background": "#/components/schemas/BrainBackgroundNoise",
+                "iid": "#/components/schemas/IidNoise",
+                "spatial": "#/components/schemas/SpatialNoise"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/IidNoise"
+              },
+              {
+                "$ref": "#/components/schemas/SpatialNoise"
+              },
+              {
+                "$ref": "#/components/schemas/BrainBackgroundNoise"
+              }
+            ],
+            "title": "Noise Model"
+          },
+          "conductivity_scenario": {
+            "anyOf": [
+              {
+                "enum": [
+                  "skull_x0.5",
+                  "skull_x2"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Conductivity Scenario"
+          }
+        },
+        "required": [
+          "protocol",
+          "design",
+          "cases"
+        ],
+        "title": "NoiseSeedStudy",
+        "type": "object"
+      },
       "NormalizedRequest": {
         "type": "object",
         "title": "NormalizedRequest",
@@ -1569,6 +1873,27 @@
         ],
         "title": "RadiusSearchRequest",
         "type": "object"
+      },
+      "RobustnessStudyInput": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/NoiseSeedStudy"
+          },
+          {
+            "$ref": "#/components/schemas/GridDisplacementStudy"
+          },
+          {
+            "$ref": "#/components/schemas/CrossHeadStudy"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "protocol",
+          "mapping": {
+            "noise_seeds": "#/components/schemas/NoiseSeedStudy",
+            "grid_displacements": "#/components/schemas/GridDisplacementStudy",
+            "heads": "#/components/schemas/CrossHeadStudy"
+          }
+        }
       },
       "SingleSourceReception": {
         "additionalProperties": false,
@@ -1737,6 +2062,138 @@
           "length_mm"
         ],
         "title": "SpatialNoise",
+        "type": "object"
+      },
+      "StudyCase": {
+        "additionalProperties": false,
+        "description": "A case of a noise-seed or grid-displacement study.",
+        "properties": {
+          "seed": {
+            "maximum": 9999,
+            "minimum": 0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "radius_mm": {
+            "enum": [
+              3,
+              6,
+              10
+            ],
+            "title": "Radius Mm",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seed",
+          "radius_mm"
+        ],
+        "title": "StudyCase",
+        "type": "object"
+      },
+      "StudyDesign": {
+        "description": "The design of every case (``eeg-electrode-design/1``), with presentation metadata that never enters a\nrequest: 64 electrode names and the coordinate source of an imported layout. Other design fields are dropped.",
+        "properties": {
+          "schema": {
+            "const": "eeg-electrode-design/1",
+            "title": "Schema",
+            "type": "string"
+          },
+          "coordinate_system": {
+            "const": "ernie_native_mm",
+            "title": "Coordinate System",
+            "type": "string"
+          },
+          "unit": {
+            "const": "mm",
+            "title": "Unit",
+            "type": "string"
+          },
+          "name": {
+            "default": "导入布局",
+            "title": "Name",
+            "type": "string"
+          },
+          "xyz_mm": {
+            "items": {
+              "maxItems": 3,
+              "minItems": 3,
+              "prefixItems": [
+                {
+                  "maximum": 500,
+                  "minimum": -500,
+                  "type": "number"
+                },
+                {
+                  "maximum": 500,
+                  "minimum": -500,
+                  "type": "number"
+                },
+                {
+                  "maximum": 500,
+                  "minimum": -500,
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            "maxItems": 64,
+            "minItems": 64,
+            "title": "Xyz Mm",
+            "type": "array"
+          },
+          "region_indices": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 64,
+            "minItems": 64,
+            "title": "Region Indices",
+            "type": "array"
+          },
+          "electrode_names": {
+            "items": {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 64,
+            "minItems": 64,
+            "title": "Electrode Names",
+            "type": "array",
+            "uniqueItems": true
+          },
+          "source_metadata": {
+            "discriminator": {
+              "mapping": {
+                "electrode-coordinate-source/1": "#/components/schemas/CoordinateSourceV1",
+                "electrode-coordinate-source/2": "#/components/schemas/CoordinateSourceV2",
+                "electrode-coordinate-source/3": "#/components/schemas/CoordinateSourceV3"
+              },
+              "propertyName": "schema"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CoordinateSourceV1"
+              },
+              {
+                "$ref": "#/components/schemas/CoordinateSourceV2"
+              },
+              {
+                "$ref": "#/components/schemas/CoordinateSourceV3"
+              }
+            ],
+            "title": "Source Metadata"
+          }
+        },
+        "required": [
+          "schema",
+          "coordinate_system",
+          "unit",
+          "xyz_mm",
+          "region_indices"
+        ],
+        "title": "StudyDesign",
         "type": "object"
       }
     }

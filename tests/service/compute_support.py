@@ -47,6 +47,15 @@ whose hit is a cached receipt. ``reception_steps`` gives the HTTP steps both hos
 or removes a file of the root between two requests), ``reception_tree`` reads the records they wrote, and
 ``reception_masked`` puts the answers in the compared form: each saved result longer than ``BRIEF`` bytes by the
 SHA-256 of its text, and Node's records scope ``current_browser`` as the workspace's.
+
+Robustness studies (slice 8): ``study_compute_root`` is a design root with the head packages ``STUDY_HEADS``;
+``STUDY_STEPS`` are the HTTP steps both hosts run on it (``study_body`` builds a study of the stand-in's design, whose
+name picks the worker's behaviour; a step with ``field`` waits for a member of the study, and a ``brief`` start or
+cancel answer is compared without the members that race with the pump). ``study_tree`` reads a studies directory
+(Node's ``Q/studies``, ours ``W/studies``); ``study_digests`` names each ``cache.json`` digest by its key (also a
+snapshot's whose record was removed), and ``study_masked`` / ``study_tree_masked`` put the answers and the trees in
+the compared form (ids numbered as the answers show them, times, revisions and Node's session ``network`` masked, a
+directory's rows in id order).
 """
 from __future__ import annotations
 
@@ -285,14 +294,15 @@ def design_key(root: Path, raw: Any) -> str:
     return design_context(str(root), sys.executable, InputIntegrity(str(root)), normalize_design_request(raw)).key
 
 
-def design_compute_root(directory: Path) -> Path:
+def design_compute_root(directory: Path, heads: tuple[str, ...] = ()) -> Path:
     """A design root with ``DESIGN_WORKER``, a stored evaluation of ``DESIGN_REQUESTS['cached']`` and the inputs
-    of the library (the radius code tree and the offline datasets), so that its records and bundles can be read."""
+    of the library (the radius code tree and the offline datasets), so that its records and bundles can be read;
+    ``heads`` adds those head packages (and the nominal table), as ``design_root`` builds them."""
     from eeglayoutlab.jobs.design_result import normalize_design_request
     from eeglayoutlab.jobs.identity import DATA_PRIOR_FILES, design_context
     from eeglayoutlab.jobs.integrity import InputIntegrity
 
-    root = Path(design_root(directory))
+    root = Path(design_root(directory, heads=heads))
     kept = {path: (root / path).read_bytes() for path in DATA_PRIOR_FILES}
     code_tree(root)
     forward_inputs(root)
@@ -1017,14 +1027,17 @@ def masked_tree(tree: dict[str, str]) -> dict[str, str]:
     return out
 
 
-def run_node(root: Path, scratch: Path, steps: list[dict] = STEPS, owner: str = 'parity-owner') -> dict:
+def run_node(root: Path, scratch: Path, steps: list[dict] = STEPS, owner: str = 'parity-owner',
+             network: Optional[str] = None) -> dict:
     """Node's composed service (``createLocalComputeService``) over ``root`` with its state in ``scratch``, its
-    session pinned to ``owner`` (``LOCAL_OWNER`` gives Node's annotations the Python service's ids and bytes)."""
+    session pinned to ``owner`` (``LOCAL_OWNER`` gives Node's annotations the Python service's ids and bytes) and
+    ``network`` (``'loopback'`` by default; Node's study records require a SHA-256, ``STUDY_NETWORK``)."""
     spec = scratch / 'spec.json'
     out = scratch / 'out.json'
     spec.write_text(json.dumps({'root': str(root), 'queueDirectory': str(scratch / 'queue'),
                                 'python': sys.executable, 'owner': owner, 'steps': steps,
-                                'terminal': list(TERMINAL), 'settle_ms': SETTLE * 1000}), encoding='utf-8')
+                                'terminal': list(TERMINAL), 'settle_ms': SETTLE * 1000,
+                                **({'network': network} if network is not None else {})}), encoding='utf-8')
     subprocess.run(['node', str(DRIVER), str(spec), str(out)], check=True, env=NODE_ENV, timeout=300)
     return json.loads(out.read_text(encoding='utf-8'))
 
@@ -1065,12 +1078,25 @@ def chunked(app: Service, client: Any, method: str, target: str, data: bytes, he
     return start['status'], received, body.decode('utf-8')
 
 
+def _member(value: Any, field: str) -> Any:
+    """The driver's ``field.split('.').reduce((member, name) => member?.[name], value)``."""
+    for name in field.split('.'):
+        if isinstance(value, dict):
+            value = value.get(name)
+        elif isinstance(value, list) and name.isdigit() and int(name) < len(value):
+            value = value[int(name)]
+        else:
+            return None
+    return value
+
+
 def run_python(root: Path, workspace: Path, steps: list[dict] = STEPS) -> dict:
     """The same steps through the Python application, as the driver sends them: ``{N}`` is the N-th distinct id
-    in the bodies so far (``{aN}`` the N-th annotation id, ``{kN}`` the N-th key), POSTs carry the CSRF token unless
-    the step says ``token: false``, a step with ``chunks`` sends its body one byte at a time, a step with ``until``
-    is repeated until its job reaches one of those statuses (with ``progress``, a progress above 0), and a ``FILE``
-    step writes ``text`` to its path below the root (removes the file when ``text`` is ``None``)."""
+    in the bodies so far (``{aN}`` the N-th annotation id, ``{kN}`` the N-th key; a ``brief`` step's are not
+    collected), POSTs carry the CSRF token unless the step says ``token: false``, a step with ``chunks`` sends its
+    body one byte at a time, a step with ``until`` is repeated until its job (or the member ``field`` names) reaches
+    one of those statuses (with ``progress``, a progress above 0), and a ``FILE`` step writes ``text`` to its path
+    below the root (removes the file when ``text`` is ``None``)."""
     answers: list[dict] = []
     seen: dict[str, list[str]] = {'': [], 'a': [], 'k': []}
     with serving(root, workspace, csrf=False) as (app, client):
@@ -1102,15 +1128,248 @@ def run_python(root: Path, workspace: Path, steps: list[dict] = STEPS) -> dict:
                 until = step.get('until')
                 if until is None:
                     break
-                job = jsjson.parse(body)['job']
-                if job['status'] in until and (not step.get('progress') or job['progress'] > 0):
-                    break
+                if 'field' in step:
+                    if _member(jsjson.parse(body), step['field']) in until:
+                        break
+                else:
+                    job = jsjson.parse(body)['job']
+                    if job['status'] in until and (not step.get('progress') or job['progress'] > 0):
+                        break
                 if time.monotonic() > deadline:
                     raise AssertionError(f'{target} did not settle: {body}')
                 time.sleep(0.02)
-            _seen(body, seen)
+            if not step.get('brief'):
+                _seen(body, seen)
             answers.append({'method': step['method'], 'path': step['path'], 'status': status, 'type': kind,
                             'body': body})
     return {'answers': answers, 'token': TOKENS.csrf, 'tree': jobs_tree(root), 'queue': queue_file(workspace),
             'design_tree': design_tree(root), 'editor_tree': editor_tree(root), 'reception_tree': reception_tree(root),
-            'annotations': annotation_tree(workspace / WORKSPACE_ANNOTATIONS)}
+            'annotations': annotation_tree(workspace / WORKSPACE_ANNOTATIONS),
+            'studies': study_tree(workspace / 'studies')}
+
+
+# --- Robustness studies -----------------------------------------------------------------------------------------------
+
+_S = '/api/robustness-studies'
+STUDY_HEADS = ('ixi002', 'a')
+# Node's session network for the study parity: its study records hold one, which must be a SHA-256.
+STUDY_NETWORK = hashlib.sha256(b'parity-network').hexdigest()
+STUDY_DONE = ('completed', 'completed_with_failures', 'cancelled')
+
+
+def study_body(protocol: str, name: str, cases: list[tuple], annotated: bool = False, **extra: Any) -> dict:
+    """A study of ``DESIGN`` named ``name`` (the stand-in worker's behaviour), with names and the source declaration
+    when ``annotated``; ``cases`` are ``(seed, radius_mm)`` or, for ``heads``, ``(head_id, seed, radius_mm)``."""
+    design = {**DESIGN, 'name': name}
+    if annotated:
+        design.update(electrode_names=names('S'), source_metadata=SOURCE)
+    rows = [{'head_id': case[0], 'seed': case[1], 'radius_mm': case[2]} if len(case) == 3
+            else {'seed': case[0], 'radius_mm': case[1]} for case in cases]
+    return {'protocol': protocol, 'design': design, 'cases': rows, **extra}
+
+
+def _settle(id: str) -> dict:
+    return {'method': 'GET', 'path': f'{_S}/{id}', 'until': STUDY_DONE, 'field': 'study.status'}
+
+
+def _control(id: str, action: str, **extra: Any) -> dict:
+    return {'method': 'POST', 'path': f'{_S}/{id}/{action}', 'body': {}, **extra}
+
+
+# The studies on study_compute_root (a design root with STUDY_HEADS). Ids: {0} the evaluation of
+# DESIGN_REQUESTS['done']; {1} the annotated noise study, whose first case is that receipt (a stored result) and whose
+# second ({3}) is computed; {5} a grid study; {12} a cross-head study; {17} a study whose worker fails; {22} a study
+# whose first case holds its worker until it is cancelled ({24}); {23} a draft that is cancelled; {26} and {27} drafts
+# sent at the body limit and one byte per chunk; {28} a study whose worker changes the identity. Keys: {k1} the noise
+# study's computed case, whose record is removed before the study is read again from its snapshots.
+STUDY_STEPS: list[dict] = [
+    {'method': 'GET', 'path': _S},
+    {'method': 'POST', 'path': '/api/design-evaluation/jobs', 'body': DESIGN_REQUESTS['done']},
+    {'method': 'GET', 'path': '/api/design-evaluation/jobs/{0}', 'until': TERMINAL},
+    {'method': 'POST', 'path': _S, 'body': study_body('noise_seeds', 'done', [(42, 6), (43, 6)], True,
+                                                       title='  Noise study  ', notes='Plain <b>text</b>')},
+    {'method': 'GET', 'path': _S},
+    {'method': 'GET', 'path': f'{_S}/{{1}}'},
+    {'method': 'GET', 'path': f'{_S}/{{1}}/export'},
+    _control('{1}', 'start', brief=True),
+    _settle('{1}'),
+    {'method': 'GET', 'path': f'{_S}/{{1}}/export'},
+    {'method': 'GET', 'path': '/api/design-evaluation/jobs/{3}'},
+    _control('{1}', 'resume'),
+    _control('{1}', 'start'),
+    _control('{1}', 'cancel'),
+    # Grid displacements (perturbations with four trials each) and one head per case.
+    {'method': 'POST', 'path': _S, 'body': study_body('grid_displacements', 'done', [(11, 3), (12, 6), (11, 10)])},
+    _control('{5}', 'start', brief=True),
+    _settle('{5}'),
+    {'method': 'GET', 'path': f'{_S}/{{5}}/export'},
+    {'method': 'POST', 'path': _S, 'body': study_body('heads', 'done', [(head, 7, 6) for head in STUDY_HEADS])},
+    _control('{12}', 'start', brief=True),
+    _settle('{12}'),
+    {'method': 'GET', 'path': f'{_S}/{{12}}/export'},
+    # Failed children, then a running one: one study at a time, and cancellation stops its worker.
+    {'method': 'POST', 'path': _S, 'body': study_body('noise_seeds', 'fail', [(1, 6), (2, 6)])},
+    _control('{17}', 'start', brief=True),
+    _settle('{17}'),
+    {'method': 'POST', 'path': _S, 'body': study_body('noise_seeds', 'hold', [(1, 6), (2, 6)])},
+    {'method': 'POST', 'path': _S, 'body': study_body('noise_seeds', 'done', [(5, 6), (6, 6)])},
+    _control('{22}', 'start', brief=True),
+    {'method': 'GET', 'path': f'{_S}/{{22}}', 'until': ('running',), 'field': 'study.cases.0.status'},
+    _control('{23}', 'start'),
+    _control('{22}', 'cancel', brief=True),
+    _settle('{22}'),
+    {'method': 'GET', 'path': '/api/design-evaluation/jobs/{24}'},
+    _control('{23}', 'cancel', brief=True),
+    _settle('{23}'),
+    {'method': 'GET', 'path': f'{_S}/{{23}}/export'},
+    _control('{23}', 'resume'),
+    _control('{23}', 'start'),
+    # The body and path rules.
+    {'method': 'POST', 'path': _S, 'raw': padded(study_body('noise_seeds', 'done', [(8, 6)]), 65536)},
+    {'method': 'POST', 'path': _S, 'body': study_body('noise_seeds', 'done', [(9, 6)], True), 'chunks': True},
+    {'method': 'POST', 'path': _S, 'raw': padded(study_body('noise_seeds', 'done', [(8, 6)]), 65537)},
+    {'method': 'POST', 'path': _S, 'body': study_body('noise_seeds', 'done', [(8, 6)], design={**DESIGN, 'unit': 'm'})},
+    {'method': 'POST', 'path': _S, 'body': study_body('noise_seeds', 'done', [])},
+    {'method': 'POST', 'path': _S, 'body': study_body('noise_seeds', 'done', [(8, 6), (8, 6)])},
+    {'method': 'POST', 'path': _S, 'body': study_body('noise_seeds', 'done', [(8, 6), (9, 3)])},
+    {'method': 'POST', 'path': _S, 'body': study_body('heads', 'done', [('ixi002', 7, 6), ('ixi002', 7, 6)])},
+    {'method': 'POST', 'path': _S, 'body': study_body('heads', 'done', [('missing', 7, 6)])},
+    {'method': 'POST', 'path': _S, 'raw': 'null'},
+    {'method': 'POST', 'path': _S, 'raw': '{"protocol":'},
+    {'method': 'POST', 'path': _S, 'raw': '{}', 'type': 'text/plain'},
+    {'method': 'POST', 'path': _S, 'body': study_body('noise_seeds', 'done', [(8, 6)]), 'token': False},
+    {'method': 'GET', 'path': _S + '?view=1'},
+    {'method': 'GET', 'path': f'{_S}/{{1}}?view=1'},
+    {'method': 'POST', 'path': f'{_S}/{{1}}', 'body': {}},
+    {'method': 'POST', 'path': f'{_S}/{{1}}/export', 'body': {}},
+    {'method': 'GET', 'path': f'{_S}/{{1}}/start'},
+    {'method': 'GET', 'path': f'{_S}/{{1}}/'},
+    {'method': 'GET', 'path': f'{_S}/{{1}}/other'},
+    {'method': 'GET', 'path': f'{_S}/'},
+    {'method': 'GET', 'path': f'{_S}/x'},
+    {'method': 'GET', 'path': f'{_S}/%7B1%7D'},
+    {'method': 'GET', 'path': f'{_S}/00000000-0000-4000-8000-000000000000'},
+    {'method': 'GET', 'path': f'{_S}/00000000-0000-4000-8000-000000000000/export'},
+    _control('00000000-0000-4000-8000-000000000000', 'cancel'),
+    _control('{26}', 'start', body={'extra': True}),
+    _control('{26}', 'start', body=[]),
+    _control('{26}', 'start', raw=''),
+    _control('{26}', 'start', raw='{}', type='text/plain'),
+    _control('{26}', 'start', token=False),
+    _control('{26}', 'cancel', token=False),
+    # A worker that changes the scientific identity: the pending case fails without a receipt.
+    {'method': 'POST', 'path': _S, 'body': study_body('noise_seeds', 'change', [(1, 6), (2, 6)])},
+    _control('{28}', 'start', brief=True),
+    _settle('{28}'),
+    # Completed studies keep their results after the code changed and after a record is removed.
+    {'method': 'FILE', 'path': DESIGN_JOBS + '/{k1}/cache.json', 'text': None},
+    {'method': 'GET', 'path': f'{_S}/{{1}}'},
+    {'method': 'GET', 'path': f'{_S}/{{1}}/export'},
+    {'method': 'GET', 'path': _S},
+]
+
+
+def study_compute_root(directory: Path) -> Path:
+    """``design_compute_root`` with the head packages ``STUDY_HEADS``."""
+    return design_compute_root(directory, heads=STUDY_HEADS)
+
+
+def study_tree(directory: Path) -> dict[str, tuple[Optional[str], int]]:
+    """The studies' directory (``W/studies``, Node's ``Q/studies``): ``{relative path: (text or None for a
+    directory, mode)}``."""
+    if not directory.exists():
+        return {}
+    return {str(path.relative_to(directory)): (None if path.is_dir() else path.read_text(encoding='utf-8'),
+                                                path.stat().st_mode & 0o7777)
+            for path in sorted(directory.rglob('*'))}
+
+
+# Members of a study answer that depend on when the pump ran: the case statuses and the counts (start and cancel
+# answer while it works), the number of writes and the last write's time.
+_BRIEF = ('cases', 'aggregation', 'revision', 'updated_at', 'status', 'last_error')
+_REVISION = re.compile(r'"revision":\d+')
+_UUID_TEXT = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
+
+
+def _brief(body: str) -> str:
+    try:
+        value = jsjson.parse(body)
+    except ValueError:
+        return body
+    if isinstance(value, dict) and isinstance(value.get('study'), dict):
+        value = {'study': {name: member for name, member in value['study'].items() if name not in _BRIEF}}
+    return jsjson.stringify(value)
+
+
+def _sorted_directory(body: str) -> str:
+    """A directory answer with its rows in id order: both hosts list the study directories in the file system's
+    order, which depends on the (masked) identifiers."""
+    try:
+        value = jsjson.parse(body)
+    except ValueError:
+        return body
+    if isinstance(value, dict) and isinstance(value.get('studies'), list):
+        value = {**value, 'studies': sorted(value['studies'], key=lambda row: str(row.get('id')))}
+        return jsjson.stringify(value)
+    return body
+
+
+def _study_answers(answers: list[dict], steps: list[dict]) -> list[dict]:
+    out = []
+    for step, answer in zip(steps, answers):
+        body = _brief(answer['body']) if step.get('brief') else answer['body']
+        out.append({**answer, 'body': _REVISION.sub('"revision":"<n>"', body)})
+    return out
+
+
+def study_ids(answers: list[dict], steps: list[dict]) -> list[str]:
+    """The ids of the answers in the order ``study_masked`` numbers them."""
+    ids: list[str] = []
+    for answer in _study_answers(answers, steps):
+        _ids(answer['body'], ids)
+    return ids
+
+
+def study_digests(records: dict[str, str], tree: dict[str, tuple[Optional[str], int]]) -> dict[str, str]:
+    """The name of each ``cache.json`` digest, ``<cache of KEY>``: of the files of ``records`` (a ``design_tree``)
+    and of the snapshots of ``tree`` (a ``study_tree``; a snapshot whose record was removed is still named). A
+    ``cache.json`` holds its finish time, so its digest differs between hosts while its key does not."""
+    names = {}
+    for path, text in records.items():
+        if path.endswith('/cache.json'):
+            names[hashlib.sha256(text.encode('utf-8')).hexdigest()] = f'<cache of {path.split("/")[0]}>'
+    for path, (text, _) in tree.items():
+        if text is not None and '/snapshots/' in path:
+            names[hashlib.sha256(text.encode('utf-8')).hexdigest()] = f'<cache of {jsjson.parse(text)["key"]}>'
+    return names
+
+
+def _named(text: str, digests: dict[str, str]) -> str:
+    for digest, name in digests.items():
+        text = text.replace(digest, name)
+    return text
+
+
+def study_masked(answers: list[dict], token: str, digests: dict[str, str], steps: list[dict]) -> list[dict]:
+    """``masked`` of the answers to ``steps``: a ``brief`` answer without the members that depend on when the pump
+    ran, each ``cache.json`` digest named (``study_digests``), ``revision`` masked and a directory's rows in id
+    order."""
+    assert len(answers) == len(steps)
+    named = [{**answer, 'body': _named(answer['body'], digests)} for answer in _study_answers(answers, steps)]
+    return [{**answer, 'body': _sorted_directory(answer['body'])} for answer in masked(named, token)]
+
+
+def study_tree_masked(tree: dict[str, tuple[Optional[str], int]], digests: dict[str, str], ids: list[str]) -> dict:
+    """A ``study_tree`` with the study, receipt and operation ids numbered as in the answers (``study_ids``), times
+    and revisions masked, each snapshot named by the ``cache.json`` it copies (``study_digests``), and Node's
+    ``network`` member (the pinned session's) removed. An id no answer showed fails."""
+    for path, (text, _) in tree.items():
+        for id in _UUID_TEXT.findall(path + (text or '')):
+            assert id in ids, f'{id} of {path} is in no answer'
+
+    def mask(text: str) -> str:
+        text = _UUID_TEXT.sub(lambda match: f'<id{ids.index(match.group(0))}>', text)
+        text = _REVISION.sub('"revision":"<n>"', _TIME.sub('<time>', _named(text, digests)))
+        return text.replace(f',"network":"{STUDY_NETWORK}"', '')
+
+    return {mask(path): (None if text is None else mask(text), mode) for path, (text, mode) in tree.items()}
