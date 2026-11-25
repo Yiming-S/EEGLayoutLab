@@ -90,7 +90,7 @@ export function savedLayoutActions(
         ? withReturn(`/electrodes?parent=${record.id}&ar=${ar}`)
         : null,
     compare:
-      complete && current
+      complete && current && !record.request?.allocation_mode
         ? withReturn(decisionHref([record.id], jointDecisionThresholds(ar)))
         : null,
     reception:

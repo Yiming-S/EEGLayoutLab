@@ -29,7 +29,8 @@ REGION_COUNTS = (1, 2, 3, 4, 6)
 # 15-80 mm in steps of 5.
 RADII_MM = tuple(range(15, 81, 5))
 MODES = ('whole_surface', 'low_hair', 'preset')
-FIELDS = ('region_count', 'radius_mm', 'mode', 'mask_codes', 'noise_model', 'data_prior')
+FIELDS = ('region_count', 'radius_mm', 'mode', 'mask_codes', 'noise_model', 'data_prior', 'allocation_mode',
+          'objective_mode')
 
 # Node's messages, verbatim.
 NOT_OBJECT = '配置必须是JSON对象'
@@ -43,6 +44,9 @@ PRIOR_RHO = '数据先验的噪声相关比例无效'
 PRIOR_LENGTH = '数据先验的噪声相关长度无效'
 PRIOR_WITH_NOISE = '数据先验已包含噪声结构，不能同时选择噪声模型'
 REGION_COUNT = '区域数只支持1、2、3、4、6'
+ALLOCATION_MODE = '区域通道配额模式无效'
+ALLOCATION_SINGLE = '单区域不支持跨区自适应配额'
+OBJECTIVE_MODE = '搜索优化目标模式无效'
 RADIUS = '半径须为15–80 mm，步长5 mm'
 MODE = '不支持的区域模式'
 PRESET_MASKS = '该组合的细分解剖掩膜尚未建立；请选择已支持的耳后、耳周、前额或眶周代理区域'
@@ -120,6 +124,26 @@ def _data_prior(value: Any, noise_model: dict[str, Any] | None) -> dict[str, Any
             'length_mm': None if length is None else int(jsjson.to_number(length))}
 
 
+def _allocation_mode(value: Any, region_count: int) -> Literal['adaptive'] | None:
+    """``normalizeAllocationMode(value, regionCount)``: ``'adaptive'`` or ``None`` for balanced default."""
+    if value is None or value == 'balanced':
+        return None
+    if value != 'adaptive':
+        raise ValueError(ALLOCATION_MODE)
+    if region_count == 1:
+        raise ValueError(ALLOCATION_SINGLE)
+    return 'adaptive'
+
+
+def _objective_mode(value: Any) -> Literal['composite'] | None:
+    """``normalizeObjectiveMode(value)``: ``'composite'`` or ``None`` for min default."""
+    if value is None or value == 'min':
+        return None
+    if value != 'composite':
+        raise ValueError(OBJECTIVE_MODE)
+    return 'composite'
+
+
 def normalize_request(value: Any) -> dict[str, Any]:
     """``normalizeRequest(value)``: the canonical request; raises ``ValueError`` with Node's message where Node
     throws, checking in Node's order. ``value`` is a ``jsjson.parse`` value or plain Python data (tuples count as
@@ -130,25 +154,30 @@ def normalize_request(value: Any) -> dict[str, Any]:
         raise ValueError(UNKNOWN_FIELD)
     noise_model = _noise_model(value.get('noise_model'))
     prior = _data_prior(value.get('data_prior'), noise_model)
-    noise = {**({'noise_model': noise_model} if noise_model else {}), **({'data_prior': prior} if prior else {})}
     region_count, radius_mm, mode = value.get('region_count'), value.get('radius_mm'), value.get('mode')
     if not _number_in(region_count, REGION_COUNTS):
         raise ValueError(REGION_COUNT)
+    region_count = int(jsjson.to_number(region_count))
+    allocation_mode = _allocation_mode(value.get('allocation_mode'), region_count)
+    objective_mode = _objective_mode(value.get('objective_mode'))
+    options = {**({'noise_model': noise_model} if noise_model else {}), **({'data_prior': prior} if prior else {}),
+               **({'allocation_mode': allocation_mode} if allocation_mode else {}),
+               **({'objective_mode': objective_mode} if objective_mode else {})}
     if not jsjson.is_integer(radius_mm) or jsjson.to_number(radius_mm) not in RADII_MM:
         raise ValueError(RADIUS)
     if not (isinstance(mode, str) and mode in MODES):
         raise ValueError(MODE)
-    region_count, radius_mm = int(jsjson.to_number(region_count)), int(jsjson.to_number(radius_mm))
+    radius_mm = int(jsjson.to_number(radius_mm))
     masks = value.get('mask_codes')
     if mode == 'preset':
         if (not _is_array(masks) or len(masks) != region_count
                 or any(not (isinstance(code, str) and code in MASK_CODES) for code in masks)):
             raise ValueError(PRESET_MASKS)
-        return {'region_count': region_count, 'radius_mm': radius_mm, 'mode': mode, 'mask_codes': list(masks), **noise}
+        return {'region_count': region_count, 'radius_mm': radius_mm, 'mode': mode, 'mask_codes': list(masks), **options}
     # Absent and [] are accepted; null is not.
     if 'mask_codes' in value and (not _is_array(masks) or len(masks)):
         raise ValueError(FREE_MASKS)
-    return {'region_count': region_count, 'radius_mm': radius_mm, 'mode': mode, **noise}
+    return {'region_count': region_count, 'radius_mm': radius_mm, 'mode': mode, **options}
 
 
 # --- Schema --------------------------------------------------------------------
@@ -170,6 +199,8 @@ class RadiusSearchRequest(BaseModel):
         default=None, json_schema_extra=_absent_default)
     noise_model: SpatialNoise = Field(default=None, json_schema_extra=_absent_default)
     data_prior: DataPrior = Field(default=None, json_schema_extra=_absent_default)
+    allocation_mode: Literal['adaptive'] = Field(default=None, json_schema_extra=_absent_default)
+    objective_mode: Literal['composite'] = Field(default=None, json_schema_extra=_absent_default)
 
     @model_validator(mode='before')
     @classmethod
@@ -185,6 +216,10 @@ class RadiusSearchRequest(BaseModel):
             out['noise_model'] = self.noise_model.canonical()
         if self.data_prior is not None:
             out['data_prior'] = self.data_prior.canonical()
+        if self.allocation_mode is not None:
+            out['allocation_mode'] = self.allocation_mode
+        if self.objective_mode is not None:
+            out['objective_mode'] = self.objective_mode
         return out
 
 

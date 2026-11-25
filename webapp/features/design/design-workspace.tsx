@@ -24,10 +24,14 @@ import { cn } from '@/lib/utils';
 const Head = lazy(() => import('@/components/cluster-head-viewer').then((m) => ({ default: m.ClusterHeadViewer })));
 export default function DesignWorkspace() {
   const { tx, locale } = useLanguage();
-  const { error, ready, ar, comparison, here, savedId, receptionId, count, source, notice, settingsRef, editing, radius, regions, choices, choice, customSlots, selectChoice, selectSlot, changeRegions, startRadius, setRadius, noiseModelId, selectNoiseModel, dataPrior, dataPriorSource, selectDataPrior, setDraft, setAR, request, originId, setComputed, setStatus, metrics, layout, geometry, currentStatus } = useDesignController();
+  const { error, ready, ar, comparison, here, savedId, receptionId, count, source, notice, settingsRef, editing, radius, regions, allocationMode, selectAllocationMode, objectiveMode, selectObjectiveMode, choices, choice, customSlots, selectChoice, selectSlot, changeRegions, startRadius, setRadius, noiseModelId, selectNoiseModel, dataPrior, dataPriorSource, selectDataPrior, setDraft, setAR, request, originId, setComputed, setStatus, metrics, layout, geometry, currentStatus } = useDesignController();
   const computationRef = useRef<HTMLDivElement>(null);
   const state = designViewState({ ready, error, editing, hasLayout: !!layout, hasChoice: !!choice, currentStatus });
   const radiusRatio = Math.max(0, Math.min(1, (radius - 15) / (80 - 15)));
+  const defaultAllocation = Array.from({ length: count }, (_, i) => Math.floor(64 / count) + Number(i < 64 % count));
+  const actualAllocation = layout?.regionIndices?.length === 64
+    ? Array.from({ length: count }, (_, r) => layout.regionIndices.filter((v) => v === r).length)
+    : defaultAllocation;
   const revealSettings = () => {
     if (!settingsRef.current) return;
     settingsRef.current.open = true;
@@ -68,7 +72,31 @@ export default function DesignWorkspace() {
                 <p className="text-xs leading-5 text-muted-foreground">{tx("这是总面积上限约束实验的原始布局。按需计算使用每区半径约束，创建新配置后重新搜索和评价。")}</p>
                 <p className="text-xs leading-5 text-muted-foreground">{tx("新建不会覆盖原方案，也不会立即启动计算。")}</p>
               </> : <>
-                <p className="text-xs leading-5 text-ink-soft"><strong className="font-medium text-foreground">{tx(choice?.label ?? '请先补全上方区域部位')}</strong><br />{tx("各区电极数：")}<span className="font-mono tabular-nums">{tx(Array.from({ length: regions }, (_, i) => Math.floor(64 / regions) + Number(i < 64 % regions)).join(' + '))}</span></p>
+                <p className="text-xs leading-5 text-ink-soft"><strong className="font-medium text-foreground">{tx(choice?.label ?? '请先补全上方区域部位')}</strong><br />{tx("各区电极数：")}<span className="font-mono tabular-nums">{layout ? actualAllocation.join(' + ') : allocationMode === 'adaptive' && regions > 1 ? tx('自动调配（每区 ≥ 4，共 64）') : defaultAllocation.join(' + ')}</span></p>
+                {regions > 1 && <fieldset className="space-y-1.5">
+                  <legend className="block text-xs font-medium text-foreground">{tx('区域通道配额')}</legend>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button type="button" onClick={() => selectAllocationMode('balanced')} aria-pressed={allocationMode === 'balanced'} className={cn('rounded-lg border px-2.5 py-1.5 text-left text-xs font-medium transition-colors', allocationMode === 'balanced' ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-card text-ink-soft hover:border-foreground/30')}>
+                      {tx('各区均分（默认）')}
+                    </button>
+                    <button type="button" onClick={() => selectAllocationMode('adaptive')} aria-pressed={allocationMode === 'adaptive'} className={cn('rounded-lg border px-2.5 py-1.5 text-left text-xs font-medium transition-colors', allocationMode === 'adaptive' ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-card text-ink-soft hover:border-foreground/30')}>
+                      {tx('跨区自适应配额')}
+                    </button>
+                  </div>
+                  <p className="text-[11px] leading-4 text-muted-foreground">{tx(allocationMode === 'adaptive' ? '每区至少保留 4 个锚点电极，其余通道按有效孔径与信噪比跨区自动调配。' : '固定按 64/R 均分各区电极数，与面积和历史基线口径一致。')}</p>
+                </fieldset>}
+                <fieldset className="space-y-1.5">
+                  <legend className="block text-xs font-medium text-foreground">{tx('搜索优化目标')}</legend>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button type="button" onClick={() => selectObjectiveMode('min')} aria-pressed={objectiveMode === 'min'} className={cn('rounded-lg border px-2.5 py-1.5 text-left text-xs font-medium transition-colors', objectiveMode === 'min' ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-card text-ink-soft hover:border-foreground/30')}>
+                      {tx('下尾极小极大（默认）')}
+                    </button>
+                    <button type="button" onClick={() => selectObjectiveMode('composite')} aria-pressed={objectiveMode === 'composite'} className={cn('rounded-lg border px-2.5 py-1.5 text-left text-xs font-medium transition-colors', objectiveMode === 'composite' ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-card text-ink-soft hover:border-foreground/30')}>
+                      {tx('子空间信息复合目标')}
+                    </button>
+                  </div>
+                  <p className="text-[11px] leading-4 text-muted-foreground">{tx(objectiveMode === 'composite' ? '联合优化下尾保留率、全脑场保留率与63维子空间互信息（0.55·min + 0.30·场 + 0.15·信息），为贴片内部电极提供持续空间去相关梯度。' : '最大化场重建与双极幅值下10%分位数的较小值 min(场, 幅值)，与默认基线完全一致。')}</p>
+                </fieldset>
                 <label className="lab-label">
                   <span className="flex items-center justify-between gap-2">
                     <span>{tx("每区表面半径上限 · ")}{tx(radius)} mm</span>
@@ -111,7 +139,7 @@ export default function DesignWorkspace() {
               </p>
               {receptionId && layout?.regionPatchVertexIndices && <a className={buttonVariants({ size: 'sm' })} href={editorLink(receptionId, ar)}>{tx('编辑此布局的电极 →')}</a>}
             </div>
-            {tx(choice || !editing ? <Suspense fallback={<div className="lab-panel min-h-[520px]">{tx("加载三维头部…")}</div>}><Head compact regionCount={count} allocation={Array.from({ length: count }, (_, i) => Math.floor(64 / count) + Number(i < 64 % count))} domainMode={!editing ? source?.mode.includes('whole') ? 'whole_surface' : 'low_hair' : choice!.mode} maskCodes={editing ? choice?.maskCodes : undefined} radiusCm={!editing ? (geometry?.common_graph_radius_mm ?? 35) / 10 : radius / 10} recordedLayout={layout ?? undefined} /></Suspense> : <div className="lab-panel min-h-[400px] grid place-items-center text-muted-foreground">{tx("选择位置组合后显示示意预览")}</div>)}
+            {tx(choice || !editing ? <Suspense fallback={<div className="lab-panel min-h-[520px]">{tx("加载三维头部…")}</div>}><Head compact regionCount={count} allocation={actualAllocation} domainMode={!editing ? source?.mode.includes('whole') ? 'whole_surface' : 'low_hair' : choice!.mode} maskCodes={editing ? choice?.maskCodes : undefined} radiusCm={!editing ? (geometry?.common_graph_radius_mm ?? 35) / 10 : radius / 10} recordedLayout={layout ?? undefined} /></Suspense> : <div className="lab-panel min-h-[400px] grid place-items-center text-muted-foreground">{tx("选择位置组合后显示示意预览")}</div>)}
             {tx(geometry && <div className="mt-3 rounded-xl border border-border/80 bg-card/95 px-4 py-3 text-xs leading-6 text-ink-soft shadow-2xs font-mono tabular-nums">{tx("实际 ")}{tx(geometry.union_connected_component_count)} {tx(" 个分离区域 · 实际共用表面半径 ")}{tx(geometry.common_graph_radius_mm.toFixed(2))} {tx(" mm · 总面积 ")}{tx(geometry.union_area_cm2.toFixed(2))} {tx(" cm² · 最小电极直线间距 ")}{tx(geometry.minimum_chord_distance_mm.toFixed(2))} mm</div>)}
           </div>
           <div className="xl:sticky xl:top-[calc(var(--workspace-header-height,7rem)+1rem)]"><PerformanceSummary compact metrics={metrics} ar={ar} returnHref={here} basis={tx(editing ? '每区半径上限约束搜索；新结果自动保存为计算记录' : '总面积上限约束原实验；只读，不触发计算')} empty={tx('计算完成后，这里显示三项保留率与达标判断。')} emptyTitle={tx('尚无评价结果')} /></div>

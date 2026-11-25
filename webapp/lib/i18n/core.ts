@@ -32,6 +32,14 @@ export function resolveLocale(saved?: string | null, acceptLanguage = ''): Local
   return preferred?.tag.startsWith('zh') ? 'zh-CN' : 'en';
 }
 
+/**
+ * The language a page opens in: the visitor's saved choice, else the browser's. The public
+ * showcase opens in English whatever the browser language, until the visitor chooses.
+ */
+export function startupLocale(saved: string | null | undefined, browserLanguages: string, showcase: boolean): Locale {
+  return resolveLocale(saved, showcase ? '' : browserLanguages);
+}
+
 /** Display terminology only. AR remains an immutable URL/protocol field. */
 export function retentionTerminology(text: string): string {
   if (/^(?:PL|PR|AL|AR|FL|FM|FR|OL|OR)$/.test(text)) return text;

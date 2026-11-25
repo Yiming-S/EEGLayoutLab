@@ -1,5 +1,5 @@
 import type { SavedSummary } from './local-library';
-import { conductivityScenarioLabel, dataPriorLabel, noiseModelLabel } from '../contracts/scientific-options.mjs';
+import { allocationModeLabel, conductivityScenarioLabel, dataPriorLabel, noiseModelLabel, objectiveModeLabel } from '../contracts/scientific-options.mjs';
 
 // Display vocabulary only: preserve calculation keys, record IDs and raw data.
 export const metricPercent = (value: number | null | undefined, missing = '尚未计算') =>
@@ -63,6 +63,12 @@ export function recordNoiseLabel(record: SavedSummary) {
   if (record.request?.data_prior) return dataPriorLabel(record.request.data_prior);
   return record.request?.noise_model ? noiseModelLabel(record.request.noise_model) : '';
 }
+export function recordAllocationLabel(record: SavedSummary) {
+  return record.request?.allocation_mode ? allocationModeLabel(record.request.allocation_mode) : '';
+}
+export function recordObjectiveLabel(record: SavedSummary) {
+  return record.request?.objective_mode ? objectiveModeLabel(record.request.objective_mode) : '';
+}
 /** The non-default evaluation conditions of a saved coordinate evaluation, one label each. */
 export function recordConditionLabels(record: SavedSummary): string[] {
   const condition = record.dataset_id === 'design_evaluation' ? record.evaluation_condition : undefined;
@@ -76,7 +82,9 @@ export function recordConditionLabels(record: SavedSummary): string[] {
 }
 export function recordTitle(record: SavedSummary) {
   const noise = recordNoiseLabel(record);
-  return [recordBaseTitle(record), ...(noise ? [noise] : []), ...recordConditionLabels(record)].join(' · ');
+  const allocation = recordAllocationLabel(record);
+  const objective = recordObjectiveLabel(record);
+  return [recordBaseTitle(record), ...(noise ? [noise] : []), ...(allocation ? [allocation] : []), ...(objective ? [objective] : []), ...recordConditionLabels(record)].join(' · ');
 }
 export function safeReturnHref(value: string | null | undefined, fallback: string) {
   if (!value?.startsWith('/') || value.startsWith('//')) return fallback;

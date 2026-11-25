@@ -1,7 +1,8 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { LANGUAGE_COOKIE, LANGUAGE_STORAGE_KEY, localize, formatDate, resolveLocale, type Locale } from '@/lib/i18n/core';
+import { LANGUAGE_COOKIE, LANGUAGE_STORAGE_KEY, localize, formatDate, startupLocale, type Locale } from '@/lib/i18n/core';
+import { SHOWCASE } from '@/lib/showcase';
 
 type LanguageContext = {
   locale: Locale;
@@ -29,12 +30,13 @@ export function LanguageProvider({ initialLocale, children }: { initialLocale: L
   }, [locale]);
   useEffect(() => {
     const restore = window.setTimeout(() => {
-      // The static page is rendered in English; choose the saved language, else the browser's.
+      // The static page is rendered in English; choose the saved language, else the browser's
+      // (the showcase stays in English until the visitor chooses).
       const cookie = document.cookie.split(';').map((part) => part.trim())
         .find((part) => part.startsWith(LANGUAGE_COOKIE + '='))?.slice(LANGUAGE_COOKIE.length + 1);
       let saved: string | null = null;
       try { saved = localStorage.getItem(LANGUAGE_STORAGE_KEY); } catch { /* storage is optional */ }
-      updateLocale(resolveLocale(cookie ?? saved, navigator.languages.join(',')));
+      updateLocale(startupLocale(cookie ?? saved, navigator.languages.join(','), SHOWCASE));
     }, 0);
     const sync = (event: StorageEvent) => {
       if (event.key === LANGUAGE_STORAGE_KEY && (event.newValue === 'en' || event.newValue === 'zh-CN')) setLocale(event.newValue);

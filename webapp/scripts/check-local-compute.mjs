@@ -144,3 +144,30 @@ void test('current cache displays during another job, and new computation retain
   assert.equal(displayJob(fresh, cached, request).cached, false);
   assert.equal(matchingResult(displayJob(other, cached, other.request), other.request), null);
 });
+
+void test('adaptive cross-region allocation mode normalizes cleanly and enforces >= 4 per region', () => {
+  const adaptiveReq = normalizeRequest({ ...request, allocation_mode: 'adaptive' });
+  assert.deepEqual(adaptiveReq, { ...request, allocation_mode: 'adaptive' });
+  assert.deepEqual(normalizeRequest({ ...request, allocation_mode: 'balanced' }), request);
+  assert.deepEqual(normalizeRequest({ ...request, allocation_mode: null }), request);
+  assert.notEqual(requestKey(adaptiveReq), requestKey(request));
+  assert.throws(() => normalizeRequest({ region_count: 1, radius_mm: 30, mode: 'whole_surface', allocation_mode: 'adaptive' }), /单区域/);
+  assert.throws(() => normalizeRequest({ ...request, allocation_mode: 'invalid' }), /配额模式无效/);
+
+  const asymmetric = resultFor(adaptiveReq);
+  asymmetric.layout.regionIndices = Array.from({ length: 64 }, (_, i) => (i < 12 ? 0 : 1));
+  validateWorkerResult(asymmetric, adaptiveReq);
+  assert.throws(() => validateWorkerResult({ ...asymmetric, request }, request), /区域分配错误/);
+
+  const belowFloor = resultFor(adaptiveReq);
+  belowFloor.layout.regionIndices = Array.from({ length: 64 }, (_, i) => (i < 3 ? 0 : 1));
+  assert.throws(() => validateWorkerResult(belowFloor, adaptiveReq), /区域分配错误/);
+
+  const compositeReq = normalizeRequest({ ...adaptiveReq, objective_mode: 'composite' });
+  assert.deepEqual(compositeReq, { ...adaptiveReq, objective_mode: 'composite' });
+  assert.deepEqual(normalizeRequest({ ...request, objective_mode: 'min' }), request);
+  assert.deepEqual(normalizeRequest({ ...request, objective_mode: null }), request);
+  assert.notEqual(requestKey(compositeReq), requestKey(adaptiveReq));
+  assert.throws(() => normalizeRequest({ ...request, objective_mode: 'invalid' }), /优化目标模式无效/);
+  validateWorkerResult({ ...asymmetric, request: compositeReq }, compositeReq);
+});

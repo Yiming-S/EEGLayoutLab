@@ -1211,6 +1211,11 @@ disposition = "N"
 [sites."check-local-compute.mjs::current cache displays during another job, and new computation retains its fresh source label"]
 disposition = "N"
 
+[sites."check-local-compute.mjs::adaptive cross-region allocation mode normalizes cleanly and enforces >= 4 per region"]
+disposition = "P"
+target = "tests/service/test_radius.py::test_adaptive_cross_region_allocation_mode_normalizes_and_enforces_floor"
+note = "request normalization also mirrored by tests/test_schema_parity.py"
+
 # --- check-local-data-library.mjs -------------------------------------------------------------------------------------
 
 [sites."check-local-data-library.mjs::all offline layouts load read-only with protocol separation and original metric values"]
@@ -2362,6 +2367,10 @@ note = "static showcase build tooling and browser shim, not the Node host"
 [sites."check-showcase.mjs::in the showcase the guide opens the page of each step, except the workspace home it leaves out"]
 disposition = "N"
 note = "static showcase build tooling and browser shim, not the Node host"
+
+[sites."check-showcase.mjs::the showcase opens in English whatever the browser language, until the visitor chooses"]
+disposition = "N"
+note = "language chosen in the browser on load, not the Node host"
 
 # --- check-single-head-results.mjs ------------------------------------------------------------------------------------
 

@@ -140,3 +140,37 @@ export function dataPriorFromFile(document) {
     throw new Error('不是eeg-data-prior/1数据先验文件');
   return normalizeDataPrior(document.request);
 }
+
+/** Regional electrode quota allocation mode for multi-region radius search; balanced is omitted as default. */
+export const MIN_ADAPTIVE_REGION_ELECTRODES = 4;
+export const ALLOCATION_MODES = [
+  { id: 'balanced', label: '各区均分（默认）', value: undefined },
+  { id: 'adaptive', label: '跨区自适应配额（每区≥4，共64）', value: 'adaptive' },
+];
+
+export function normalizeAllocationMode(value, regionCount) {
+  if (value === undefined || value === null || value === 'balanced') return undefined;
+  if (value !== 'adaptive') throw new Error('区域通道配额模式无效');
+  if (regionCount === 1) throw new Error('单区域不支持跨区自适应配额');
+  return 'adaptive';
+}
+
+export function allocationModeLabel(value) {
+  return value === 'adaptive' ? '跨区自适应配额' : '';
+}
+
+/** Search optimization objective mode for radius search; min(field, sensitivity) is omitted as default. */
+export const OBJECTIVE_MODES = [
+  { id: 'min', label: '下尾极小极大（默认）', value: undefined },
+  { id: 'composite', label: '子空间信息复合目标', value: 'composite' },
+];
+
+export function normalizeObjectiveMode(value) {
+  if (value === undefined || value === null || value === 'min') return undefined;
+  if (value !== 'composite') throw new Error('搜索优化目标模式无效');
+  return 'composite';
+}
+
+export function objectiveModeLabel(value) {
+  return value === 'composite' ? '子空间信息复合目标' : '';
+}

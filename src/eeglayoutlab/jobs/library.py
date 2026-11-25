@@ -44,8 +44,8 @@ from .reception_records import _spread, design_reception_record, received, summa
 from .records import KEY, RecordStore, error_code, node_message, read_file, realpath, stat
 
 __all__ = ['LIBRARY_SCHEMA', 'DATASETS', 'RETENTION', 'INPUT_WARNING', 'LibraryError', 'PathArgumentError',
-           'domain_label', 'noise_model_label', 'data_prior_label', 'validate_saved_record', 'radius_records',
-           'area_records', 'summary', 'Library']
+           'domain_label', 'noise_model_label', 'data_prior_label', 'allocation_mode_label', 'objective_mode_label',
+           'validate_saved_record', 'radius_records', 'area_records', 'summary', 'Library']
 
 LIBRARY_SCHEMA = 'local-data-library/1'
 DATASETS = (
@@ -72,6 +72,7 @@ AREA_V3 = 'compact-eeg-area-budget-study/3-strict-merge-limited'
 AREA_V4 = 'compact-eeg-area-budget-study/4-external-exposure'
 INPUT_WARNING = '前向输入文件与部分缓存的原模型不符；这些历史记录仍可查看，但不能作为当前配置命中。'
 PATCH_VERTICES = 52410
+MIN_ADAPTIVE_REGION_ELECTRODES = 4
 # What ``familyNames[key]`` finds on Object.prototype for an identifier that is not a family: its members, as a
 # template literal writes them (``Function.prototype.toString`` of a built-in, ``String(Object.prototype)``).
 _OBJECT_PROTOTYPE = {
@@ -254,6 +255,16 @@ def data_prior_label(value: dict) -> str:
     return f'数据先验（噪声{noise}）'
 
 
+def allocation_mode_label(value: Any) -> str:
+    """``allocationModeLabel(value)`` (scientific-options.mjs)."""
+    return '跨区自适应配额' if _same(value, 'adaptive') else ''
+
+
+def objective_mode_label(value: Any) -> str:
+    """``objectiveModeLabel(value)`` (scientific-options.mjs)."""
+    return '子空间信息复合目标' if _same(value, 'composite') else ''
+
+
 # --- Records ----------------------------------------------------------------------------------------------------
 
 def _xyz(value: Any) -> bool:
@@ -262,8 +273,8 @@ def _xyz(value: Any) -> bool:
 
 
 def validate_saved_record(record: Any) -> Any:
-    """``validateSavedRecord(record)``: 64 distinct points, balanced regions, a consistent minimum retention, and
-    valid region patches. Returns the record; raises ``LibraryError`` with Node's message."""
+    """``validateSavedRecord(record)``: 64 distinct points, valid regional counts, a consistent minimum retention,
+    and valid region patches. Returns the record; raises ``LibraryError`` with Node's message."""
     if not js_truthy(record) or _member(record, 'status') not in ('completed', 'no_layout'):
         raise LibraryError('无效记录状态')
     if record['status'] == 'no_layout':
@@ -271,12 +282,16 @@ def validate_saved_record(record: Any) -> Any:
             raise LibraryError('缺失布局带有分数')
         return record
     layout, r, m = _member(record, 'layout'), _member(record, 'region_count'), _member(record, 'metrics')
+    adaptive = _same(_opt(_member(record, 'request'), 'allocation_mode'), 'adaptive')
     if (not _number_in(r, (1, 2, 3, 4, 6)) or not _xyz(_opt(layout, 'xyzMm')) or not _xyz(_opt(layout, 'referenceXyzMm'))
             or len({_joined(p) for p in layout['xyzMm']}) != 64
             or not isinstance(_member(layout, 'regionIndices'), list) or len(layout['regionIndices']) != 64
             or any(not jsjson.is_integer(n) or n < 0 or n >= r for n in layout['regionIndices'])
-            or any(sum(1 for i in layout['regionIndices'] if i == n) != 64 // int(r) + int(n < 64 % int(r))
-                   for n in range(int(r)))):
+            or (any(sum(1 for i in layout['regionIndices'] if i == n) < MIN_ADAPTIVE_REGION_ELECTRODES
+                    for n in range(int(r)))
+                if adaptive
+                else any(sum(1 for i in layout['regionIndices'] if i == n) != 64 // int(r) + int(n < 64 % int(r))
+                         for n in range(int(r))))):
         raise LibraryError('记录坐标与区域标签无效')
     scores = [_opt(m, key) for key in _SCORES]
     if not js_truthy(m) or any(v is not None and not _finite(v) for v in scores):
@@ -575,6 +590,10 @@ class Library:
             label += ' · ' + noise_model_label(request['noise_model'])
         if js_truthy(request.get('data_prior')):
             label += ' · ' + data_prior_label(request['data_prior'])
+        if js_truthy(request.get('allocation_mode')):
+            label += ' · ' + allocation_mode_label(request['allocation_mode'])
+        if js_truthy(request.get('objective_mode')):
+            label += ' · ' + objective_mode_label(request['objective_mode'])
         record: dict[str, Any] = {
             'id': cache['key'], 'dataset_id': 'cache', 'status': r['status'], 'label': label,
             'region_count': request['region_count'], 'radius_cap_mm': request['radius_mm'], 'mode': mode,

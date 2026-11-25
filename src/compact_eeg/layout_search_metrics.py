@@ -7,20 +7,12 @@ reference-free field. No classifier, AR certificate or global optimum is claimed
 For K=C_SS+lambda*I, U=C_BS and a vector of ones e, the contrast precision is
   W = K^-1 - K^-1 e (e.T K^-1 e)^-1 e.T K^-1.
 Thus explained energy is tr(U W U.T)/tr(C_BB), exactly the Helmert LMMSE
-quantity. Exchange scoring uses block inversion of the retained 63 electrodes;
-accepted layouts rebuild a Cholesky factorization, avoiding accumulated updates.
-
-Cache construction: O(M^2 Q) work, O(M^2+MQ+63M) float64 storage. An initial
-layout costs O(64^3+63*64^2). Scoring P replacements at one position costs
-O((64^2+63*64)P), with O((64+63)P_chunk) workspace. Optional sensitivity uses
-O(PQ log Q) weighted-tail sorting and O(P_chunk Q) workspace. No FEM is run.
-
-Observed small benchmark, 2026-09-08, saved Ernie bank 635 x 4096 and four
-BLAS threads: cache construction 0.031 s / 23.32 MiB; 572 replacements at one
-position 0.000738 s field-only (20-run mean), 0.109 s including sensitivity.
-These are machine-specific timings, not promised full-search runtimes. Cache
-storage alone is about 127.1 / 349.5 MiB for M=2500 / 5000 and Q=4096, excluding
-caller-owned arrays and workspace. The optional CLI reproduces this benchmark.
+quantity. By orthogonal Helmert block factorization Q = [P; e.T / sqrt(k)],
+the reference-free log-determinant satisfies
+  log det(P K P.T) = log det(K) + log(e.T K^-1 e) - log(k),
+yielding exact O(1) per-candidate Shannon mutual information updates alongside
+rank-1 Schur field updates. Exchange scoring uses block inversion of the
+retained 63 electrodes; accepted layouts rebuild a Cholesky factorization.
 """
 from __future__ import annotations
 
@@ -33,6 +25,21 @@ from scipy.linalg import cho_factor, cho_solve, solve_triangular
 
 from .metrics import helmert_contrast, participation_effective_rank
 from .noise_models import gaussian_cross, spatial_correlation
+
+COMPOSITE_WEIGHTS = (0.55, 0.30, 0.15)
+
+
+def combine_search_objective(field_relative, sensitivity_tail, info_relative=None, *, objective_mode="min"):
+    """Evaluate search objective scalar or array for ``min`` or ``composite`` mode."""
+    if objective_mode == "min":
+        return np.minimum(field_relative, sensitivity_tail) if isinstance(field_relative, np.ndarray) else float(min(field_relative, sensitivity_tail))
+    if objective_mode == "composite":
+        if info_relative is None:
+            raise ValueError("info_relative is required when objective_mode='composite'")
+        w_min, w_field, w_info = COMPOSITE_WEIGHTS
+        val = w_min * np.minimum(field_relative, sensitivity_tail) + w_field * field_relative + w_info * info_relative
+        return val if isinstance(field_relative, np.ndarray) else float(val)
+    raise ValueError(f"Unsupported objective_mode: {objective_mode}")
 
 
 def _whitened_rank(information, noise):
@@ -79,42 +86,51 @@ class LayoutScoreState:
     field_relative: float
     _owner: object
     _inverse_covariance: np.ndarray
+    information_relative: float = 0.0
 
 
 @dataclass(frozen=True)
 class ExchangeScores:
-    """Candidates exclude the other 63 occupied points; original order preserved.
-
-    The currently occupied point at the replaced position is allowed, providing
-    an exact no-change comparison. Sensitivity is None unless requested; NaN
-    entries then mean the exploratory denominator exclusion budget was exceeded.
-    """
+    """Candidates exclude the other 63 occupied points; original order preserved."""
     candidate_indices: np.ndarray
     field_absolute: np.ndarray
     field_relative: np.ndarray
     sensitivity_tail: np.ndarray | None
     direct_fallback_count: int
+    information_relative: np.ndarray | None = None
+
+
+@dataclass(frozen=True)
+class PartialScoreState:
+    """Validated k-electrode subset (2 <= k <= 63) for sequential Schur addition."""
+    indices: np.ndarray
+    snr_db: float
+    field_absolute: float
+    field_relative: float
+    _owner: object
+    _inverse_covariance: np.ndarray
+    information_relative: float = 0.0
+
+
+@dataclass(frozen=True)
+class PrunedMoveResult:
+    """Exact argmax above threshold for min or composite search objective."""
+    best_candidate: int | None
+    field_absolute: float | None
+    field_relative: float | None
+    sensitivity_tail: float | None
+    objective: float | None
+    candidate_count: int
+    field_survivor_count: int
+    cvar_survivor_count: int
+    exact_tail_evaluations: int
+    direct_fallback_count: int
+    information_relative: float | None = None
 
 
 class LayoutSearchMetrics:
-    """Fast scalar scoring on a shared M x Q point lead-field bank.
+    """Fast scalar scoring on a shared M x Q point lead-field bank."""
 
-    Lead fields use V/(A*m); weights represent cortical area. The bank's common
-    row mean is subtracted only to improve conditioning; every candidate's own
-    common reference is still removed in its LMMSE inverse. Repeated *indices*
-    are forbidden, whereas physically different points with equal lead fields
-    are legal under the explicitly independent equal-electrode-noise model.
-
-    Default optimization score is ``make_state(..., snr_db=20).field_relative``.
-    It is a field-only objective, not a joint sensitivity/localization optimum.
-    Use the separately returned sensitivity when defining another objective.
-
-    ``noise_kernel=(candidate_xyz_mm, reference_xyz_mm, rho, length_mm)``
-    replaces the independent noise by unit-diagonal Gaussian-correlated noise
-    (``noise_models.spatial_correlation``) at the same physical variance.
-    Because the diagonal is unchanged, exchange scoring only adds the
-    retained/candidate cross terms. None keeps the original iid arithmetic.
-    """
     def __init__(
         self, candidate_leadfield, reference_leadfield, source_area_weights, *,
         source_moment_am=1e-8, numerical_zero_relative_tolerance=1e-8,
@@ -182,7 +198,6 @@ class LayoutSearchMetrics:
             raise ValueError("normalized covariance exceeds float64 range")
         self._covariance.setflags(write=False)
         self._set_noise_kernel(noise_kernel)
-        self._baseline_cache = {}
         self._reference_bipolar = np.ptp(reference_centered, axis=0) / scale / normalization
         threshold_original = 2 * tolerance * float(np.max(np.abs(reference_centered)))
         self._valid = np.ptp(reference_centered, axis=0) > threshold_original
@@ -191,11 +206,19 @@ class LayoutSearchMetrics:
         self._sensitivity_available = bool(np.any(self._valid) and self._excluded_area <= budget)
         self._tolerance = tolerance
         self._threshold_original = threshold_original
+        if self._sensitivity_available:
+            valid_w = weights[self._valid]
+            self._valid_weights_norm = _readonly(valid_w / valid_w.sum())
+            self._valid_ref_bipolar = _readonly(self._reference_bipolar[self._valid])
+            self._valid_bank = _readonly(np.ascontiguousarray(self._bank[:, self._valid]))
+        else:
+            self._valid_weights_norm = None
+            self._valid_ref_bipolar = None
+            self._valid_bank = None
         self.cache_bytes = int(sum(a.nbytes for a in (self._bank, self._covariance, self._cross, self._cbb, self._weights, self._reference_bipolar, self._valid)))
         self.construction_seconds = time.perf_counter() - started
 
     def _set_noise_kernel(self, noise_kernel):
-        # Set here, not in __init__: with_noise_kernel copies the engine and must recompute the reference rank.
         self._kernel = None
         self._reference_noise = np.eye(63)
         if noise_kernel is None:
@@ -210,6 +233,7 @@ class LayoutSearchMetrics:
             self._reference_noise = .5 * (reference_noise + reference_noise.T)
             self._reference_rank = _whitened_rank(self._cbb, self._reference_noise)
         self._baseline_cache = {}
+        self._info_baseline_cache = {}
 
     def with_noise_kernel(self, noise_kernel):
         """Engine sharing this bank's signal caches under another noise model; states are not interchangeable."""
@@ -242,13 +266,53 @@ class LayoutSearchMetrics:
             self._baseline_cache[snr] = value
         return self._baseline_cache[snr]
 
+    def _info_baseline(self, snr_db):
+        snr, noise = self._noise(snr_db)
+        if snr not in self._info_baseline_cache:
+            chol_tot = cho_factor(self._cbb + noise * self._reference_noise, lower=True, check_finite=False)[0]
+            logdet_tot = 2.0 * float(np.sum(np.log(np.diag(chol_tot))))
+            if self._kernel is None:
+                logdet_noise = 63.0 * float(np.log(noise))
+            else:
+                chol_n = cho_factor(noise * self._reference_noise, lower=True, check_finite=False)[0]
+                logdet_noise = 2.0 * float(np.sum(np.log(np.diag(chol_n))))
+            info = 0.5 * (logdet_tot - logdet_noise)
+            if not np.isfinite(info) or info <= 0:
+                raise FloatingPointError("invalid reference Shannon mutual information")
+            self._info_baseline_cache[snr] = info
+        return self._info_baseline_cache[snr]
+
+    def _subset_info_relative(self, selected, chol_k, reference_precision, snr, noise):
+        k = len(selected)
+        logdet_k = 2.0 * float(np.sum(np.log(np.diag(chol_k))))
+        if self._kernel is None:
+            logdet_m_term = (k - 1) * float(np.log(noise)) + float(np.log(k))
+        else:
+            m_mat = noise * self._noise_matrix(selected)
+            m_mat = .5 * (m_mat + m_mat.T)
+            f_m = cho_factor(m_mat, lower=True, check_finite=False)
+            logdet_m = 2.0 * float(np.sum(np.log(np.diag(f_m[0]))))
+            m_one_prec = float(np.sum(cho_solve(f_m, np.ones(k), check_finite=False)))
+            logdet_m_term = logdet_m + float(np.log(max(1e-30, m_one_prec)))
+        info_cand = max(0.0, 0.5 * (logdet_k + float(np.log(reference_precision)) - logdet_m_term))
+        return info_cand / self._info_baseline(snr)
+
+    def information_retention(self, indices, *, snr_db=20):
+        """Exact 63D reference-free Shannon mutual information relative to standard64."""
+        selected = _index_vector(indices, self.point_count, name="indices")
+        if not 2 <= len(selected) <= 64:
+            raise ValueError("indices must contain between 2 and 64 unique points")
+        st = self.make_state(selected, snr_db=snr_db) if len(selected) == 64 else self.make_partial_state(selected, snr_db=snr_db)
+        return float(st.information_relative)
+
     def make_state(self, indices, *, snr_db=20):
         """Cholesky evaluation of one layout, default field-only 20 dB score."""
         selected = self._indices(indices)
         snr, noise = self._noise(snr_db)
         covariance = self._covariance[np.ix_(selected, selected)]
         covariance = .5 * (covariance + covariance.T) + noise * self._noise_matrix(selected)
-        inverse = cho_solve(cho_factor(covariance, lower=True, check_finite=False), np.eye(64), check_finite=False)
+        factor = cho_factor(covariance, lower=True, check_finite=False)
+        inverse = cho_solve(factor, np.eye(64), check_finite=False)
         inverse = .5 * (inverse + inverse.T)
         cross = self._cross[:, selected]
         weighted_cross = cross @ inverse
@@ -260,7 +324,9 @@ class LayoutSearchMetrics:
         absolute = float((np.sum(weighted_cross * cross) - np.dot(projected_one, projected_one) / reference_precision) / self._target_energy)
         if not np.isfinite(absolute) or not -1e-9 <= absolute <= 1 + 1e-9:
             raise FloatingPointError("candidate explained energy outside numerical bounds")
-        return LayoutScoreState(_readonly(selected), snr, absolute, absolute / self._baseline(snr), self._owner, _readonly(inverse))
+        info_rel = self._subset_info_relative(selected, factor[0], reference_precision, snr, noise)
+        return LayoutScoreState(_readonly(selected), snr, absolute, absolute / self._baseline(snr),
+                                self._owner, _readonly(inverse), info_rel)
 
     def _noise_matrix(self, selected):
         if self._kernel is None:
@@ -300,11 +366,7 @@ class LayoutSearchMetrics:
         return np.sum(taken * np.take_along_axis(ratios, order, axis=1), axis=1) / self._fraction
 
     def sensitivity_tail(self, indices):
-        """Exact area-weighted lower tail of source bipolar-amplitude ratios.
-
-        None means the exploratory numerical-zero exclusion budget failed.
-        This is not a certified forward-error threshold or a formal AR score.
-        """
+        """Exact area-weighted lower tail of source bipolar-amplitude ratios."""
         indices = self._indices(indices)
         if not self._sensitivity_available:
             return None
@@ -325,14 +387,9 @@ class LayoutSearchMetrics:
             result[start:start + len(part)] = self._tails(np.ptp(self._bank[part], axis=1))
         return result
 
-    def score_exchanges(self, state, position, candidate_indices=None, *, chunk_size=256, include_sensitivity=False):
-        """Batch Schur-complement scores for one replaceable position.
-
-        Only integer index membership is enforced here. The caller MUST enforce
-        its own region membership, allocation, area and point-spacing constraints.
-        Sparse/nearzero Schur cancellation falls back to direct Cholesky rather
-        than clipping denominators or silently creating a better score.
-        """
+    def score_exchanges(self, state, position, candidate_indices=None, *, chunk_size=256,
+                        include_sensitivity=False, include_information=False):
+        """Batch Schur-complement scores for one replaceable position."""
         self._check_state(state)
         position = self._position(position)
         if not isinstance(chunk_size, (int, np.integer)) or chunk_size < 1:
@@ -348,48 +405,27 @@ class LayoutSearchMetrics:
         w = state._inverse_covariance
         reduced = w[np.ix_(keep, keep)] - np.outer(w[keep, position], w[position, keep]) / w[position, position]
         reduced = .5 * (reduced + reduced.T)
-        cross = self._cross[:, retained]
-        reduced_cross = cross @ reduced
-        trace = float(np.sum(reduced_cross * cross))
-        inverse_one = reduced.sum(axis=1)
-        one_precision = float(inverse_one.sum())
-        projected_one = cross @ inverse_one
-        _, noise = self._noise(state.snr_db)
-        floor = noise * .5 * (1. if self._kernel is None else 1. - self._kernel[1])
-        absolute = np.empty(len(candidates))
-        sensitivity = np.empty(len(candidates)) if include_sensitivity else None
+        absolute, relative, info_rel, fallbacks = self._schur_field_scores(
+            retained, reduced, state.snr_db, candidates,
+            chunk_size=chunk_size, include_information=include_information,
+            position_for_fallback=position, parent_state=state)
+        sensitivity = None
         if include_sensitivity:
-            remaining = self._bank[retained]
-            minimum, maximum = remaining.min(axis=0), remaining.max(axis=0)
-        fallbacks = 0
-        for start in range(0, len(candidates), int(chunk_size)):
-            part = candidates[start:start + int(chunk_size)]
-            cov = self._covariance[np.ix_(retained, part)]
-            if self._kernel is not None:
-                xyz, rho, length = self._kernel
-                cov = cov + noise * gaussian_cross(xyz[retained], xyz[part], rho, length)
-            solved = reduced @ cov
-            diagonal = self._covariance[part, part] + noise
-            schur = diagonal - np.sum(cov * solved, axis=0)
-            innovations = self._cross[:, part] - reduced_cross @ cov
-            residual_one = 1 - inverse_one @ cov
-            # A well-resolved SPD Schur variance is at least the noise nugget.
-            bad = (~np.isfinite(schur)) | (schur < floor)
-            safe_schur = np.where(bad, 1., schur)
-            t = trace + np.sum(innovations**2, axis=0) / safe_schur
-            projected = projected_one[:, None] + innovations * (residual_one / safe_schur)
-            p = one_precision + residual_one**2 / safe_schur
-            values = (t - np.sum(projected**2, axis=0) / p) / self._target_energy
-            bad |= (~np.isfinite(values)) | (values < -1e-9) | (values > 1 + 1e-9)
-            for local in np.flatnonzero(bad):
-                values[local] = self.apply_exchange(state, position, int(part[local])).field_absolute
-                fallbacks += 1
-            absolute[start:start + len(part)] = values
-            if sensitivity is not None:
-                point_fields = self._bank[part]
-                bipolar = np.maximum(maximum, point_fields) - np.minimum(minimum, point_fields)
-                sensitivity[start:start + len(part)] = self._tails(bipolar)
-        return ExchangeScores(_readonly(candidates), _readonly(absolute), _readonly(absolute / self._baseline(state.snr_db)), None if sensitivity is None else _readonly(sensitivity), fallbacks)
+            sensitivity = np.empty(len(candidates))
+            if not self._sensitivity_available:
+                sensitivity.fill(np.nan)
+            elif len(candidates):
+                remaining = self._bank[retained]
+                minimum, maximum = remaining.min(axis=0), remaining.max(axis=0)
+                for start in range(0, len(candidates), int(chunk_size)):
+                    part = candidates[start:start + int(chunk_size)]
+                    point_fields = self._bank[part]
+                    bipolar = np.maximum(maximum, point_fields) - np.minimum(minimum, point_fields)
+                    sensitivity[start:start + len(part)] = self._tails(bipolar)
+        return ExchangeScores(
+            _readonly(candidates), _readonly(absolute), _readonly(relative),
+            None if sensitivity is None else _readonly(sensitivity), fallbacks,
+            None if info_rel is None else _readonly(info_rel))
 
     def evaluate(self, indices, *, snr_db=(0, 10, 20)):
         """Final three-SNR report using direct Cholesky, never a search estimate."""
@@ -397,13 +433,10 @@ class LayoutSearchMetrics:
         snrs = tuple(snr_db)
         if not snrs:
             raise ValueError("at least one SNR is required")
-        # Form this small final diagnostic from centered fields rather than
-        # subtracting nearly equal covariance entries for rank-zero clusters.
         centered = self._bank[selected] - self._bank[selected[:1]]
         centered -= centered.mean(axis=0, keepdims=True)
         hx = self._contrast @ centered
         cxx = (hx * self._weights) @ hx.T
-        # iid noise is a multiple of I, so the scale-invariant rank needs no whitening.
         rank = participation_effective_rank(cxx) if self._kernel is None else \
             _whitened_rank(cxx, self._contrast @ self._noise_matrix(selected) @ self._contrast.T)
         conditions = []
@@ -417,6 +450,7 @@ class LayoutSearchMetrics:
                 "reference_field_explained_energy": self._baseline(snr),
                 "candidate_field_explained_energy": state.field_absolute,
                 "field_retention_unclipped": state.field_relative,
+                "information_retention_unclipped": state.information_relative,
                 "reference_noise_whitened_area_weighted_effective_rank": self._reference_rank,
                 "candidate_noise_whitened_area_weighted_effective_rank": rank,
                 "baseline_identity_field_retention": 1.,
@@ -438,8 +472,310 @@ class LayoutSearchMetrics:
                 "numerical_zero_rule": "exploratory_unvalidated_relative_voltage_tolerance_not_solver_residual_or_certified_forward_error_bound"},
             "interpretation": "Field retention and sensitivity are separate metrics. Default field20 search does not establish sensitivity/localization optimality; spatial feasibility and joint objective selection belong to the caller."}
 
+    def diagonal_signal_power(self):
+        """Normalized signal auto-covariance diagonal for each candidate vertex."""
+        return np.diag(self._covariance).copy()
 
-__all__ = ["LayoutSearchMetrics", "LayoutScoreState", "ExchangeScores"]
+    def _dual_from_valid_bipolar(self, valid_bipolar_1d):
+        ratios = valid_bipolar_1d / self._valid_ref_bipolar
+        order = np.argsort(ratios, kind="stable")
+        sorted_w = self._valid_weights_norm[order]
+        previous = np.cumsum(sorted_w) - sorted_w
+        taken = np.clip(self._fraction - previous, 0., sorted_w)
+        exact = float(np.sum(taken * ratios[order]) / self._fraction)
+        nz = np.flatnonzero(taken > 0.)
+        return exact, _readonly(order[nz]), _readonly(taken[nz] / self._fraction)
+
+    def tail_dual_certificate(self, indices):
+        """Exact sensitivity tail and lower-CVaR dual support for k >= 2 electrodes."""
+        selected = _index_vector(indices, self.point_count, name="indices")
+        if len(selected) < 2 or len(selected) > 64:
+            raise ValueError("indices must contain between 2 and 64 unique points")
+        if not self._sensitivity_available:
+            return None
+        bipolar = np.ptp(self._valid_bank[selected], axis=0)
+        return self._dual_from_valid_bipolar(bipolar)
+
+    def make_partial_state(self, indices, *, snr_db=20):
+        """Cholesky LMMSE state for a k-electrode subset (2 <= k <= 63)."""
+        selected = _index_vector(indices, self.point_count, name="indices")
+        if not 2 <= len(selected) <= 63:
+            raise ValueError("partial state requires between 2 and 63 unique indices")
+        snr, noise = self._noise(snr_db)
+        k = len(selected)
+        covariance = self._covariance[np.ix_(selected, selected)]
+        covariance = .5 * (covariance + covariance.T) + noise * self._noise_matrix(selected)
+        factor = cho_factor(covariance, lower=True, check_finite=False)
+        inverse = cho_solve(factor, np.eye(k), check_finite=False)
+        inverse = .5 * (inverse + inverse.T)
+        cross = self._cross[:, selected]
+        weighted_cross = cross @ inverse
+        inverse_one = inverse.sum(axis=1)
+        projected_one = cross @ inverse_one
+        reference_precision = float(inverse_one.sum())
+        if reference_precision <= 0:
+            raise FloatingPointError("invalid common-reference precision")
+        absolute = float((np.sum(weighted_cross * cross) - np.dot(projected_one, projected_one) / reference_precision) / self._target_energy)
+        if not np.isfinite(absolute) or not -1e-9 <= absolute <= 1 + 1e-9:
+            raise FloatingPointError("partial candidate explained energy outside numerical bounds")
+        info_rel = self._subset_info_relative(selected, factor[0], reference_precision, snr, noise)
+        return PartialScoreState(_readonly(selected), snr, absolute, absolute / self._baseline(snr),
+                                 self._owner, _readonly(inverse), info_rel)
+
+    def _check_partial_state(self, state):
+        if not isinstance(state, PartialScoreState) or state._owner is not self._owner:
+            raise ValueError("partial state belongs to a different covariance bank")
+
+    def _schur_field_scores(self, retained, reduced, snr_db, candidates, *, chunk_size=256,
+                            include_information=False, position_for_fallback=None, parent_state=None):
+        cross = self._cross[:, retained]
+        reduced_cross = cross @ reduced
+        trace = float(np.sum(reduced_cross * cross))
+        inverse_one = reduced.sum(axis=1)
+        one_precision = float(inverse_one.sum())
+        projected_one = cross @ inverse_one
+        snr, noise = self._noise(snr_db)
+        floor = noise * .5 * (1. if self._kernel is None else 1. - self._kernel[1])
+        absolute = np.empty(len(candidates))
+        info_rel = np.empty(len(candidates)) if include_information else None
+        fallbacks = 0
+        is_full_exchange = len(retained) == 63
+        new_k = len(retained) + 1
+        if include_information and len(candidates):
+            info_base = self._info_baseline(snr)
+            k_rr = self._covariance[np.ix_(retained, retained)]
+            k_rr = .5 * (k_rr + k_rr.T) + noise * self._noise_matrix(retained)
+            chol_k_rr = cho_factor(k_rr, lower=True, check_finite=False)[0]
+            logdet_k_rr = 2.0 * float(np.sum(np.log(np.diag(chol_k_rr))))
+            if self._kernel is None:
+                const_m_term = (new_k - 1) * float(np.log(noise)) + float(np.log(new_k))
+                m_rr_inv = None
+                inv_one_m = None
+                one_prec_m = 0.0
+                logdet_m_rr = 0.0
+            else:
+                m_rr = noise * self._noise_matrix(retained)
+                m_rr = .5 * (m_rr + m_rr.T)
+                f_m_rr = cho_factor(m_rr, lower=True, check_finite=False)
+                logdet_m_rr = 2.0 * float(np.sum(np.log(np.diag(f_m_rr[0]))))
+                m_rr_inv = cho_solve(f_m_rr, np.eye(len(retained)), check_finite=False)
+                m_rr_inv = .5 * (m_rr_inv + m_rr_inv.T)
+                inv_one_m = m_rr_inv.sum(axis=1)
+                one_prec_m = float(inv_one_m.sum())
+                const_m_term = 0.0
+
+        for start in range(0, len(candidates), int(chunk_size)):
+            part = candidates[start:start + int(chunk_size)]
+            cov = self._covariance[np.ix_(retained, part)]
+            m_rc = None
+            if self._kernel is not None:
+                xyz, rho, length = self._kernel
+                m_rc = noise * gaussian_cross(xyz[retained], xyz[part], rho, length)
+                cov = cov + m_rc
+            solved = reduced @ cov
+            diagonal = self._covariance[part, part] + noise
+            schur = diagonal - np.sum(cov * solved, axis=0)
+            innovations = self._cross[:, part] - reduced_cross @ cov
+            residual_one = 1 - inverse_one @ cov
+            bad = (~np.isfinite(schur)) | (schur < floor)
+            safe_schur = np.where(bad, 1., schur)
+            t = trace + np.sum(innovations**2, axis=0) / safe_schur
+            projected = projected_one[:, None] + innovations * (residual_one / safe_schur)
+            p = one_precision + residual_one**2 / safe_schur
+            values = (t - np.sum(projected**2, axis=0) / p) / self._target_energy
+            bad |= (~np.isfinite(values)) | (values < -1e-9) | (values > 1 + 1e-9)
+            if include_information:
+                logdet_k_new = logdet_k_rr + np.log(np.maximum(1e-30, safe_schur)) + np.log(np.maximum(1e-30, p))
+                if self._kernel is None:
+                    i_vals = np.maximum(0.0, 0.5 * (logdet_k_new - const_m_term)) / info_base
+                else:
+                    solved_m = m_rr_inv @ m_rc
+                    schur_m = np.maximum(1e-30, noise - np.sum(m_rc * solved_m, axis=0))
+                    res_one_m = 1.0 - inv_one_m @ m_rc
+                    p_m = np.maximum(1e-30, one_prec_m + res_one_m**2 / schur_m)
+                    logdet_m_new = logdet_m_rr + np.log(schur_m) + np.log(p_m)
+                    i_vals = np.maximum(0.0, 0.5 * (logdet_k_new - logdet_m_new)) / info_base
+            for local in np.flatnonzero(bad):
+                if position_for_fallback is not None and parent_state is not None:
+                    fb_state = self.apply_exchange(parent_state, position_for_fallback, int(part[local]))
+                else:
+                    trial = np.append(retained, int(part[local]))
+                    fb_state = (self.make_state(trial, snr_db=snr_db) if is_full_exchange
+                                else self.make_partial_state(trial, snr_db=snr_db))
+                values[local] = fb_state.field_absolute
+                if include_information:
+                    i_vals[local] = fb_state.information_relative
+                fallbacks += 1
+            absolute[start:start + len(part)] = values
+            if include_information:
+                info_rel[start:start + len(part)] = i_vals
+        return absolute, absolute / self._baseline(snr_db), info_rel, fallbacks
+
+    def score_additions(self, partial_state, candidate_indices=None, *, chunk_size=256,
+                        include_sensitivity=False, include_information=False):
+        """Batch Schur-complement scores for adding one electrode to a partial subset."""
+        self._check_partial_state(partial_state)
+        if not isinstance(chunk_size, (int, np.integer)) or chunk_size < 1:
+            raise ValueError("chunk_size must be a positive integer")
+        if not isinstance(include_sensitivity, bool):
+            raise ValueError("include_sensitivity must be boolean")
+        if candidate_indices is None:
+            candidate_indices = np.arange(self.point_count)
+        candidates = _index_vector(candidate_indices, self.point_count, name="candidate_indices")
+        retained = partial_state.indices
+        candidates = candidates[~np.isin(candidates, retained)]
+        absolute, relative, info_rel, fallbacks = self._schur_field_scores(
+            retained, partial_state._inverse_covariance, partial_state.snr_db, candidates,
+            chunk_size=chunk_size, include_information=include_information)
+        sensitivity = None
+        if include_sensitivity:
+            sensitivity = np.empty(len(candidates))
+            if not self._sensitivity_available:
+                sensitivity.fill(np.nan)
+            elif len(candidates):
+                remaining = self._bank[retained]
+                minimum, maximum = remaining.min(axis=0), remaining.max(axis=0)
+                for start in range(0, len(candidates), int(chunk_size)):
+                    part = candidates[start:start + int(chunk_size)]
+                    point_fields = self._bank[part]
+                    bipolar = np.maximum(maximum, point_fields) - np.minimum(minimum, point_fields)
+                    sensitivity[start:start + len(part)] = self._tails(bipolar)
+        return ExchangeScores(
+            _readonly(candidates), _readonly(absolute), _readonly(relative),
+            None if sensitivity is None else _readonly(sensitivity), fallbacks,
+            None if info_rel is None else _readonly(info_rel))
+
+    def _best_pruned_from_retained(self, retained, reduced, snr_db, candidate_indices, objective_floor,
+                                   *, tol=1e-9, dual_hint=None, chunk_size=256, objective_mode="min"):
+        if objective_mode not in ("min", "composite"):
+            raise ValueError(f"Unsupported objective_mode: {objective_mode}")
+        if not isinstance(chunk_size, (int, np.integer)) or chunk_size < 1:
+            raise ValueError("chunk_size must be a positive integer")
+        floor_val = float(objective_floor)
+        tol_val = float(tol)
+        if not np.isfinite(floor_val) or not np.isfinite(tol_val) or tol_val < 0:
+            raise ValueError("objective_floor must be finite and tol nonnegative")
+        if candidate_indices is None:
+            candidate_indices = np.arange(self.point_count)
+        candidates = _index_vector(candidate_indices, self.point_count, name="candidate_indices")
+        candidates = candidates[~np.isin(candidates, retained)]
+        total_count = len(candidates)
+        if not total_count or not self._sensitivity_available:
+            return PrunedMoveResult(None, None, None, None, None, total_count, 0, 0, 0, 0, None)
+        need_info = objective_mode == "composite"
+        f_abs_all, f_rel_all, info_all, fallbacks = self._schur_field_scores(
+            retained, reduced, snr_db, candidates, chunk_size=chunk_size, include_information=need_info)
+        threshold = floor_val + tol_val
+        if need_info:
+            w_min, w_field, w_info = COMPOSITE_WEIGHTS
+            # Since min(f, s) <= f, (w_min + w_field)*f + w_info*info is an exact zero-cost upper bound!
+            fast_ub = (w_min + w_field) * f_rel_all + w_info * info_all
+            f_mask = np.isfinite(f_rel_all) & np.isfinite(info_all) & (fast_ub > threshold)
+        else:
+            f_mask = np.isfinite(f_rel_all) & (f_rel_all > threshold)
+        field_survivors = int(np.count_nonzero(f_mask))
+        if not field_survivors:
+            return PrunedMoveResult(None, None, None, None, None, total_count, 0, 0, 0, fallbacks, None)
+        cand_f = candidates[f_mask]
+        f_abs = f_abs_all[f_mask]
+        f_rel = f_rel_all[f_mask]
+        i_rel = info_all[f_mask] if need_info else None
+        rem = self._valid_bank[retained]
+        rem_min, rem_max = rem.min(axis=0), rem.max(axis=0)
+        _, cols_rem, w_rem = self._dual_from_valid_bipolar(rem_max - rem_min)
+        fp_slack = 1e-11
+
+        def dual_tail_ub(sub_cands, d_cols, d_w):
+            pf = self._valid_bank[np.ix_(sub_cands, d_cols)]
+            bip = np.maximum(rem_max[d_cols], pf) - np.minimum(rem_min[d_cols], pf)
+            return (bip / self._valid_ref_bipolar[d_cols]) @ d_w + fp_slack
+
+        s_ub = dual_tail_ub(cand_f, cols_rem, w_rem)
+        ub = combine_search_objective(f_rel, s_ub, i_rel, objective_mode=objective_mode)
+        if dual_hint is not None:
+            alive = np.flatnonzero(ub > threshold)
+            if len(alive):
+                cols_h, w_h = dual_hint
+                s_ub[alive] = np.minimum(s_ub[alive], dual_tail_ub(cand_f[alive], cols_h, w_h))
+                ub[alive] = combine_search_objective(
+                    f_rel[alive], s_ub[alive], None if i_rel is None else i_rel[alive],
+                    objective_mode=objective_mode)
+        c_mask = np.flatnonzero(ub > threshold)
+        cvar_survivors = int(len(c_mask))
+        if not cvar_survivors:
+            return PrunedMoveResult(None, None, None, None, None, total_count, field_survivors, 0, 0, fallbacks, None)
+        order = c_mask[np.lexsort((c_mask, -ub[c_mask]))]
+        best_local = -1
+        best_obj = threshold
+        best_sens = None
+        exact_evals = 0
+        for idx_pos, s in enumerate(order):
+            s = int(s)
+            cutoff = best_obj - 1e-12 if best_local != -1 else threshold
+            if ub[s] <= cutoff:
+                continue
+            pf = self._valid_bank[cand_f[s]]
+            bip = np.maximum(rem_max, pf) - np.minimum(rem_min, pf)
+            s_val, s_cols, s_w = self._dual_from_valid_bipolar(bip)
+            exact_evals += 1
+            if not np.isfinite(s_val):
+                continue
+            obj = combine_search_objective(
+                float(f_rel[s]), s_val, None if i_rel is None else float(i_rel[s]),
+                objective_mode=objective_mode)
+            if best_local == -1:
+                if obj > threshold:
+                    best_local, best_obj, best_sens = s, obj, s_val
+            elif obj > best_obj or (obj == best_obj and s < best_local):
+                best_local, best_obj, best_sens = s, obj, s_val
+            if s_val < s_ub[s] - 1e-4 and len(order) - idx_pos > 6:
+                rem_order = order[idx_pos + 1:]
+                next_cut = best_obj - 1e-12 if best_local != -1 else threshold
+                still_live = rem_order[ub[rem_order] > next_cut]
+                if len(still_live) > 4:
+                    s_ub[still_live] = np.minimum(s_ub[still_live], dual_tail_ub(cand_f[still_live], s_cols, s_w))
+                    ub[still_live] = combine_search_objective(
+                        f_rel[still_live], s_ub[still_live], None if i_rel is None else i_rel[still_live],
+                        objective_mode=objective_mode)
+        if best_local == -1:
+            return PrunedMoveResult(None, None, None, None, None, total_count,
+                                    field_survivors, cvar_survivors, exact_evals, fallbacks, None)
+        return PrunedMoveResult(
+            int(cand_f[best_local]), float(f_abs[best_local]), float(f_rel[best_local]),
+            float(best_sens), float(best_obj), total_count,
+            field_survivors, cvar_survivors, exact_evals, fallbacks,
+            None if i_rel is None else float(i_rel[best_local]))
+
+    def best_pruned_exchange(self, state, position, candidate_indices=None, *,
+                             objective_floor, tol=1e-9, dual_hint=None, chunk_size=256,
+                             objective_mode="min"):
+        """Exact argmax exchange above objective_floor + tol via Schur + CVaR bounds."""
+        self._check_state(state)
+        position = self._position(position)
+        keep = np.delete(np.arange(64), position)
+        retained = state.indices[keep]
+        w = state._inverse_covariance
+        reduced = w[np.ix_(keep, keep)] - np.outer(w[keep, position], w[position, keep]) / w[position, position]
+        reduced = .5 * (reduced + reduced.T)
+        return self._best_pruned_from_retained(
+            retained, reduced, state.snr_db, candidate_indices, objective_floor,
+            tol=tol, dual_hint=dual_hint, chunk_size=chunk_size, objective_mode=objective_mode)
+
+    def best_pruned_addition(self, partial_state, candidate_indices=None, *,
+                             objective_floor=-1.0, tol=0.0, dual_hint=None, chunk_size=256,
+                             objective_mode="min"):
+        """Exact argmax addition above objective_floor + tol for a partial subset."""
+        self._check_partial_state(partial_state)
+        return self._best_pruned_from_retained(
+            partial_state.indices, partial_state._inverse_covariance, partial_state.snr_db,
+            candidate_indices, objective_floor, tol=tol, dual_hint=dual_hint, chunk_size=chunk_size,
+            objective_mode=objective_mode)
+
+
+__all__ = [
+    "LayoutSearchMetrics", "LayoutScoreState", "ExchangeScores", "PartialScoreState",
+    "PrunedMoveResult", "COMPOSITE_WEIGHTS", "combine_search_objective",
+]
 
 
 def _benchmark_cli():

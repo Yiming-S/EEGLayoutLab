@@ -87,6 +87,35 @@ def test_result_validation_rejects_stale_request_duplicated_points_wrong_compone
     validate_worker_result({'status': 'no_layout', 'request': REQUEST, 'layout': None, 'metrics': None}, REQUEST)
 
 
+def test_adaptive_cross_region_allocation_mode_normalizes_and_enforces_floor():
+    """check-local-compute.mjs::adaptive cross-region allocation mode normalizes cleanly and enforces >= 4 per region."""
+    from eeglayoutlab.schemas.radius_search import normalize_request
+    adaptive_req = normalize_request({**REQUEST, 'allocation_mode': 'adaptive'})
+    assert adaptive_req == {**REQUEST, 'allocation_mode': 'adaptive'}
+    assert normalize_request({**REQUEST, 'allocation_mode': 'balanced'}) == REQUEST
+    assert normalize_request({**REQUEST, 'allocation_mode': None}) == REQUEST
+    with pytest.raises(ValueError, match='单区域'):
+        normalize_request({'region_count': 1, 'radius_mm': 30, 'mode': 'whole_surface', 'allocation_mode': 'adaptive'})
+    with pytest.raises(ValueError, match='配额模式无效'):
+        normalize_request({**REQUEST, 'allocation_mode': 'invalid'})
+    asymmetric = result_for(adaptive_req)
+    asymmetric['layout']['regionIndices'] = [0 if i < 12 else 1 for i in range(64)]
+    validate_worker_result(asymmetric, adaptive_req)
+    with pytest.raises(RadiusResultError, match='^区域分配错误$'):
+        validate_worker_result({**asymmetric, 'request': REQUEST}, REQUEST)
+    below_floor = result_for(adaptive_req)
+    below_floor['layout']['regionIndices'] = [0 if i < 3 else 1 for i in range(64)]
+    with pytest.raises(RadiusResultError, match='^区域分配错误$'):
+        validate_worker_result(below_floor, adaptive_req)
+    comp_req = normalize_request({**adaptive_req, 'objective_mode': 'composite'})
+    assert comp_req == {**adaptive_req, 'objective_mode': 'composite'}
+    assert normalize_request({**REQUEST, 'objective_mode': 'min'}) == REQUEST
+    assert normalize_request({**REQUEST, 'objective_mode': None}) == REQUEST
+    with pytest.raises(ValueError, match='优化目标模式无效'):
+        normalize_request({**REQUEST, 'objective_mode': 'invalid'})
+    validate_worker_result({**asymmetric, 'request': comp_req}, comp_req)
+
+
 def _variant(change) -> dict:
     result = copy.deepcopy(result_for())
     change(result)

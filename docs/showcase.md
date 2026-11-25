@@ -92,5 +92,5 @@ The showcase publishes Ernie-derived display models and results, which keep the 
 
 ## Not covered
 
-- Users whose language is Chinese see the English page until it hydrates, as in the application.
+- The showcase opens in English whatever the browser language; the language switch keeps a visitor's choice. (The application follows the browser language.)
 - Fonts other than Latin, including CJK, come from the visitor's system fonts.
