@@ -5,7 +5,7 @@ import { ProjectContext } from '@/features/projects/project-context';
 import { recordAnnotationId } from '@/lib/local-library';
 /* oxlint-disable next/no-html-link-for-pages -- preserve established vinext navigation */
 import { useEffect, useRef, useState } from 'react';
-import { Activity, Settings2 } from 'lucide-react';
+import { SlidersHorizontal } from 'lucide-react';
 import { LanguageSwitch } from '@/components/language-switch';
 import { useDismissibleDetails } from '@/components/use-dismissible-details';
 import { cn } from '@/lib/utils';
@@ -25,6 +25,24 @@ import {
   navigationAR,
   type WorkspaceSelection,
 } from '@/lib/workspace-navigation';
+
+/** Minimalist 10–20 cranial crosshair emblem — geometric, monochrome, non-generic. */
+export function CranialMark({ className }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 20 20"
+      fill="none"
+      className={cn('size-3.5', className)}
+    >
+      <circle cx="10" cy="10.5" r="6.75" stroke="currentColor" strokeWidth="1.45" />
+      <path d="M8.4 3.5L10 1.6L11.6 3.5" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round" />
+      <line x1="3.25" y1="10.5" x2="16.75" y2="10.5" stroke="currentColor" strokeWidth="1.1" strokeOpacity="0.45" />
+      <line x1="10" y1="3.75" x2="10" y2="17.25" stroke="currentColor" strokeWidth="1.1" strokeOpacity="0.45" />
+      <circle cx="10" cy="10.5" r="1.45" fill="currentColor" />
+    </svg>
+  );
+}
 
 /** Fades the right edge of a horizontally scrolling tab row while more tabs are hidden there, and keeps the current tab in view. */
 function useTabOverflow<T extends HTMLElement>() {
@@ -96,8 +114,6 @@ export function SiteHeader({
   }, []);
   const original = new URL(browserHref, 'http://localhost');
   const currentUrl = new URL(safeReturnHref(returnHref ?? browserHref, '/'), 'http://localhost');
-  // Page props contain the latest replaceState parameters. Retain the original
-  // return target without reintroducing stale layout parameters.
   if (
     !currentUrl.searchParams.has('returnTo') &&
     original.searchParams.has('returnTo')
@@ -144,12 +160,10 @@ export function SiteHeader({
   }, [selection.id, annotationId, offline]);
   const record = loaded?.id === selection.id ? loaded.record : null;
   const links = workspaceLinks(here, ar, record, selection);
-  // Stay on the current working URL, including its draft and thresholds.
   links[current] = here;
   const group = workspaceGroup(current);
   const workPage = workingPage(here),
     workGroup = workspaceGroup(workPage);
-  // An area's main entry returns to the page last worked on in that area.
   const firstTab = (area: WorkspaceGroup) => WORKSPACE_TABS[area][0][0] as PageId;
   const destinations = Object.fromEntries(WORKSPACES.map(({ id: area }) => [area,
     area === group ? (area === 'docs' ? here : links[current])
@@ -189,29 +203,31 @@ export function SiteHeader({
   return (
     <header
       ref={headerRef}
-      className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur-xl"
+      className="sticky top-0 z-40 border-b border-border bg-background/92 backdrop-blur-md supports-[backdrop-filter]:bg-background/82"
     >
-      <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-1.5 sm:px-6 sm:py-2 lg:px-8">
+      <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2 sm:px-6 lg:px-8">
         <a
           href={SHOWCASE ? links.findings : links.home}
           aria-label={tx(SHOWCASE ? 'EEG Layout Lab · 返回已有结果' : 'EEG Layout Lab · 返回工作区')}
-          className="flex shrink-0 items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="group flex shrink-0 items-center gap-2.5 rounded-md py-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <span className="grid size-8 place-items-center rounded-xl bg-brand text-brand-foreground sm:size-9">
-            <Activity className="size-5" />
+          <span className="grid size-6.5 place-items-center rounded-[6px] bg-foreground text-background transition-opacity group-hover:opacity-85">
+            <CranialMark />
           </span>
-          <span>
-            <span className="block text-base font-semibold text-foreground">
+          <span className="flex items-baseline gap-2">
+            <span className="text-[0.9rem] font-semibold tracking-[-0.025em] text-foreground">
               EEG Layout Lab
             </span>
-            <span className="hidden text-xs text-ink-soft sm:block">
+            <span aria-hidden className="hidden text-xs text-border select-none md:inline">/</span>
+            <span className="hidden text-xs text-muted-foreground md:inline">
               {tx('脑电电极布局仿真')}
             </span>
           </span>
         </a>
+        <span aria-hidden className="mx-1 hidden h-4 w-px bg-border min-[980px]:block" />
         <nav
           aria-label={tx('主导航')}
-          className="order-3 flex w-full gap-1 overflow-x-auto rounded-lg bg-card/85 p-0.5 sm:p-1 min-[1000px]:order-none min-[1000px]:ml-auto min-[1000px]:w-auto"
+          className="order-3 flex w-full items-center gap-0.5 overflow-x-auto [scrollbar-width:none] min-[980px]:order-none min-[980px]:w-auto"
         >
           {areas.map((p) => (
             <a
@@ -222,83 +238,108 @@ export function SiteHeader({
               aria-disabled={blockedLink(destinations[p.id]) || undefined}
               aria-current={group === p.id ? 'page' : undefined}
               className={
-                'flex min-h-8 flex-1 items-center justify-center whitespace-nowrap rounded-lg px-3 text-sm font-medium sm:min-h-9 min-[1000px]:flex-none ' +
+                'flex h-8 shrink-0 items-center justify-center whitespace-nowrap rounded-md px-3 text-[0.8125rem] transition-colors ' +
                 (group === p.id
-                  ? 'bg-brand text-white'
-                  : 'text-ink-soft hover:bg-secondary')
+                  ? 'bg-card font-semibold text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-inset ring-border'
+                  : 'font-medium text-muted-foreground hover:bg-secondary/70 hover:text-foreground')
               }
             >
               {tx(p.label)}
             </a>
           ))}
         </nav>
-        <div className="ml-auto flex items-center gap-1 min-[1000px]:ml-0">
+        <div className="ml-auto flex items-center gap-1.5">
           {!SHOWCASE && !offline && <CommunityStatus />}
           <details ref={settings} className="relative">
-            <summary aria-label={tx('界面设置')} className="flex size-9 cursor-pointer list-none items-center justify-center rounded-lg border bg-card text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
-              <Settings2 className="size-4" />
+            <summary
+              aria-label={tx('界面设置')}
+              className="flex size-8 cursor-pointer list-none items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-[0_1px_1px_rgba(0,0,0,0.02)] transition-colors hover:border-foreground/30 hover:text-foreground [&::-webkit-details-marker]:hidden"
+            >
+              <SlidersHorizontal className="size-3.5" />
             </summary>
-            <div className="absolute right-0 z-50 mt-2 rounded-xl border bg-popover p-3 shadow-lg">
+            <div className="absolute right-0 z-50 mt-2 rounded-xl border border-border bg-popover p-3 shadow-[0_12px_30px_-10px_rgba(0,0,0,0.16)]">
               <LanguageSwitch />
             </div>
           </details>
         </div>
       </div>
-      <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-x-3 px-4 pb-1.5 sm:flex-wrap sm:gap-y-1 sm:px-6 sm:pb-2 lg:px-8">
-        {WORKSPACE_TABS[group].length > 0 && (
-          <nav
-            ref={tabsRef}
-            aria-label={tx('工作区工具')}
-            className={cn('flex min-w-0 gap-1 overflow-x-auto [scrollbar-width:none] max-sm:flex-1 sm:max-w-full sm:shrink-0', moreTabs && '[mask-image:linear-gradient(to_right,#000_calc(100%-2.5rem),transparent)]')}
-          >
-            {WORKSPACE_TABS[group].map(([id, label]) => (
-              <a
-                key={id}
-                href={blockedLink(links[id]) ? undefined : links[id]}
-                aria-disabled={blockedLink(links[id]) || undefined}
-                aria-current={current === id ? 'page' : undefined}
-                className={
-                  'shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium ' +
-                  (current === id
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-muted-foreground hover:bg-card')
-                }
+      {(WORKSPACE_TABS[group].length > 0 || selection.id || selection.phase !== 'saved') && (
+        <div className="border-t border-border/80 bg-card/75">
+          <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-x-4 px-4 sm:flex-wrap sm:gap-y-1 sm:px-6 lg:px-8">
+            {WORKSPACE_TABS[group].length > 0 && (
+              <nav
+                ref={tabsRef}
+                aria-label={tx('工作区工具')}
+                className={cn(
+                  'flex min-w-0 items-center gap-5 overflow-x-auto [scrollbar-width:none] max-sm:flex-1 sm:max-w-full sm:shrink-0',
+                  moreTabs && '[mask-image:linear-gradient(to_right,#000_calc(100%-2.5rem),transparent)]',
+                )}
               >
-                {tx(label)}
-              </a>
-            ))}
-          </nav>
-        )}
-        {/* With nothing selected the bar would only say so; the layout list is one tab away. */}
-        {(selection.id || selection.phase !== 'saved') && <div
-          aria-label={tx('当前布局')}
-          className="flex min-w-0 shrink-0 items-center justify-end gap-x-3 gap-y-1 text-sm sm:flex-1"
-        >
-          <div className="hidden min-w-0 truncate sm:block" title={record && selection.phase === 'saved' ? `${localizedRecordTitle(record, locale)} · ${tx(stateLabel)}` : tx(stateLabel)}>
-            <span className="font-semibold">{tx('当前布局')} · </span>
-            {record && selection.phase === 'saved'
-              ? current === 'layout' ? localizedRecordTitle(record, locale)
-                : <a className="text-primary underline-offset-4 hover:underline" href={links.layout}>{localizedRecordTitle(record, locale)}</a>
-              : tx(stateLabel)}
-            {channels != null && (
-              <span>
-                {' '}
-                · {channels} {tx('电极')}
-              </span>
+                {WORKSPACE_TABS[group].map(([id, label]) => (
+                  <a
+                    key={id}
+                    href={blockedLink(links[id]) ? undefined : links[id]}
+                    aria-disabled={blockedLink(links[id]) || undefined}
+                    aria-current={current === id ? 'page' : undefined}
+                    className={
+                      'relative inline-flex h-9.5 shrink-0 items-center text-[0.8125rem] transition-colors ' +
+                      (current === id
+                        ? 'font-semibold text-foreground after:absolute after:inset-x-0 after:bottom-0 after:h-[2px] after:bg-foreground'
+                        : 'font-medium text-muted-foreground hover:text-foreground')
+                    }
+                  >
+                    {tx(label)}
+                  </a>
+                ))}
+              </nav>
             )}
-            {selection.phase === 'edited' && (
-              <span className="ml-2 text-muted-foreground">
-                {tx('编辑结果不进入固定64点信号协议')}
-              </span>
-            )}
+            {(selection.id || selection.phase !== 'saved') && <div
+              aria-label={tx('当前布局')}
+              className="flex min-w-0 shrink-0 items-center justify-end gap-x-2.5 gap-y-1 py-1.5 text-xs sm:flex-1"
+            >
+              <div
+                className="hidden min-w-0 items-center gap-1.5 truncate rounded-md border border-border bg-background/80 px-2.5 py-1 sm:inline-flex"
+                title={record && selection.phase === 'saved' ? `${localizedRecordTitle(record, locale)} · ${tx(stateLabel)}` : tx(stateLabel)}
+              >
+                <span
+                  aria-hidden
+                  className={cn(
+                    'size-1.5 shrink-0 rounded-full',
+                    selection.phase === 'edited' || selection.phase === 'draft'
+                      ? 'bg-warning'
+                      : record
+                        ? 'bg-success'
+                        : 'bg-foreground/45',
+                  )}
+                />
+                <span className="font-medium text-muted-foreground">{tx('当前布局')}</span>
+                <span aria-hidden className="text-border">·</span>
+                <span className="truncate text-foreground">
+                  {record && selection.phase === 'saved'
+                    ? current === 'layout' ? localizedRecordTitle(record, locale)
+                      : <a className="font-medium underline decoration-border underline-offset-4 hover:decoration-foreground" href={links.layout}>{localizedRecordTitle(record, locale)}</a>
+                    : tx(stateLabel)}
+                </span>
+                {channels != null && (
+                  <span className="shrink-0 font-mono text-muted-foreground tabular-nums">
+                    · {channels} {tx('电极')}
+                  </span>
+                )}
+                {selection.phase === 'edited' && (
+                  <span className="ml-1 shrink-0 text-muted-foreground">
+                    {tx('编辑结果不进入固定64点信号协议')}
+                  </span>
+                )}
+              </div>
+              <div className="shrink-0">
+                <a className="lab-link-pill" href={'/library?ar=' + ar}>
+                  {tx('更换布局')}
+                </a>
+              </div>
+            </div>}
           </div>
-          <div className="shrink-0">
-            <a className="text-primary underline" href={'/library?ar=' + ar}>
-              {tx('更换布局')}
-            </a>
-          </div>
-        </div>}
-      </div>
+        </div>
+      )}
       <ProjectContext currentIsProjects={current === 'projects'} here={here} recordId={selection.phase === 'saved' && record?.status === 'completed' ? record.id : undefined} />
     </header>
   );

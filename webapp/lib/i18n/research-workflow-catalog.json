@@ -1724,5 +1724,273 @@
   "workflow_421": {
     "source": "布局图渲染失败。",
     "en": "The layout figure could not be rendered."
+  },
+  "workflow_422": {
+    "source": "快速批量生成案例",
+    "en": "Quick batch case generation"
+  },
+  "workflow_423": {
+    "source": "已列 {{0}}/{{1}} 个案例",
+    "en": "{{0}}/{{1}} cases listed"
+  },
+  "workflow_424": {
+    "source": "重置为单案例",
+    "en": "Reset to single case"
+  },
+  "workflow_425": {
+    "source": "起始种子",
+    "en": "Starting seed"
+  },
+  "workflow_426": {
+    "source": "批量生成起始种子",
+    "en": "Starting seed for batch generation"
+  },
+  "workflow_427": {
+    "source": "生成4个连续种子",
+    "en": "Generate 4 consecutive seeds"
+  },
+  "workflow_428": {
+    "source": "生成8个连续种子",
+    "en": "Generate 8 consecutive seeds"
+  },
+  "workflow_429": {
+    "source": "生成12个连续种子",
+    "en": "Generate 12 consecutive seeds"
+  },
+  "workflow_430": {
+    "source": "3种半径×2种子（6案例）",
+    "en": "3 radii × 2 seeds (6 cases)"
+  },
+  "workflow_431": {
+    "source": "3种半径×4种子（12案例）",
+    "en": "3 radii × 4 seeds (12 cases)"
+  },
+  "workflow_432": {
+    "source": "填入全部可用头模",
+    "en": "Fill all available head models"
+  },
+  "workflow_433": {
+    "source": "按当前共用随机种子与固定半径一键填入可用头模（最多12个）。",
+    "en": "Populate available head models (up to 12) using the current shared seed and fixed radius."
+  },
+  "workflow_434": {
+    "source": "中位数与 P10–P90 分布图",
+    "en": "Median and P10–P90 distribution"
+  },
+  "workflow_435": {
+    "source": "P10–P90 区间",
+    "en": "P10–P90 interval"
+  },
+  "workflow_436": {
+    "source": "单案例值",
+    "en": "Per-case value"
+  },
+  "workflow_437": {
+    "source": "保留率指标（%，越高越优）",
+    "en": "Retention metrics (%, higher is better)"
+  },
+  "workflow_438": {
+    "source": "定位误差指标（mm，越低越优）",
+    "en": "Localization error metrics (mm, lower is better)"
+  },
+  "workflow_439": {
+    "source": "暂无已完成案例的有效读数，运行完成后将显示中位数与 P10–P90 分布图。",
+    "en": "No valid readings from completed cases yet; the median and P10–P90 distribution chart appears after cases complete."
+  },
+  "workflow_440": {
+    "source": "{{0}}：中位数 {{1}}，P10 {{2}}，P90 {{3}}（有效案例 {{4}}）",
+    "en": "{{0}}: median {{1}}, P10 {{2}}, P90 {{3}} ({{4}} valid cases)"
+  },
+  "workflow_441": {
+    "source": "方案空间布局并排对照",
+    "en": "Side-by-side spatial layout comparison"
+  },
+  "workflow_442": {
+    "source": "同尺度等距方位投影（鼻尖朝上，圆为NAS–LPA–RPA基准平面），直观对照两套方案的区域覆盖与电极疏密。",
+    "en": "Same-scale azimuthal equidistant projection (nose up; circle marks the NAS–LPA–RPA landmark plane) comparing regional coverage and electrode density."
+  },
+  "workflow_443": {
+    "source": "设为偏移测试对象",
+    "en": "Select for offset test"
+  },
+  "workflow_444": {
+    "source": "当前偏移测试对象",
+    "en": "Selected for offset test"
+  },
+  "workflow_445": {
+    "source": "该记录暂无可绘制的64点模板坐标。",
+    "en": "No plottable 64-electrode template coordinates for this record."
+  },
+  "workflow_446": {
+    "source": "最小直线点距：{{0}}",
+    "en": "Min chord spacing: {{0}}"
+  },
+  "workflow_447": {
+    "source": "核心指标直观对照",
+    "en": "Visual comparison of key metrics"
+  },
+  "workflow_448": {
+    "source": "保留率对比（%，越高越优；竖线为启用阈值）",
+    "en": "Retention comparison (%, higher is better; line marks active threshold)"
+  },
+  "workflow_449": {
+    "source": "定位误差对比（mm，越低越优）",
+    "en": "Localization error comparison (mm, lower is better)"
+  },
+  "workflow_450": {
+    "source": "当前坐标 vs 标准全头64（P10–中位数区间图）",
+    "en": "Current coordinates vs standard full-head 64 (P10–median interval chart)"
+  },
+  "workflow_451": {
+    "source": "左端竖线为 P10 下分位，实心标记为中位数；竖虚线为未扰动标准64基准（100%）。",
+    "en": "Left cap marks the P10 lower quantile and the solid marker marks the median; the dashed line marks the unperturbed standard 64 baseline (100%)."
+  },
+  "workflow_452": {
+    "source": "P10–中位数",
+    "en": "P10–median"
+  },
+  "workflow_453": {
+    "source": "单电极脱落最敏感通道（前5名）",
+    "en": "Most sensitive single-electrode dropouts (top 5)"
+  },
+  "workflow_454": {
+    "source": "标准64单点脱落中位数",
+    "en": "Standard 64 single-dropout median"
+  },
+  "workflow_455": {
+    "source": "{{0}}：当前坐标 P10 {{1}}、中位数 {{2}}；标准64 P10 {{3}}、中位数 {{4}}",
+    "en": "{{0}}: current P10 {{1}}, median {{2}}; standard 64 P10 {{3}}, median {{4}}"
+  },
+  "workflow_456": {
+    "source": "最优方向：右上",
+    "en": "Optimal corner: top-right"
+  },
+  "workflow_457": {
+    "source": "最优方向：左上",
+    "en": "Optimal corner: top-left"
+  },
+  "workflow_458": {
+    "source": "最优方向：右下",
+    "en": "Optimal corner: bottom-right"
+  },
+  "workflow_459": {
+    "source": "最优方向：左下",
+    "en": "Optimal corner: bottom-left"
+  },
+  "workflow_460": {
+    "source": "二维前沿包络",
+    "en": "2D front envelope"
+  },
+  "workflow_461": {
+    "source": "第1层（Pareto前沿）",
+    "en": "Rank 1 (Pareto front)"
+  },
+  "workflow_462": {
+    "source": "第2层",
+    "en": "Rank 2"
+  },
+  "workflow_463": {
+    "source": "第3层及以后",
+    "en": "Rank 3+"
+  },
+  "workflow_464": {
+    "source": "悬停或聚焦图上圆点与表格行可联动查看精确指标；点击圆点直接打开布局。",
+    "en": "Hover or focus points and table rows to inspect exact values; click a point to open the layout."
+  },
+  "workflow_465": {
+    "source": "64导目标通道重建拓扑（点击选点）",
+    "en": "64-channel target reconstruction map (click to select)"
+  },
+  "workflow_466": {
+    "source": "自定义64解释率",
+    "en": "Custom 64 R²"
+  },
+  "workflow_467": {
+    "source": "相对标准64差值",
+    "en": "Custom − Standard 64 ΔR²"
+  },
+  "workflow_468": {
+    "source": "预览波形逐通道解释率（1−NMSE）；点击头表电极切换右侧重建波形。",
+    "en": "Per-channel preview R² (1 − NMSE); click any scalp electrode to switch the waveform."
+  },
+  "workflow_469": {
+    "source": "当前目标 {{0}} · 自定义 {{1}} · 标准64 {{2}}",
+    "en": "Target {{0}} · Custom {{1}} · Standard 64 {{2}}"
+  },
+  "workflow_470": {
+    "source": "64电极投影位移分布（2.0 mm 合格上限）",
+    "en": "64-electrode projection movement distribution (2.0 mm limit)"
+  },
+  "workflow_471": {
+    "source": "合格 {{0}}/{{1}} · 超限 {{2}} · 中位 {{3}} mm · 最大 {{4}} mm",
+    "en": "Pass {{0}}/{{1}} · Over limit {{2}} · Median {{3}} mm · Max {{4}} mm"
+  },
+  "workflow_472": {
+    "source": "按原电极顺序",
+    "en": "Original electrode order"
+  },
+  "workflow_473": {
+    "source": "按位移降序排列",
+    "en": "Sort by movement (high to low)"
+  },
+  "workflow_474": {
+    "source": "2.0 mm 上限",
+    "en": "2.0 mm limit"
+  },
+  "workflow_475": {
+    "source": "阈值 τ {{0}}% · 基准 100%",
+    "en": "Threshold τ {{0}}% · Baseline 100%"
+  },
+  "workflow_476": {
+    "source": "原始64点竖线对照",
+    "en": "Line marks original 64-point value"
+  },
+  "workflow_477": {
+    "source": "初始目标值",
+    "en": "Initial objective"
+  },
+  "workflow_478": {
+    "source": "最终目标值",
+    "en": "Final objective"
+  },
+  "workflow_479": {
+    "source": "优化净变化",
+    "en": "Net change"
+  },
+  "workflow_480": {
+    "source": "步数 {{0}}",
+    "en": "Step {{0}}"
+  },
+  "workflow_481": {
+    "source": "二维电极移动轨迹（初始化 → 优化后）",
+    "en": "2D electrode movement trajectories (initial → optimized)"
+  },
+  "workflow_482": {
+    "source": "共 {{0}}/64 个槽位发生移动，最大三维位移 {{1}} mm",
+    "en": "{{0}}/64 slots moved; max 3D displacement {{1}} mm"
+  },
+  "workflow_483": {
+    "source": "弱源敏感度",
+    "en": "Weak-source sensitivity"
+  },
+  "workflow_484": {
+    "source": "界面语言",
+    "en": "Interface language"
+  },
+  "workflow_485": {
+    "source": "外观主题",
+    "en": "Appearance"
+  },
+  "workflow_486": {
+    "source": "浅色",
+    "en": "Light"
+  },
+  "workflow_487": {
+    "source": "深色",
+    "en": "Dark"
+  },
+  "workflow_488": {
+    "source": "跟随系统",
+    "en": "System"
   }
 }

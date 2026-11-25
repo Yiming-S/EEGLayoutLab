@@ -3,7 +3,7 @@ import { useLanguage } from '@/components/language-provider';
 
 /* oxlint-disable next/no-html-link-for-pages -- preserve established vinext navigation */
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Download, Info, RefreshCcw } from 'lucide-react';
+import { ArrowRight, ChevronDown, Download, Info, RefreshCcw } from 'lucide-react';
 import {
   CartesianGrid,
   Legend,
@@ -16,6 +16,7 @@ import {
   YAxis,
 } from 'recharts';
 import { SiteHeader } from '@/components/site-header';
+import { buttonVariants } from '@/components/ui/button';
 import { parseAR, methodLink } from '@/lib/lab-workflow';
 import { retentionPercent as pct } from '@/lib/fixed64-results';
 import {
@@ -37,9 +38,8 @@ const Head = lazy(() =>
     default: m.ClusterHeadViewer,
   })),
 );
-const panel = 'rounded-2xl border border-border bg-white p-5 sm:p-6';
-const select =
-  'mt-2 h-11 w-full rounded-xl border border-border bg-white px-3 text-sm text-foreground focus:ring-2 focus:ring-primary';
+const panel = 'lab-panel';
+const select = 'lab-select';
 const mm = (value?: number | null) =>
   value == null ? '指标无法计算' : `${value.toFixed(2)} mm`;
 
@@ -159,21 +159,21 @@ export default function ResultsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
+    <main className="lab-page">
       <SiteHeader current="results" arPercent={ar} returnHref={here} />
-      <div className="mx-auto max-w-[1500px] space-y-6 px-4 py-7 sm:px-6 lg:px-8">
-        <a className="inline-block text-sm font-semibold text-primary underline" href={'/findings?ar=' + ar}>{tx("← 返回当前已有结果")}</a>
+      <div className="lab-container space-y-6 py-6">
+        <a className="lab-link-pill" href={'/findings?ar=' + ar}>{tx("← 返回当前已有结果")}</a>
         <header className="flex flex-wrap items-end justify-between gap-5">
           <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-[.16em] text-primary">
+            <p className="lab-eyebrow mb-1.5">
               {tx("历史批次 · 固定64电极")}</p>
-            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               {tx("历史半径实验 · 原始比较")}</h1>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-ink-soft">
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-ink-soft">
               {tx("本页保留早期半径实验，允许区域相交，不等同于当前严格分离区域比较。原始布局、指标和曲线保留，只读查看。")}</p>
           </div>
           <a
-            className="inline-flex items-center gap-2 rounded-xl border border-border bg-white px-4 py-3 text-sm font-medium"
+            className={buttonVariants({ variant: 'outline' })}
             href="/data/single_head_optimization.json"
             download
           >
@@ -190,17 +190,17 @@ export default function ResultsPage() {
                 '正在读取单头模实验的204项状态记录及布局坐标。')}
             </p>
             <button
-              className="inline-flex items-center gap-2 text-sm text-primary"
+              className="lab-link-pill"
               onClick={() => setRetry((v) => v + 1)}
             >
-              <RefreshCcw className="size-4" />
+              <RefreshCcw className="size-3.5" />
               {tx("重新读取")}</button>
           </section>
         ))}
         {tx(data && (
           <>
             <section
-              className="grid gap-3 sm:grid-cols-4"
+              className="grid gap-3.5 sm:grid-cols-4"
               aria-label={tx("实验完成情况")}
             >
               {tx([
@@ -214,27 +214,27 @@ export default function ResultsPage() {
                 ['本历史批次头模', '1', '跨头模验证：另列阶段，未开始'],
               ].map(([label, value, detail]) => (
                 <div className={panel} key={label}>
-                  <p className="text-sm text-ink-soft">{tx(label)}</p>
-                  <p className="my-2 font-mono text-3xl font-semibold">
+                  <p className="text-xs font-medium text-ink-soft">{tx(label)}</p>
+                  <p className="my-2 font-mono text-2xl font-semibold tabular-nums sm:text-3xl">
                     {tx(value)}
                   </p>
                   <p className="text-xs leading-5 text-ink-soft">{tx(detail)}</p>
                 </div>
               )))}
             </section>
-            <aside className="flex gap-3 rounded-xl border border-warning/40 bg-warning-surface px-5 py-4 text-sm leading-6 text-warning">
-              <Info className="mt-1 size-4 shrink-0" />
+            <aside className="flex gap-3 rounded-xl border border-warning/30 bg-warning-surface/75 px-4 py-3 text-xs leading-5 text-warning shadow-2xs">
+              <Info className="mt-0.5 size-4 shrink-0" />
               <p>
                 {tx("百分比为相对全头64点的模型内指标。搜索由信号重建和敏感度引导，定位在最终布局上统一评估。AR用于当前头模与当前SNR的阈值筛选。")}</p>
             </aside>
-            <section className="grid items-start gap-6 xl:grid-cols-[330px_minmax(0,1fr)]">
-              <div className={`${panel} space-y-5`}>
+            <section className="grid items-start gap-5 xl:grid-cols-[340px_minmax(0,1fr)]">
+              <div className={`${panel} space-y-4`}>
                 <div>
-                  <h2 className="text-xl font-semibold">{tx("所选布局条件（历史记录）")}</h2>
-                  <p className="mt-2 text-sm leading-6 text-ink-soft">
+                  <h2 className="text-lg font-semibold">{tx("所选布局条件（历史记录）")}</h2>
+                  <p className="mt-1.5 text-xs leading-5 text-ink-soft">
                     {tx("只显示已生成完整64点的尺寸。未构造成功的条件单独列在下方。")}</p>
                 </div>
-                <label className="block text-sm font-medium">
+                <label className="lab-label">
                   {tx("区域数量")}<select
                     className={select}
                     value={regions}
@@ -246,7 +246,7 @@ export default function ResultsPage() {
                     )))}
                   </select>
                 </label>
-                <label className="block text-sm font-medium">
+                <label className="lab-label">
                   {tx("位置约束")}<select
                     className={select}
                     value={family}
@@ -262,7 +262,7 @@ export default function ResultsPage() {
                   </select>
                 </label>
                 <div className="grid grid-cols-2 gap-3">
-                  <label className="block text-sm font-medium">
+                  <label className="lab-label">
                     {tx("最小电极间距")}<select
                       className={select}
                       value={spacing}
@@ -275,7 +275,7 @@ export default function ResultsPage() {
                       )))}
                     </select>
                   </label>
-                  <label className="block text-sm font-medium">
+                  <label className="lab-label">
                     {tx("半径上限")}<select
                       className={select}
                       value={selected?.radius_mm ?? ''}
@@ -293,7 +293,7 @@ export default function ResultsPage() {
                     </select>
                   </label>
                 </div>
-                <label className="block text-sm font-medium">
+                <label className="lab-label">
                   {tx("优化分支")}<select
                     className={select}
                     value={objective}
@@ -304,7 +304,7 @@ export default function ResultsPage() {
                       {tx("提高信号重建与敏感度的较低项")}</option>
                   </select>
                 </label>
-                <label className="block text-sm font-medium">
+                <label className="lab-label">
                   {tx("统一噪声档位")}<select
                     className={select}
                     value={snr}
@@ -317,7 +317,7 @@ export default function ResultsPage() {
                     )))}
                   </select>
                 </label>
-                <p className="border-t border-border pt-4 text-xs leading-5 text-ink-soft">
+                <p className="border-t border-border/70 pt-3.5 text-xs leading-5 text-ink-soft">
                   {tx("点距为欧氏弦距；半径为网格边路径上限。少毛发候选区为坐标近似范围，人体可佩戴范围尚待审核。")}</p>
               </div>
               <div className="min-w-0 space-y-4">
@@ -340,7 +340,7 @@ export default function ResultsPage() {
                       <p className="font-semibold">
                         {tx(familyLabel(selected.family_id))} · {tx(selected.R)}{tx("区 ·")}{tx(' ')}
                         {tx(variant.accepted_moves)}{tx("次接受的优化移动")}</p>
-                      <p className="mt-2 text-ink-soft">
+                      <p className="mt-1.5 text-ink-soft">
                         {tx("20 dB信号重建：")}{tx(pct(variant.initial.field20))} →{tx(' ')}
                         {tx(pct(metricAt(variant, 20)?.field_relative))}{tx("；敏感度：")}{tx(pct(variant.initial.sensitivity_tail))} →{tx(' ')}
                         {tx(pct(metricAt(variant, 20)?.sensitivity_tail))}。
@@ -363,70 +363,70 @@ export default function ResultsPage() {
               </div>
             </section>
             <section className={panel}>
-              <h2 className="text-xl font-semibold">
+              <h2 className="text-lg font-semibold">
                 {tx("与全头64点放在同一个尺度上比较")}</h2>
-              <div className="mt-5 overflow-x-auto">
+              <div className="lab-table-frame mt-4">
                 <table className="w-full min-w-[650px] text-left text-sm">
                   <thead>
-                    <tr className="border-b border-border text-ink-soft">
-                      <th className="py-3">{tx("指标")}</th>
-                      <th>{tx("所选布局")}</th>
-                      <th>{tx("全头64点")}</th>
-                      <th>{tx("相对保留率")}</th>
+                    <tr className="border-b border-border/75 bg-muted/55 text-xs font-semibold tracking-wide text-ink-soft">
+                      <th className="px-4 py-3">{tx("指标")}</th>
+                      <th className="px-3 py-3">{tx("所选布局")}</th>
+                      <th className="px-3 py-3">{tx("全头64点")}</th>
+                      <th className="px-4 py-3">{tx("相对保留率")}</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr className="border-b border-border">
-                      <th className="py-4 font-medium">{tx("干净全头场能量解释率")}</th>
-                      <td>{tx(pct(metrics?.field_absolute))}</td>
-                      <td>{tx(pct(baseline?.field_absolute))}</td>
-                      <td>{tx(pct(metrics?.field_relative))}</td>
+                    <tr className="border-b border-border/65">
+                      <th className="px-4 py-3.5 font-medium">{tx("干净全头场能量解释率")}</th>
+                      <td className="px-3 font-mono tabular-nums">{tx(pct(metrics?.field_absolute))}</td>
+                      <td className="px-3 font-mono tabular-nums">{tx(pct(baseline?.field_absolute))}</td>
+                      <td className="px-4 font-mono font-medium tabular-nums">{tx(pct(metrics?.field_relative))}</td>
                     </tr>
-                    <tr className="border-b border-border">
-                      <th className="py-4 font-medium">
+                    <tr className="border-b border-border/65">
+                      <th className="px-4 py-3.5 font-medium">
                         {tx("相对幅度比最低10%源面积的平均值")}</th>
-                      <td>{tx("以全头归一化")}</td>
-                      <td>100%</td>
-                      <td>{tx(pct(metrics?.sensitivity_tail))}</td>
+                      <td className="px-3">{tx("以全头归一化")}</td>
+                      <td className="px-3 font-mono">100%</td>
+                      <td className="px-4 font-mono font-medium tabular-nums">{tx(pct(metrics?.sensitivity_tail))}</td>
                     </tr>
-                    <tr className="border-b border-border">
-                      <th className="py-4 font-medium">
+                    <tr className="border-b border-border/65">
+                      <th className="px-4 py-3.5 font-medium">
                         {tx("下尾定位评分 U（0—1）")}</th>
-                      <td>
+                      <td className="px-3 font-mono tabular-nums">
                         {tx(metrics?.localization_utility?.toFixed(4) ?? '指标无法计算')}
                       </td>
-                      <td>{tx(baseline?.loc_util?.toFixed(4) ?? '指标无法计算')}</td>
-                      <td>{tx(pct(metrics?.localization_relative))}</td>
+                      <td className="px-3 font-mono tabular-nums">{tx(baseline?.loc_util?.toFixed(4) ?? '指标无法计算')}</td>
+                      <td className="px-4 font-mono font-medium tabular-nums">{tx(pct(metrics?.localization_relative))}</td>
                     </tr>
                     <tr>
-                      <th className="py-4 font-medium">
+                      <th className="px-4 py-3.5 font-medium">
                         {tx("定位误差：中位数 / P90 / P95")}</th>
-                      <td>
+                      <td className="px-3 font-mono tabular-nums">
                         {tx(mm(metrics?.median_mm))} / {tx(mm(metrics?.p90_mm))} /{tx(' ')}
                         {tx(mm(metrics?.p95_mm))}
                       </td>
-                      <td>
+                      <td className="px-3 font-mono tabular-nums">
                         {tx(mm(baseline?.median_mm))} / {tx(mm(baseline?.p90_mm))} /{tx(' ')}
                         {tx(mm(baseline?.p95_mm))}
                       </td>
-                      <td>{tx("绝对误差，越小越好")}</td>
+                      <td className="px-4 text-muted-foreground">{tx("绝对误差，越小越好")}</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
-              <p className="mt-4 text-xs leading-6 text-ink-soft">
+              <p className="mt-3 text-xs leading-6 text-ink-soft">
                 {tx("U：每次试验取 max(0, 1 − 误差/50 mm)，先对同一源的16次噪声取均值，再取最低10%源面积的加权均值。基准U为零时比值和三项最低相对评分G未定义。各指标分别报告。")}</p>
             </section>
             <section className={panel}>
               <div className="flex flex-wrap items-end justify-between gap-4">
-                <div>
-                  <h2 className="text-xl font-semibold">
+                <div className="max-w-3xl">
+                  <h2 className="text-lg font-semibold">
                     {tx("曲线比较条件（独立于上方布局选择）")}</h2>
-                  <p className="mt-2 text-sm text-ink-soft">
+                  <p className="mt-1.5 text-sm text-ink-soft">
                     {tx("各点取两个优化分支中当前指标的较高值，对应布局可随半径和指标变化；曲线范围为已计算布局。 比较固定每区半径；区域数量变化时，总贴片面积也随之变化。")}</p>
                 </div>
                 <div className="flex flex-wrap gap-3">
-                  <label className="text-sm text-ink-soft">
+                  <label className="lab-label min-w-[180px]">
                     {tx("比较范围")}<select
                       className={select}
                       value={curveMode}
@@ -436,7 +436,7 @@ export default function ResultsPage() {
                       <option value="low_hair_free">{tx("低毛发近似约束")}</option>
                     </select>
                   </label>
-                  <label className="text-sm text-ink-soft">
+                  <label className="lab-label min-w-[200px]">
                     {tx("曲线指标")}<select
                       className={select}
                       value={criterion}
@@ -454,10 +454,10 @@ export default function ResultsPage() {
                 </div>
               </div>
               <figure
-                className="mt-6 h-[360px]"
+                className="mt-5 h-[350px] rounded-xl border border-border/65 bg-muted/20 p-3"
                 aria-label={tx("五种区域数量的半径与性能比较")}
               >
-                <ResponsiveContainer width="100%" height={360}>
+                <ResponsiveContainer width="100%" height="100%">
                   <LineChart
                     data={curve}
                     margin={{ left: 0, right: 20, top: 15, bottom: 10 }}
@@ -466,21 +466,24 @@ export default function ResultsPage() {
                     <CartesianGrid
                       strokeDasharray="3 3"
                       vertical={false}
-                      stroke="#e0e8e5"
+                      stroke="var(--border)"
                     />
                     <XAxis
                       dataKey="radius"
                       type="number"
                       domain={[20, 80]}
                       ticks={data.config.radius_caps_mm}
+                      tick={{ fontSize: 12 }}
                       tickFormatter={(v) => tx(`${v} mm`)}
                     />
                     <YAxis
                       width={55}
                       domain={[0, 'auto']}
+                      tick={{ fontSize: 12 }}
                       tickFormatter={(v) => tx(`${v}%`)}
                     />
                     <Tooltip
+                      contentStyle={{ borderRadius: '0.75rem', borderColor: 'var(--border)' }}
                       formatter={(v) =>
                         tx(typeof v === 'number' ? `${v.toFixed(2)}%` : '指标无法计算')
                       }
@@ -489,14 +492,14 @@ export default function ResultsPage() {
                     <Legend />
                     <ReferenceLine
                       y={100}
-                      stroke="#718589"
+                      stroke="var(--chart-reference)"
                       strokeDasharray="4 4"
                       ifOverflow="extendDomain"
                     />
                     {tx(criterion === 'conditional_global' && (
                       <ReferenceLine
                         y={ar}
-                        stroke="#b86b29"
+                        stroke="var(--chart-threshold)"
                         strokeDasharray="6 4"
                         ifOverflow="extendDomain"
                         label={tx(`AR ${ar}%`)}
@@ -508,7 +511,7 @@ export default function ResultsPage() {
                         dataKey={`r${r}`}
                         name={tx(`${r}个区域`)}
                         stroke={REGION_COLORS[i]}
-                        strokeWidth={2.5}
+                        strokeWidth={2.25}
                         type="linear"
                         dot={{ r: 4 }}
                         connectNulls={false}
@@ -522,21 +525,22 @@ export default function ResultsPage() {
                 {tx("当前统一档位：")}{tx(snr)} {tx(" dB、点距")}{tx(spacing)}{tx(' ')}
                 {tx("mm。空缺为未获得布局或指标未定义，不画成0%。连线仅连接计算点，不估计中间半径。")}</p>
             </section>
-            <section className="grid gap-6 lg:grid-cols-2">
+            <section className="grid gap-5 lg:grid-cols-2">
               <div className={panel}>
-                <h2 className="text-xl font-semibold">
+                <h2 className="text-lg font-semibold">
                   {tx("接受阈值 AR（本历史批次）")}</h2>
                 <label
-                  className="mt-5 flex items-center justify-between text-sm"
+                  className="mt-4 flex items-center justify-between text-sm"
                   htmlFor="conditional-ar"
                 >
-                  {tx("要求三项相对保留率均达到")}<span className="font-mono text-2xl font-semibold">
+                  <span>{tx("要求三项相对保留率均达到")}</span>
+                  <span className="rounded-md bg-primary/10 px-2.5 py-0.5 font-mono text-lg font-semibold tabular-nums text-primary ring-1 ring-inset ring-primary/20">
                     {tx(ar)}%
                   </span>
                 </label>
                 <input
                   id="conditional-ar"
-                  className="my-5 w-full accent-primary"
+                  className="my-4 w-full accent-primary"
                   type="range"
                   min="10"
                   max="100"
@@ -544,7 +548,7 @@ export default function ResultsPage() {
                   value={ar}
                   onChange={(e) => setAr(Number(e.target.value))}
                 />
-                <p className="rounded-xl bg-background p-4 text-sm leading-6">
+                <p className="lab-subpanel text-sm leading-6">
                   {tx("所选布局：")}{tx(decision === 'pass'
                     ? '通过此模型条件阈值'
                     : decision === 'fail'
@@ -552,22 +556,22 @@ export default function ResultsPage() {
                       : '指标无法计算，无法判断是否达到AR')}
                   {tx("。三项最低相对评分 ")}{tx(pct(metrics?.conditional_global))}。
                 </p>
-                <p className="mt-4 text-sm leading-6 text-ink-soft">
+                <p className="mt-3.5 text-sm leading-6 text-ink-soft">
                   {tx("在曲线所选范围、")}{tx(spacing)} {tx(" mm点距及")}{tx(snr)} {tx(" dB下，")}{tx(passRows.length
                     ? `找到${passRows.length}个通过的配置／分支；按区域数优先、再按半径排序，首个为${passRows[0].c.R}区、半径上限${passRows[0].c.radius_mm} mm。`
                     : '本批已评分布局均未达到当前AR；其他布局仍待搜索。')}
                   {tx("此范围已找到的最高三项最低相对评分 G为")}{tx(' ')}
                   {tx(highestFoundAR == null ? '指标无法计算' : pct(highestFoundAR))}。
                 </p>
-                <p className="mt-3 text-xs leading-5 text-ink-soft">
+                <p className="mt-2.5 text-xs leading-5 text-ink-soft">
                   {tx("筛选范围为本批有限搜索得到的布局，阈值适用于当前模型条件。总电极数固定为64，跨人群阈值另行验证。")}</p>
-                <div className="mt-5 overflow-x-auto">
+                <div className="lab-table-frame mt-4">
                   <table className="w-full text-left text-xs">
                     <thead>
-                      <tr className="border-b border-border text-ink-soft">
-                        <th className="py-3">{tx("区域数")}</th>
-                        <th>{tx("达到AR的最小已测半径")}</th>
-                        <th>{tx("已找到最高 G")}</th>
+                      <tr className="border-b border-border/75 bg-muted/55 font-semibold text-ink-soft">
+                        <th className="px-3.5 py-2.5">{tx("区域数")}</th>
+                        <th className="px-3 py-2.5">{tx("达到AR的最小已测半径")}</th>
+                        <th className="px-3.5 py-2.5">{tx("已找到最高 G")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -589,9 +593,9 @@ export default function ResultsPage() {
                             (v): v is number => v != null && Number.isFinite(v),
                           );
                         return (
-                          <tr className="border-b border-border" key={r}>
-                            <th className="py-3 font-medium">{tx(r)}{tx("区")}</th>
-                            <td>
+                          <tr className="border-b border-border/65 last:border-0" key={r}>
+                            <th className="px-3.5 py-2.5 font-medium">{tx(r)}{tx("区")}</th>
+                            <td className="px-3 py-2.5">
                               {tx(first ? (
                                 <button
                                   className="font-medium text-primary underline underline-offset-4"
@@ -607,7 +611,7 @@ export default function ResultsPage() {
                                 '未找到'
                               ))}
                             </td>
-                            <td>
+                            <td className="px-3.5 py-2.5 font-mono tabular-nums">
                               {tx(values.length
                                 ? pct(Math.max(...values))
                                 : '指标无法计算')}
@@ -620,42 +624,42 @@ export default function ResultsPage() {
                 </div>
               </div>
               <div className={panel}>
-                <h2 className="text-xl font-semibold">{tx("实验阶段与适用范围")}</h2>
-                <ol className="mt-5 space-y-4 text-sm leading-6">
-                  <li>
+                <h2 className="text-lg font-semibold">{tx("实验阶段与适用范围")}</h2>
+                <ol className="mt-4 space-y-3.5 text-sm leading-6">
+                  <li className="lab-subpanel">
                     <span className="font-semibold text-primary">
                       {tx("历史阶段一 · 本批半径实验结果")}</span>
                     <br />
                     {tx("单Ernie FEM；5,387候选点；1/2/3/4/6区；204条件；有限中心与坐标交换搜索；统一场、敏感度及离散定位评价。")}</li>
-                  <li>
+                  <li className="lab-subpanel">
                     <span className="font-semibold">
                       {tx("阶段二 · 独立头模验证，未开始")}</span>
                     <br />
                     {tx("冻结本阶段入围布局，再检验不同解剖、导电率、源分布与噪声。本历史批次完成单头模评价，独立头模验证另列阶段。")}</li>
-                  <li>
+                  <li className="lab-subpanel">
                     <span className="font-semibold">{tx("后续评价范围")}</span>
                     <br />
                     {tx("连续位置最优性、最小面积、真实毛发范围、人体定位误差及MI/P300分类表现均尚待评价。")}</li>
                 </ol>
                 <a
-                  className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-primary"
+                  className="mt-4 lab-link-pill text-sm"
                   href={methodLink(here, ar, '#single-head-optimization')}
                 >
-                  {tx("查看计算定义与限制")}<ArrowRight className="size-4" />
+                  {tx("查看计算定义与限制")}<ArrowRight className="size-3.5" />
                 </a>
               </div>
             </section>
             <section className={panel}>
-              <h2 className="text-xl font-semibold">
+              <h2 className="text-lg font-semibold">
                 {tx("全量检查：每种区域数是否完成比较")}</h2>
-              <div className="mt-4 overflow-x-auto">
+              <div className="lab-table-frame mt-4">
                 <table className="w-full min-w-[560px] text-left text-sm">
                   <thead>
-                    <tr className="border-b text-ink-soft">
-                      <th className="py-3">{tx("区域数 / 点数分配")}</th>
-                      <th>{tx("已检查")}</th>
-                      <th>{tx("获得评分布局")}</th>
-                      <th>{tx("预算内未构造成功")}</th>
+                    <tr className="border-b border-border/75 bg-muted/55 text-xs font-semibold tracking-wide text-ink-soft">
+                      <th className="px-4 py-3">{tx("区域数 / 点数分配")}</th>
+                      <th className="px-3 py-3">{tx("已检查")}</th>
+                      <th className="px-3 py-3">{tx("获得评分布局")}</th>
+                      <th className="px-4 py-3">{tx("预算内未构造成功")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -663,22 +667,24 @@ export default function ResultsPage() {
                       const all = data.conditions.filter((c) => c.R === r);
                       const ok = all.filter((c) => c.variants.length).length;
                       return (
-                        <tr key={r} className="border-b border-border">
-                          <th className="py-4 font-medium">
+                        <tr key={r} className="border-b border-border/65 last:border-0">
+                          <th className="px-4 py-3 font-medium">
                             {tx(r)}{tx("区 · ")}{tx(allocationFor(r).join('+'))}
                           </th>
-                          <td>{tx(all.length)}</td>
-                          <td>{tx(ok)}</td>
-                          <td>{tx(all.length - ok)}</td>
+                          <td className="px-3 font-mono tabular-nums">{tx(all.length)}</td>
+                          <td className="px-3 font-mono tabular-nums">{tx(ok)}</td>
+                          <td className="px-4 font-mono tabular-nums">{tx(all.length - ok)}</td>
                         </tr>
                       );
                     }))}
                   </tbody>
                 </table>
               </div>
-              <details className="mt-5">
-                <summary className="cursor-pointer text-sm font-medium text-ink-soft">
-                  {tx("查看本轮搜索未获得完整布局的条件")}</summary>
+              <details className="group/fail mt-4 rounded-xl border border-border/70 bg-muted/25 px-3.5 py-2.5">
+                <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-medium text-ink-soft select-none [&::-webkit-details-marker]:hidden">
+                  <span>{tx("查看本轮搜索未获得完整布局的条件")}</span>
+                  <ChevronDown aria-hidden className="size-4 text-muted-foreground transition-transform group-open/fail:rotate-180" />
+                </summary>
                 <ul className="mt-3 max-h-72 space-y-2 overflow-auto text-xs leading-5 text-ink-soft">
                   {tx(data.conditions
                     .filter((c) => !c.variants.length)
@@ -695,13 +701,13 @@ export default function ResultsPage() {
                 </ul>
               </details>
             </section>
-            <footer className="flex flex-wrap justify-between gap-4 py-4 text-xs leading-6 text-ink-soft">
-              <div>
+            <footer className="flex flex-wrap items-center justify-between gap-4 py-3 text-xs leading-6 text-ink-soft">
+              <div className="font-mono">
                 {tx("运行 ")}{tx(data.provenance.run_id)}
                 <br />
                 {tx("数据SHA256 ")}{tx(data.provenance.report_sha256)}
               </div>
-              <a className="text-primary underline" href={'/pilot-results?ar=' + ar}>
+              <a className="lab-link-pill" href={'/pilot-results?ar=' + ar}>
                 {tx("保留的首批双区域原型结果")}</a>
             </footer>
           </>

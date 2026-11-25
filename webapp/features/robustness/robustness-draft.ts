@@ -7,6 +7,58 @@ export const STUDY_DRAFT_LIMIT = 65536;
 export const STUDY_CASE_LIMIT = 12;
 export const STUDY_RADII = [3, 6, 10] as const;
 export type CaseDraft = { seed: string; radius: string; head?: string };
+const normalizeSeed = (raw: string, fallback = 42) => {
+  const parsed = Number.parseInt(raw.trim(), 10);
+  return Number.isFinite(parsed) ? Math.min(9999, Math.max(0, Math.trunc(parsed))) : fallback;
+};
+const normalizeRadius = (radius: string) =>
+  STUDY_RADII.some((item) => String(item) === radius) ? radius : "6";
+/** Generate 1..STUDY_CASE_LIMIT consecutive integer seeds (wrapping modulo 10000) at a shared radius. */
+export function generateConsecutiveSeedCases(
+  startSeed: string,
+  count: number,
+  radius: string,
+): CaseDraft[] {
+  const total = Math.min(STUDY_CASE_LIMIT, Math.max(1, Math.trunc(count))),
+    base = normalizeSeed(startSeed),
+    validRadius = normalizeRadius(radius);
+  return Array.from({ length: total }, (_, index) => ({
+    seed: String((base + index) % 10000),
+    radius: validRadius,
+  }));
+}
+/** Generate crossed (seed, radius) cases across STUDY_RADII for grid-displacement studies, capped at STUDY_CASE_LIMIT. */
+export function generateRadiusSeedGridCases(
+  startSeed: string,
+  seedsPerRadius = 4,
+  radii: readonly number[] = STUDY_RADII,
+): CaseDraft[] {
+  const perRadius = Math.max(1, Math.trunc(seedsPerRadius)),
+    base = normalizeSeed(startSeed),
+    rows: CaseDraft[] = [];
+  for (const radius of radii) {
+    for (let index = 0; index < perRadius && rows.length < STUDY_CASE_LIMIT; index++) {
+      rows.push({ seed: String((base + index) % 10000), radius: String(radius) });
+    }
+  }
+  return rows.length > 0 ? rows : [{ seed: String(base), radius: "6" }];
+}
+/** Populate up to STUDY_CASE_LIMIT unique precomputed head models sharing one seed and radius. */
+export function generateAllHeadCases(
+  seed: string,
+  radius: string,
+  heads: { head_id: string }[],
+): CaseDraft[] {
+  const sharedSeed = String(normalizeSeed(seed)),
+    sharedRadius = normalizeRadius(radius),
+    uniqueHeads = [...new Set(heads.map((head) => head.head_id).filter(Boolean))].slice(
+      0,
+      STUDY_CASE_LIMIT,
+    );
+  return uniqueHeads.length > 0
+    ? uniqueHeads.map((head) => ({ seed: sharedSeed, radius: sharedRadius, head }))
+    : [{ seed: sharedSeed, radius: sharedRadius, head: "" }];
+}
 /** Give each row without a known head the first head no other row uses; one shared seed pairs the noise draws. */
 export function fillHeads(rows: CaseDraft[], heads: { head_id: string }[]): CaseDraft[] {
   const known = new Set(heads.map((head) => head.head_id)),
