@@ -61,6 +61,7 @@ STAGE_CODE = {"scalp.npz": ("src/compact_eeg/workflows/head_package.py",),
 # entry when a change touches what a stage computes.
 SAME_STAGE_CODE = {"scripts/build_head_package.py": frozenset({
     "f19914806fb2c40a5885838834ddd4e5b15afa5ccc26bbae16436a4a862e611e",  # 0.2.0: recorded input paths with links followed
+    "959eb642cf62907ef9315dc6820917ace9656bde5d83de5bdb12234f40fcc01c",  # input aliases and preflight only; same stage arrays
 })}
 CHARM_LABELS = Path("label_prep/tissue_labeling_upsampled.nii.gz")  # written after the MNI warps
 LICENSES = {"IXI": {"license": "CC BY-SA 3.0", "url": "https://brain-development.org/ixi-dataset/",
@@ -240,6 +241,16 @@ def run_charm(head_id, t1, t2, work, stages, save_stages, resume_requested, forc
 def build(args, root):
     started = time.perf_counter()
     head_id = hp.check_head_id(args.head_id)
+    ernie_m2m = Path(os.path.abspath(root / args.ernie_m2m))
+    recorded_ernie = recorded_path(root, ernie_m2m)
+    if not args.t1:
+        m2m = Path(os.path.abspath(args.m2m))
+        recorded_path(root, m2m)
+    # Refuse unusable reference inputs before creating output or starting a long charm run.
+    if not ernie_m2m.is_dir() or not (ernie_m2m / "ernie.msh").is_file():
+        raise SystemExit(f"--ernie-m2m must name an existing m2m folder containing ernie.msh: {ernie_m2m}")
+    if sha256_file(ernie_m2m / "ernie.msh") != json.loads((root / "configs/ernie_fem_point_pilot.json").read_text())["mesh_sha256"]:
+        raise SystemExit("The Ernie m2m folder is not the frozen Ernie head")
     directory = root / hp.package_dir(head_id)
     directory.mkdir(parents=True, exist_ok=True)
     stage_path = directory / "stages.json"
@@ -253,11 +264,9 @@ def build(args, root):
         inputs["t1_sha256"] = stages["charm"]["inputs"]["t1_sha256"]
         if args.t2:
             inputs["t2_sha256"] = stages["charm"]["inputs"]["t2_sha256"]
-    else:
-        m2m = Path(os.path.abspath(args.m2m))  # as named: a link under the root is recorded by its own path
-    mesh_path = m2m / f"{m2m.name.removeprefix('m2m_')}.msh"
-    ernie_m2m = Path(os.path.abspath(root / args.ernie_m2m))
-    paths = {"m2m": recorded_path(root, m2m), "mesh": recorded_path(root, mesh_path), "ernie_m2m": recorded_path(root, ernie_m2m)}
+    # The subject name belongs to the target folder; the recorded path keeps the user's alias.
+    mesh_path = m2m / f"{m2m.resolve().name.removeprefix('m2m_')}.msh"
+    paths = {"m2m": recorded_path(root, m2m), "mesh": recorded_path(root, mesh_path), "ernie_m2m": recorded_ernie}
     central = [m2m / "surfaces" / f"{side}.central.gii" for side in ("lh", "rh")]
     spheres = [m2m / "surfaces" / f"{side}.sphere.reg.gii" for side in ("lh", "rh")]
     import simnibs

@@ -225,11 +225,11 @@ export default function ElectrodesPage() {
         }
       />
       <div className="lab-container">
-        <header className="mb-5 border-b border-border pt-6 pb-4">
-          <h1 className="text-[1.45rem] font-semibold tracking-[-0.03em]">
+        <header className="mb-5 border-b border-border pt-7 pb-5">
+          <h1 className="text-2xl font-semibold tracking-[-0.028em] sm:text-[1.65rem]">
             {tx('电极编辑：调整点位与启用数量')}
           </h1>
-          <p className="mt-1 text-[0.8125rem] text-muted-foreground">
+          <p className="mt-1.5 text-sm text-muted-foreground">
             {tx('从已有布局创建副本。原区域边界不变，原始64点记录不被覆盖。')}
           </p>
         </header>

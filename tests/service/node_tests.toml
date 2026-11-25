@@ -1087,6 +1087,9 @@ disposition = "N"
 [sites."check-layout-figure.mjs::the electrode positions fit inside the figure above the legend"]
 disposition = "N"
 
+[sites."check-layout-figure.mjs::side-by-side figures share a scale that fits both sets of electrodes"]
+disposition = "N"
+
 # --- check-library-search.mjs -----------------------------------------------------------------------------------------
 
 [sites."check-library-search.mjs::region counts match however they are written"]
@@ -1112,6 +1115,22 @@ note = "free-text search of the layout list and the comparison chooser, in the b
 [sites."check-library-search.mjs::an empty query matches every record, and the words no record contains are named as typed"]
 disposition = "N"
 note = "free-text search of the layout list and the comparison chooser, in the browser"
+
+[sites."check-library-search.mjs::searching actual record titles keeps ear-back and ear-around sites distinct"]
+disposition = "N"
+note = "record titles and search facts used by the browser"
+
+[sites."check-library-search.mjs::legacy imported sites use only complete generated titles and preserve saved coordinates"]
+disposition = "N"
+note = "browser search metadata for legacy imported records"
+
+[sites."check-library-search.mjs::comparison search finds every completed published layout by its actual 64 channels"]
+disposition = "N"
+note = "comparison chooser search over the published record fixtures"
+
+[sites."check-library-search.mjs::comparison search counts real hits separately from its retained selected option"]
+disposition = "N"
+note = "comparison chooser search and retained browser selection"
 
 # --- check-library-visibility.mjs -------------------------------------------------------------------------------------
 
@@ -2374,6 +2393,26 @@ module = "tests/service/test_key_parity.py"
 note = "reception v1 identity on synthetic roots"
 
 # --- check-showcase.mjs -----------------------------------------------------------------------------------------------
+
+[sites."check-showcase.mjs::showcase copies separate opaque original references from independently verifiable redacted content"]
+disposition = "N"
+note = "static showcase display-copy integrity, not the local service's original bundles"
+
+[sites."check-showcase.mjs::showcase integrity rejects changed results, payload metadata, unsafe paths and false original claims"]
+disposition = "N"
+note = "browser verification of redacted showcase copies"
+
+[sites."check-showcase.mjs::showcase publication refuses damaged originals and paths it cannot redact"]
+disposition = "N"
+note = "static showcase publication and privacy checks"
+
+[sites."check-showcase.mjs::showcase downloads verify the display schema and cannot be restored as original calculations"]
+disposition = "N"
+note = "showcase downloads are separate from original local computation bundles"
+
+[sites."check-showcase.mjs::coordinate restoration verifies showcase copies and opens only an unevaluated coordinate draft"]
+disposition = "N"
+note = "browser controller treats a verified showcase copy as coordinates without a completed scientific job"
 
 [sites."check-showcase.mjs::the showcase library keeps the curated records and their dataset counts, without visitor fields"]
 disposition = "N"

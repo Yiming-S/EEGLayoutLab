@@ -3,6 +3,7 @@ import { designCSV, exportDesign, type ElectrodeDesign } from './design-decision
 import { assessment } from './lab-workflow.ts';
 import type { Locale } from './i18n/core.ts';
 import catalog from './i18n/export-refresh-catalog.json' with { type: 'json' };
+import { isShowcaseDisplayCopy, verifyShowcaseDisplayCopy } from './showcase-display-copy.ts';
 
 export type LayoutExportKind = 'coordinates_csv' | 'design_json' | 'result_json' | 'report_md' | 'bundle_json';
 export type ExportFile = { filename: string; content: string; mime: string };
@@ -86,6 +87,10 @@ export async function fetchReproducibilityBundle(record: SavedRecord, fetcher: t
   if (!response.ok) throw new Error(catalog.exports_bundle_failed.source);
   const value: unknown = await response.json();
   if (!value || typeof value !== 'object') throw new Error(catalog.exports_bundle_mismatch.source);
+  if (isShowcaseDisplayCopy(value)) {
+    await verifyShowcaseDisplayCopy(value, record);
+    return { filename: `eeg-${fileId(record.id)}-display-copy.json`, mime: 'application/json', content: json(value) };
+  }
   const bundle = value as ReproducibilityBundle;
   if (bundle.schema !== 'eeg-reproducibility-bundle/1' || bundle.record_id !== record.id ||
       bundle.record?.id !== record.id || bundle.record?.dataset_id !== record.dataset_id) throw new Error(catalog.exports_bundle_mismatch.source);

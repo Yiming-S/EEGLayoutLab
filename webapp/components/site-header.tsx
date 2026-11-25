@@ -6,6 +6,7 @@ import { recordAnnotationId } from '@/lib/local-library';
 /* oxlint-disable next/no-html-link-for-pages -- preserve established vinext navigation */
 import { useEffect, useRef, useState } from 'react';
 import { SlidersHorizontal } from 'lucide-react';
+import { BrandMark, BrandWordmark } from '@/components/brand-logo';
 import { LanguageSwitch } from '@/components/language-switch';
 import { useDismissibleDetails } from '@/components/use-dismissible-details';
 import { cn } from '@/lib/utils';
@@ -26,39 +27,32 @@ import {
   type WorkspaceSelection,
 } from '@/lib/workspace-navigation';
 
-/** Minimalist 10–20 cranial crosshair emblem — geometric, monochrome, non-generic. */
-export function CranialMark({ className }: { className?: string }) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 20 20"
-      fill="none"
-      className={cn('size-3.5', className)}
-    >
-      <circle cx="10" cy="10.5" r="6.75" stroke="currentColor" strokeWidth="1.45" />
-      <path d="M8.4 3.5L10 1.6L11.6 3.5" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round" />
-      <line x1="3.25" y1="10.5" x2="16.75" y2="10.5" stroke="currentColor" strokeWidth="1.1" strokeOpacity="0.45" />
-      <line x1="10" y1="3.75" x2="10" y2="17.25" stroke="currentColor" strokeWidth="1.1" strokeOpacity="0.45" />
-      <circle cx="10" cy="10.5" r="1.45" fill="currentColor" />
-    </svg>
-  );
-}
-
 /** Fades the right edge of a horizontally scrolling tab row while more tabs are hidden there, and keeps the current tab in view. */
-function useTabOverflow<T extends HTMLElement>() {
-  const ref = useRef<T>(null);
+function useTabOverflow(current: PageId, locale: string) {
+  const ref = useRef<HTMLElement>(null);
   const [more, setMore] = useState(false);
   useEffect(() => {
     const row = ref.current;
     if (!row) return;
     const update = () => setMore(row.scrollLeft + row.clientWidth < row.scrollWidth - 2);
-    row.querySelector<HTMLElement>('[aria-current="page"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-    update();
+    const active = row.querySelector<HTMLElement>('[aria-current="page"]');
+    const reveal = () => {
+      if (active) {
+        const left = row.getBoundingClientRect().left + row.clientLeft;
+        const right = left + row.clientWidth;
+        const tab = active.getBoundingClientRect();
+        if (tab.left < left) row.scrollLeft += tab.left - left;
+        else if (tab.right > right) row.scrollLeft += tab.right - right;
+      }
+      update();
+    };
+    reveal();
     row.addEventListener('scroll', update, { passive: true });
-    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update);
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(reveal);
     observer?.observe(row);
+    if (active) observer?.observe(active);
     return () => { row.removeEventListener('scroll', update); observer?.disconnect(); };
-  }, []);
+  }, [current, locale]);
   return { ref, more };
 }
 
@@ -81,7 +75,8 @@ export function SiteHeader({
   const { tx, locale } = useLanguage();
   const settings = useDismissibleDetails();
   const headerRef = useRef<HTMLElement>(null);
-  const { ref: tabsRef, more: moreTabs } = useTabOverflow<HTMLElement>();
+  const { ref: areasRef } = useTabOverflow(current, locale);
+  const { ref: tabsRef, more: moreTabs } = useTabOverflow(current, locale);
   useEffect(() => {
     if (!headerRef.current || typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(([entry]) => {
@@ -203,31 +198,21 @@ export function SiteHeader({
   return (
     <header
       ref={headerRef}
-      className="sticky top-0 z-40 border-b border-border bg-background/92 backdrop-blur-md supports-[backdrop-filter]:bg-background/82"
+      className="sticky top-0 z-40 border-b border-border bg-background/92 backdrop-blur-md supports-[backdrop-filter]:bg-background/84"
     >
-      <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2 sm:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-x-4 gap-y-2.5 px-4 py-3 sm:px-6 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:px-8">
         <a
           href={SHOWCASE ? links.findings : links.home}
           aria-label={tx(SHOWCASE ? 'EEG Layout Lab · 返回已有结果' : 'EEG Layout Lab · 返回工作区')}
-          className="group flex shrink-0 items-center gap-2.5 rounded-md py-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="group flex shrink-0 items-center gap-3 justify-self-start rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <span className="grid size-6.5 place-items-center rounded-[6px] bg-foreground text-background transition-opacity group-hover:opacity-85">
-            <CranialMark />
-          </span>
-          <span className="flex items-baseline gap-2">
-            <span className="text-[0.9rem] font-semibold tracking-[-0.025em] text-foreground">
-              EEG Layout Lab
-            </span>
-            <span aria-hidden className="hidden text-xs text-border select-none md:inline">/</span>
-            <span className="hidden text-xs text-muted-foreground md:inline">
-              {tx('脑电电极布局仿真')}
-            </span>
-          </span>
+          <BrandMark className="rounded-[9px] shadow-[0_1px_2px_rgba(20,20,19,0.06)] transition-transform duration-150 group-hover:scale-[1.03]" />
+          <BrandWordmark subtitle={tx('脑电电极布局仿真')} locale={locale} />
         </a>
-        <span aria-hidden className="mx-1 hidden h-4 w-px bg-border min-[980px]:block" />
         <nav
+          ref={areasRef}
           aria-label={tx('主导航')}
-          className="order-3 flex w-full items-center gap-0.5 overflow-x-auto [scrollbar-width:none] min-[980px]:order-none min-[980px]:w-auto"
+          className="order-3 flex w-full items-center gap-1 overflow-x-auto rounded-xl border border-border/85 bg-secondary/65 p-1 [scrollbar-width:none] lg:order-none lg:w-auto lg:justify-self-center"
         >
           {areas.map((p) => (
             <a
@@ -238,40 +223,40 @@ export function SiteHeader({
               aria-disabled={blockedLink(destinations[p.id]) || undefined}
               aria-current={group === p.id ? 'page' : undefined}
               className={
-                'flex h-8 shrink-0 items-center justify-center whitespace-nowrap rounded-md px-3 text-[0.8125rem] transition-colors ' +
+                'flex h-8.5 flex-1 items-center justify-center whitespace-nowrap rounded-lg px-4 text-[0.9rem] transition-all lg:flex-none ' +
                 (group === p.id
-                  ? 'bg-card font-semibold text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-inset ring-border'
-                  : 'font-medium text-muted-foreground hover:bg-secondary/70 hover:text-foreground')
+                  ? 'bg-card font-semibold text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-inset ring-border/90'
+                  : 'font-medium text-ink-soft hover:bg-card/55 hover:text-foreground')
               }
             >
               {tx(p.label)}
             </a>
           ))}
         </nav>
-        <div className="ml-auto flex items-center gap-1.5">
+        <div className="ml-auto flex items-center gap-2 lg:ml-0 lg:justify-self-end">
           {!SHOWCASE && !offline && <CommunityStatus />}
           <details ref={settings} className="relative">
             <summary
               aria-label={tx('界面设置')}
-              className="flex size-8 cursor-pointer list-none items-center justify-center rounded-md border border-border bg-card text-muted-foreground shadow-[0_1px_1px_rgba(0,0,0,0.02)] transition-colors hover:border-foreground/30 hover:text-foreground [&::-webkit-details-marker]:hidden"
+              className="flex size-9 cursor-pointer list-none items-center justify-center rounded-lg border border-border bg-card text-ink-soft shadow-[0_1px_1px_rgba(0,0,0,0.02)] transition-colors hover:border-foreground/30 hover:text-foreground [&::-webkit-details-marker]:hidden"
             >
-              <SlidersHorizontal className="size-3.5" />
+              <SlidersHorizontal className="size-4" />
             </summary>
-            <div className="absolute right-0 z-50 mt-2 rounded-xl border border-border bg-popover p-3 shadow-[0_12px_30px_-10px_rgba(0,0,0,0.16)]">
+            <div className="absolute right-0 z-50 mt-2 rounded-xl border border-border bg-popover p-3.5 shadow-[0_14px_32px_-10px_rgba(0,0,0,0.16)]">
               <LanguageSwitch />
             </div>
           </details>
         </div>
       </div>
       {(WORKSPACE_TABS[group].length > 0 || selection.id || selection.phase !== 'saved') && (
-        <div className="border-t border-border/80 bg-card/75">
+        <div className="border-t border-border/80 bg-card/80">
           <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-x-4 px-4 sm:flex-wrap sm:gap-y-1 sm:px-6 lg:px-8">
             {WORKSPACE_TABS[group].length > 0 && (
               <nav
                 ref={tabsRef}
                 aria-label={tx('工作区工具')}
                 className={cn(
-                  'flex min-w-0 items-center gap-5 overflow-x-auto [scrollbar-width:none] max-sm:flex-1 sm:max-w-full sm:shrink-0',
+                  'flex min-w-0 items-center gap-7 overflow-x-auto [scrollbar-width:none] max-sm:flex-1 sm:max-w-full sm:shrink-0',
                   moreTabs && '[mask-image:linear-gradient(to_right,#000_calc(100%-2.5rem),transparent)]',
                 )}
               >
@@ -282,10 +267,10 @@ export function SiteHeader({
                     aria-disabled={blockedLink(links[id]) || undefined}
                     aria-current={current === id ? 'page' : undefined}
                     className={
-                      'relative inline-flex h-9.5 shrink-0 items-center text-[0.8125rem] transition-colors ' +
+                      'relative inline-flex h-11 shrink-0 items-center px-0.5 text-[0.9rem] transition-colors ' +
                       (current === id
-                        ? 'font-semibold text-foreground after:absolute after:inset-x-0 after:bottom-0 after:h-[2px] after:bg-foreground'
-                        : 'font-medium text-muted-foreground hover:text-foreground')
+                        ? 'font-semibold text-foreground after:absolute after:inset-x-0 after:bottom-0 after:h-[2.5px] after:rounded-t-full after:bg-foreground'
+                        : 'font-medium text-ink-soft hover:text-foreground')
                     }
                   >
                     {tx(label)}
@@ -295,10 +280,10 @@ export function SiteHeader({
             )}
             {(selection.id || selection.phase !== 'saved') && <div
               aria-label={tx('当前布局')}
-              className="flex min-w-0 shrink-0 items-center justify-end gap-x-2.5 gap-y-1 py-1.5 text-xs sm:flex-1"
+              className="flex min-w-0 shrink-0 items-center justify-end gap-x-2.5 gap-y-1 py-1.5 text-[0.8125rem] sm:flex-1"
             >
               <div
-                className="hidden min-w-0 items-center gap-1.5 truncate rounded-md border border-border bg-background/80 px-2.5 py-1 sm:inline-flex"
+                className="hidden min-w-0 items-center gap-2 truncate rounded-lg border border-border bg-background/85 px-3 py-1 sm:inline-flex"
                 title={record && selection.phase === 'saved' ? `${localizedRecordTitle(record, locale)} · ${tx(stateLabel)}` : tx(stateLabel)}
               >
                 <span
@@ -321,12 +306,12 @@ export function SiteHeader({
                     : tx(stateLabel)}
                 </span>
                 {channels != null && (
-                  <span className="shrink-0 font-mono text-muted-foreground tabular-nums">
+                  <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
                     · {channels} {tx('电极')}
                   </span>
                 )}
                 {selection.phase === 'edited' && (
-                  <span className="ml-1 shrink-0 text-muted-foreground">
+                  <span className="ml-1 shrink-0 text-xs text-muted-foreground">
                     {tx('编辑结果不进入固定64点信号协议')}
                   </span>
                 )}

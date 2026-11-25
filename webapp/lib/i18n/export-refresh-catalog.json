@@ -65,5 +65,16 @@
   "exports_coordinate_bad_cache": { "source": "坐标评价缓存校验失败", "en": "The coordinate evaluation cache failed its integrity check" },
   "exports_coordinate_bad_identity": { "source": "坐标评价记录身份不匹配", "en": "The coordinate evaluation record identity does not match" },
   "exports_coordinate_bad_record": { "source": "坐标评价来源与所选记录不匹配", "en": "The coordinate evaluation source does not match the selected record" },
-  "exports_coordinate_bad_source": { "source": "坐标评价来源路径或身份无效", "en": "The coordinate evaluation source path or identity is invalid" }
+  "exports_coordinate_bad_source": { "source": "坐标评价来源路径或身份无效", "en": "The coordinate evaluation source path or identity is invalid" },
+  "exports_display_copy": { "source": "脱敏展示副本 JSON", "en": "Redacted display copy JSON" },
+  "exports_display_record": { "source": "展示记录 JSON", "en": "Display record JSON" },
+  "exports_display_copy_note": { "source": "含脱敏结果及副本校验值；原始文件摘要和科学编号仅作来源引用，不能用此副本重算。", "en": "Redacted results with checksums for this copy. Original file digests and scientific IDs are source references and cannot be recomputed from this copy." },
+  "exports_display_record_note": { "source": "展示用指标、坐标与脱敏来源字段；不是原始计算缓存。", "en": "Displayed metrics, coordinates and redacted provenance; this is not the original computation cache." },
+  "exports_display_reading": { "source": "正在读取并校验展示副本…", "en": "Reading and verifying the display copy…" },
+  "exports_display_invalid": { "source": "展示副本校验失败，未导出文件。", "en": "The display copy failed its integrity check. No file was exported." },
+  "exports_display_data": { "source": "脱敏展示数据", "en": "Redacted display data" },
+  "exports_display_download": { "source": "导出脱敏展示副本", "en": "Export redacted display copy" },
+  "exports_display_digest": { "source": "展示副本 SHA-256：", "en": "Display copy SHA-256: " },
+  "exports_display_integrity_scope": { "source": "副本校验仅覆盖脱敏后的内容。原始文件摘要和科学编号保留为来源引用；完整原件未包含在此下载中。", "en": "The copy's checksums cover its redacted content. Original file digests and scientific IDs remain source references; the full originals are not included in this download." },
+  "exports_display_draft": { "source": "已载入脱敏展示副本的坐标草稿；未恢复原始计算身份或已评价任务。", "en": "Loaded coordinates from the redacted display copy as a draft. The original calculation identity and completed job were not restored." }
 }

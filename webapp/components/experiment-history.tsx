@@ -15,6 +15,7 @@ import {
 } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { FIGURE_REGION_COLORS, projectLayout } from '@/lib/layout-figure';
+import { isShowcaseDisplayCopy, verifyShowcaseDisplayCopy, type ShowcaseDisplayCopy } from '@/lib/showcase-display-copy';
 
 type Snapshot = {
   label: string;
@@ -29,7 +30,10 @@ const Head = lazy(() =>
 );
 type Bundle = {
   schema: string;
-  source: { sha256: string };
+  record_id?: string;
+  source?: { sha256: string };
+  source_reference?: ShowcaseDisplayCopy['source_reference'];
+  integrity?: ShowcaseDisplayCopy['integrity'];
   snapshots: (Snapshot | null)[];
   coordinate_note: string | null;
   search: {
@@ -201,6 +205,10 @@ export function ExperimentHistory({ recordId }: { recordId: string }) {
       .then(async (r) => {
         const b = (await r.json()) as Bundle & { error?: string };
         if (!r.ok) throw new Error(b.error);
+        if (isShowcaseDisplayCopy(b)) {
+          await verifyShowcaseDisplayCopy(b);
+          if (b.record_id !== recordId) throw new Error('返回的实验包与当前方案不匹配，未导出文件。');
+        }
         return b;
       })
       .then((value) => {
@@ -215,6 +223,7 @@ export function ExperimentHistory({ recordId }: { recordId: string }) {
     return () => c.abort();
   }, [recordId]);
   const b = bundle?.id === recordId ? bundle.value : null;
+  const displayCopy = isShowcaseDisplayCopy(b);
   const coordinateEvaluation =
     b?.search.history_status === 'not_applicable_coordinate_evaluation';
   const position = b?.snapshots[snapshot];
@@ -226,7 +235,7 @@ export function ExperimentHistory({ recordId }: { recordId: string }) {
     );
     const a = document.createElement('a');
     a.href = u;
-    a.download = `eeg-experiment-${recordId.slice(0, 12)}.json`;
+    a.download = displayCopy ? `eeg-${recordId.slice(0, 12)}-display-copy.json` : `eeg-experiment-${recordId.slice(0, 12)}.json`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(u), 1000);
   };
@@ -242,13 +251,13 @@ export function ExperimentHistory({ recordId }: { recordId: string }) {
         : null;
 
   return (
-    <section className="lab-panel mt-4" aria-label={tx('可复现实验记录')}>
+    <section className="lab-panel mt-4" aria-label={tx(displayCopy ? '脱敏展示数据' : '可复现实验记录')}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="font-semibold">
-          {tx(coordinateEvaluation ? '坐标评价与复现数据' : '优化过程与复现数据')}
+          {tx(displayCopy ? '脱敏展示数据' : coordinateEvaluation ? '坐标评价与复现数据' : '优化过程与复现数据')}
         </h3>
         <Button variant="outline" disabled={!b} onClick={download}>
-          {tx('导出完整实验包')}
+          {tx(displayCopy ? '导出脱敏展示副本' : '导出完整实验包')}
         </Button>
       </div>
       {tx(
@@ -454,12 +463,14 @@ export function ExperimentHistory({ recordId }: { recordId: string }) {
               </pre>
             </details>
             <p className="mt-3 break-all font-mono text-xs text-muted-foreground">
-              {tx('原始文件 SHA256：')}
-              {tx(b.source.sha256)}
+              {tx(displayCopy ? '展示副本 SHA-256：' : '原始文件 SHA256：')}
+              {displayCopy ? b.integrity?.payload_sha256 : b.source?.sha256}
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
               {tx(
-                coordinateEvaluation
+                displayCopy
+                  ? '副本校验仅覆盖脱敏后的内容。原始文件摘要和科学编号保留为来源引用；完整原件未包含在此下载中。'
+                  : coordinateEvaluation
                   ? '实验包包含坐标评价请求、评价结果和校验身份；重新计算需要对应版本代码及头模/前向库文件。'
                   : '实验包包含原始配置、记录、轨迹和校验身份；重新计算需要对应版本代码及头模/前向库文件。',
               )}

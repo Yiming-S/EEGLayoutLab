@@ -30,7 +30,7 @@ import {
   type DecisionThresholds,
   type ElectrodeDesign,
 } from '@/lib/design-decision';
-import { figureSpacing, layoutFigureSvg } from '@/lib/layout-figure';
+import { figureSpacing, layoutFigureSvg, sharedFigureRadius } from '@/lib/layout-figure';
 import { useDecisionController } from './use-decision-controller';
 import { RecordPicker } from './record-picker';
 import { ComparisonConclusion } from './comparison-conclusion';
@@ -172,13 +172,18 @@ function LayoutPairComparisonPanel({
         const slotIndex = ids.indexOf(record.id) === 1 ? 1 : 0,
           slotKey = (slotIndex === 1 ? 'b' : 'a') as 'a' | 'b',
           slotName = slotIndex === 1 ? '方案B' : '方案A',
-          design = safeExportDesign(record),
-          crowded = design ? figureSpacing(design) < 16 : true;
-        return { record, slotKey, slotName, design, crowded };
+          design = safeExportDesign(record);
+        return { record, slotKey, slotName, design };
       }),
     [shown, ids],
   );
-  const defaultShowLabels = cards.length > 0 && cards.every((card) => !card.crowded);
+  const { radius, defaultShowLabels } = useMemo(() => {
+    const radius = sharedFigureRadius(cards.flatMap(({ design }) => design ? [design] : []));
+    return {
+      radius,
+      defaultShowLabels: cards.length > 0 && cards.every(({ design }) => design && figureSpacing(design, radius) >= 16),
+    };
+  }, [cards]);
   const pairIdentity = cards.map((card) => card.record.id).join(':');
   const [labelChoice, setLabelChoice] = useState<{ key: string; show: boolean } | null>(null);
   const showLabels = labelChoice?.key === pairIdentity ? labelChoice.show : defaultShowLabels;
@@ -199,7 +204,7 @@ function LayoutPairComparisonPanel({
               tx('圆为NAS–LPA–RPA平面，低于该平面的电极画在圆外。位置为模板头上的设计位置，不是实测位置。'),
             ],
           },
-          { labels: showLabels },
+          { labels: showLabels, radius },
         );
         return {
           ...card,
@@ -208,7 +213,7 @@ function LayoutPairComparisonPanel({
           preview: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg),
         };
       }),
-    [cards, locale, showLabels, tx],
+    [cards, locale, radius, showLabels, tx],
   );
 
   return (
@@ -619,12 +624,12 @@ export default function DecisionPage({
         }
       />
       <div className="lab-container space-y-5 pb-10">
-        <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border pt-6 pb-4">
+        <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border pt-7 pb-5">
           <div>
-            <h1 className="text-[1.45rem] font-semibold tracking-[-0.03em]">
+            <h1 className="text-2xl font-semibold tracking-[-0.028em] sm:text-[1.65rem]">
               {tx(mode === 'coordinates' ? '坐标导入与评价' : '方案对比与设计报告')}
             </h1>
-            <p className="mt-1 text-[0.8125rem] text-muted-foreground">
+            <p className="mt-1.5 text-sm text-muted-foreground">
               {tx(
                 mode === 'coordinates'
                   ? '导入已有64点坐标，评价后保存为独立布局；不运行区域布局搜索。'

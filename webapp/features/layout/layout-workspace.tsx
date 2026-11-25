@@ -105,9 +105,9 @@ export default function LayoutWorkspace() {
       {!ready || (!library && !error) ? <p className="lab-panel">{tx('读取方案目录…')}</p>
         : missing ? <p role="alert" className="lab-panel">{tx(key || id ? '找不到这个布局的记录。它可能来自其他工作区，或记录已被移除。' : '请从布局列表选择一个布局。')} <a className="lab-link-pill ml-2" href={'/library?ar=' + ar}>{tx('打开布局列表')}</a></p>
         : shown && <>
-          <header className="space-y-1.5 border-b border-border pb-4">
+          <header className="space-y-1.5 border-b border-border pb-5">
             <p className="lab-eyebrow">{tx('布局')} · {tx(ORIGIN[shown.dataset_id] ?? protocolName(shown.dataset_id))}</p>
-            <h1 className="text-[1.45rem] font-semibold tracking-[-0.03em]">{localizedRecordTitle(shown, locale)}</h1>
+            <h1 className="text-2xl font-semibold tracking-[-0.028em] sm:text-[1.65rem]">{localizedRecordTitle(shown, locale)}</h1>
             <p className="font-mono text-xs text-muted-foreground">
               {record?.layout ? `${record.layout.xyzMm.length} ${tx('电极')} · ` : ''}{shown.region_count} {tx('个区域')} · {tx(`共${records.length}次评价`)}
               {editors.length > 0 && <> · {tx(`${editors.length}个编辑副本`)}</>}{signals.length > 0 && <> · {tx(`${signals.length}次信号实验`)}</>}

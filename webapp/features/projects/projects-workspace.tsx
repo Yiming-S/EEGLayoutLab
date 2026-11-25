@@ -207,10 +207,10 @@ export default function ProjectsWorkspace() {
   return <main className="lab-page">
     <SiteHeader current="projects" />
     <div className="lab-container space-y-5 pb-10">
-      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border pt-6 pb-4">
+      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border pt-7 pb-5">
         <div>
-          <h1 className="text-[1.45rem] font-semibold tracking-[-0.03em]">{tx('研究项目')}</h1>
-          <p className="mt-1 max-w-3xl text-[0.8125rem] text-muted-foreground">{tx('保存布局、编辑副本和信号实验，并记录选择理由。项目记录独立于计算队列保留。')}</p>
+          <h1 className="text-2xl font-semibold tracking-[-0.028em] sm:text-[1.65rem]">{tx('研究项目')}</h1>
+          <p className="mt-1.5 max-w-3xl text-sm text-muted-foreground">{tx('保存布局、编辑副本和信号实验，并记录选择理由。项目记录独立于计算队列保留。')}</p>
         </div>
         <a className="lab-link-pill" href="/deliveries">{tx('打开本地交付包')}</a>
       </header>

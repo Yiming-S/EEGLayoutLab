@@ -272,19 +272,26 @@ def test_stage_inputs_survive_the_stages_json_round_trip(builder, tmp_path):
     assert not builder.reusable(tmp_path, "admissibility.npz", {**inputs, "code_sha256": {"a.py": "2"}}, stages)
 
 
-def test_stages_finished_by_an_equivalent_builder_version_are_reused(builder, tmp_path):
+@pytest.mark.parametrize("stage", ["sources.npz", "mapping.npz"])
+def test_stages_finished_by_an_equivalent_builder_version_are_reused(builder, tmp_path, stage):
     path, other = "scripts/build_head_package.py", "src/compact_eeg/workflows/head_package.py"
-    earlier = sorted(builder.SAME_STAGE_CODE[path])[0]
-    current = builder.stage_code("mapping.npz")
-    assert earlier not in current.values()
+    current = builder.stage_code(stage)
     inputs = {"bank_sha256": "b", "code_sha256": current}
-    for recorded, bank, reused in (({**current, path: earlier}, "b", True), ({**current, path: earlier}, "c", False),
-                                   ({**current, path: "0" * 64}, "b", False),
-                                   ({**current, path: earlier, other: earlier}, "b", False)):
-        stages = {}
-        builder.write_stage(tmp_path, "mapping.npz", {"x": np.arange(3)}, {"bank_sha256": bank, "code_sha256": recorded}, stages)
-        stages = json.loads(json.dumps(stages, indent=1))
-        assert builder.reusable(tmp_path, "mapping.npz", inputs, stages) is reused
+    assert "959eb642cf62907ef9315dc6820917ace9656bde5d83de5bdb12234f40fcc01c" in builder.SAME_STAGE_CODE[path]
+    for earlier in builder.SAME_STAGE_CODE[path]:
+        assert earlier not in current.values()
+        for recorded, bank, reused in (({**current, path: earlier}, "b", True), ({**current, path: earlier}, "c", False),
+                                       ({**current, path: "0" * 64}, "b", False),
+                                       ({**current, path: earlier, other: earlier}, "b", False)):
+            stages = {}
+            builder.write_stage(tmp_path, stage, {"x": np.arange(3)}, {"bank_sha256": bank, "code_sha256": recorded}, stages)
+            stages = json.loads(json.dumps(stages, indent=1))
+            original = (tmp_path / stage).read_bytes()
+            assert builder.reusable(tmp_path, stage, inputs, stages) is reused
+            assert (tmp_path / stage).read_bytes() == original
+            if reused:
+                (tmp_path / stage).write_bytes(original + b"changed")
+                assert not builder.reusable(tmp_path, stage, inputs, stages)
 
 
 def test_package_names_inputs_by_their_path_in_the_root(builder, tmp_path, monkeypatch):
@@ -316,7 +323,127 @@ def test_build_refuses_inputs_outside_the_root_before_any_stage(builder, tmp_pat
         args = argparse.Namespace(head_id="h1", t1=None, t2=None, m2m=str(m2m), ernie_m2m=ernie)
         with pytest.raises(SystemExit, match="outside the repository root"):
             builder.build(args, root)
-        assert not (root / hp.package_dir("h1") / "stages.json").exists()
+        assert not (root / hp.package_dir("h1")).exists()
+
+
+def frozen_ernie(root):
+    """A small reference input for builder path checks; no native computation."""
+    ernie = root / "data/external/m2m_ernie"
+    ernie.mkdir(parents=True)
+    (ernie / "ernie.msh").write_bytes(b"frozen mesh")
+    (root / "configs").mkdir()
+    (root / "configs/ernie_fem_point_pilot.json").write_text(json.dumps({
+        "mesh_sha256": table.sha256_file(ernie / "ernie.msh")}))
+    return ernie
+
+
+@pytest.mark.parametrize("invalid", ["outside", "missing", "missing_mesh", "wrong_mesh", "dangling"])
+def test_ernie_preflight_precedes_charm_and_output_mutation(builder, monkeypatch, tmp_path, invalid):
+    root = tmp_path / "root"
+    ernie = frozen_ernie(root)
+    if invalid == "outside":
+        ernie = tmp_path / "m2m_ernie"
+        ernie.mkdir()
+    elif invalid == "missing":
+        ernie = root / "missing"
+    elif invalid == "missing_mesh":
+        (ernie / "ernie.msh").unlink()
+    elif invalid == "wrong_mesh":
+        (ernie / "ernie.msh").write_bytes(b"other mesh")
+    else:
+        ernie = root / "dangling"
+        ernie.symlink_to(tmp_path / "absent")
+    def unexpected_charm(*args, **kwargs):
+        pytest.fail("charm must not run before the Ernie input is checked")
+    monkeypatch.setattr(builder, "run_charm", unexpected_charm)
+    args = argparse.Namespace(head_id="h1", t1="t1.nii.gz", t2=None, ernie_m2m=str(ernie),
+                              charm_resume=False, charm_forceqform=False)
+    with pytest.raises(SystemExit, match="outside the repository root|--ernie-m2m|not the frozen Ernie"):
+        builder.build(args, root)
+    assert not (root / "results").exists()
+    assert not (root / "data/external/heads").exists()
+
+
+def test_build_reads_target_mesh_keeps_alias_paths_and_reuses_stage_bytes(builder, monkeypatch, tmp_path):
+    simnibs = pytest.importorskip("simnibs")
+    from simnibs.mesh_tools import mesh_io
+    from types import SimpleNamespace
+
+    root = tmp_path / "root"
+    ernie = frozen_ernie(root)
+    target = tmp_path / "m2m_ernie"
+    ernie.rename(target)
+    alias, reference_alias = root / "data/external/subject_alias", root / "data/external/reference_alias"
+    alias.symlink_to(target)
+    reference_alias.symlink_to(target)
+    (target / "surfaces").mkdir()
+    central = [alias / "surfaces" / f"{side}.central.gii" for side in ("lh", "rh")]
+    spheres = [alias / "surfaces" / f"{side}.sphere.reg.gii" for side in ("lh", "rh")]
+    for path in [*central, *spheres]:
+        path.write_bytes(path.name.encode())
+    templates = Path(simnibs.__file__).parent / "resources/templates"
+    atlas = [(templates / f"fsaverage_surf/{side}.sphere.gii", templates / f"fsaverage_atlases/{side}.aparc_DK40.annot")
+             for side in ("lh", "rh")]
+
+    write_package(root, mapping={"reference_xyz_mm": np.zeros((64, 3)), "reference_projection_mm": np.zeros(64)})
+    directory = root / hp.package_dir("synthetic")
+    with np.load(directory / "sources.npz") as archive:
+        sources = {key: archive[key] for key in archive.files}
+    sources.update(source_normals=np.zeros((4096, 3)), generation_normals=np.zeros((256, 3)))
+    (directory / "sources.npz").write_bytes(deterministic_npz_bytes(sources))
+    originals = {name: (directory / name).read_bytes() for name in hp.FILES}
+    digests = {name: table.sha256_file(directory / name) for name in hp.FILES}
+    inputs = {
+        "scalp.npz": {"mesh_sha256": table.sha256_file(alias / "ernie.msh"), "rule": "largest tag-1005 component"},
+        "admissibility.npz": {"scalp_sha256": digests["scalp.npz"], "directions": hp.ADMISSION_DIRECTION_COUNTS,
+                              "rotation_rad": hp.ADMISSION_ROTATION_RAD},
+        "sources.npz": {"central_sha256": [table.sha256_file(p) for p in central],
+                        "sphere_reg_sha256": [table.sha256_file(p) for p in spheres],
+                        "atlas_sha256": [[table.sha256_file(p) for p in pair] for pair in atlas], "protocol": hp.SOURCE_PROTOCOL},
+        "mapping.npz": {"scalp_sha256": digests["scalp.npz"], "ernie_candidates_sha256": "c", "bank_sha256": "b",
+                        "same_subject": True, "transforms_sha256": None},
+    }
+    stages = {}
+    for name in hp.FILES:
+        code = builder.stage_code(name)
+        if "scripts/build_head_package.py" in code:
+            code["scripts/build_head_package.py"] = "959eb642cf62907ef9315dc6820917ace9656bde5d83de5bdb12234f40fcc01c"
+        stages[name] = {"inputs": {**inputs[name], "code_sha256": code}, "sha256": digests[name]}
+    (directory / "stages.json").write_text(json.dumps(stages))
+    original_stages = (directory / "stages.json").read_bytes()
+    mesh = SimpleNamespace(nodes=SimpleNamespace(node_number=np.array([1]), node_coord=np.zeros((1, 3))),
+                           elm=SimpleNamespace(elm_type=np.array([4]), tag1=np.array([1]),
+                                               node_number_list=np.ones((1, 4), int), nr=1,
+                                               get_tetrahedra=lambda *args: np.array([0])))
+    reads = []
+    def read_mesh(path):
+        reads.append(path)
+        assert Path(path).read_bytes() == b"frozen mesh"
+        return mesh
+    monkeypatch.setattr(mesh_io, "read_msh", read_mesh)
+    monkeypatch.setattr(hp, "deep_gauge", lambda *args: 1)
+    monkeypatch.setattr(builder.de, "checked_native_model", lambda *args, **kwargs: (None, {
+        "fallback_distance_mm": {"maximum": 0.}, "interpolation_row_sum_max_error": 0.}))
+    monkeypatch.setattr(builder.de, "source_exceptions", lambda model: [])
+    monkeypatch.setattr(builder.de, "load_bank", lambda root: ({}, {"sha256": "b"}, {"candidate_sha256": "c"}))
+    monkeypatch.setattr(builder, "reference_screen", lambda *args: (True, 5., 0.))
+    def unexpected_recompute(*args, **kwargs):
+        pytest.fail("input path fixes must reuse the completed scientific stages")
+    for name in ("exterior_scalp", "admissibility", "sample_sources", "map_points"):
+        monkeypatch.setattr(hp, name, unexpected_recompute)
+    args = argparse.Namespace(head_id="synthetic", t1=None, m2m=str(alias), ernie_m2m=str(reference_alias),
+                              dataset="synthetic", subject="synthetic")
+    builder.build(args, root)
+    assert reads == [str(alias / "ernie.msh")]
+    manifest = hp.load(root, "synthetic").manifest
+    assert manifest["inputs"]["m2m"] == "data/external/subject_alias"
+    assert manifest["inputs"]["mesh"] == "data/external/subject_alias/ernie.msh"
+    assert manifest["inputs"]["ernie_m2m"] == "data/external/reference_alias"
+    assert str(target) not in (directory / "package.json").read_text()
+    assert manifest["inputs"]["mesh_sha256"] == table.sha256_file(target / "ernie.msh")
+    assert manifest["files"] == digests
+    assert (directory / "stages.json").read_bytes() == original_stages
+    assert {name: (directory / name).read_bytes() for name in hp.FILES} == originals
 
 
 def test_every_stage_is_keyed_by_the_code_it_runs(builder):
@@ -434,8 +561,10 @@ def test_build_and_main_pass_the_charm_options(builder, monkeypatch, tmp_path):
         seen.append((resume, force))
         raise Stop
     monkeypatch.setattr(builder, "run_charm", stub)
+    ernie = frozen_ernie(tmp_path)
     for resume, force in ((False, True), (True, False)):
-        args = argparse.Namespace(head_id="h1", t1="t1.nii.gz", t2=None, charm_resume=resume, charm_forceqform=force)
+        args = argparse.Namespace(head_id="h1", t1="t1.nii.gz", t2=None, charm_resume=resume, charm_forceqform=force,
+                                  ernie_m2m=str(ernie))
         with pytest.raises(Stop):
             builder.build(args, tmp_path)
     assert seen == [(False, True), (True, False)]

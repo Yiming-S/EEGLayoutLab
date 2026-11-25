@@ -108,24 +108,24 @@ export function CommunityStatus() {
   return (
     <a
       href="/#tasks"
-      className="inline-flex h-8 items-center gap-2 rounded-md border border-border bg-card px-2.5 text-xs font-medium text-muted-foreground shadow-[0_1px_1px_rgba(0,0,0,0.02)] transition-colors hover:border-foreground/30 hover:text-foreground"
+      className="inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-card px-3 text-[0.8125rem] font-medium text-ink-soft shadow-[0_1px_1px_rgba(0,0,0,0.02)] transition-colors hover:border-foreground/30 hover:text-foreground"
       aria-label={tx('查看任务与计算队列')}
     >
       <span
         aria-hidden
         className={cn(
-          'size-1.5 rounded-full',
-          !status ? 'bg-warning' : active ? 'bg-success animate-pulse' : 'bg-foreground/30',
+          'size-2 rounded-full',
+          !status ? 'bg-warning' : active ? 'bg-success animate-pulse' : 'bg-foreground/28',
         )}
       />
       <span>{tx('任务 / 队列')}</span>
       {status ? (
-        <span className="rounded bg-secondary px-1.5 py-0.2 font-mono text-[11px] font-medium text-foreground tabular-nums">
+        <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-xs font-medium text-foreground tabular-nums">
           {status.queued_tasks}
           {active && <> · {tx('计算中')} {status.running_tasks}</>}
         </span>
       ) : (
-        <span className="hidden text-[11px] text-muted-foreground sm:inline">· {tx('服务未连接')}</span>
+        <span className="hidden text-xs text-muted-foreground sm:inline">· {tx('服务未连接')}</span>
       )}
     </a>
   );

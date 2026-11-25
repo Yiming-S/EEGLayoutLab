@@ -1,7 +1,7 @@
 'use client';
 /* oxlint-disable next/no-html-link-for-pages -- preserve established vinext navigation */
 import { useEffect, useState, type MouseEvent } from 'react';
-import { CranialMark } from '@/components/site-header';
+import { BrandMark } from '@/components/brand-logo';
 import { useLanguage } from '@/components/language-provider';
 import { COPYRIGHT_NOTICE, copyrightHref, type CopyrightSection } from '@/lib/copyright';
 
@@ -20,11 +20,13 @@ export function SiteFooter() {
   return (
     <footer className="border-t border-border bg-card/65 text-xs text-muted-foreground">
       <div className="mx-auto flex max-w-[1440px] flex-col gap-3 px-4 py-5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-6 lg:px-8">
-        <p className="flex items-center gap-2 leading-6">
-          <span aria-hidden="true" className="grid size-5 place-items-center rounded-[5px] bg-foreground text-background">
-            <CranialMark className="size-3" />
+        <p className="flex items-center gap-2.5 leading-6">
+          <BrandMark size="sm" />
+          <span>
+            {COPYRIGHT_NOTICE} <span aria-hidden="true">·</span>{' '}
+            <span className="font-semibold tracking-[-0.02em] text-foreground/85">EEG</span>{' '}
+            <span className="font-medium text-foreground/70">Layout Lab</span>
           </span>
-          <span>{COPYRIGHT_NOTICE} <span aria-hidden="true">·</span> EEG Layout Lab</span>
         </p>
         <nav aria-label={tx('版权与许可导航')} className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
           {(['about-copyright', 'third-party-licenses'] as const).map((section) => (

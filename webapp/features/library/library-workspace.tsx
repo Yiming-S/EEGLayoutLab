@@ -100,10 +100,10 @@ export default function LibraryWorkspace() {
     <SiteHeader current="library" arPercent={ar} labHref={labHref} returnHref={here} selection={{ id: layout?.id ?? null,
       phase: selected?.kind === 'editor' ? 'edited' : 'saved', channels: selected?.electrode_count ?? undefined, regions: selected?.region_count ?? undefined }} />
     <div className="lab-container">
-      <header className="mb-5 flex flex-wrap items-end justify-between gap-4 border-b border-border pt-6 pb-4">
+      <header className="mb-5 flex flex-wrap items-end justify-between gap-4 border-b border-border pt-7 pb-5">
         <div className="max-w-3xl">
-          <h1 className="text-[1.45rem] font-semibold tracking-[-0.03em]">{tx('布局列表')}</h1>
-          <p className="mt-1 text-[0.8125rem] leading-6 text-muted-foreground">{tx('每个布局一行：同一组坐标在不同条件下的评价合并显示，“查看布局”打开它的详情页。编辑副本和信号实验保留自己的协议与原布局关联。')}</p>
+          <h1 className="text-2xl font-semibold tracking-[-0.028em] sm:text-[1.65rem]">{tx('布局列表')}</h1>
+          <p className="mt-1.5 text-sm leading-6 text-muted-foreground">{tx('每个布局一行：同一组坐标在不同条件下的评价合并显示，“查看布局”打开它的详情页。编辑副本和信号实验保留自己的协议与原布局关联。')}</p>
         </div>
         <Button variant="outline" size="sm" disabled={loading} onClick={() => { setLoading(true); setRetry(value => value + 1); }}><RefreshCcw className="size-3.5" />{tx('刷新记录')}</Button>
       </header>

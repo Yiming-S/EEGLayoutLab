@@ -12,6 +12,7 @@ import { safeReturnHref } from '@/lib/ui-language';
 import type { LocalLibrary, SavedRecord } from '@/lib/local-library';
 import type { DataPrior } from '@/lib/local-compute';
 import type { ConductivityScenarioId, PerturbationRadius } from '@/lib/api-types';
+import { isShowcaseDisplayCopy, verifyShowcaseDisplayCopy } from '@/lib/showcase-display-copy';
 
 import {
   comparisonNotes,
@@ -172,18 +173,29 @@ export function useDecisionController(
         if (!r.ok) throw new Error('所选记录读取失败');
         const value = (await r.json()) as { record: SavedRecord };
         if (value.record?.id !== id) throw new Error('返回记录身份不匹配');
-        let saved;
+        let saved, displayDesign;
         if (id === restoredRecord) {
           const response = await fetch('/api/local-compute/library/' + id + '/bundle' + (annotationRefs[id] ? '?annotation_id=' + annotationRefs[id] : ''), { signal: controller.signal });
           if (!response.ok) throw new Error('保存的坐标评价读取失败');
-          saved = restoreDesignEvaluation(await response.json(), value.record);
+          const bundle = await response.json();
+          if (isShowcaseDisplayCopy(bundle)) {
+            const copy = await verifyShowcaseDisplayCopy(bundle, value.record);
+            // The copy supplies coordinates for a new draft, never a restored cache identity or job.
+            displayDesign = exportDesign(copy.record);
+          } else saved = restoreDesignEvaluation(bundle, value.record);
         }
-        return { record: value.record, saved };
+        return { record: value.record, saved, displayDesign };
       }),
     )
       .then((rows) => {
         if (controller.signal.aborted) return;
         setRecords(rows.map(row => row.record));
+        const display = rows.find(row => row.displayDesign);
+        if (display?.displayDesign) {
+          setImported(display.displayDesign); setTestTarget('import');
+          setJob(null); setJobIdentity('');
+          setDraftNotice('已载入脱敏展示副本的坐标草稿；未恢复原始计算身份或已评价任务。');
+        }
         const saved = rows.find(row => row.saved);
         if (saved?.saved) {
           const { design, action, radius_mm, seed, noise_model_id, conductivity_scenario, robustness: robust, data_prior, result } = saved.saved;

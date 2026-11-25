@@ -23,10 +23,25 @@ export type CatalogEntry = {
 export type CatalogView = ReturnType<typeof parseLibraryView> & { kind: 'all' | RecordKind; electrodes: number; location: string; sort: string };
 export const RECORD_KIND_LABELS = { layout: '布局与搜索', coordinates: '坐标评价', editor: '编辑副本', source: '信号实验' };
 
-/** A record's sites: its mask codes, else its candidate surface ('whole' or 'low_hair'). */
+/**
+ * Legacy imported records sometimes kept only the generated radius-design title.
+ * Accept that exact format as label metadata for searching; it does not qualify
+ * the coordinates against anatomical masks or rewrite the saved record.
+ */
+function legacyImportedLocations(parent: SavedSummary) {
+  if (parent.dataset_id !== 'design_evaluation' || parent.mode !== 'imported_coordinates') return [];
+  const title = /^([1-6])区 · ((?:PL|PR|AL|AR|FL|FM|FR|OL|OR)(?: \+ (?:PL|PR|AL|AR|FL|FM|FR|OL|OR)){0,5}) · 半径≤(\d+(?:\.\d+)?) mm$/.exec(parent.label);
+  if (!title || Number(title[1]) !== parent.region_count || Number(title[3]) <= 0) return [];
+  const locations = title[2].split(' + ');
+  return locations.length === parent.region_count ? locations : [];
+}
+
+/** A record's stated sites, else its candidate surface ('whole' or 'low_hair'). */
 export const locationsFor = (parent?: SavedSummary, codes: string[] = [], mode = '') => {
   const masks = parent?.request?.mask_codes ?? codes;
-  return masks.length ? masks : (parent?.mode ?? mode).includes('whole') ? ['whole'] : (parent?.mode ?? mode).includes('low_hair') ? ['low_hair'] : [];
+  if (masks.length) return masks;
+  const legacy = parent ? legacyImportedLocations(parent) : [];
+  return legacy.length ? legacy : (parent?.mode ?? mode).includes('whole') ? ['whole'] : (parent?.mode ?? mode).includes('low_hair') ? ['low_hair'] : [];
 };
 export const locationName = (location: string) => MASK_NAMES[location] ?? ({ whole: '全头候选区', low_hair: '少毛发候选区（模型近似）' }[location] ?? location);
 

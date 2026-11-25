@@ -30,7 +30,8 @@ export function localizedEditorParentTitle(
 export function recordSearchText(record: SavedSummary): string {
   const masks = record.request?.mask_codes ?? [];
   const synonyms = [
-    masks.some((m) => ['PL', 'PR', 'AL', 'AR'].includes(m)) ? 'ear around-ear ear-surround periauricular' : '',
+    masks.some((m) => ['PL', 'PR'].includes(m)) ? 'ear behind-ear postauricular' : '',
+    masks.some((m) => ['AL', 'AR'].includes(m)) ? 'ear around-ear ear-surround periauricular' : '',
     masks.some((m) => ['FL', 'FM', 'FR'].includes(m)) ? 'forehead frontal' : '',
     masks.some((m) => ['OL', 'OR'].includes(m)) ? 'eye orbital periocular' : '',
   ];

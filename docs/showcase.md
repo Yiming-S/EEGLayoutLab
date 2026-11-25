@@ -21,6 +21,31 @@ The top bar shows four of the five areas of the interface ([design 0004](design/
 
 Every page carries a strip that names the read-only showcase and links to the installation notes.
 
+## Downloaded display copies
+
+The curated coordinate evaluation offers **Redacted display copy JSON**. Its schema is `eeg-showcase-display-copy/1`, and its filename ends in `-display-copy.json`. The download contains the displayed record, saved result, request, search information and redacted runtime context. Coordinates and scientific numbers retain their saved values. Home-directory prefixes are replaced with `~`.
+
+The file distinguishes two kinds of checksum:
+
+- `integrity.result_sha256`, `integrity.display_record_sha256` and `integrity.payload_sha256` verify the included result, display record and complete display payload. The payload is every top-level field except `integrity`. Each digest uses SHA-256 over UTF-8 `JSON.stringify(value)`, preserving object member order; download indentation and trailing newlines are excluded.
+- `source_reference` identifies the undisclosed original source file, result and scientific cache key. These are references to the original installation. A redacted identity cannot reproduce its original cache key, and the builder does not assign a new scientific key to it.
+
+The export menu and experiment-history panel verify display-copy checksums before offering the file. The coordinates page verifies a display copy before opening its coordinates as an unevaluated draft. Full local `eeg-reproducibility-bundle/1` downloads retain their original format and recovery path. The separate **Importable layout JSON** remains the format for importing coordinates; the delivery reader accepts research-project delivery packages.
+
+To check a downloaded display copy with the source checkout:
+
+```bash
+cd webapp
+node --input-type=module - /path/to/eeg-record-display-copy.json <<'JS'
+import { readFile } from 'node:fs/promises';
+import { verifyShowcaseDisplayCopy } from './lib/showcase-display-copy.ts';
+const copy = await verifyShowcaseDisplayCopy(JSON.parse(await readFile(process.argv[2], 'utf8')));
+console.log(copy.schema, copy.integrity.payload_sha256);
+JS
+```
+
+These checks detect changes to the included content; they do not authenticate the undisclosed original files. **Display record JSON** exports the curated summary and its redacted provenance fields, without claiming to be the original computation cache.
+
 ## How it works
 
 A showcase build sets `EEG_SHOWCASE=1`; the root layout, rendered at build time, marks the page with `<html data-showcase="1">`. In such a page [`webapp/lib/showcase-api.ts`](../webapp/lib/showcase-api.ts) answers every `/api` and `/open` request in the browser:
@@ -40,7 +65,7 @@ node server/start.mjs      # with EEG_REPOSITORY_ROOT set to the installation, o
 npm run showcase:data -- --from http://127.0.0.1:<PORT>
 ```
 
-Only `GET` requests are sent. Catalogs that list layouts (editor parents, reception layouts) are filtered to the curated records, so every listed entry opens. Paths under a home directory are written as `~/…`, and the script fails if any other local path remains. Records not in the curation, electrode-name annotations, editor results, signal records, studies and head packages are not published. To change what is shown, edit `curation.json` and run the script again.
+Only `GET` requests are sent. Catalogs that list layouts (editor parents, reception layouts) are filtered to the curated records, so every listed entry opens. Paths under a home directory are written as `~/…`, and the script fails if any other local path remains. Selected experiment bundles are converted to display copies after checking the original result checksum; their new payload checksums are calculated after redaction. This conversion is deterministic and leaves the original files untouched. Records not in the curation, electrode-name annotations, editor results, signal records, studies and head packages are not published. To change what is shown, edit `curation.json` and run the script again.
 
 ## Building and checking
 
@@ -50,7 +75,7 @@ npm run build:showcase                # writes showcase-dist/ (about 26 MiB); di
 node scripts/serve-showcase.mjs       # http://127.0.0.1:3332, served as GitHub Pages serves it
 ```
 
-`npm run test:fast` includes `scripts/check-showcase.mjs`, which checks the curation, the redaction and the request handling.
+`npm run test:fast` includes `scripts/check-showcase.mjs`, which checks the curation, redaction, request handling, published display-copy checksums and coordinate-draft recovery. It rejects changed results, invalid checksums, private paths and attempts to restore a display copy as an original calculation. `scripts/check-layout-exports.mjs` checks both download formats and their bilingual labels.
 
 ## Hosting
 

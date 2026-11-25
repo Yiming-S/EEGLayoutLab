@@ -74,14 +74,14 @@ export default function ReceptionPage() {
         selection={{ id: selected?.id ?? null, phase: 'saved' }}
       />
       <div className="lab-container space-y-4">
-        <header className="border-b border-border pt-6 pb-4">
+        <header className="border-b border-border pt-7 pb-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h1 className="text-[1.45rem] font-semibold tracking-[-0.03em]">{tx('信号仿真')}</h1>
+            <h1 className="text-2xl font-semibold tracking-[-0.028em] sm:text-[1.65rem]">{tx('信号仿真')}</h1>
             <a className="lab-link-pill" href={returnHref}>
               {tx('← 返回来源页面')}
             </a>
           </div>
-          <p className="mt-1.5 max-w-4xl text-[0.8125rem] leading-6 text-muted-foreground">
+          <p className="mt-1.5 max-w-4xl text-sm leading-6 text-muted-foreground">
             {tx(
               '选择已计算布局，再设置脑源位置、波形和干扰。对比标准全头64导与所选64电极布局的接收和重建；本页不重新优化电极位置。',
             )}

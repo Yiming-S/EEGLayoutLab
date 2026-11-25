@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { matchesSearch, parseSearch, searchTarget, unmatchedWords } from '../lib/library-search.ts';
+import { recordSearchText } from '../lib/i18n/records.ts';
+import { buildRecordCatalog, locationsFor } from '../lib/records-catalog.ts';
+import { recordPickerChoices, filterRecordPickerChoices } from '../features/decision/record-picker-model.ts';
+
+const published = JSON.parse(await readFile(new URL('../showcase/api/local-compute/library.json', import.meta.url), 'utf8'));
 
 // Records as the layout list sees them: their titles in both languages, and the facts of the catalog entry.
 const earBack = searchTarget(['2个区域 · 左耳后邻近区 + 右耳后邻近区 · 半径≤35 mm', '2 regions · Left postauricular vicinity + Right postauricular vicinity · radius ≤35 mm'],
@@ -56,4 +62,70 @@ void test('an empty query matches every record, and the words no record contains
   assert.deepEqual(unmatchedWords(parseSearch('两个区 枕部'), Object.values(all)), ['枕部']);
   assert.deepEqual(unmatchedWords(parseSearch('耳朵后面 两个区 低毛发'), [earAround]), ['耳朵后面', '低毛发'], 'a site word is named as typed');
   for (const word of parseSearch('耳后 耳周 少毛发 全头 左 2区 64电极')) assert.match(word.token, /^(§[a-z0-9]+§)$/, word.word);
+});
+
+void test('searching actual record titles keeps ear-back and ear-around sites distinct', () => {
+  const base = { id: 'a'.repeat(64), dataset_id: 'cache', label: 'Saved radius design', region_count: 2,
+    mode: 'preset', status: 'completed', request: { mode: 'preset', region_count: 2, radius_mm: 35, mask_codes: ['PL', 'PR'] } };
+  const around = { ...base, id: 'b'.repeat(64), request: { ...base.request, mask_codes: ['AL', 'AR'] } };
+  const entries = buildRecordCatalog([base, around], [], []);
+  const find = query => entries.filter(entry => matchesSearch(searchTarget([recordSearchText(entry.summary)],
+    { regionCount: entry.region_count, electrodeCount: entry.electrode_count, locations: entry.locations }), parseSearch(query))).map(entry => entry.id);
+  for (const query of ['耳后', 'postauricular', 'behind the ear']) assert.deepEqual(find(query), [base.id], query);
+  for (const query of ['耳周', 'periauricular', 'around the ear']) assert.deepEqual(find(query), [around.id], query);
+  for (const query of ['耳', 'ear']) assert.deepEqual(find(query), [base.id, around.id], query);
+});
+
+void test('legacy imported sites use only complete generated titles and preserve saved coordinates', () => {
+  const record = published.records.find(row => row.id.startsWith('9e4c787f'));
+  assert.ok(record, 'the curated imported example is present');
+  const before = JSON.stringify(record);
+  assert.deepEqual(locationsFor(record), ['AL', 'AR']);
+  const [entry] = buildRecordCatalog([record], [], []);
+  assert.deepEqual(entry.locations, ['AL', 'AR']);
+  const target = searchTarget([recordSearchText(record)], { regionCount: entry.region_count, locations: entry.locations });
+  assert.equal(matchesSearch(target, parseSearch('耳周 2区')), true);
+  assert.equal(matchesSearch(target, parseSearch('耳后')), false);
+  assert.deepEqual(locationsFor({ ...record, request: { mask_codes: ['PL', 'PR'] } }), ['PL', 'PR'], 'structured request facts take priority');
+  for (const label of ['AL + AR', 'My AL + AR plan', '2区 · AL + AR · 半径≤35 mm custom',
+    '2区 · AL + XX · 半径≤35 mm', '3区 · AL + AR · 半径≤35 mm', '2区 · AL + AR · 半径≤0 mm'])
+    assert.deepEqual(locationsFor({ ...record, label }), [], label);
+  assert.deepEqual(locationsFor({ ...record, region_count: 3 }), [], 'the recorded count must agree with the generated title');
+  assert.equal(JSON.stringify(record), before, 'search metadata never mutates the stored summary');
+});
+
+void test('comparison search finds every completed published layout by its actual 64 channels', () => {
+  const records = published.records.filter(record => record.status === 'completed');
+  assert.ok(records.length > 0);
+  for (const locale of ['en', 'zh-CN']) {
+    const choices = recordPickerChoices(records, locale, text => text, value => value);
+    for (const query of ['64导', '64 电极', '64 electrodes', '64 channels']) {
+      const filtered = filterRecordPickerChoices(choices, query, '');
+      assert.equal(filtered.matched.length, choices.length, `${locale}: ${query}`);
+      assert.equal(filtered.visible.length, choices.length);
+      assert.deepEqual(filtered.misses, []);
+    }
+  }
+});
+
+void test('comparison search counts real hits separately from its retained selected option', () => {
+  const choices = recordPickerChoices(published.records.filter(record => record.status === 'completed'), 'en', text => text, value => value);
+  const selected = choices.find(row => row.group.some(record => record.id.startsWith('9e4c787f')));
+  assert.ok(selected);
+  const value = selected.primary.id;
+  const self = filterRecordPickerChoices(choices, value, value);
+  assert.equal(self.chosen, selected);
+  assert.deepEqual(self.matched, [selected]);
+  assert.deepEqual(self.visible, [selected]);
+  assert.deepEqual(self.misses, []);
+  const empty = filterRecordPickerChoices(choices, 'no-such-layout-query', value);
+  assert.deepEqual(empty.matched, []);
+  assert.deepEqual(empty.visible, [selected]);
+  assert.ok(empty.misses.length > 0);
+  const other = choices.find(row => row !== selected);
+  assert.ok(other);
+  const hit = filterRecordPickerChoices(choices, other.primary.id, value);
+  assert.deepEqual(hit.matched, [other]);
+  assert.equal(hit.visible.length, 2);
+  assert.ok(hit.visible.includes(selected), 'selection remains available without changing which layout was selected');
 });

@@ -76,10 +76,10 @@ export default function OverviewWorkspace() {
   return <main className="lab-page">
     <SiteHeader current="findings" arPercent={ar} labHref={here} returnHref={here} selection={{ id: selected?.id ?? null, phase: "saved" }} />
     <div className="lab-container">
-      <header className="mb-5 flex flex-wrap items-end justify-between gap-4 border-b border-border pt-6 pb-4">
-        <div className="flex flex-wrap items-baseline gap-x-3.5 gap-y-1">
-          <h1 className="text-[1.45rem] font-semibold tracking-[-0.03em]">{tx("总面积研究")}</h1>
-          <p className="text-[0.8125rem] text-muted-foreground">{tx('64个电极，集中布置后还能保留多少信号？')}</p>
+      <header className="mb-5 flex flex-wrap items-end justify-between gap-4 border-b border-border pt-7 pb-5">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-[-0.028em] sm:text-[1.65rem]">{tx("总面积研究")}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{tx('64个电极，集中布置后还能保留多少信号？')}</p>
         </div>
         <a href="#create-layout" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
           {tx('按部位创建布局 ↓')}

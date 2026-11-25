@@ -37,10 +37,10 @@ export default function DesignWorkspace() {
   return <main className="lab-page">
     <SiteHeader current="design" arPercent={ar} labHref={comparison} returnHref={here} selection={{ id: receptionId ?? null, phase: receptionId ? "saved" : "draft", channels: 64, regions: count }} receptionHref={receptionId ? sourceExperimentLink(receptionId, ar, here) : undefined} />
     <div className="lab-container">
-      <header className="mb-5 flex flex-wrap items-end justify-between gap-4 border-b border-border pt-6 pb-4" data-design-state={state.phase}>
+      <header className="mb-5 flex flex-wrap items-end justify-between gap-4 border-b border-border pt-7 pb-5" data-design-state={state.phase}>
         <div>
-          <h1 className="text-[1.45rem] font-semibold tracking-[-0.03em]">{tx(state.title)}</h1>
-          {state.detail && <p className="mt-1 max-w-3xl text-[0.8125rem] text-muted-foreground" aria-live="polite">{tx(state.detail)}</p>}
+          <h1 className="text-2xl font-semibold tracking-[-0.028em] sm:text-[1.65rem]">{tx(state.title)}</h1>
+          {state.detail && <p className="mt-1.5 max-w-3xl text-sm text-muted-foreground" aria-live="polite">{tx(state.detail)}</p>}
         </div>
         {state.action && <Button size="sm" variant={state.action === 'new-radius' ? 'default' : 'outline'} onClick={() => { if (state.action === 'new-radius') startRadius(); revealSettings(); }}>{tx(state.actionLabel)}</Button>}
       </header>

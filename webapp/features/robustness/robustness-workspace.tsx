@@ -516,9 +516,9 @@ export default function RobustnessWorkspace() {
     <main className="lab-page">
       <SiteHeader current="robustness" />
       <div className="lab-container space-y-5 pb-10">
-        <header className="border-b border-border pt-6 pb-4">
-          <h1 className="text-[1.45rem] font-semibold tracking-[-0.03em]">{tx("稳健性研究")}</h1>
-          <p className="mt-1 max-w-4xl text-[0.8125rem] text-muted-foreground">
+        <header className="border-b border-border pt-7 pb-5">
+          <h1 className="text-2xl font-semibold tracking-[-0.028em] sm:text-[1.65rem]">{tx("稳健性研究")}</h1>
+          <p className="mt-1.5 max-w-4xl text-sm text-muted-foreground">
             {tx("可复现的重复评估：按明确的种子与偏移参数重复原评价协议，逐项保存请求、结果及失败原因。")}
           </p>
         </header>
