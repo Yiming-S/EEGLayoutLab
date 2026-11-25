@@ -129,11 +129,11 @@ mkdocs build                 # strict: a broken link, anchor or navigation entry
 mkdocs serve --no-strict     # live preview on http://127.0.0.1:8000 while writing
 ```
 
-The site is written to `site/`, which Git ignores. Add each new page to `nav`; a Markdown file outside `docs/` becomes a page only through `nav`, and links to other files go to GitHub. `.github/workflows/docs.yml` builds the site in strict mode on every push and keeps it as the `documentation-site` artifact for 14 days. It does not deploy.
+The site is written to `site/`, which Git ignores. Add each new page to `nav`; a Markdown file outside `docs/` becomes a page only through `nav`, and links to other files go to GitHub. `.github/workflows/docs.yml` builds the site in strict mode on every push and keeps it as the `documentation-site` artifact for 14 days. A push to `main` also publishes it on GitHub Pages at <https://yiming-s.github.io/EEGLayoutLab/>, with `DOCS_SITE_URL` set to that address; local builds leave `site_url` unset, so the service can serve the same site under `/docs/`.
 
 Material for MkDocs announces its end of life for May 5, 2027 at every build (`NO_MKDOCS_2_WARNING=1` hides the notice). Its successor, Zensical, reads `mkdocs.yml` but not the hooks, so a move is a separate change.
 
-Versioned documentation for tags (design 0001, decision 11) is planned with [mike](https://github.com/jimporter/mike) and not yet wired. A release tag `vX.Y.Z` would publish its site as version `X.Y` with the alias `latest`, `main` would publish as `dev`, and `extra.version.provider: mike` in `mkdocs.yml` would show Material's version selector. The build sets `DOCS_SOURCE_REF` to the tag, so source links match the release. Where the versions are published waits on how the documentation and the showcase site share GitHub Pages; mike's `--deploy-prefix` can place the documentation in a subdirectory of the Pages branch.
+Versioned documentation for tags (design 0001, decision 11) is planned with [mike](https://github.com/jimporter/mike) and not yet wired. A release tag `vX.Y.Z` would publish its site as version `X.Y` with the alias `latest`, `main` would publish as `dev`, and `extra.version.provider: mike` in `mkdocs.yml` would show Material's version selector. The build sets `DOCS_SOURCE_REF` to the tag, so source links match the release. Where the versions are published waits on how the documentation and the showcase site share GitHub Pages (deploying the showcase now would replace the documentation); mike's `--deploy-prefix` can place the documentation in a subdirectory of the Pages branch.
 
 ## Licensing
 

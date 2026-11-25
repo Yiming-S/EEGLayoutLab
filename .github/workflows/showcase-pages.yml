@@ -3,6 +3,8 @@ name: Showcase site
 # Builds the read-only showcase (docs/showcase.md) and deploys it to GitHub Pages.
 # Started by hand only. Needs Pages enabled with "GitHub Actions" as the source, and the
 # repository variable SHOWCASE_CNAME naming a custom domain: the site must be served at a domain root.
+# Pages now serves the documentation site (docs.yml); deploying the showcase replaces it, so decide
+# first how the two share Pages (CONTRIBUTING.md, "Building the documentation").
 
 on:
   workflow_dispatch:
