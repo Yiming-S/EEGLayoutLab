@@ -236,7 +236,7 @@ export default function ResultsPage() {
         <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
             <div className="mb-2.5 flex flex-wrap gap-2">
-              <Badge className="bg-brand text-white">
+              <Badge className="bg-brand text-brand-foreground">
                 {tx("已计算 · 固定64电极")}</Badge>
               <Badge
                 variant="outline"

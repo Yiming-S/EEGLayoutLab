@@ -96,14 +96,14 @@ export function LanguageSwitch() {
           <ToggleGroupItem
             value="en"
             lang="en"
-            className="min-h-8 flex-1 rounded-lg px-3 text-xs font-medium data-pressed:bg-brand data-pressed:text-white data-pressed:shadow-xs"
+            className="min-h-8 flex-1 rounded-lg px-3 text-xs font-medium data-pressed:bg-brand data-pressed:text-brand-foreground data-pressed:shadow-xs"
           >
             English
           </ToggleGroupItem>
           <ToggleGroupItem
             value="zh-CN"
             lang="zh-CN"
-            className="min-h-8 flex-1 rounded-lg px-3 text-xs font-medium data-pressed:bg-brand data-pressed:text-white data-pressed:shadow-xs"
+            className="min-h-8 flex-1 rounded-lg px-3 text-xs font-medium data-pressed:bg-brand data-pressed:text-brand-foreground data-pressed:shadow-xs"
           >
             简体中文
           </ToggleGroupItem>
@@ -128,21 +128,21 @@ export function LanguageSwitch() {
         >
           <ToggleGroupItem
             value="light"
-            className="min-h-8 flex-1 gap-1 rounded-lg px-2 text-xs font-medium data-pressed:bg-brand data-pressed:text-white data-pressed:shadow-xs"
+            className="min-h-8 flex-1 gap-1 rounded-lg px-2 text-xs font-medium data-pressed:bg-brand data-pressed:text-brand-foreground data-pressed:shadow-xs"
           >
             <Sun aria-hidden className="size-3.5" />
             {tx('浅色')}
           </ToggleGroupItem>
           <ToggleGroupItem
             value="dark"
-            className="min-h-8 flex-1 gap-1 rounded-lg px-2 text-xs font-medium data-pressed:bg-brand data-pressed:text-white data-pressed:shadow-xs"
+            className="min-h-8 flex-1 gap-1 rounded-lg px-2 text-xs font-medium data-pressed:bg-brand data-pressed:text-brand-foreground data-pressed:shadow-xs"
           >
             <Moon aria-hidden className="size-3.5" />
             {tx('深色')}
           </ToggleGroupItem>
           <ToggleGroupItem
             value="system"
-            className="min-h-8 flex-1 gap-1 rounded-lg px-2 text-xs font-medium data-pressed:bg-brand data-pressed:text-white data-pressed:shadow-xs"
+            className="min-h-8 flex-1 gap-1 rounded-lg px-2 text-xs font-medium data-pressed:bg-brand data-pressed:text-brand-foreground data-pressed:shadow-xs"
           >
             <Monitor aria-hidden className="size-3.5" />
             {tx('跟随系统')}
