@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { curateLibrary, redactHomePaths, showcaseHealth, showcaseDisplayCopy, SHOWCASE_DATA_SCHEMA as WRITTEN_SCHEMA } from './build-showcase-data.mjs';
 import { installShowcaseApi, showcaseFile, showcaseRefusal, SHOWCASE_DATA_SCHEMA, SHOWCASE_READ_ONLY_CODE } from '../lib/showcase-api.ts';
 import { guideStepHref } from '../lib/usage-guide.ts';
+import { startupLocale } from '../lib/i18n/core.ts';
 import { DISPLAY_COPY_REFERENCE_SCOPE, verifyShowcaseDisplayCopy } from '../lib/showcase-display-copy.ts';
 import { fetchReproducibilityBundle } from '../lib/layout-exports.ts';
 import { parseDesign, restoreDesignEvaluation } from '../lib/design-decision.ts';
@@ -247,4 +248,12 @@ void test('in the showcase the guide opens the page of each step, except the wor
     assert.equal(guideStepHref(path, 75, false), path + '?ar=75');
     assert.equal(guideStepHref(path, 75, true), path === '/' ? null : path + '?ar=75');
   }
+});
+
+void test('the showcase opens in English whatever the browser language, until the visitor chooses', () => {
+  assert.equal(startupLocale(null, 'zh-CN,zh;q=0.9,en;q=0.8', true), 'en');
+  assert.equal(startupLocale(null, 'zh-CN,zh;q=0.9,en;q=0.8', false), 'zh-CN');
+  assert.equal(startupLocale('zh-CN', 'en-US', true), 'zh-CN');
+  assert.equal(startupLocale('en', 'zh-CN', false), 'en');
+  assert.equal(startupLocale('fr', '', true), 'en');
 });
