@@ -1,18 +1,23 @@
 # Read-only showcase
 
-The showcase is the interface built as static files with no service behind it ([design 0001](design/0001-local-first-architecture.md), decision 1). Visitors can browse a curated set of results, the 3D head, the comparison page, the method and guide pages, and open delivery packages. Nothing is computed or stored, and no visitor data is collected.
+The showcase is the interface built as static files with no service behind it ([design 0001](design/0001-local-first-architecture.md), decision 1). Visitors can browse a curated set of results, the layout pages and the 3D head, the comparison page, the findings and the guide, choose channel subsets from their own recording summaries, and open delivery packages. No calculation is sent to a service, nothing is stored, and no visitor data is collected.
 
 ## What it shows
 
-| Area | In the showcase |
-| --- | --- |
-| Overview, historical experiments, method, guide | As in the application; these pages read files under `webapp/public/data` |
-| Layout records | The records listed in [`webapp/showcase/curation.json`](../webapp/showcase/curation.json): the 30 total-area layouts of the current protocol, the 30 historical area layouts and one saved coordinate evaluation |
-| Compare layouts, coordinate import | The curated records can be compared and their reports exported; the saved coordinate evaluation opens with its result |
-| Signal simulation | The curated layouts can be selected; starting a simulation shows the read-only notice |
-| Electrode editor | The curated layouts are listed; loading one into the editor needs the service, so the page shows the read-only notice instead |
-| Layout design, robustness studies, projects | Viewable; starting a calculation, a study or a project shows the read-only notice |
-| Delivery reader (`/deliveries`) | Unchanged: a delivery package is read in the browser |
+The top bar shows four of the five areas of the interface ([design 0004](design/0004-interface-structure.md)): Layout, Analysis, Findings and Documentation. Workspace holds the user's own tasks and projects, so the showcase leaves it out, and `/` opens the total-area study under Findings.
+
+| Area | Page | In the showcase |
+| --- | --- | --- |
+| Layout | Layout List, layout page | The records listed in [`webapp/showcase/curation.json`](../webapp/showcase/curation.json): the 30 total-area layouts of the current protocol, the 30 historical area layouts and one saved coordinate evaluation. Each opens its layout page with its evaluation, scores and 3D head |
+| | Region Design, Coordinate Import | Viewable; starting a calculation shows the read-only notice |
+| | Electrode Editor | The curated layouts are listed; loading one into the editor needs the service, so the page shows the read-only notice instead |
+| Analysis | Compare Layouts | The curated records can be compared and their reports exported |
+| | Robustness studies | Viewable, with the curated layouts to start from; starting a study shows the read-only notice |
+| | Signal Simulation | The curated layouts can be selected; starting a simulation shows the read-only notice |
+| | Channel Subsets | As in the application: the selection runs in the browser on the visitor's own summary files, which are not uploaded |
+| Findings | Total-Area Study, Historical Batches | As in the application; these pages read files under `webapp/public/data` |
+| Documentation | User Guide, Models & Methods | As in the application. The showcase has no `/docs/` site, so the chapter links open the Markdown on GitHub |
+| — | Research Projects (`/projects`), delivery reader (`/deliveries`) | Not in the top bar; opened by their address. Creating a project shows the read-only notice; a delivery package is read in the browser, as in the application |
 
 Every page carries a strip that names the read-only showcase and links to the installation notes.
 
