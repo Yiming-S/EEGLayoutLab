@@ -51,6 +51,7 @@ nav:
   - How to use:
       - Model and metrics: docs/model-and-metrics.md
       - Method details: docs/method-details.md
+      - References: docs/references.md
       - Historical studies: docs/historical-studies.md
       - Command line: docs/command-line.md
       - Coordinate file interface: docs/coordinate-file-interface.md

@@ -19,6 +19,7 @@ export const METHOD_GROUPS: readonly MethodGroup[] = [
     { ids: ['retention-reading'], title: '结果阅读顺序', doc: 'model-and-metrics/#reading-order' },
     { ids: ['retention-scope'], title: '分数的适用范围', doc: 'model-and-metrics/#scope-of-the-scores' },
     { ids: ['method-references'], title: '参考文献与模型来源', doc: 'model-and-metrics/#method-references' },
+    { ids: ['reference-list'], title: '完整参考文献（按主题）', doc: 'references/' },
   ] },
   { id: 'method-details', title: '方法细节', page: 'method-details', text: '信号生成、组织传播、脑源与波形、干扰、默认参数，以及每个工具（搜索、编辑、坐标评价、信号仿真）的计算方式。', entries: [
     { ids: ['simulation-model', 'simulation-overview'], title: '脑源、头模与信号生成', doc: 'method-details/#signal-model' },

@@ -2,21 +2,24 @@
 
 EEGLayoutLab is an open-source web application for designing and comparing EEG electrode layouts. It brings together an interactive 3D head model, layout design, electrode editing, signal simulation, and reproducible result exports.
 
+It is built for layouts confined to parts of the scalp, such as the forehead, the area around the ears or other low-hair areas. Each layout is scored relative to the 64-electrode BioSemi whole-head layout on a finite-element head model, and its record keeps the head, source and noise models behind every score.
+
 EEGLayoutLab is developed on a non-profit basis and provided free of charge. Its original source code and accompanying documentation are licensed under GPL-3.0-only.
 
-[简体中文指南](docs/getting-started.zh-CN.md) · [Run locally](docs/source-installation.md) · [Model and metrics](docs/model-and-metrics.md) · [Architecture](docs/architecture.md) · [Operations](docs/web-operations.md)
+[简体中文指南](docs/getting-started.zh-CN.md) · [Run locally](docs/source-installation.md) · [Model and metrics](docs/model-and-metrics.md) · [References](docs/references.md) · [Command line](docs/command-line.md) · [Architecture](docs/architecture.md) · [Operations](docs/web-operations.md)
 
 ## Features
 
-- **Explore layouts:** inspect electrode positions, placement regions and evaluation scores on an interactive 3D head model.
-- **Design and edit:** calculate regional layouts, modify electrode coordinates or active contacts, and evaluate imported coordinates registered to the Ernie head model. Preserve electrode names and inspect each input point, evaluated point and projection distance.
-- **Compare layouts:** select a reference and candidate, set shared or independent retention requirements, and compare the recorded metrics. Rank the saved layouts of one evaluation condition by Pareto dominance over chosen objectives.
-- **Check session robustness:** score a layout, beside standard64, after electrode dropout, unequal contact noise and cap re-placement ([model](docs/model-and-metrics.md#cross-session-robustness)).
-- **Use recorded EEG:** summarize EDF, BDF, BrainVision or EEGLAB recordings as channel covariances, fit a regional source prior and noise model to them with a leave-one-out check, and search or evaluate layouts under that prior. From the same summaries, choose channel subsets that best reconstruct the full recording, compared with 10-20 and random subsets ([model](docs/model-and-metrics.md#data-derived-source-prior), [command line](docs/command-line.md)).
+- **Find layouts:** the layout list has one row per layout with its retention scores, and ranks the layouts of one evaluation condition by Pareto dominance over chosen objectives. Each layout has its own page: every evaluation of its coordinates, the 3D head and coordinate table, its edited copies and signal experiments.
+- **Design and edit:** search for regional layouts, move or disable electrodes of a saved layout, and evaluate imported coordinates registered to the Ernie head model. Electrode names are kept, and each input point, evaluated point and projection distance can be inspected.
+- **Compare layouts:** choose a layout and then one of its evaluations on each side, set shared or independent retention requirements, and read a short conclusion beside the recorded metrics.
+- **Test the model's assumptions:** evaluate a layout under optional noise models, a mismatched skull conductivity or another head model ([model](docs/model-and-metrics.md#model-mismatch-and-other-heads)). Score it, beside standard64, after electrode dropout, unequal contact noise and cap re-placement ([model](docs/model-and-metrics.md#cross-session-robustness)).
+- **Use recorded EEG:** summarize EDF, BDF, BrainVision or EEGLAB recordings as channel covariances, fit a regional source prior and noise model to them with a leave-one-out check, and search or evaluate layouts under that prior. From the same summaries, choose channel subsets that best reconstruct the full recording, compared with 10-20 and random subsets, and plot their error against subset size ([model](docs/model-and-metrics.md#data-derived-source-prior), [command line](docs/command-line.md)).
 - **Simulate signals:** choose source locations, waveforms and interference conditions; inspect the resulting signals, switch channels and replay the saved experiment.
-- **Keep research projects:** save complete layout, editing and signal snapshots with notes and comparison settings; inspect signal experiments by their parent layout, restore access in another browser and create revocable read-only shares.
-- **Repeat evaluations:** run explicit localization-noise seed or candidate-grid displacement studies, preserve every case outcome, and inspect case-level empirical summaries. The [study protocol](docs/robustness-studies.md) records how these batches reuse the original calculations.
+- **Keep research projects:** save complete layout, editing and signal snapshots with notes and comparison settings; restore access in another browser and create revocable read-only shares.
+- **Repeat evaluations:** run studies of explicit localization-noise seeds, candidate-grid offsets or other heads, preserve every case outcome, and inspect case-level empirical summaries. The [study protocol](docs/robustness-studies.md) records how these batches reuse the original calculations.
 - **Export and review:** download coordinates, original scientific JSON, reports and project delivery packages with checksums and recorded model/runtime identities. Open a local delivery package to inspect its archived coordinates, scores and waveforms without project credentials.
+- **Read the method:** the documentation defines the model, metrics and validation scope. The [reference list](docs/references.md) gives the full citation of every work the method and interface draw on, grouped by topic, with what each supports and where it sets limits.
 
 The interface supports English and Simplified Chinese. Its Node service runs Python/SimNIBS workers, reuses exact completed results and keeps a persistent computation queue. Shared viewer resources, compressed model downloads and validated forward-field reuse reduce repeated loading and calculation.
 
@@ -35,6 +38,8 @@ npm start
 
 Open [http://127.0.0.1:3000](http://127.0.0.1:3000) and keep the terminal running. For development, use `npm run dev` instead of the build and start commands.
 
+The Python service that will replace this Node host (`eeglayoutlab serve`) is being built slice by slice; keep using the Node host for real work until it is complete ([contributing](CONTRIBUTING.md)). The service also serves the documentation site under `/docs/` once it has been built with MkDocs ([building the documentation](CONTRIBUTING.md#building-the-documentation)); until then, documentation links open on GitHub.
+
 ## Model data
 
 A fresh source installation needs the code and the matching base data bundle. The bundle contains selected frozen application inputs and example results; the full historical calculation cache is excluded.
@@ -48,13 +53,17 @@ The repository is private: sign in to a GitHub account with repository access to
 
 ## How to use
 
-1. **Browse:** open an existing layout in **Results Library** and inspect its regions, electrode positions, and scores.
-2. **Design:** set the region count, allowed placement range, and maximum region radius in **Layout Design**.
-3. **Edit or import:** change electrode positions or active electrodes, or import named coordinates registered to the Ernie head model. The [coordinate-file interface](docs/coordinate-file-interface.md) also supports explicitly declared electrodes.tsv and coordsystem.json pairs with region metadata, in the Ernie native frame or an MNI template space, and lists of 64 10-05 electrode names. Exports can be written in either frame, or as MNE-Python (`.elc`) and EEGLAB (`.sfp`) montage files, and state that the positions are template positions with template landmarks. A 2D layout figure can be downloaded as SVG or PNG.
-4. **Compare:** assess selected layouts under the same requirements and export coordinates, results, or reproducibility bundles.
-5. **Simulate:** select a layout, source locations, waveforms, and interference settings in **Signal Simulation**.
-6. **Repeat:** create a robustness study from imported coordinates, list explicit seed/radius cases, save a draft and start the batch. Opening or refreshing a study reads its saved state; service restart requires an explicit study resume.
-7. **Use recorded EEG:** summarize recordings with `eeg-summary` and fit a prior with `prior` on the [command line](docs/command-line.md). Load the prior on **Coordinate Import** or **Layout Design** in place of a noise model. On **Coordinate Import**, load the summaries to choose channel subsets in the browser.
+The top bar has five areas: **Workspace**, **Layout**, **Analysis**, **Findings** and **Documentation**.
+
+1. **Start:** the **Workspace** home lists the ways to create a layout, recent layouts, computation tasks, robustness studies and research projects.
+2. **Browse:** **Layout → Layout List** has one row per layout. **View layout** opens the layout's page, which lists its evaluations under each condition, nominal Ernie first, and its edited copies and signal experiments. From there, open the comparison, the position-offset test, signal simulation or a robustness study.
+3. **Design:** in **Layout → Region Design**, set the region count, allowed placement range and maximum region radius, and search.
+4. **Import or edit:** in **Layout → Coordinate Import**, evaluate named coordinates registered to the Ernie head model; in **Electrode Editor**, move or disable electrodes of a saved layout and evaluate the copy. The [coordinate-file interface](docs/coordinate-file-interface.md) also supports explicitly declared electrodes.tsv and coordsystem.json pairs with region metadata, in the Ernie native frame or an MNI template space, and lists of 64 10-05 electrode names. Exports can be written in either frame, or as MNE-Python (`.elc`) and EEGLAB (`.sfp`) montage files, and state that the positions are template positions with template landmarks. A 2D layout figure can be downloaded as SVG or PNG.
+5. **Compare:** in **Analysis → Compare Layouts**, choose a layout and one of its evaluations on each side, judge both under the same requirements, and export coordinates, results or reproducibility bundles.
+6. **Repeat:** in **Analysis → Robustness studies**, create a study from imported coordinates or a saved 64-electrode layout, list explicit seed, grid-offset or head cases, save a draft and start the batch. Opening or refreshing a study reads its saved state; a service restart requires an explicit study resume.
+7. **Simulate:** in **Analysis → Signal Simulation**, choose a layout, source locations, waveforms and interference settings.
+8. **Use recorded EEG:** summarize recordings with `eeg-summary` and fit a prior with `prior` on the [command line](docs/command-line.md). Load the prior on **Region Design** or **Coordinate Import** in place of a noise model. Load the summaries on **Analysis → Channel Subsets** to choose channel subsets in the browser.
+9. **Read the results and the method:** **Findings** holds the total-area study and the two historical batches, each with its protocol and date. **Documentation** has the user guide; its **Models & Methods** page links to the chapters on the [model and metrics](docs/model-and-metrics.md), [method details](docs/method-details.md), [historical studies](docs/historical-studies.md), [validation](docs/validation.md) and [references](docs/references.md).
 
 The [command line](docs/command-line.md) runs the same evaluations, searches and robustness studies without the browser, with the same request checks and scientific identity. [`examples/`](examples/README.md) holds three reproducible examples with expected scores.
 
@@ -64,7 +73,7 @@ The project delivery download includes exact archived scientific JSON files, che
 
 Use the upper-right language control to switch between English and Simplified Chinese. **Minimum Required Retention** changes how existing scores are judged; it does not start a new calculation.
 
-The current model uses the SimNIBS example subject Ernie. Scores depend on the recorded head model, source assumptions, noise model, and evaluation protocol. Read [Model and metrics](docs/model-and-metrics.md) for definitions and interpretation.
+Layouts are designed and scored on the SimNIBS example subject Ernie; installed head packages let the same layout be evaluated on other heads. Scores depend on the recorded head model, source assumptions, noise model, and evaluation protocol. Read [Model and metrics](docs/model-and-metrics.md) for definitions and interpretation, and the [reference list](docs/references.md) for the published work behind each modelling choice and its known limits.
 
 ## Verification
 
@@ -78,7 +87,7 @@ A fresh native FEM run reproduced the qualified `128 × 4352` forward field and 
 
 The application includes explicit scientific and queue-directory configuration, HTTPS reverse-proxy access rules, request identifiers, bounded request logs, local status probes, disk and optional Node-memory admission checks, and maintenance/drain controls. Release manifests record source, data and runtime identities; backup and restore tools preserve scientific records and private project and study archives.
 
-A read-only showcase of the interface (example results, the 3D head and the method pages, no computation) can be built as static files; see [showcase](docs/showcase.md).
+A read-only showcase of the interface (example results, the 3D head, the comparison page and the guide, no computation) can be built as static files; see [showcase](docs/showcase.md).
 
 Model data is also packaged as versioned packages (base bundle, scalp-node tables, head packages) that `eeglayoutlab data` installs and verifies; see [data packages](docs/data-packages.md).
 
@@ -94,7 +103,7 @@ See [server configuration](docs/server-deployment.md) and [web operations](docs/
 | [`configs/`](configs/) | Scientific configuration, runtime locks and deployment environment template |
 | [`scripts/`](scripts/) | Setup, data management, and worker entry points |
 | [`tests/`](tests/) | Scientific and workflow regression tests |
-| [`docs/`](docs/) | Architecture, methods, data, validation, and deployment documentation |
+| [`docs/`](docs/) | Architecture, methods, references, data, validation, design records and deployment documentation |
 | [`examples/`](examples/) | Reproducible command-line examples with expected scores |
 | [`data/`](data/) | Data inventory and source attribution |
 

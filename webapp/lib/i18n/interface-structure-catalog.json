@@ -173,5 +173,6 @@
   "term_ar_text": {"source": "你设定的合格线：三项保留率都达到它才算合格。改变它只重新判断，不重新计算。", "en": "The pass line you set: a layout passes when all three retentions reach it. Changing it re-judges the results without recomputing them."},
   "term_head": {"source": "头模是什么？", "en": "What is a head model?"},
   "term_head_text": {"source": "用于仿真的头部模型（由MRI重建的头皮、颅骨和脑组织）。默认是Ernie；其他头模用来检查结论是否只适用于一个人的头。", "en": "The head used in the simulation (scalp, skull and brain tissue reconstructed from MRI). The default is Ernie; other heads check whether a conclusion holds beyond one person's head."},
-  "term_more": {"source": "详细说明", "en": "Details"}
+  "term_more": {"source": "详细说明", "en": "Details"},
+  "method_reference_list": {"source": "完整参考文献（按主题）", "en": "Full reference list (by topic)"}
 }
