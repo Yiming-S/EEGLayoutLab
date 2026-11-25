@@ -1087,6 +1087,32 @@ disposition = "N"
 [sites."check-layout-figure.mjs::the electrode positions fit inside the figure above the legend"]
 disposition = "N"
 
+# --- check-library-search.mjs -----------------------------------------------------------------------------------------
+
+[sites."check-library-search.mjs::region counts match however they are written"]
+disposition = "N"
+note = "free-text search of the layout list and the comparison chooser, in the browser"
+
+[sites."check-library-search.mjs::sites match by meaning in either language, from the specific word to the general one"]
+disposition = "N"
+note = "free-text search of the layout list and the comparison chooser, in the browser"
+
+[sites."check-library-search.mjs::several words match in any order, with any spacing, width and punctuation"]
+disposition = "N"
+note = "free-text search of the layout list and the comparison chooser, in the browser"
+
+[sites."check-library-search.mjs::areas and radii match with or without units and bounds"]
+disposition = "N"
+note = "free-text search of the layout list and the comparison chooser, in the browser"
+
+[sites."check-library-search.mjs::an id is found from six hexadecimal characters, and a short number never matches an id"]
+disposition = "N"
+note = "free-text search of the layout list and the comparison chooser, in the browser"
+
+[sites."check-library-search.mjs::an empty query matches every record, and the words no record contains are named as typed"]
+disposition = "N"
+note = "free-text search of the layout list and the comparison chooser, in the browser"
+
 # --- check-library-visibility.mjs -------------------------------------------------------------------------------------
 
 [sites."check-library-visibility.mjs::library scope defaults to shared on every host; owner scope is opt-in with review"]

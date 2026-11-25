@@ -23,7 +23,8 @@ export type CatalogEntry = {
 export type CatalogView = ReturnType<typeof parseLibraryView> & { kind: 'all' | RecordKind; electrodes: number; location: string; sort: string };
 export const RECORD_KIND_LABELS = { layout: '布局与搜索', coordinates: '坐标评价', editor: '编辑副本', source: '信号实验' };
 
-const locationsFor = (parent?: SavedSummary, codes: string[] = [], mode = '') => {
+/** A record's sites: its mask codes, else its candidate surface ('whole' or 'low_hair'). */
+export const locationsFor = (parent?: SavedSummary, codes: string[] = [], mode = '') => {
   const masks = parent?.request?.mask_codes ?? codes;
   return masks.length ? masks : (parent?.mode ?? mode).includes('whole') ? ['whole'] : (parent?.mode ?? mode).includes('low_hair') ? ['low_hair'] : [];
 };

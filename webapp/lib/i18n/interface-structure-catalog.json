@@ -174,5 +174,12 @@
   "term_head": {"source": "头模是什么？", "en": "What is a head model?"},
   "term_head_text": {"source": "用于仿真的头部模型（由MRI重建的头皮、颅骨和脑组织）。默认是Ernie；其他头模用来检查结论是否只适用于一个人的头。", "en": "The head used in the simulation (scalp, skull and brain tissue reconstructed from MRI). The default is Ernie; other heads check whether a conclusion holds beyond one person's head."},
   "term_more": {"source": "详细说明", "en": "Details"},
-  "method_reference_list": {"source": "完整参考文献（按主题）", "en": "Full reference list (by topic)"}
+  "method_reference_list": {"source": "完整参考文献（按主题）", "en": "Full reference list (by topic)"},
+  "library_search_placeholder": {"source": "部位、区域数、面积或编号，例如：耳后 2区", "en": "Site, region count, area or ID, e.g. behind ear 2 regions"},
+  "library_search_missing": {"source": "没有记录包含：", "en": "No record contains: "},
+  "library_search_none_together": {"source": "没有记录同时符合全部查找词。", "en": "No record matches all the search words together."},
+  "library_search_try": {"source": "可以换个说法，例如“耳后”“前额”“2区”“120 cm²”，或", "en": "Try other words, such as “behind the ear”, “forehead”, “2 regions” or “120 cm²”, or"},
+  "library_search_clear": {"source": "清空查找", "en": "clear the search"},
+  "picker_search_missing": {"source": "没有布局包含：", "en": "No layout contains: "},
+  "picker_search_none_together": {"source": "没有布局同时符合全部查找词。", "en": "No layout matches all the search words together."}
 }

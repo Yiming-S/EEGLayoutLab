@@ -26,7 +26,7 @@ export function localizedEditorParentTitle(
   return parent ? localizedRecordTitle(parent, locale) : record.parent_label;
 }
 
-/** Both languages remain searchable without changing selection when locale changes. */
+/** Both languages remain searchable without changing selection when locale changes. The id is searched separately (lib/library-search.ts). */
 export function recordSearchText(record: SavedSummary): string {
   const masks = record.request?.mask_codes ?? [];
   const synonyms = [
@@ -34,5 +34,5 @@ export function recordSearchText(record: SavedSummary): string {
     masks.some((m) => ['FL', 'FM', 'FR'].includes(m)) ? 'forehead frontal' : '',
     masks.some((m) => ['OL', 'OR'].includes(m)) ? 'eye orbital periocular' : '',
   ];
-  return [recordTitle(record), record.label, record.id, localizedRecordTitle(record, 'en'), localizedRecordTitle(record, 'zh-CN'), ...synonyms].join(' ').toLowerCase();
+  return [recordTitle(record), record.label, localizedRecordTitle(record, 'en'), localizedRecordTitle(record, 'zh-CN'), ...synonyms].join(' ').toLowerCase();
 }

@@ -44,7 +44,7 @@ const cell = stackedCell;
 
 export default function LibraryWorkspace() {
   const { tx, date } = useLanguage();
-  const { isExpanded, toggleGroup, groupPrimary, groupTitle, conditionTitle, latestPerCondition, showSuperseded, setShowSuperseded, foldedCount, ar, setAR, labHref, here, layout, selected, loading, setLoading, retry, setRetry, error, view, changeView, electrodeCounts, locations, regionCounts, data, catalogWarnings, catalog, listed, id, title, protocol, score, choose, choices, displayPage, setView, pages, explicitSelection, related } = useLibraryController();
+  const { isExpanded, toggleGroup, groupPrimary, groupTitle, conditionTitle, latestPerCondition, showSuperseded, setShowSuperseded, foldedCount, ar, setAR, labHref, here, layout, selected, loading, setLoading, retry, setRetry, error, view, changeView, electrodeCounts, locations, regionCounts, data, catalogWarnings, catalog, listed, id, title, protocol, score, choose, choices, displayPage, setView, pages, explicitSelection, related, searchWords, searchMisses } = useLibraryController();
   const refresh = () => { setLoading(true); setRetry(value => value + 1); };
   const [filtersOpen, setFiltersOpen] = useState(false);
   const extraFilters = [view.filter !== 'all', view.electrodes > 0, !!view.location, view.region > 0, view.sort !== 'newest'].filter(Boolean).length;
@@ -111,7 +111,7 @@ export default function LibraryWorkspace() {
       <div className="lab-panel mb-4 space-y-4">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_1.3fr_1.3fr]">
           <label className="lab-label">{tx('记录类型')}<select className="lab-select" value={view.kind} onChange={event => changeView({ kind: event.target.value as CatalogView['kind'], filter: 'all' })}><option value="all">{tx('全部记录类型')}</option>{Object.entries(RECORD_KIND_LABELS).map(([kind, label]) => <option value={kind} key={kind}>{tx(label)}</option>)}</select></label>
-          <label className="lab-label">{tx('查找方案')}<SearchInput className="lab-select" placeholder={tx('例如：耳后、前额、2个区域')} value={view.search} onSearch={search => changeView({ search })} /></label>
+          <label className="lab-label">{tx('查找方案')}<SearchInput className="lab-select" placeholder={tx('部位、区域数、面积或编号，例如：耳后 2区')} value={view.search} onSearch={search => changeView({ search })} /></label>
           <ThresholdSlider value={ar} onChange={setAR} ariaLabel="记录接受阈值AR" term="ar" hint="只判断原记录，不重新计算。" />
         </div>
         <button type="button" className="flex w-full items-center justify-between rounded-xl border border-border/80 bg-muted/40 px-3.5 py-2 text-sm font-medium sm:hidden" aria-expanded={filtersOpen} aria-controls="library-more-filters" onClick={() => setFiltersOpen(open => !open)}><span className="flex items-center gap-2"><SlidersHorizontal className="size-4" />{tx('更多筛选与排序')}{extraFilters > 0 && <span className="rounded-full bg-primary px-1.5 text-xs text-primary-foreground">{extraFilters}</span>}</span><ChevronDown className={cn('size-4 transition-transform', filtersOpen && 'rotate-180')} /></button>
@@ -148,7 +148,11 @@ export default function LibraryWorkspace() {
                 {listed.map(row => row.kind === 'entry' ? renderEntry(row.entry) : renderGroup(row))}
               </tbody>
             </table>
-            {!choices.length && <p className="px-4 py-6 text-sm text-muted-foreground">{tx('当前筛选下没有记录。')}</p>}
+            {!choices.length && <div className="space-y-2 px-4 py-6 text-sm text-muted-foreground">
+              <p>{tx('当前筛选下没有记录。')}</p>
+              {searchWords.length > 0 && <p>{searchMisses.length ? <>{tx('没有记录包含：')}{searchMisses.map(word => `“${word}”`).join(' ')}</> : tx('没有记录同时符合全部查找词。')}{' '}
+                {tx('可以换个说法，例如“耳后”“前额”“2区”“120 cm²”，或')}{' '}<button type="button" className="font-medium text-primary underline underline-offset-2" onClick={() => changeView({ search: '' })}>{tx('清空查找')}</button></p>}
+            </div>}
           </div>
           {(foldedCount > 0 || showSuperseded) && <p className="mt-3 text-xs text-muted-foreground">{showSuperseded ? tx('已显示较早代码版本的同配置记录。') : tx(`另有${foldedCount}条同配置记录来自较早的代码版本，已折叠。`)} <button type="button" className="font-medium text-primary underline underline-offset-2" onClick={() => setShowSuperseded(value => !value)}>{tx(showSuperseded ? '折叠旧版本' : '显示旧版本')}</button></p>}
           {!selected && choices.length > 0 && <p className="mt-2.5 text-xs text-muted-foreground">{tx('点击“查看布局”打开布局详情；编辑副本与信号实验的“查看结果”在本页下方展开。')}</p>}
