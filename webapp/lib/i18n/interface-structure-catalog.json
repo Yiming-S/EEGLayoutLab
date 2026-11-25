@@ -92,6 +92,7 @@
   "study_choose_saved": {"source": "选择已保存布局", "en": "Choose a saved layout"},
   "method_intro": {"source": "完整的方法说明写在项目文档中，按主题分章；本页是目录。首次操作请查看“使用指南”。", "en": "The full method is written in the project documentation, one chapter per topic; this page is its index. For first steps, see the “User Guide”."},
   "method_local": {"source": "文档由本机服务提供（/docs/）。", "en": "The documentation is served by the local service (/docs/)."},
+  "method_published": {"source": "文档与本站一起发布（/docs/）。", "en": "The documentation is published with this site (/docs/)."},
   "method_github": {"source": "文档链接打开GitHub上的原文；用本机服务（eeglayoutlab）运行并构建文档后，链接改为本机的/docs/。", "en": "Documentation links open the text on GitHub; when the local service (eeglayoutlab) runs with the documentation built, they open /docs/ on this machine."},
   "method_moved": {"source": "“{{0}}”一节已移到文档。", "en": "The section “{{0}}” has moved to the documentation."},
   "method_open_chapter": {"source": "打开该章节", "en": "Open that chapter"},

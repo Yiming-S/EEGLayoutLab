@@ -1,11 +1,9 @@
 name: Documentation
 
 # Builds the documentation site (mkdocs.yml) in strict mode on every push and pull request and keeps
-# it as a workflow artifact. A push to main also publishes it on GitHub Pages (source: GitHub Actions)
-# at https://yiming-s.github.io/EEGLayoutLab/. The showcase site (showcase-pages.yml) deploys to the
-# same Pages site and would replace it; how the two share Pages is decided when the showcase gets its
-# domain. Versioned documentation for tags (mike) is planned in CONTRIBUTING.md,
-# "Building the documentation".
+# it as a workflow artifact. Nothing is deployed here: pages.yml publishes the site under /docs/ of
+# the website, beside the showcase. Versioned documentation for tags (mike) is planned in
+# CONTRIBUTING.md, "Building the documentation".
 
 on:
   push:
@@ -36,8 +34,6 @@ jobs:
         env:
           # Links to repository files point to the commit that was built.
           DOCS_SOURCE_REF: ${{ github.event.pull_request.head.sha || github.sha }}
-          # The published address (canonical links and the 404 page).
-          DOCS_SITE_URL: https://yiming-s.github.io/EEGLayoutLab/
           NO_MKDOCS_2_WARNING: '1'
         run: mkdocs build --strict
       - uses: actions/upload-artifact@v4
@@ -46,26 +42,3 @@ jobs:
           path: site/
           if-no-files-found: error
           retention-days: 14
-      - name: Package the site for GitHub Pages
-        if: github.ref == 'refs/heads/main'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: site/
-
-  deploy:
-    if: github.ref == 'refs/heads/main'
-    needs: site
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      pages: write
-      id-token: write
-    concurrency:
-      group: pages
-      cancel-in-progress: false
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4

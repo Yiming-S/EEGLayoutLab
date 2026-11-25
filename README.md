@@ -6,6 +6,8 @@ It is built for layouts confined to parts of the scalp, such as the forehead, th
 
 EEGLayoutLab is developed on a non-profit basis and provided free of charge. Its original source code and accompanying documentation are licensed under GPL-3.0-only.
 
+**Try it online:** a read-only preview runs at [eeglayout.org](https://eeglayout.org), with this documentation at [eeglayout.org/docs](https://eeglayout.org/docs/).
+
 [简体中文指南](docs/getting-started.zh-CN.md) · [Run locally](docs/source-installation.md) · [Model and metrics](docs/model-and-metrics.md) · [References](docs/references.md) · [Command line](docs/command-line.md) · [Architecture](docs/architecture.md) · [Operations](docs/web-operations.md)
 
 ## Features
@@ -87,7 +89,7 @@ A fresh native FEM run reproduced the qualified `128 × 4352` forward field and 
 
 The application includes explicit scientific and queue-directory configuration, HTTPS reverse-proxy access rules, request identifiers, bounded request logs, local status probes, disk and optional Node-memory admission checks, and maintenance/drain controls. Release manifests record source, data and runtime identities; backup and restore tools preserve scientific records and private project and study archives.
 
-A read-only showcase of the interface (example results, the layout pages and 3D head, the comparison page and the guide; nothing is sent to a service) can be built as static files; see [showcase](docs/showcase.md).
+A read-only showcase of the interface (example results, the layout pages and 3D head, the comparison page and the guide; nothing is sent to a service) runs at [eeglayout.org](https://eeglayout.org) and can be built as static files; see [showcase](docs/showcase.md).
 
 Model data is also packaged as versioned packages (base bundle, scalp-node tables, head packages) that `eeglayoutlab data` installs and verifies; see [data packages](docs/data-packages.md).
 

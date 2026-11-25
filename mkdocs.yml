@@ -3,7 +3,7 @@
 # links written for GitHub resolve on the site.
 site_name: EEGLayoutLab
 site_description: Design and compare compact EEG electrode layouts on a realistic head model.
-# The published address, set by .github/workflows/docs.yml; unset for local builds, which the service
+# The published address, set by .github/workflows/pages.yml; unset for local builds, which the service
 # serves under /docs/ (a fixed address would break the 404 page there).
 site_url: !ENV DOCS_SITE_URL
 repo_url: https://github.com/Yiming-S/EEGLayoutLab

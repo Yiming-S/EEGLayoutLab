@@ -16,7 +16,7 @@ The top bar shows four of the five areas of the interface ([design 0004](design/
 | | Signal Simulation | The curated layouts can be selected; starting a simulation shows the read-only notice |
 | | Channel Subsets | As in the application: the selection runs in the browser on the visitor's own summary files, which are not uploaded |
 | Findings | Total-Area Study, Historical Batches | As in the application; these pages read files under `webapp/public/data` |
-| Documentation | User Guide, Models & Methods | As in the application. The showcase has no `/docs/` site, so the chapter links open the Markdown on GitHub |
+| Documentation | User Guide, Models & Methods | As in the application. On the website the chapter links open the documentation site under `/docs/`; a showcase built alone has none, so they open the Markdown on GitHub |
 | — | Research Projects (`/projects`), delivery reader (`/deliveries`) | Not in the top bar; opened by their address. Creating a project shows the read-only notice; a delivery package is read in the browser, as in the application |
 
 Every page carries a strip that names the read-only showcase and links to the installation notes.
@@ -54,12 +54,14 @@ node scripts/serve-showcase.mjs       # http://127.0.0.1:3332, served as GitHub 
 
 ## Hosting
 
+The showcase is online at <https://eeglayout.org>, with the documentation site under <https://eeglayout.org/docs/>.
+
 The site must be served at the root of its domain: the interface links to `/design`, `/data/…` and `/models/…` with absolute paths, so a project page under `https://<user>.github.io/EEGLayoutLab/` does not work. Use a custom domain or another static host at a root path.
 
-[`.github/workflows/showcase-pages.yml`](../.github/workflows/showcase-pages.yml) builds the site and deploys it to GitHub Pages. It runs only when started by hand (`workflow_dispatch`), and needs:
+[`.github/workflows/pages.yml`](../.github/workflows/pages.yml) builds the showcase, builds the documentation into its `docs/` directory and deploys both to GitHub Pages, on every push to `main` and when started by hand. It needs:
 
-- Pages enabled for the repository, with "GitHub Actions" as the source;
-- a custom domain, set as the repository variable `SHOWCASE_CNAME` (for example `showcase.example.org`) and in the DNS records.
+- Pages enabled for the repository, with "GitHub Actions" as the source and the custom domain set in the Pages settings;
+- the same domain as the repository variable `SHOWCASE_CNAME` (`eeglayout.org`) and in the DNS records.
 
 The showcase publishes Ernie-derived display models and results, which keep the CC BY-NC 4.0 terms in [third-party notices](../THIRD_PARTY_NOTICES.md); the footer links to them on every page.
 

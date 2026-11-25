@@ -10,6 +10,7 @@ import { CopyrightNotice } from '@/components/copyright-notice';
 import { useDocsSite } from '@/components/docs-site';
 import { METHOD_CONTENTS } from '@/lib/documentation';
 import { METHOD_GROUPS, docsHref, movedSection } from '@/lib/method-index';
+import { SHOWCASE } from '@/lib/showcase';
 
 export default function MethodPage() {
   const { tx } = useLanguage();
@@ -30,8 +31,8 @@ export default function MethodPage() {
           <MethodBackLink />
           <h1 className="mt-2 text-2xl font-semibold tracking-[-0.03em] sm:text-[1.75rem]">{tx('建模与原理')}</h1>
           <p className="mt-2.5 max-w-3xl text-sm leading-7 text-ink-soft">{tx('完整的方法说明写在项目文档中，按主题分章；本页是目录。首次操作请查看“使用指南”。')}</p>
-          <p className="mt-2 font-mono text-xs text-muted-foreground">{tx(site === 'local' ? '文档由本机服务提供（/docs/）。'
-            : '文档链接打开GitHub上的原文；用本机服务（eeglayoutlab）运行并构建文档后，链接改为本机的/docs/。')}</p>
+          <p className="mt-2 font-mono text-xs text-muted-foreground">{site !== 'local' ? tx('文档链接打开GitHub上的原文；用本机服务（eeglayoutlab）运行并构建文档后，链接改为本机的/docs/。')
+            : SHOWCASE ? tx('文档与本站一起发布（/docs/）。') : tx('文档由本机服务提供（/docs/）。')}</p>
           <nav aria-label={tx('建模与原理目录')} className="mt-4 flex flex-wrap gap-2">
             {METHOD_CONTENTS.map(([id, title]) => <a key={id} href={'#' + id} className="lab-link-pill">{tx(title)}</a>)}
           </nav>
