@@ -14,6 +14,7 @@ import { useLanguage } from '@/components/language-provider';
 import { localizedRecordTitle } from '@/lib/i18n/records';
 import { PAGES, safeReturnHref, type PageId } from '@/lib/ui-language';
 import type { SavedRecord } from '@/lib/local-library';
+import { apiFetch } from '@/client/task-client';
 import {
   WORKSPACES,
   WORKSPACE_TABS,
@@ -136,7 +137,7 @@ export function SiteHeader({
     if (!selection.id || offline) return;
     const id = selection.id,
       controller = new AbortController();
-    fetch('/api/local-compute/library/' + id + (annotationId ? '?annotation_id=' + annotationId : ''), {
+    apiFetch('/api/local-compute/library/' + id + (annotationId ? '?annotation_id=' + annotationId : ''), {
       signal: controller.signal,
       cache: 'no-store',
     })

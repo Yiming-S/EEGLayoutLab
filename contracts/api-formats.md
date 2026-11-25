@@ -17,9 +17,14 @@ change stored protocol identifiers.
 
 ## Requests
 
-All write requests are JSON objects. The existing local HTTP boundary validates
-origin, session token, and anonymous task ownership. These controls are separate
-from the request data formats below.
+All write requests are JSON objects. The Python service (`eeglayoutlab serve`)
+requires its session cookie on every request and, on writes, a same-origin
+request and `X-EEG-Compute-Token`, the token from health. A request without the
+cookie, such as one from a tab of an earlier run, gets `401` with code
+`authentication_required`; the interface then asks to run the `eeglayoutlab`
+command again. The legacy Node host validates origin, the token and anonymous
+task ownership instead. These controls are separate from the request data
+formats below.
 
 | Service | Required fields | Rules |
 | --- | --- | --- |
@@ -222,8 +227,12 @@ states include `queued`, `running`, `cancelling`, `completed`, `failed`,
 connection state is tracked separately from these backend states. The extraction
 does not merge the result formats or rewrite historical records.
 
-## Shared library visibility
+## Shared library visibility (legacy Node host)
 
+The Python service lists every record of the library for its one local user and
+returns no `visibility` or `library_scope`; its
+`/api/local-compute/library/<id>/visibility` is `404`, and the interface has no
+visibility control. On the legacy Node host,
 `GET /api/local-compute/library`, `GET /api/electrode-editor/records`,
 `GET /api/electrode-editor/parents` and `GET /api/source-reception/layouts`
 list one browser's view. Each visitor-produced record (`cache`,

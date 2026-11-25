@@ -5,7 +5,7 @@ import { ArrowUpRight, BookOpen, FlaskConical, FolderKanban, Grid3x3, Import, Pe
 import { useLanguage } from '@/components/language-provider';
 import { RuntimeMessage } from '@/components/runtime-message';
 import { SiteHeader } from '@/components/site-header';
-import { TaskList, VisitorNotice, useTaskStatus } from '@/components/community-status';
+import { TaskList, useTaskStatus } from '@/components/community-status';
 import { TermHint } from '@/components/term-hint';
 import { Button } from '@/components/ui/button';
 import { apiJson } from '@/client/task-client';
@@ -224,10 +224,11 @@ function RecentLayouts({ records, ar, error }: { records: SavedSummary[] | null;
 
 function Tasks() {
   const { tx } = useLanguage();
-  const tasks = useTaskStatus(), { status, failure } = tasks;
-  const idle = !status?.jobs.length && !failure && !status?.recovery_blocked && status?.available !== false;
+  const tasks = useTaskStatus(), { status, offline, failure } = tasks;
+  // Idle while the first status is read, or when the workspace has no task; a service that has ended is not idle.
+  const idle = !failure && (status ? !status.jobs.length && !status.recovery_blocked && status.available !== false : offline === 'loading');
   return <section id="tasks" aria-labelledby="tasks-title" className={cn('lab-panel scroll-mt-32', idle && 'py-4')}>
-    {idle ? <EmptyLine id="tasks-title" title="计算任务" note="当前浏览器暂无计算任务"><VisitorNotice status={status} className="basis-full" /></EmptyLine>
+    {idle ? <EmptyLine id="tasks-title" title="计算任务" note="此工作区暂无计算任务" />
       : <><h2 id="tasks-title" className="text-base font-semibold">{tx('计算任务')}</h2><div className="text-sm"><TaskList {...tasks} /></div></>}
   </section>;
 }

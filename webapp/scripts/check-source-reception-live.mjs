@@ -4,19 +4,15 @@ import { readFile, readdir, mkdir, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { resolve, join } from 'node:path';
 import { validateSourceResult } from './source-reception-server.mjs';
-import { openServiceSession } from './helpers/service-session.mjs';
+import { scriptServer } from './helpers/service-session.mjs';
 
-// The Node host at EEG_TEST_URL (default http://127.0.0.1:3000), or the Python service (eeglayoutlab serve): with
-// EEG_SERVICE_RUNTIME (its <workspace>/.eeglayoutlab/runtime.json) or EEG_SERVICE_TOKEN and EEG_TEST_URL, sign in
-// as its launched browser and send the session cookie. EEG_REPOSITORY_ROOT is the root the service serves (default
-// this checkout); the report is written below it, so run the script on a copy of the installation.
+// The Python service (eeglayoutlab serve): with EEG_SERVICE_RUNTIME (its <workspace>/.eeglayoutlab/runtime.json), or
+// EEG_SERVICE_TOKEN and EEG_TEST_URL, the script signs in as its launched browser and sends the session cookie
+// (helpers/service-session.mjs). With EEG_TEST_URL alone, the legacy Node host there. EEG_REPOSITORY_ROOT is the
+// root the server serves (default this checkout); the report is written below it, so run the script on a copy of
+// the installation.
 const root = resolve(process.env.EEG_REPOSITORY_ROOT || '..');
-const service =
-  process.env.EEG_SERVICE_RUNTIME || process.env.EEG_SERVICE_TOKEN
-    ? await openServiceSession({ base: process.env.EEG_TEST_URL })
-    : null;
-const base =
-  service?.base || process.env.EEG_TEST_URL || 'http://127.0.0.1:3000';
+const { base, service } = await scriptServer();
 // Node's host knows a browser by the visitor cookie it issues; without it every poll would be another visitor's,
 // and its records list only that browser's receipts.
 let visitorCookie = '';

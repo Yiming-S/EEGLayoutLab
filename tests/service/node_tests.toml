@@ -2,8 +2,10 @@
 # defines the keys and the fields.
 #
 # [sites] has one entry per test( / dataTest( call site in the webapp/scripts/check-*.mjs files that import
-# node:test, grouped by file in source order. A port that belongs to a later slice is "pending" with its slice and
-# module; the stage that writes it changes the entry to "P" with its target. From slice 10 nothing is pending.
+# node:test, grouped by file in source order. While phase 2 ran, a port that belonged to a later slice was "pending"
+# with its slice and module, and a site that stays in Node but had to change for the Python service was "NA"; slice 10
+# (the last) left neither: every site is ported (P), mirrored (C), stays in Node (N, E, CLI) or is dropped (D). A Node
+# test removed with the public-service interface in slice 10 left the map with its site.
 #
 # Reason codes for D (plan section 5.1): R1 anonymous public visitors (networks, cookies, signed sessions, rate
 # limits, per-browser ownership); R2 operations logging, admission and monitoring, and the operator probe; R3 hosted
@@ -251,7 +253,7 @@ note = "saved signal downloads; the owner part is dropped (R1); over HTTP, with 
 
 # --- check-community-status.mjs ---------------------------------------------------------------------------------------
 
-[sites."check-community-status.mjs::the task menu reads both status shapes and counts visitors only when the host does"]
+[sites."check-community-status.mjs::the task menu reads the status of both hosts and ignores a visitor count"]
 disposition = "N"
 note = "the interface's task menu (components/community-status-model.ts), on both hosts"
 
@@ -262,25 +264,21 @@ disposition = "N"
 disposition = "N"
 note = "GET /api/community/status, which both hosts serve (slice 4)"
 
-[sites."check-community-status.mjs::the Python service gets the plain status read only"]
+[sites."check-community-status.mjs::a status slower than its time limit is offline"]
 disposition = "N"
-
-[sites."check-community-status.mjs::the Node host, which counts visitors, gets its visible-page heartbeat and the menu shows its answer"]
-disposition = "N"
-note = "POST /api/community/heartbeat only for a host whose status counts visitors"
-
-[sites."check-community-status.mjs::each request of a refresh has its own time limit, so a slow Node host still answers"]
-disposition = "N"
-note = "an 8 s limit per request, as health and the heartbeat each had"
-
-[sites."check-community-status.mjs::on the Node host the menu still counts each browser and logs its visit"]
-disposition = "N"
-note = "Node's own CommunityQueue and community routes over HTTP"
+note = "an 8 s limit"
 
 [sites."check-community-status.mjs::a refused or unreadable status is offline"]
 disposition = "N"
 
-[sites."check-community-status.mjs::the component refreshes through the model with the page visibility and shows the visitor notices only with a count"]
+[sites."check-community-status.mjs::a status refused for the session of an earlier run asks to reopen from the eeglayoutlab command"]
+disposition = "N"
+
+[sites."check-community-status.mjs::a status that reaches no server asks to run the eeglayoutlab command again and claims no empty queue"]
+disposition = "N"
+note = "serve takes a new port on every start, so a tab of an earlier run gets a network error; added in the slice 10 review"
+
+[sites."check-community-status.mjs::the component reads the status through the model and shows no visitor count or access-log notice"]
 disposition = "N"
 
 # --- check-coordinate-bundles.mjs -------------------------------------------------------------------------------------
@@ -324,9 +322,8 @@ note = "the assertIndependentNoiseParent assertions through jobs.reception.asser
 disposition = "N"
 
 [sites."check-coordinate-interop.mjs::10-05 labels reproduce the standard64 reference and resolve the old 10-20 names"]
-disposition = "NA"
-slice = 10
-note = "line 61 cross-checks through Node normalizeDesignRequest; use the parity corpus canonical or drop it"
+disposition = "N"
+note = "names are presentation metadata: the browser submission (designSubmission, scientificDesign) equals a plain coordinate import; key parity covers the service normalization"
 
 [sites."check-coordinate-interop.mjs::label lists reject unknown, repeated or malformed entries"]
 disposition = "N"
@@ -357,24 +354,20 @@ disposition = "N"
 # --- check-coordinate-review.mjs --------------------------------------------------------------------------------------
 
 [sites."check-coordinate-review.mjs::reading a cached native-FEM result is labelled as a read while preserving the original scientific origin"]
-disposition = "NA"
-slice = 10
-note = "its module fixture calls Node normalizeDesignRequest (line 28); use a literal canonical request"
+disposition = "N"
+note = "the module fixture is the literal canonical request; the source-metadata test checks that Node's normalizer returns it unchanged"
 
 [sites."check-coordinate-review.mjs::unevaluated coordinates have no projected positions, zero displacement or qualified status"]
-disposition = "NA"
-slice = 10
-note = "its module fixture calls Node normalizeDesignRequest (line 28); use a literal canonical request"
+disposition = "N"
+note = "the module fixture is the literal canonical request; the source-metadata test checks that Node's normalizer returns it unchanged"
 
 [sites."check-coordinate-review.mjs::per-electrode projection review preserves original/result arrays and full exported coordinate precision"]
-disposition = "NA"
-slice = 10
-note = "its module fixture calls Node normalizeDesignRequest (line 28); use a literal canonical request"
+disposition = "N"
+note = "the module fixture is the literal canonical request; the source-metadata test checks that Node's normalizer returns it unchanged"
 
 [sites."check-coordinate-review.mjs::coordinate review renders unassessed rows without qualification and escapes imported labels"]
-disposition = "NA"
-slice = 10
-note = "its module fixture calls Node normalizeDesignRequest (line 28); use a literal canonical request"
+disposition = "N"
+note = "the module fixture is the literal canonical request; the source-metadata test checks that Node's normalizer returns it unchanged"
 
 [sites."check-coordinate-review.mjs::the BIDS coordinate subset round-trips names, rows, regions, precise numbers and explicit source declarations"]
 disposition = "N"
@@ -807,9 +800,8 @@ disposition = "N"
 disposition = "N"
 
 [sites."check-head-registration.mjs::EEGLayoutLab .elc and .sfp exports read back unchanged; other montages are registered"]
-disposition = "NA"
-slice = 10
-note = "line 83 passes the submission through Node designSubmission; map it to the design-evaluation corpus"
+disposition = "N"
+note = "the submission keeps the /3 source, checked through the shared contract without Node's adapter"
 
 [sites."check-head-registration.mjs::browser imports use the elc declared unit regardless of the sfp unit selector"]
 disposition = "N"
@@ -962,7 +954,26 @@ disposition = "N"
 [sites."check-i18n.mjs::correlated-noise layouts explain the missing simulation hand-off and head results name their origin"]
 disposition = "N"
 
-[sites."check-i18n.mjs::shared-library visibility states and the publish confirmation are translated"]
+[sites."check-i18n.mjs::the library names the workspace scope of its signal records in both languages"]
+disposition = "N"
+note = "replaces the shared-library visibility test (R4, removed with record-visibility-control.tsx)"
+
+# --- check-key-parity.mjs ---------------------------------------------------------------------------------------------
+
+[sites."check-key-parity.mjs::a lookup that misses on both hosts compares no key"]
+disposition = "N"
+note = "the comparisons of check-key-parity-live.mjs (helpers/key-parity.mjs), tier C of section 4; added in the slice 10 review"
+
+[sites."check-key-parity.mjs::two hosts agree only in status, hit, key and request, or in the message of a refusal"]
+disposition = "N"
+
+[sites."check-key-parity.mjs::a stored record of the current identity must hit with its own key and request"]
+disposition = "N"
+
+[sites."check-key-parity.mjs::both libraries must hold the same rows with the same members"]
+disposition = "N"
+
+[sites."check-key-parity.mjs::stored requests are read from the completed records of the root"]
 disposition = "N"
 
 # --- check-lab-workflow.mjs -------------------------------------------------------------------------------------------
@@ -1469,25 +1480,17 @@ note = "over HTTP with the library's bundle in test_project_routes.py::test_a_pr
 
 # --- check-project-client.mjs -----------------------------------------------------------------------------------------
 
-[sites."check-project-client.mjs::project access files validate their format, limits and credential fields"]
-disposition = "D"
-reason = "R5"
-note = "project access files"
+[sites."check-project-client.mjs::the project directory lists the workspace projects and skips rows that name no project"]
+disposition = "N"
+note = "GET /api/projects"
 
-[sites."check-project-client.mjs::browser vault deduplicates projects and never replaces owner access with a read-only share"]
-disposition = "D"
-reason = "R5"
-note = "access-key vault"
+[sites."check-project-client.mjs::project navigation accepts no remote return"]
+disposition = "N"
+note = "the kept half of the removed sharing test"
 
-[sites."check-project-client.mjs::sharing puts credentials only in the fragment and project navigation accepts no remote return"]
-disposition = "D"
-reason = "R5"
-note = "share fragments"
-
-[sites."check-project-client.mjs::project HTTP writes use both headers and never send credentials in the request URL or scientific jobs"]
-disposition = "NA"
-slice = 10
-note = "the X-EEG-Project-Key header goes"
+[sites."check-project-client.mjs::project HTTP writes send the session token and keep their bytes, with no project key and nothing in the URL"]
+disposition = "N"
+note = "replaces the NA test of both headers"
 
 [sites."check-project-client.mjs::an uncertain project write is not automatically submitted again"]
 disposition = "N"
@@ -1496,9 +1499,8 @@ disposition = "N"
 disposition = "N"
 
 [sites."check-project-client.mjs::completed record choices retain each actual service identity and exclude unfinished tasks"]
-disposition = "NA"
-slice = 10
-note = "record choices read /api/community/records"
+disposition = "N"
+note = "record choices read /api/community/records (scope workspace)"
 
 [sites."check-project-client.mjs::a failed or malformed directory exposes a diagnostic while other completed record types remain available"]
 disposition = "N"
@@ -1517,10 +1519,9 @@ disposition = "N"
 [sites."check-project-delivery-client.mjs::unsafe inventory paths, duplicates and unexpected encodings are rejected"]
 disposition = "N"
 
-[sites."check-project-delivery-client.mjs::an aborted request and an accidentally included current access key cannot produce a download"]
-disposition = "NA"
-slice = 10
-note = "the access-key half goes"
+[sites."check-project-delivery-client.mjs::an aborted request cannot produce a download"]
+disposition = "N"
+note = "the access-key half went with the project credentials"
 
 # --- check-project-delivery.mjs ---------------------------------------------------------------------------------------
 
@@ -1748,9 +1749,8 @@ reason = "R6"
 # --- check-reception-controller.mjs -----------------------------------------------------------------------------------
 
 [sites."check-reception-controller.mjs::refresh restores the selected queued task instead of the earlier health task, then displays its result"]
-disposition = "NA"
-slice = 10
-note = "a real CommunityQueue serves the fake fetch; use a scripted queue or recorded Python responses"
+disposition = "N"
+note = "a scripted workspace queue answers as src/eeglayoutlab/jobs/queue.py view does"
 
 [sites."check-reception-controller.mjs::a late lookup reply cannot replace a newly selected cached scene"]
 disposition = "N"
@@ -1761,7 +1761,7 @@ disposition = "N"
 [sites."check-reception-controller.mjs::late poll and cancellation replies cannot overwrite the newly restored task"]
 disposition = "N"
 
-[sites."check-reception-controller.mjs:171"]
+[sites."check-reception-controller.mjs:197"]
 disposition = "N"
 note = "title `a recovered task reaching ${status} stops polling and never becomes a cached result`"
 
@@ -1771,7 +1771,7 @@ disposition = "N"
 [sites."check-reception-controller.mjs::a transient connection error keeps the known task running and later recovers its result"]
 disposition = "N"
 
-[sites."check-reception-controller.mjs:216"]
+[sites."check-reception-controller.mjs:242"]
 disposition = "N"
 note = "title `a blocked HTTP ${status} task can reconnect without changing server state or resubmitting`"
 
@@ -1876,6 +1876,10 @@ note = "reads the Python-built deliveries in tests/service/fixtures/delivery (sl
 [sites."check-research-delivery-reader.mjs::uploaded metric and summary display values retain their original scalar types"]
 disposition = "N"
 note = "reads the Python-built deliveries in tests/service/fixtures/delivery (slice 9), which test_delivery.py::test_the_delivery_fixtures_are_the_python_builds_of_the_checks_inputs keeps current and ::test_the_delivery_fixtures_are_nodes_builds_of_the_checks_inputs checks against Node's builder"
+
+[sites."check-research-delivery-reader.mjs::a layout summary saying whether signal simulation accepts the layout opens, and only as a boolean"]
+disposition = "N"
+note = "summaryShape accepts a boolean simulation"
 
 # --- check-research-delivery.mjs --------------------------------------------------------------------------------------
 
@@ -2508,16 +2512,15 @@ target = "tests/service/test_source.py::test_v2_validator_rejects_wrong_source_i
 disposition = "N"
 
 [sites."check-surface-patches.mjs::current native two-region patches preserve 32+32 and match the reported areas"]
-disposition = "NA"
-slice = 10
-note = "dataTest; reads the record through LocalComputeQueue.library: read the strict-area record directly"
+disposition = "N"
+note = "dataTest; reads the current strict-area report through its checksummed pointer"
 
 # --- check-task-client.mjs --------------------------------------------------------------------------------------------
 
 [sites."check-task-client.mjs::temporary disconnection preserves server state and recovers the same task"]
 disposition = "N"
 
-[sites."check-task-client.mjs:28"]
+[sites."check-task-client.mjs:31"]
 disposition = "N"
 note = "title `HTTP ${status} ends automatic observation without inventing a failed job`"
 
@@ -2527,14 +2530,25 @@ disposition = "N"
 [sites."check-task-client.mjs::unmount or selected-task change discards a late reply and ends observation"]
 disposition = "N"
 
-[sites."check-task-client.mjs:73"]
+[sites."check-task-client.mjs:76"]
 disposition = "N"
 note = "title `observation rejects invalid task identity or status: ${JSON.stringify(invalid)}`"
 
 [sites."check-task-client.mjs::submission and cancellation refresh session tokens and preserve request bytes"]
-disposition = "NA"
-slice = 10
-note = "asserts X-EEG-Compute-Token from health; changes only if the header goes"
+disposition = "N"
+note = "X-EEG-Compute-Token from health; no request opts out of the session cookie"
+
+[sites."check-task-client.mjs::a request refused for a session of an earlier run asks to reopen from the eeglayoutlab command"]
+disposition = "N"
+note = "401 authentication_required asks to run eeglayoutlab again"
+
+[sites."check-task-client.mjs::a request that reaches no server asks to run the eeglayoutlab command again"]
+disposition = "N"
+note = "a network error after the service stopped or moved to another port; added in the slice 10 review"
+
+[sites."check-task-client.mjs::every request of the interface tells the task menu of an ended session or a lost service"]
+disposition = "N"
+note = "apiFetch and SERVICE_CONNECTION_EVENT; no interface module calls fetch itself; added in the slice 10 review"
 
 [sites."check-task-client.mjs::lost submission response is never retried automatically"]
 disposition = "N"
@@ -2717,87 +2731,100 @@ disposition = "N"
 disposition = "N"
 
 # --- Opt-in scripts ---------------------------------------------------------------------------------------------------
+#
+# From slice 10 every script finds its server through webapp/scripts/helpers/service-session.mjs (scriptServer), with
+# no default address: the Python service (eeglayoutlab serve) with EEG_SERVICE_RUNTIME (<W>/.eeglayoutlab/runtime.json)
+# or EEG_SERVICE_TOKEN (and EEG_TEST_URL as its base); EEG_TEST_URL alone is the legacy Node host, where the script
+# still supports one. A paused-queue precondition is assertCacheOnly (health maintenance and drained: serve
+# --cache-only). The outcomes below are those of slice 10's runs against serve on an APFS copy of the author's
+# installation (design 0001 phase 2 plan, "Phase 2 results").
 
 [scripts."check-app-live.mjs"]
 kind = "live"
 slice = 10
-note = "its route checks run against the Python port from slice 2"
+note = "Python service, or the legacy Node host at EEG_TEST_URL alone; it computes, so run it on a copy of the installation. Passes against serve; --native (direct FEM of new coordinates, about 10 GB) was not run in slice 10"
 
 [scripts."check-compression-live.mjs"]
 kind = "live"
 slice = 10
-note = "Python serves identity encoding only; keep the identity-transfer checks"
+note = "Python serves identity encoding only, so against serve every response must carry the original bytes uncompressed, with the same HEAD, conditional, range and API header checks; the legacy Node host at EEG_TEST_URL alone is checked for compression. EEG_SIGNAL_FIXTURE, EEG_REPOSITORY_ROOT. Passes its 30 checks against serve"
 
 [scripts."check-design-evaluation-live.mjs"]
 kind = "live"
 slice = 5
-note = "retargeted in slice 5: the Python service through EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN, Node at EEG_TEST_URL otherwise; it computes, so run it on a copy of the installation"
+note = "retargeted in slice 5; slice 10 removed its default address (Python service, or the legacy Node host at EEG_TEST_URL alone). It computes, so run it on a copy of the installation. Passes against serve; --native was not run in slice 10"
 
 [scripts."check-electrode-editor-live.mjs"]
 kind = "live"
 slice = 6
-note = "retargeted in slice 6: the Python service through EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN, Node at EEG_TEST_URL otherwise; it computes, so run it on a copy of the installation. It edits the first two-region PL/PR radius parent that /api/electrode-editor/parents lists, whose region geometry and surface admission must be the current ones; its code identity need not be current (a stale radius row is accepted, as in Node). check-local-compute-live.mjs computes such a layout"
+note = "retargeted in slice 6; slice 10 removed its default address (Python service, or the legacy Node host at EEG_TEST_URL alone). It computes, so run it on a copy of the installation. It edits the first two-region PL/PR radius parent that /api/electrode-editor/parents lists, whose region geometry and surface admission must be the current ones; its code identity need not be current (a stale radius row is accepted, as in Node). check-local-compute-live.mjs computes such a layout. Passes against serve"
 
 [scripts."check-local-compute-live.mjs"]
 kind = "live"
 slice = 4
-note = "retargeted in slice 4: the Python service through EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN, Node otherwise; it computes, so run it on a copy of the installation"
+note = "retargeted in slice 4; slice 10 removed its default address (Python service, or the legacy Node host at EEG_TEST_URL alone). It computes, so run it on a copy of the installation. Passes against serve"
 
 [scripts."check-local-library-live.mjs"]
 kind = "live"
 slice = 4
-note = "retargeted in slice 4 (EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN): the read half, and the cache half (key === row.id) from a workspace that did not compute the rows"
+note = "retargeted in slice 4; slice 10 removed its default address. The read half, and the cache half (key === row.id) from a workspace that did not compute the rows; EEG_REPOSITORY_ROOT. Passes against serve --cache-only from a second workspace"
 
 [scripts."check-radius-recovery-live.mjs"]
 kind = "live"
 slice = 4
-note = "retargeted in slice 4 (EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN); it computes, so run it on a copy; its fixed original record and provenance version describe an older installation"
+note = "retargeted in slice 4; slice 10 removed its default address. It computes, so run it on a copy. Fails at once on both hosts: its fixed original record 6135457e... exists neither on the installation nor on a copy, and it expects strict-radius-local/2 where the current code writes strict-radius-local/3-external-exposure. A new fixture and expectations are a scientific decision"
 
 [scripts."check-source-reception-live.mjs"]
 kind = "live"
 slice = 7
-note = "retargeted in slice 7: the Python service through EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN, Node at EEG_TEST_URL otherwise (with its visitor cookie); it computes a v1 reception of the first completed two-region AL,AR 35 mm cache row the library lists, whose code identity need not be current (a stale row is received with compatible false, as in Node), checks /api/community/records and the saved download, and writes its report under EEG_REPOSITORY_ROOT/webapp/outputs, so run it on a copy of the installation"
+note = "retargeted in slice 7; slice 10 removed its default address (Python service, or the legacy Node host at EEG_TEST_URL alone, with its visitor cookie). It computes a v1 reception of the first completed two-region AL,AR 35 mm cache row the library lists, whose code identity need not be current (a stale row is received with compatible false, as in Node), checks /api/community/records and the saved download, and writes its report under EEG_REPOSITORY_ROOT/webapp/outputs, so run it on a copy of the installation. Passes against serve"
+
+[scripts."check-key-parity-live.mjs"]
+kind = "live"
+slice = 10
+note = "new in slice 10, exit criterion 1 live (tier C). Lookups only, never a job: the Python service (EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN, serve --cache-only) and the legacy Node host (--node or EEG_NODE_URL; EEG_REPOSITORY_ROOT=R, a temporary EEG_QUEUE_DIRECTORY, EEG_MAINTENANCE=1) on the same root (--root, EEG_REPOSITORY_ROOT or the runtime's), both cache-only. The libraries must hold the same rows with the same members (Node's visibility aside). 18 fixed lookups, the stored request of every completed record of the root's design, editor and reception trees, and every compatible radius cache row are looked up on both hosts; a stored record must hit with its own key and request, a cache row with its id. A key counts as compared only when both hosts hit with the same key; a miss on both is reported as not compared, and a run with a kind of key never compared fails unless --allow-incomplete. Its comparisons are in helpers/key-parity.mjs, tested offline by check-key-parity.mjs. Passes on a copy of the installation once each kind is stored (21 keys compared over the 5 kinds, 0 mismatches)"
 
 [scripts."check-head-viewer.mjs"]
 kind = "browser"
 slice = 10
+note = "VIEWER_QA_URL is gone (Python service, or the legacy Node host at EEG_TEST_URL alone). Since design 0004 it opens /layout?id= for the 120 cm2 whole-scalp strict-area record of each region count. All 20 checks pass against serve. Mobile document has no horizontal overflow failed until the table container of features/layout/layout-workspace.tsx was made relative: a visually hidden span had widened /layout to 675 px at a 390 px viewport"
 
 [scripts."check-model-loading-browser.mjs"]
 kind = "browser"
 slice = 10
-note = "depends on static serving without sidecars"
+note = "Python service, or the legacy Node host at EEG_TEST_URL alone; EEG_SIGNAL_FIXTURE (a cached signal result) and EEG_REPOSITORY_ROOT. Python serves no pre-compressed sidecars, so the transfers are the original bytes. Passes against serve, also with --expect-shared --expect-deferred"
 
 [scripts."check-workflows-browser.mjs"]
 kind = "browser"
 slice = 10
-note = "the browser holds the Python service's session cookie (EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN) from slice 7, so all its checks run on both hosts, its v2 signal simulation and the cancelled one among them; it needs a compatible AL,AR 35 mm radius row (check-app-live.mjs computes one) and writes jobs, so run it on a copy of the installation"
+note = "the browser holds the Python service's session cookie (EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN) from slice 7, so all its checks run on both hosts, its v2 signal simulation and the cancelled one among them; it needs a compatible AL,AR 35 mm radius row (check-app-live.mjs computes one), which it finds by its own link in the newest-first layout list, and writes jobs, so run it on a copy of the installation. Passes its 10 checks against serve"
 
 [scripts."check-coordinate-names-browser.mjs"]
 kind = "browser"
 slice = 9
-note = "retargeted (EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN, EEG_REPOSITORY_ROOT; serve --cache-only); it needs the stored evaluation of the golden request under the root. Its first 2 checks pass, its project form among them; then it waits on both hosts for the link Open the saved coordinate evaluation, which design 0004 (03b5e88) replaced with 打开布局详情, so its project entries and snapshots are not reached"
+note = "Python service only from slice 10 (EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN, EEG_REPOSITORY_ROOT; serve --cache-only); it needs the stored evaluation of the golden request under the root. It follows the 打开布局详情 link of design 0004, checks the /layout link and URL (id, annotation_id), and reopens the names at /coordinates?a=...&annotation_a=.... Passes its 8 checks against serve"
 
 [scripts."check-coordinate-review-browser.mjs"]
 kind = "browser"
 slice = 9
-note = "retargeted in slices 5 and 9 (EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN, EEG_REPOSITORY_ROOT; serve --cache-only): its 12 checks pass on both hosts, the project snapshot among them; it needs the stored evaluation of the golden request under the root"
+note = "retargeted in slices 5 and 9, Python service only from slice 10 (EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN, EEG_REPOSITORY_ROOT; serve --cache-only); it needs the stored evaluation of the golden request under the root. Passes its 12 checks against serve, the project snapshot among them"
 
 [scripts."check-robustness-browser.mjs"]
 kind = "browser"
 slice = 8
-note = "retargeted in slice 8: the Python service through EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN (run serve with --cache-only), Node at EEG_TEST_URL otherwise; its study inputs and the canonical request of each case come from tests/service/fixtures/robustness (no Node normalizeDesignRequest import), whose 8 cases must be cached on the root first; it writes its report under EEG_REPOSITORY_ROOT/artifacts/research-workflow/2026-11-14/stage5-browser"
+note = "retargeted in slice 8: the Python service through EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN (run serve with --cache-only), or the legacy Node host at EEG_TEST_URL alone; its study inputs and the canonical request of each case come from tests/service/fixtures/robustness (no Node normalizeDesignRequest import), whose 8 cases must be cached on the root first; it writes its report under EEG_REPOSITORY_ROOT/artifacts/research-workflow/2026-11-14/stage5-browser. Passes its 10 checks against serve"
 
 [scripts."check-research-workflow-browser.mjs"]
 kind = "browser"
 slice = 9
-note = "--stage2 and --stage3, retargeted in slice 9 (EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN, EEG_REPOSITORY_ROOT; serve --cache-only), with EEG_SIGNAL_FIXTURE (a stored v2 signal result), EEG_SECOND_LAYOUT_ID, EEG_EDITOR_RECORD_KEY and the golden request's stored evaluation. Stage 2 passes its 8 checks on both hosts. Stage 3 passes 2 of 3 on both: the local delivery reader refuses its first upload (Invalid delivered record metadata), because summaryShape in webapp/features/projects/research-delivery-format.mjs does not accept the layout summary's simulation member, which both hosts write since b5242fe"
+note = "stage 1 on either host; --stage2 and --stage3 on the Python service only from slice 10 (EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN, EEG_REPOSITORY_ROOT; serve --cache-only), with EEG_SIGNAL_FIXTURE (a stored v2 signal result whose request carries region_definition dk40-six-roi-v1, as the reception page sends it), EEG_SECOND_LAYOUT_ID, EEG_EDITOR_RECORD_KEY, the golden request's stored evaluation and, for stage 3, an older delivery holding layout, editor and source entries. Stage 1, --stage2 and --stage3 pass their 7, 8 and 10 checks against serve"
 
 [scripts."check-project-workflow-browser.mjs"]
 kind = "browser"
 slice = 9
-note = "retargeted in slice 9 (EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN, EEG_REPOSITORY_ROOT; serve --cache-only), with EEG_SIGNAL_FIXTURE (a stored v2 signal result whose layout it saves) and EEG_SECOND_LAYOUT_ID, and without its two credential checks (R5); its 9 checks, and 14 with --with-delivery, pass on both hosts"
+note = "Python service only from slice 10 (EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN, EEG_REPOSITORY_ROOT; serve --cache-only), with EEG_SIGNAL_FIXTURE (a stored v2 signal result with region_definition dk40-six-roi-v1, whose layout it saves) and EEG_SECOND_LAYOUT_ID, and without its two credential checks (R5). Passes its 9 checks, and 14 with --with-delivery, against serve"
 
-[scripts."check-productization-browser.mjs"]
+[scripts."check-workspace-projects-browser.mjs"]
 kind = "browser"
 slice = 10
-note = "replaced by a browser check of workspace projects (credentials are R5)"
+note = "new in slice 10, replaces check-productization-browser.mjs (its access file, sharing, rotation and revocation were R5). Python service only (EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN; serve --cache-only is enough), EEG_LAYOUT_ID (default the first library layout), EEG_REPOSITORY_ROOT: create a project through the form and find it in GET /api/projects, save a library layout, rename and annotate it with the snapshot byte-identical, open it in fresh browsers from the workspace list and by /projects?project=<id>, share and revoke-share 404, no job POST and no credential control, role, access link or stored key. Passes its 7 checks against serve"

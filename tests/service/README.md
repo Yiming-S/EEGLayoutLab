@@ -77,6 +77,11 @@ In `test_key_parity.py` they are:
 The library modules add theirs (next section). All of them read the root only; Node runs with a scratch queue
 directory that is never created. The stored-record check needs neither Node nor Pydantic.
 
+The live comparison (tier C) is `webapp/scripts/check-key-parity-live.mjs`: with the Python service and a legacy
+Node host serving one root, both cache-only, it compares the libraries, 18 fixed lookups (`hit`, `job.key`,
+`job.request`) and the lookup of every compatible cache row, and never submits a job (CONTRIBUTING, "Live and
+browser scripts").
+
 ## Service host
 
 The HTTP service of slice 2 is tested in process with known tokens. `service_support.py` holds the helpers:
@@ -710,16 +715,19 @@ directories.
 
 Exit criterion 3 is that every Node test is ported or mapped. `node_tests.toml` has one entry per `test(` /
 `dataTest(` call site in the `webapp/scripts/check-*.mjs` files that import `node:test`, keyed by file and title,
-with its disposition: `P` with the Python `target`, `pending` with the `slice` and `module` that will port it,
-`C` with the format-parity `mirror`, `NA`, `D` with a reason R1-R7, `N`, `E` or `CLI` (the docstring of
-`test_node_test_map.py` defines them). `[scripts]` lists the opt-in live and Playwright scripts with the slice
-that retargets them.
+with its disposition: `P` with the Python `target`, `C` with the format-parity `mirror`, `D` with a reason R1-R7,
+`N`, `E` or `CLI` (the docstring of `test_node_test_map.py` defines them). While phase 2 ran, a site could also be
+`pending` (with the `slice` and `module` that would port it) or `NA` (stays in Node, adapted in slice 10).
+`[scripts]` lists the opt-in live and Playwright scripts with the slice that retargeted them and, in their notes,
+what they need and how they fared against `eeglayoutlab serve` in slice 10.
 
 `test_node_test_map.py` reads the scripts with a small JavaScript lexer and fails on an unmapped or stale site, a
 target or mirror that is not a test pytest collects (named without a parametrized `[id]`; a target in
-`tests/service/`), a mirrored format still without a Node generator after its slice, and a
-pending entry of a finished slice (`SLICES_DONE`). A slice changes its sites to `P` and raises `SLICES_DONE` when
-it is done. `python tests/service/test_node_test_map.py` prints the counts.
+`tests/service/`), a mirrored format still without a Node generator after its slice, and a pending or `NA` entry of
+a finished slice (`SLICES_DONE`). Every slice of phase 2 is done: `SLICES_DONE` is 10, its last slice, and
+`test_phase_2_left_nothing_pending` fails on any `pending` or `NA` entry. A Node test that is renamed, moved or
+removed changes its entry in the same commit. `python tests/service/test_node_test_map.py` prints the counts (676
+sites in 84 files: P 190, C 16, N 380, D 80, E 4, CLI 6).
 
 ## Guards
 

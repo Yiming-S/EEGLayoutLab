@@ -15,15 +15,13 @@ export function SaveToProject({ kind, recordId, receiptId, annotationId }: { kin
   const identity = `${active?.project_id}:${kind}:${recordId ?? receiptId}:${annotationId ?? ''}`;
   const saved = savedIdentity === identity;
   if (!active) return <a className="text-sm text-primary underline" href={'/projects' + (recordId ? '?record=' + recordId + (annotationId ? '&annotation_id=' + annotationId : '') : '')}>{tx('选择项目以保存结果')}</a>;
-  if (active.role !== 'owner') return <span className="text-xs text-muted-foreground">{tx('当前项目为只读访问')}</span>;
   return <div className="flex flex-wrap items-center gap-2">
     <Button type="button" variant="outline" size="sm" disabled={busy || saved || (kind === 'source' ? !receiptId : !recordId)} onClick={() => {
       setBusy(true); setError('');
       void (async () => {
-        const current = await projectRequest<ProjectResponse>(active);
-        if (current.role !== 'owner') throw new Error('当前项目为只读访问');
+        const current = await projectRequest<ProjectResponse>(active.project_id);
         if (recordId && current.project.entries.some(entry => entry.kind === kind && entry.record_id === recordId && entry.annotation_id === annotationId)) { setSavedIdentity(identity); return; }
-        await projectRequest<ProjectResponse>(active, '/entries', { method: 'POST', body: JSON.stringify({
+        await projectRequest<ProjectResponse>(active.project_id, '/entries', { method: 'POST', body: JSON.stringify({
           revision: current.project.revision, kind, ...(kind === 'source' ? { receipt_id: receiptId } : { record_id: recordId }),
           ...(annotationId ? { annotation_id: annotationId } : {}),
         }) });
@@ -43,12 +41,13 @@ export function ProjectContext({ recordId, here, currentIsProjects }: { recordId
   return <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-x-4 gap-y-2 border-t px-4 py-2 text-sm sm:px-6 lg:px-8" aria-label={tx('当前研究项目')}>
     <a className="font-medium text-primary underline" href={'/projects?project=' + active.project_id}>{tx('当前研究项目')} · {active.title || active.project_id.slice(0, 8)}</a>
     {recordId && <SaveToProject kind="layout" recordId={recordId} annotationId={annotationId} />}
-    {comparison && active.role === 'owner' && <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => {
+    {comparison && <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => {
       setBusy(true); setMessage('');
       void (async () => {
-        const current = await projectRequest<ProjectResponse>(active);
-        const workflow = projectWorkflowFromComparison(current.project, here);
-        await projectRequest(active, '', { method: 'PATCH', body: JSON.stringify({ revision: current.project.revision, workflow }) });
+        const current = await projectRequest<ProjectResponse>(active.project_id);
+        // The live address: `here` lags the URL until the header's effect runs, and misses the page's own replaceState.
+        const workflow = projectWorkflowFromComparison(current.project, window.location.pathname + window.location.search);
+        await projectRequest(active.project_id, '', { method: 'PATCH', body: JSON.stringify({ revision: current.project.revision, workflow }) });
         setMessage('已保存当前对比设置。');
       })().catch(caught => setMessage(caught instanceof Error ? caught.message : '项目操作失败')).finally(() => setBusy(false));
     }}>{tx('保存当前对比设置到项目')}</Button>}

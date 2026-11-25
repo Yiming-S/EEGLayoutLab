@@ -167,7 +167,6 @@
   "home_lead": {"source": "你的布局、计算任务、研究和项目。", "en": "Your layouts, computation tasks, studies and projects."},
   "home_findings_note": {"source": "已发表的总面积研究和历史批次。", "en": "The published total-area study and the historical batches."},
   "home_new_study": {"source": "新建研究", "en": "New study"},
-  "visitor_notice": {"source": "访客与访问记录", "en": "Visitors and access logs"},
   "term_retention": {"source": "保留率是什么？", "en": "What is retention?"},
   "term_retention_text": {"source": "布局的得分除以标准64导全头布置的得分。100%表示与全头64导相同。", "en": "The layout's score divided by the score of the standard whole-head 64-electrode layout. 100% means the same as whole-head 64."},
   "term_ar": {"source": "最低保留要求是什么？", "en": "What is the minimum required retention?"},

@@ -4,18 +4,17 @@ import { chromium } from 'playwright';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { translateText } from '../lib/i18n/core.ts';
-import { openServiceSession, playwrightCookies } from './helpers/service-session.mjs';
+import { playwrightCookies, scriptServer } from './helpers/service-session.mjs';
 
-// The isolated Node host at EEG_TEST_URL, or the Python service (eeglayoutlab serve, on a copy of the
-// installation): with EEG_SERVICE_RUNTIME (its <workspace>/.eeglayoutlab/runtime.json) or EEG_SERVICE_TOKEN and
-// EEG_TEST_URL, the browser holds its session cookie. The signal-simulation steps run on both from slice 7.
-const service = process.env.EEG_SERVICE_RUNTIME || process.env.EEG_SERVICE_TOKEN
-  ? await openServiceSession({ base: process.env.EEG_TEST_URL }) : null;
-const base = service?.base || process.env.EEG_TEST_URL || 'http://127.0.0.1:4317';
+// The Python service (eeglayoutlab serve, on a copy of the installation: this check computes): with
+// EEG_SERVICE_RUNTIME (its <workspace>/.eeglayoutlab/runtime.json), or EEG_SERVICE_TOKEN and EEG_TEST_URL, the browser
+// holds its session cookie. With EEG_TEST_URL alone, an isolated legacy Node host there. EEG_REPOSITORY_ROOT is the
+// root the server serves (default this checkout); the report is written below its artifacts.
+const { base, service } = await scriptServer();
 const origin = new URL(base);
 const sessionCookies = service ? playwrightCookies(service) : [];
 assert.ok(origin.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(origin.hostname) && origin.port !== '3000', 'Use an explicit isolated loopback server, never the working app.');
-const project = resolve(import.meta.dirname, '../..');
+const project = resolve(process.env.EEG_REPOSITORY_ROOT || resolve(import.meta.dirname, '../..'));
 const output = process.env.EEG_QA_OUTPUT || join(project, 'artifacts/web-refactor/2026-11-13/workflows-browser');
 assert.ok(isAbsolute(output) && relative(project, output).startsWith('artifacts/'), 'QA output must be an absolute project artifacts directory.');
 await mkdir(output, { recursive: true });
@@ -95,7 +94,14 @@ try {
     await page.getByRole('link', { name: t('布局'), exact: true }).click();
     await page.waitForURL(url => url.pathname === '/library' && url.searchParams.get('ar') === '43');
     await label('布局实验协议').selectOption('cache');
-    await page.getByRole('link', { name: t('查看布局'), exact: true }).first().click();
+    // The list is newest first, ten rows a page: find the fixture's own row (its id, or its coordinates' group).
+    const opens = page.getByRole('link', { name: t('查看布局'), exact: true })
+      .and(page.locator(`a[href*="id=${radius.id}&"], a[href*="key=${radius.layout_key}&"]`));
+    for (let turn = 0; !await opens.first().waitFor({ timeout: 5000 }).then(() => true, () => false); turn++) {
+      assert.ok(turn < 20 && await button('下一页').isEnabled(), 'The AL,AR 35 mm fixture is not in the layout list.');
+      await button('下一页').click();
+    }
+    await opens.first().click();
     await page.waitForURL(url => url.pathname === '/layout');
     await layoutId(radius.id);
     await range(page.getByRole('slider', { name: t('布局接受阈值AR'), exact: true }), 47);

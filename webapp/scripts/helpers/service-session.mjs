@@ -28,13 +28,23 @@ export function serviceOrigin(value, { exact = false, name = 'The service URL' }
   return url.origin;
 }
 
-async function readRuntime(path) {
-  const runtime = JSON.parse(await readFile(path, 'utf8'));
-  if (runtime?.schema !== RUNTIME_SCHEMA || !Number.isInteger(runtime.port) || runtime.port < 1 || runtime.port > 65535
-    || typeof runtime.token !== 'string' || !runtime.token) {
+/**
+ * The parsed text of `<workspace>/.eeglayoutlab/runtime.json`, checked: its port and launch token.
+ * @param {unknown} runtime
+ * @param {string} path Named in the error.
+ * @returns {{ port: number, token: string }}
+ */
+export function checkedRuntime(runtime, path) {
+  const value = /** @type {{ schema?: unknown, port?: unknown, token?: unknown } | null} */ (runtime);
+  if (value?.schema !== RUNTIME_SCHEMA || !Number.isInteger(value.port) || Number(value.port) < 1 || Number(value.port) > 65535
+    || typeof value.token !== 'string' || !value.token) {
     throw new Error(`${path} is not an ${RUNTIME_SCHEMA} file.`);
   }
-  return runtime;
+  return { port: Number(value.port), token: value.token };
+}
+
+async function readRuntime(path) {
+  return checkedRuntime(JSON.parse(await readFile(path, 'utf8')), path);
 }
 
 /**
@@ -82,6 +92,43 @@ export async function openServiceSession({ runtime = process.env.EEG_SERVICE_RUN
       return Object.fromEntries(merged);
     },
   };
+}
+
+const SERVER_HINT = 'Start the Python service (eeglayoutlab serve <workspace> --no-browser) and set EEG_SERVICE_RUNTIME '
+  + 'to its <workspace>/.eeglayoutlab/runtime.json, or EEG_SERVICE_TOKEN to its launch token with EEG_TEST_URL.';
+
+/**
+ * The server a live or browser script checks. The Python service (`eeglayoutlab serve`) when EEG_SERVICE_RUNTIME or
+ * EEG_SERVICE_TOKEN is set: the script signs in as its launched browser, and EEG_TEST_URL, when set, is the base (a
+ * Vite proxy in front of it, or the service itself with a token). Otherwise, where the script still supports it
+ * (`node`), the legacy Node host (`npm start`, kept until phase 4) at EEG_TEST_URL. There is no default address.
+ * @param {{ node?: boolean }} [options] `node: false` for a script that checks the Python service only.
+ * @returns {Promise<{ base: string, service: ServiceSession | null }>} `base` is an origin without a trailing slash.
+ */
+export async function scriptServer({ node = true } = {}) {
+  if (process.env.EEG_SERVICE_RUNTIME || process.env.EEG_SERVICE_TOKEN) {
+    const service = await openServiceSession({ base: process.env.EEG_TEST_URL || undefined });
+    return { base: service.base, service };
+  }
+  if (!node) throw new Error(`This check runs against the Python service only. ${SERVER_HINT}`);
+  if (!process.env.EEG_TEST_URL) {
+    throw new Error(`No server to check. ${SERVER_HINT} A legacy Node host (npm start) is checked at EEG_TEST_URL alone.`);
+  }
+  let url;
+  try { url = new URL(process.env.EEG_TEST_URL); } catch { url = undefined; }
+  if (!url || url.protocol !== 'http:') throw new Error(`EEG_TEST_URL must be an http:// URL, not ${JSON.stringify(process.env.EEG_TEST_URL)}.`);
+  return { base: url.origin, service: null };
+}
+
+/**
+ * Asserts the cache-only state that a script needs before it submits anything: health reports `maintenance` (the
+ * Python service runs with `eeglayoutlab serve --cache-only`; a legacy Node host with EEG_MAINTENANCE=1) and
+ * `drained` (no task is waiting or running), so that only stored results can answer.
+ * @param {{ maintenance?: unknown, drained?: unknown }} health The body of GET /api/local-compute/health.
+ */
+export function assertCacheOnly(health) {
+  if (health?.maintenance !== true) throw new Error('The server must serve stored results only: run eeglayoutlab serve --cache-only.');
+  if (health?.drained !== true) throw new Error('The server queue must be drained: no task may be waiting or running.');
 }
 
 /**

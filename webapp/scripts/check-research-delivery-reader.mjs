@@ -253,3 +253,18 @@ void test('uploaded metric and summary display values retain their original scal
     await assert.rejects(openResearchDelivery(JSON.stringify(b)));
   }
 });
+void test('a layout summary saying whether signal simulation accepts the layout opens, and only as a boolean', async () => {
+  for (const simulation of [true, false]) {
+    const b = fixture();
+    b.records[0].summary = { ...b.records[0].summary, simulation };
+    rehash(b);
+    const opened = await openResearchDelivery(JSON.stringify(b));
+    assert.equal(opened.project.entries[0].summary.simulation, simulation);
+  }
+  for (const simulation of ['true', 1, null]) {
+    const b = fixture();
+    b.records[0].summary = { ...b.records[0].summary, simulation };
+    rehash(b);
+    await assert.rejects(openResearchDelivery(JSON.stringify(b)));
+  }
+});

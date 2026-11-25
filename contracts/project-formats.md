@@ -2,31 +2,29 @@
 
 Projects use `research-project/1`. They store research annotations and immutable copies of validated scientific results independently of computation receipts. The existing scientific request schemas, cache identities and numerical result formats are unchanged.
 
-The Node host keeps projects under its queue directory, `<queue directory>/projects/`, behind the credentials described below. The Python service (`eeglayoutlab serve`) keeps them in its workspace, `<workspace>/projects/<id>/project.json` with the snapshots in `snapshots/`, for its one local user; the differences are listed under [Python service](#python-service).
+The application's host, the Python service (`eeglayoutlab serve`), keeps projects in its workspace, `<workspace>/projects/<id>/project.json` with the snapshots in `snapshots/`, for its one local user. The legacy Node host keeps them under its queue directory, `<queue directory>/projects/`, behind credentials; the differences are listed under [Legacy Node host](#legacy-node-host).
 
 ## Access
 
-`POST /api/projects` accepts `{title, owner_name, notes?}` and returns `{project, role: "owner", access_key}`. The server generates the project UUID and a random 32-byte credential, encoded as 64 hexadecimal characters. Only its hash is stored on the server. There is no public project-list endpoint.
+Every project request needs the service's session cookie, which the `eeglayoutlab` command's launch link sets (`401` with code `authentication_required` otherwise). Write requests also require a same-origin request and `X-EEG-Compute-Token`. There is no project credential: the projects of a workspace are open to its user. API parameters must not be put in a project API query string.
 
-Subsequent project requests carry `X-EEG-Project-Key`. Write requests also require the configured origin policy and `X-EEG-Compute-Token`. The computation token grants neither project access nor operator access. Credentials and API parameters must not be put in a project API query string.
-
-The project owner can create or revoke a separate read-only credential. Project lead names are annotations, not authenticated researcher accounts. Attaching a copy to a private project does not change who sees the original record in the library lists; that follows the library scope described in `docs/anonymous-queue.md`.
+`POST /api/projects` accepts `{title, owner_name, notes?}` and returns `{project, role: "owner", access_key}`. The server generates the project UUID. A new project's `owner_key_hash` hashes a random key that is never stored and `viewer_key_hash` is `null`; the returned `access_key` is stored nowhere and opens nothing, and the interface ignores it and `role`. `X-EEG-Project-Key` is accepted and ignored. Project lead names are annotations, not authenticated researcher accounts.
 
 ## Endpoints
 
 | Method and path | Behavior |
 | --- | --- |
-| `GET /api/projects/:id` | Read project metadata with owner or viewer access |
+| `GET /api/projects` | List the workspace's projects, most recently updated first: `{projects: [{id, title, owner_name, revision, created_at, updated_at, entry_count}]}` |
+| `POST /api/projects` | Create a project |
+| `GET /api/projects/:id` | Read project metadata |
 | `PATCH /api/projects/:id` | Change `title`, `owner_name`, `notes` or `workflow`; requires current `revision` |
-| `POST /api/projects/:id/share` | Rotate the viewer credential; requires current `revision` |
-| `POST /api/projects/:id/revoke-share` | Revoke viewer access; requires current `revision` |
 | `POST /api/projects/:id/entries` | Attach a verified completed result; requires current `revision` |
 | `GET /api/projects/:id/entries/:entryId` | Read entry metadata and its archived scientific snapshot |
 | `PATCH /api/projects/:id/entries/:entryId` | Change entry `title` or `notes`; requires current `revision` |
 | `DELETE /api/projects/:id/entries/:entryId` | Detach an entry using body `revision` or `If-Match`; retain its scientific file |
-| `GET /api/projects/:id/export` | Download a verified `eeg-research-delivery/1` bundle with owner or viewer access |
+| `GET /api/projects/:id/export` | Download a verified `eeg-research-delivery/1` bundle |
 
-Stale revisions return `409`; read-only writes return `403`. Source attachments require an owned completed task receipt, not a caller-provided scientific payload. Invalid, missing or corrupted scientific records do not become project snapshots.
+`POST /api/projects/:id/share` and `/revoke-share` answer `404` `Project endpoint not found.`. Stale revisions return `409`. Source attachments require a completed signal task of the workspace, not a caller-provided scientific payload. Invalid, missing or corrupted scientific records do not become project snapshots.
 
 ## Saved entries
 
@@ -38,7 +36,7 @@ Each entry records its own UUID, scientific record identifier, title, notes, cre
 - Editor payload: the saved editor record and validated evaluation cache.
 - Source payload: the complete signal result, including requests, provenance, quality checks, conditions and waveforms.
 
-Snapshot checksums cover the exact UTF-8 `JSON.stringify(snapshot)` text. Project or entry renaming does not change that text. Metadata and scientific copies are written atomically beneath `<queue directory>/projects/` and included in stopped-service backup/restore. Physical detached copies still count toward storage limits.
+Snapshot checksums cover the exact UTF-8 `JSON.stringify(snapshot)` text. Project or entry renaming does not change that text. Metadata and scientific copies are written atomically beneath `<workspace>/projects/`. Physical detached copies still count toward storage limits.
 
 ## Research workflow
 
@@ -62,21 +60,20 @@ Per-electrode labels and source declarations do not enter the scientific request
 
 A project entry may contain `annotation_id`. Its `research-project-snapshot/1` file then carries `electrode_annotation` beside `payload`. The original scientific payload remains unchanged. The outer snapshot checksum includes the annotation, so differently named copies have different snapshot checksums even when their scientific record ID is identical. Explicit annotation selection is required when reopening a named copy; an unrelated latest label set is not substituted.
 
-## Python service
+## Legacy Node host
 
-The Python service writes the same `research-project/1` and `research-project-snapshot/1` bytes, keeps the revisions, the size limits and the delivery bundle, and answers the endpoints above with the same statuses and messages, except:
+The Node host (`npm start`, kept until phase 4 of design 0001; hosted deployments stay at the tag `node-host-freeze`) writes the same `research-project/1` and `research-project-snapshot/1` bytes, keeps the same revisions, size limits and delivery bundle, and answers the endpoints above with the same statuses and messages, except:
 
-- No credential is stored or checked. A new project's `owner_key_hash` hashes a random key that is never stored, `viewer_key_hash` is `null`, and `POST /api/projects` still returns an `access_key`, which is not stored and opens nothing. `X-EEG-Project-Key` is accepted and ignored.
-- `GET /api/projects` lists the workspace's projects, most recently updated first: `{projects: [{id, title, owner_name, revision, created_at, updated_at, entry_count}]}`.
-- `POST /api/projects/:id/share` and `/revoke-share` answer `404` `Project endpoint not found.`.
-- A source attachment needs a completed signal task of the workspace.
-- Unused projects are not pruned, and the number of projects is not capped.
-- A delivery's `host` describes the Python service: `application_version` is the version in `pyproject.toml`, and `source_files` hash the service's project and delivery modules and `pyproject.toml`. An installed package has no `pyproject.toml`: its distribution's version is used, and `source_files` hash the four modules only. Its `manifest_sha256` therefore differs from a Node-built delivery of the same project; the scientific files and their checksums do not.
+- A project has an owner credential, a random 32-byte key encoded as 64 hexadecimal characters, whose hash alone is stored. Every project request carries it in `X-EEG-Project-Key`. The owner can create, rotate or revoke a separate read-only credential (`share`, `revoke-share`); a read-only write returns `403`. The current interface sends no project key, so it cannot open the Node host's projects.
+- There is no project list: `GET /api/projects` answers `405`.
+- A source attachment needs a completed task receipt that the browser owns.
+- Unused projects are pruned after 30 days, and the number of projects is capped per network and in total.
+- A delivery's `host` describes the Node host. The Python service's `application_version` is the version in `pyproject.toml`, and its `source_files` hash the service's project and delivery modules and `pyproject.toml` (an installed package, which has no `pyproject.toml`: its distribution's version and the four modules). So the `manifest_sha256` of the two hosts' deliveries of one project differ; the scientific files and their checksums do not.
 
 `eeglayoutlab workspace import-legacy [WORKSPACE] [--root R] [--queue-directory Q] [--dry-run]` copies the projects, the robustness studies and the completed signal tasks of the Node host's queue directory (default `R/results/web-service`) into a workspace. It only reads the queue directory. Each project and study is checked as the Node host reads it, every snapshot against its checksum, and copied byte for byte with its identifier; a record the workspace already holds with the same bytes is reported as present, and one with other bytes is refused, keeping the workspace's copy. The signal tasks join the workspace's task list without their owners. The command prints what it imported, found and refused, and exits `1` when it refused something.
 
 ## Repeated studies
 
-Repeated studies use separate `eeg-robustness-study/1` and `eeg-robustness-study-export/1` schemas. The Node host stores them under the configured queue's `studies/` tree, owned by the existing browser session; the Python service stores them in its workspace, `<workspace>/studies/`, for its one local user. Each case retains a normalized original `design-evaluation/1` request, scientific key, receipt reference, outcome and verified cache copy. Export includes `cache_json`, the original UTF-8 cache text, and `source_sha256`, its checksum. The parsed `cache` is supplied for reading the values.
+Repeated studies use separate `eeg-robustness-study/1` and `eeg-robustness-study-export/1` schemas. The Python service stores them in its workspace, `<workspace>/studies/`, for its one local user; the legacy Node host stores them under its queue's `studies/` tree, owned by the browser session. Each case retains a normalized original `design-evaluation/1` request, scientific key, receipt reference, outcome and verified cache copy. Export includes `cache_json`, the original UTF-8 cache text, and `source_sha256`, its checksum. The parsed `cache` is supplied for reading the values.
 
 See `docs/robustness-studies.md` for protocols, case-level summaries and recovery. These study wrappers keep the original scientific evaluation and its default trial/noise counts.

@@ -6,7 +6,6 @@ import { useLanguage } from '@/components/language-provider';
 import { RuntimeMessage } from '@/components/runtime-message';
 import { SiteHeader } from '@/components/site-header';
 import { CatalogExperimentDetails } from '@/components/catalog-experiment-details';
-import { visibilityLabel } from '@/components/record-visibility-control';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { OutcomeBadge, RetentionBar, type Outcome } from '@/components/retention-bar';
 import { ThresholdSlider } from '@/components/threshold-slider';
@@ -37,7 +36,6 @@ function SearchInput({ value, onSearch, className, ...props }: { value: string; 
   );
 }
 
-const rowVisibility = (row: CatalogEntry) => visibilityLabel('summary' in row ? row.summary.visibility : row.kind === 'editor' ? row.editor.visibility : undefined);
 const rowOutcome = (row: CatalogEntry, ar: number): Outcome | null => 'summary' in row
   ? (row.summary.status !== 'completed' ? 'undefined' : assessment(row.summary.metrics, ar).state as Outcome) : null;
 const cell = stackedCell;
@@ -45,7 +43,6 @@ const cell = stackedCell;
 export default function LibraryWorkspace() {
   const { tx, date } = useLanguage();
   const { isExpanded, toggleGroup, groupPrimary, groupTitle, conditionTitle, latestPerCondition, showSuperseded, setShowSuperseded, foldedCount, ar, setAR, labHref, here, layout, selected, loading, setLoading, retry, setRetry, error, view, changeView, electrodeCounts, locations, regionCounts, data, catalogWarnings, catalog, listed, id, title, protocol, score, choose, choices, displayPage, setView, pages, explicitSelection, related, searchWords, searchMisses } = useLibraryController();
-  const refresh = () => { setLoading(true); setRetry(value => value + 1); };
   const [filtersOpen, setFiltersOpen] = useState(false);
   const extraFilters = [view.filter !== 'all', view.electrodes > 0, !!view.location, view.region > 0, view.sort !== 'newest'].filter(Boolean).length;
   const otherMetrics = (row: CatalogEntry) => {
@@ -65,7 +62,6 @@ export default function LibraryWorkspace() {
         {nested ? <span className="flex items-center gap-2"><span aria-hidden className="h-4 w-0.5 rounded bg-primary/50" />{conditionTitle(row)}</span> : title(row)}
         {!nested && <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs font-normal text-muted-foreground"><span className="rounded-md bg-secondary px-1.5 py-0.5 text-[11px] font-medium text-secondary-foreground">{tx(RECORD_KIND_LABELS[row.kind])}</span><span>{protocol(row)}</span></span>}
         <span className="mt-1 block text-xs font-normal text-muted-foreground">{row.finished_at ? date(row.finished_at) : tx('保存时间未记录')}</span>
-        {rowVisibility(row) && <span className="mt-1 inline-block rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">{tx(rowVisibility(row)!)}</span>}
       </th>
       <td data-label={tx('电极 / 区域')} className={cn(cell, 'font-mono tabular-nums md:px-3')}>{row.electrode_count ?? '—'} / {row.region_count ?? '—'}</td>
       <td data-label={tx('三项保留率')} className={cn(cell, 'md:px-3')}><span>{scoreCell(row)}{row.kind === 'source' && <span className="block text-xs text-muted-foreground">{tx('心眼混合干扰条件')}</span>}</span></td>
@@ -124,10 +120,8 @@ export default function LibraryWorkspace() {
         </div>
       </div>
       <div className="mb-4 space-y-1.5 px-1 text-xs leading-5 text-muted-foreground">
-        <p>{tx('信号实验只列出当前浏览器完成的任务，较早的任务可能已不在列表中。筛选记录不会读取完整波形或启动计算。')}</p>
-        {data?.library_scope?.scope === 'owner' && <p>{tx(data.library_scope.review
-          ? '本浏览器提交的计算默认只有本浏览器能在列表中看到。公开到共享库的记录经管理员审核后对所有访客列出；官方实验记录始终列出。清除浏览器数据后列表将找不到自己的记录，需要长期保留请加入研究项目。'
-          : '本浏览器提交的计算默认只有本浏览器能在列表中看到。公开到共享库的记录对所有访客列出；官方实验记录始终列出。清除浏览器数据后列表将找不到自己的记录，需要长期保留请加入研究项目。')}</p>}
+        <p>{tx('信号实验只列出此工作区完成的任务，较早的任务可能已不在列表中。筛选记录不会读取完整波形或启动计算。')}</p>
+        <p>{tx('其他工作区的信号实验不在此列出；在信号仿真页重新选择相同场景即可直接读取已保存的结果。')}</p>
       </div>
       {[...(data?.warnings ?? []), ...catalogWarnings].map(warning => <p className="mb-3 text-sm text-warning" key={warning}><RuntimeMessage message={warning} /></p>)}
       {loading && !catalog.length ? <p className="lab-panel">{tx('读取方案目录…')}</p> : <>
@@ -168,7 +162,7 @@ export default function LibraryWorkspace() {
         <ParetoPanel entries={choices} title={title} onChoose={choose} />
         {explicitSelection && selected && !choices.some(row => row.id === selected.id) && <p className="lab-panel mt-4 text-sm">{tx('链接指定的方案不在当前筛选列表中；下方仍显示该方案的原始记录。')}</p>}
         {explicitSelection && !selected && !loading ? <p role="alert" className="lab-panel mt-5">{tx('指定记录无法读取，请刷新记录或重新选择。')}</p> : selected && <section id="record-details" className="mt-6 scroll-mt-32 space-y-4">
-          {'summary' in selected ? <p className="lab-panel">{tx('正在打开布局详情…')}</p> : <CatalogExperimentDetails key={selected.id + '-' + retry} entry={selected} parents={data?.records ?? []} ar={ar} returnHref={here} onVisibilityChange={refresh} />}
+          {'summary' in selected ? <p className="lab-panel">{tx('正在打开布局详情…')}</p> : <CatalogExperimentDetails key={selected.id + '-' + retry} entry={selected} parents={data?.records ?? []} ar={ar} returnHref={here} />}
           {related.length > 0 && <div className="lab-panel"><h3 className="font-semibold">{tx('同一原布局的关联记录')}</h3><p className="mt-2 text-sm text-muted-foreground">{tx('编辑副本与信号实验分别关联原布局；信号实验使用其记录指定的完整布局。')}</p><ul className="mt-3 max-h-80 space-y-2 overflow-y-auto text-sm">{related.map(entry => <li key={entry.id}><button className="text-left text-primary underline underline-offset-4" onClick={() => choose(entry.id)}>{tx(RECORD_KIND_LABELS[entry.kind])} · {title(entry)} · {entry.finished_at ? date(entry.finished_at, true) : ''}</button></li>)}</ul></div>}
         </section>}
       </>}

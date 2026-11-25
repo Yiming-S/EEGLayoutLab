@@ -7,11 +7,21 @@ import { brotliDecompressSync, gunzipSync } from 'node:zlib';
 import { isDeepStrictEqual } from 'node:util';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
+import { scriptServer } from './helpers/service-session.mjs';
 
-const project = resolve(import.meta.dirname, '../..');
-assert.ok(process.env.EEG_TEST_URL, 'Set EEG_TEST_URL to the isolated verification server.');
-const base = new URL(process.env.EEG_TEST_URL);
+// The Python service (eeglayoutlab serve): with EEG_SERVICE_RUNTIME (its <workspace>/.eeglayoutlab/runtime.json), or
+// EEG_SERVICE_TOKEN and EEG_TEST_URL, the check signs in as its launched browser. It serves identity encoding only
+// (no compression and no pre-compressed sidecars), so every response must carry the original bytes uncompressed,
+// with the same conditional, range and API header checks. With EEG_TEST_URL alone, the legacy Node host there, which
+// compresses. EEG_REPOSITORY_ROOT is the root the server serves (default this checkout); the models are compared with
+// its webapp/public/models and the report is written below its artifacts.
+const project = resolve(process.env.EEG_REPOSITORY_ROOT || resolve(import.meta.dirname, '../..'));
+const { base: origin, service } = await scriptServer();
+const base = new URL(origin);
 assert.ok(base.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(base.hostname) && base.port && base.port !== '3000', 'Use an explicit isolated loopback port.');
+// The encoding a response must have for the one requested: the Node host compresses, the Python service does not.
+const compresses = !service;
+const served = encoding => compresses ? encoding : 'identity';
 const fixturePath = process.env.EEG_SIGNAL_FIXTURE || join(project, 'artifacts/performance-optimizations/2026-11-13/bank-signal-result.json');
 const output = process.env.EEG_COMPRESSION_REPORT || join(project, 'artifacts/performance-optimizations/2026-11-13/stage3-http-compression.json');
 assert.ok(isAbsolute(output) && relative(project, output).startsWith('artifacts/'), 'Keep the report inside this project artifacts directory.');
@@ -19,6 +29,7 @@ await mkdir(dirname(output), { recursive: true });
 const fixture = JSON.parse(await readFile(fixturePath, 'utf8'));
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 const checks = [], requests = [], cookies = new Map();
+if (service) cookies.set(service.cookie.slice(0, service.cookie.indexOf('=')), service.cookie.slice(service.cookie.indexOf('=') + 1));
 const responseHeaderNames = ['content-type', 'content-encoding', 'content-length', 'content-range', 'vary', 'cache-control', 'x-eeg-api-version', 'etag', 'accept-ranges'];
 let failure;
 
@@ -63,7 +74,9 @@ function decode(response) {
   return response.bytes;
 }
 
+// Only a compressing host varies its responses by Accept-Encoding.
 function assertVary(response) {
+  if (!compresses) return;
   assert.ok(String(response.headers.vary).toLowerCase().split(',').map(value => value.trim()).includes('accept-encoding'));
 }
 
@@ -84,25 +97,25 @@ try {
     for (const encoding of ['identity', 'br', 'gzip']) {
       const response = await request(path, { headers: { 'Accept-Encoding': encoding } });
       assert.equal(response.status, 200);
-      assert.equal(response.headers['content-encoding'] ?? 'identity', encoding);
+      assert.equal(response.headers['content-encoding'] ?? 'identity', served(encoding));
       assertVary(response);
       assert.equal(Number(response.headers['content-length']), response.bytes.length);
       const decoded = decode(response);
       assert.equal(decoded.length, original.length); assert.equal(digest(decoded), sha256);
-      if (encoding !== 'identity') assert.ok(response.bytes.length < original.length);
+      if (served(encoding) !== 'identity') assert.ok(response.bytes.length < original.length);
       variants.set(encoding, response);
-      checks.push({ check: `${name}: ${encoding} GET restores original bytes`, pass: true, originalBytes: original.length, encodedBytes: response.bytes.length, sha256 });
+      checks.push({ check: `${name}: ${encoding} GET restores original bytes`, pass: true, servedEncoding: served(encoding), originalBytes: original.length, encodedBytes: response.bytes.length, sha256 });
     }
     for (const [accepted, expected] of [['br;q=0, gzip;q=0, identity;q=1', 'identity'], ['br;q=0, gzip;q=1', 'gzip']]) {
       const response = await request(path, { headers: { 'Accept-Encoding': accepted } });
-      assert.equal(response.status, 200); assert.equal(response.headers['content-encoding'] ?? 'identity', expected);
+      assert.equal(response.status, 200); assert.equal(response.headers['content-encoding'] ?? 'identity', served(expected));
       assert.equal(digest(decode(response)), sha256);
-      checks.push({ check: `${name}: quality exclusions select ${expected}`, pass: true });
+      checks.push({ check: `${name}: quality exclusions select ${served(expected)}`, pass: true });
     }
     for (const encoding of ['identity', 'br', 'gzip']) {
       const head = await request(path, { method: 'HEAD', headers: { 'Accept-Encoding': encoding } });
       assert.equal(head.status, 200); assert.equal(head.bytes.length, 0); assertVary(head);
-      assert.equal(head.headers['content-encoding'] ?? 'identity', encoding);
+      assert.equal(head.headers['content-encoding'] ?? 'identity', served(encoding));
       assert.equal(Number(head.headers['content-length']), variants.get(encoding).bytes.length);
       checks.push({ check: `${name}: ${encoding} HEAD has correct headers and no body`, pass: true });
     }
@@ -131,14 +144,14 @@ try {
     const response = await request('/api/source-reception/lookup', { method: 'POST',
       headers: { 'Accept-Encoding': accepted, Origin: base.origin, 'X-EEG-Compute-Token': health.token }, body: fixture.request });
     assert.equal(response.status, 200); assertApiHeaders(response);
-    assert.equal(response.headers['content-encoding'] ?? 'identity', expected);
+    assert.equal(response.headers['content-encoding'] ?? 'identity', served(expected));
     const decoded = decode(response), value = JSON.parse(decoded);
     assert.equal(value.hit, true); assert.equal(value.job.status, 'completed'); assert.equal(value.job.cached, true);
     assert.ok(isDeepStrictEqual(value.job.request, fixture.request), 'The cached request changed.');
     assert.ok(isDeepStrictEqual(value.job.result, fixture), 'The decoded scientific result differs from the saved fixture.');
-    if (expected !== 'identity') assert.ok(response.bytes.length < decoded.length);
+    if (served(expected) !== 'identity') assert.ok(response.bytes.length < decoded.length);
     checks.push({ check: `Signal lookup with ${accepted} preserves the complete scientific result`, pass: true,
-      encoding: expected, decodedBytes: decoded.length, encodedBytes: response.bytes.length,
+      encoding: served(expected), decodedBytes: decoded.length, encodedBytes: response.bytes.length,
       resultSha256: digest(JSON.stringify(value.job.result)), numericalResultExactlyEqual: true });
   }
   const denied = await request('/api/source-reception/lookup', { method: 'POST', headers: { 'Accept-Encoding': 'br', Origin: base.origin }, body: fixture.request });
@@ -151,7 +164,7 @@ try {
   failure = { message: error.message, stack: error.stack };
   console.error(error.message);
 } finally {
-  const report = { passed: !failure, origin: base.origin, fixturePath, fixtureSha256: digest(JSON.stringify(fixture)),
+  const report = { passed: !failure, origin: base.origin, host: service ? 'python' : 'node', fixturePath, fixtureSha256: digest(JSON.stringify(fixture)),
     transport: 'node:http raw encoded response bytes; compression decoded explicitly before comparison',
     noJobEndpointsRequested: requests.every(item => !/\/jobs(?:\/|$)/.test(item.path)), checks, requests, failure };
   await writeFile(output, JSON.stringify(report, null, 2) + '\n');

@@ -16,6 +16,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { FIGURE_REGION_COLORS, projectLayout } from '@/lib/layout-figure';
 import { isShowcaseDisplayCopy, verifyShowcaseDisplayCopy, type ShowcaseDisplayCopy } from '@/lib/showcase-display-copy';
+import { apiFetch } from '@/client/task-client';
 
 type Snapshot = {
   label: string;
@@ -198,7 +199,7 @@ export function ExperimentHistory({ recordId }: { recordId: string }) {
   const [showPositions, setShowPositions] = useState(false);
   useEffect(() => {
     const c = new AbortController();
-    fetch(`/api/local-compute/library/${recordId}/bundle`, {
+    apiFetch(`/api/local-compute/library/${recordId}/bundle`, {
       signal: c.signal,
       cache: 'no-store',
     })

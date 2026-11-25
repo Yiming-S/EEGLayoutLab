@@ -32,7 +32,7 @@ five research-project bodies (`project-create`, `project-patch`, `project-entry`
 `eeglayoutlab.jobs.studies.normalize_study_input` and the `normalize_*` functions of
 `eeglayoutlab.schemas.projects`, which also give Node's status: 409 for a layout entry
 whose `annotation_id` is not a string but converts to a digest, else 400).
-The Node host remains in service until phase 4.
+The legacy Node host, whose normalizers are the reference, stays in the repository until phase 4.
 
 [`generated/openapi.json`](generated/openapi.json) is written from those schemas, and
 [`generated/openapi.d.ts`](generated/openapi.d.ts) from that document. Do not edit

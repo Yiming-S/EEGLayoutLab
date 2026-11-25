@@ -6,18 +6,17 @@ import { isAbsolute, join, relative, resolve } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { chromium } from 'playwright';
 import { translateText } from '../lib/i18n/core.ts';
-import { openServiceSession, playwrightCookies } from './helpers/service-session.mjs';
+import { assertCacheOnly, playwrightCookies, scriptServer } from './helpers/service-session.mjs';
 
 // EEG_REPOSITORY_ROOT is the root the server serves (default this checkout); the report goes below its artifacts. The
-// server is the Node host at EEG_TEST_URL, or the Python service (eeglayoutlab serve --cache-only): with
-// EEG_SERVICE_RUNTIME (its <workspace>/.eeglayoutlab/runtime.json) or EEG_SERVICE_TOKEN and EEG_TEST_URL, the browser
-// holds its session cookie. The study inputs and the canonical request of each case (Python's, equal to Node's
+// server is the Python service (eeglayoutlab serve --cache-only): with EEG_SERVICE_RUNTIME (its
+// <workspace>/.eeglayoutlab/runtime.json), or EEG_SERVICE_TOKEN and EEG_TEST_URL, the browser holds its session
+// cookie. With EEG_TEST_URL alone, a legacy Node host there in maintenance (EEG_MAINTENANCE=1). The study inputs and the canonical request of each case (Python's, equal to Node's
 // normalizeDesignRequest; tests/service/test_study_routes.py checks both) are the fixture of this checkout.
 const root = resolve(process.env.EEG_REPOSITORY_ROOT || resolve(import.meta.dirname, '../..')), artifactRoot = join(root, 'artifacts/research-workflow/2026-11-14');
 const fixture = resolve(import.meta.dirname, '../../tests/service/fixtures/robustness');
-const service = process.env.EEG_SERVICE_RUNTIME || process.env.EEG_SERVICE_TOKEN ? await openServiceSession({ base: process.env.EEG_TEST_URL }) : null;
-assert.ok(service || process.env.EEG_TEST_URL, 'Set the isolated verification URL.');
-const origin = new URL(service?.base || process.env.EEG_TEST_URL);
+const { base, service } = await scriptServer();
+const origin = new URL(base);
 assert.ok(origin.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(origin.hostname) && origin.port && origin.port !== '3000' && origin.pathname === '/' && !origin.search && !origin.hash);
 const output = process.env.EEG_QA_OUTPUT || join(artifactRoot, 'stage5-browser'), suffix = relative(artifactRoot, output);
 assert.ok(isAbsolute(output) && suffix && !suffix.startsWith('..') && !isAbsolute(suffix));
@@ -56,7 +55,7 @@ async function api(path, options = {}, expected = 200) {
 }
 async function paused() {
   const health = await api('/api/local-compute/health'); if (health.token && !secrets.includes(health.token)) secrets.push(health.token);
-  assert.equal(health.maintenance, true); assert.equal(health.drained, true); return health;
+  assertCacheOnly(health); return health;
 }
 async function setup(locale, storageState) {
   const target = await browser.newContext({ viewport: { width: 1280, height: 1050 }, serviceWorkers: 'block', acceptDownloads: true, ...(storageState ? { storageState } : {}) }); contexts.push(target);

@@ -1,4 +1,4 @@
-/** Actual Chrome coordinate/BIDS acceptance. Only a proven, paused golden-cache request is admitted. */
+/** Actual Chrome coordinate/BIDS acceptance. Only a proven golden-cache request on a cache-only service is admitted. */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
@@ -8,16 +8,15 @@ import { chromium } from 'playwright';
 import { translateText } from '../lib/i18n/core.ts';
 import { parseBIDSElectrodes } from '../lib/bids-electrodes.ts';
 import { designSubmission } from '../lib/design-decision.ts';
-import { openServiceSession, playwrightCookies } from './helpers/service-session.mjs';
+import { assertCacheOnly, playwrightCookies, scriptServer } from './helpers/service-session.mjs';
 
-// EEG_REPOSITORY_ROOT is the root the server serves (default this checkout). The server is the Node host at
-// EEG_TEST_URL, or the Python service (eeglayoutlab serve --cache-only): with EEG_SERVICE_RUNTIME (its
-// <workspace>/.eeglayoutlab/runtime.json) or EEG_SERVICE_TOKEN and EEG_TEST_URL, the browser holds its session cookie.
+// EEG_REPOSITORY_ROOT is the root the server serves (default this checkout). The server is the Python service
+// (eeglayoutlab serve --cache-only): with EEG_SERVICE_RUNTIME (its <workspace>/.eeglayoutlab/runtime.json), or
+// EEG_SERVICE_TOKEN and EEG_TEST_URL, the browser holds its session cookie. Its last check saves a workspace project,
+// which needs no credential there, so a legacy Node host is not checked.
 const root = resolve(process.env.EEG_REPOSITORY_ROOT || resolve(import.meta.dirname, '../..')), artifactRoot = join(root, 'artifacts/research-workflow/2026-11-14');
-const service = process.env.EEG_SERVICE_RUNTIME || process.env.EEG_SERVICE_TOKEN
-  ? await openServiceSession({ base: process.env.EEG_TEST_URL }) : null;
-assert.ok(service || process.env.EEG_TEST_URL, 'Set EEG_TEST_URL to the isolated paused verification server.');
-const base = new URL(service?.base || process.env.EEG_TEST_URL);
+const { service, ...server } = await scriptServer({ node: false });
+const base = new URL(server.base);
 assert.ok(base.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(base.hostname) && base.port && base.port !== '3000');
 assert.ok(base.pathname === '/' && !base.search && !base.hash && !base.username && !base.password);
 assert.equal(process.argv.length, 2);
@@ -60,7 +59,7 @@ async function api(path, options = {}) {
 async function paused() {
   const health = await api('/api/local-compute/health');
   if (health.token && !secrets.includes(health.token)) secrets.push(health.token);
-  assert.equal(health.maintenance, true); assert.equal(health.drained, true);
+  assertCacheOnly(health);
   return health;
 }
 // The stored record, the two admitted submissions and the browser's diagnostics (a cancelled navigation counts only
@@ -246,14 +245,13 @@ try {
     await assertUnchanged();
     return { cached_submissions: 2, new_fem_submissions: 0, original_record_sha256: hash(originalRecord), original_record_unchanged: true, controlled_navigation_aborts: controlledAborts.length, all_cancelled_directories_reloaded: true };
   });
-  // Last: projects are slice 9 of the Python service, so the checks above run on it without them.
+  // A workspace project needs no credential: the session cookie and the CSRF token are all its writes need.
   await check('A real project snapshot retains the BIDS source declarations independently of scientific payload', async () => {
     const health = await paused(), headers = { Origin: base.origin, 'X-EEG-Compute-Token': health.token };
     const created = await api('/api/projects', { method: 'POST', headers, data: { title: 'Coordinate BIDS acceptance ' + Date.now(), owner_name: 'Browser verification' } });
-    assert.match(created.access_key, /^[a-f0-9]{64}$/); secrets.push(created.access_key);
-    const path = `/api/projects/${created.project.id}`, projectHeaders = { ...headers, 'X-EEG-Project-Key': created.access_key };
-    const attached = await api(path + '/entries', { method: 'POST', headers: projectHeaders, data: { revision: 1, kind: 'layout', record_id: cached.key, annotation_id: bidsJob.annotation_id } });
-    const copy = await api(path + '/entries/' + attached.entry.id, { headers: { 'X-EEG-Project-Key': created.access_key } });
+    const path = `/api/projects/${created.project.id}`;
+    const attached = await api(path + '/entries', { method: 'POST', headers, data: { revision: 1, kind: 'layout', record_id: cached.key, annotation_id: bidsJob.annotation_id } });
+    const copy = await api(path + '/entries/' + attached.entry.id);
     assert.deepEqual(copy.snapshot.electrode_annotation.source_metadata, bidsDesign.source_metadata); assert.deepEqual(copy.snapshot.electrode_annotation.electrode_names, names);
     assert.deepEqual(copy.snapshot.payload.original_record.result, cached.result); assert.deepEqual(copy.snapshot.payload.reproduction.request, baseline);
     await writeFile(join(output, '06-bids-project-snapshot.json'), JSON.stringify(copy.snapshot, null, 2) + '\n', { mode: 0o600 }); artifacts.push('06-bids-project-snapshot.json');

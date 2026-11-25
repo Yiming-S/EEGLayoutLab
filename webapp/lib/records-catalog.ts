@@ -15,6 +15,15 @@ export type ExperimentReceipt = {
     conditions?: { condition: SourceCondition; field_retention: number | null; baseline_explained_energy: number; candidate_explained_energy: number }[];
   } | null;
 };
+/**
+ * `GET /api/community/records`: the newest completed signal experiment of each scenario, without waveforms. The
+ * service lists those of the open workspace (`scope: 'workspace'`, the last `receipt_limit` computations); a signal
+ * result of another workspace is found again by looking up the same scenario, a cache hit. The legacy Node host
+ * listed one browser's (`current_browser`).
+ */
+export type ExperimentRecords = {
+  schema: 'browser-experiment-records/1'; scope?: 'workspace' | 'current_browser'; receipt_limit?: number; records: ExperimentReceipt[];
+};
 export type RecordKind = 'layout' | 'coordinates' | 'editor' | 'source';
 export type CatalogEntry = {
   id: string; kind: RecordKind; finished_at?: string | null; electrode_count: number | null;

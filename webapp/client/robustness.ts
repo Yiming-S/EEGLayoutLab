@@ -2,6 +2,8 @@ import {
   apiJson,
   sessionToken,
   ApiError,
+  apiFailure,
+  apiFetch,
   type ApiOptions,
 } from './task-client.ts';
 import type { ElectrodeDesign, NoiseModel } from '../lib/design-decision';
@@ -63,7 +65,7 @@ export async function exportRobustnessStudy(id: string, signal?: AbortSignal) {
   else signal?.addEventListener('abort', forward, { once: true });
   const timeout = setTimeout(() => controller.abort(), 120000);
   try {
-    const response = await fetch(path(id) + '/export', {
+    const response = await apiFetch(path(id) + '/export', {
       cache: 'no-store',
       credentials: 'same-origin',
       signal: controller.signal,
@@ -72,13 +74,13 @@ export async function exportRobustnessStudy(id: string, signal?: AbortSignal) {
     if (apiVersion && apiVersion !== '1') throw new ApiError('The application was updated. Reload this page to reconnect.', 426);
     const raw = await response.text();
     if (!response.ok) {
-      let message = '研究导出失败';
+      let data: unknown = null;
       try {
-        message = JSON.parse(raw).error || message;
+        data = JSON.parse(raw);
       } catch {
         /* Keep the bounded fallback. */
       }
-      throw new ApiError(message, response.status);
+      throw apiFailure(response.status, data, '研究导出失败');
     }
     let value;
     try { value = JSON.parse(raw); } catch { throw new ApiError('研究导出格式无效', 502); }

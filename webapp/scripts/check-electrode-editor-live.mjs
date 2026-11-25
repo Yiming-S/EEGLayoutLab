@@ -1,13 +1,11 @@
 /** Explicit local integration test. Saves real editor evaluations, never mocks scores. */
 import assert from 'node:assert/strict';
-import { openServiceSession } from './helpers/service-session.mjs';
+import { scriptServer } from './helpers/service-session.mjs';
 
-// The Node host at EEG_TEST_URL (default http://127.0.0.1:3000), or the Python service (eeglayoutlab serve): with
-// EEG_SERVICE_RUNTIME (its <workspace>/.eeglayoutlab/runtime.json) or EEG_SERVICE_TOKEN and EEG_TEST_URL, sign in
-// as its launched browser and send the session cookie.
-const service = process.env.EEG_SERVICE_RUNTIME || process.env.EEG_SERVICE_TOKEN
-  ? await openServiceSession({ base: process.env.EEG_TEST_URL }) : null;
-const base = service?.base || process.env.EEG_TEST_URL || 'http://127.0.0.1:3000';
+// The Python service (eeglayoutlab serve): with EEG_SERVICE_RUNTIME (its <workspace>/.eeglayoutlab/runtime.json), or
+// EEG_SERVICE_TOKEN and EEG_TEST_URL, the script signs in as its launched browser and sends the session cookie
+// (helpers/service-session.mjs). With EEG_TEST_URL alone, the legacy Node host there.
+const { base, service } = await scriptServer();
 // Node's host knows a browser by the visitor cookie it issues; without it every poll would be another visitor's.
 let visitorCookie = '';
 const cookies = (...extra) => [service?.cookie, visitorCookie, ...extra].filter(Boolean).join('; ');

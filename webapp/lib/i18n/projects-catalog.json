@@ -47,25 +47,9 @@
     "source": "从项目移除",
     "en": "Remove from project"
   },
-  "project_012": {
-    "source": "项目编号或访问凭据无效",
-    "en": "The project ID or access credential is invalid."
-  },
-  "project_013": {
-    "source": "项目凭据文件过大",
-    "en": "The project access file is too large."
-  },
-  "project_014": {
-    "source": "项目凭据文件格式无效",
-    "en": "The project access file format is invalid."
-  },
   "project_015": {
     "source": "项目接口路径无效",
     "en": "The project API path is invalid."
-  },
-  "project_016": {
-    "source": "浏览器无法保存访问凭据，请下载项目凭据文件。",
-    "en": "This browser could not save the credential. Download the project access file."
   },
   "project_017": {
     "source": "项目操作失败",
@@ -95,49 +79,17 @@
     "source": "创建项目",
     "en": "Create project"
   },
-  "project_024": {
-    "source": "项目已创建。请下载项目凭据文件，以便在其他浏览器恢复访问。",
-    "en": "Project created. Download its access file to restore access in another browser."
-  },
-  "project_025": {
-    "source": "恢复项目访问",
-    "en": "Restore project access"
-  },
   "project_026": {
     "source": "项目编号",
     "en": "Project ID"
-  },
-  "project_027": {
-    "source": "项目访问凭据",
-    "en": "Project access credential"
   },
   "project_028": {
     "source": "打开项目",
     "en": "Open project"
   },
-  "project_029": {
-    "source": "或导入项目凭据文件",
-    "en": "Or import a project access file"
-  },
-  "project_030": {
-    "source": "凭据决定访问权限。请将管理凭据保存到私人位置；给合作者分享时使用单独的只读凭据。",
-    "en": "Credentials determine access. Keep the owner credential private and use a separate read-only credential when sharing with collaborators."
-  },
-  "project_031": {
-    "source": "此浏览器保存的项目",
-    "en": "Projects saved in this browser"
-  },
   "project_032": {
     "source": "项目详情",
     "en": "Project details"
-  },
-  "project_033": {
-    "source": "管理权限",
-    "en": "Owner access"
-  },
-  "project_034": {
-    "source": "只读访问",
-    "en": "Read-only access"
   },
   "project_035": {
     "source": "负责人",
@@ -158,34 +110,6 @@
   "project_039": {
     "source": "名称和备注只改变项目说明，不改变科学数据或重新计算。",
     "en": "Names and notes change project descriptions only. They do not change scientific data or run calculations."
-  },
-  "project_040": {
-    "source": "下载项目凭据",
-    "en": "Download project access file"
-  },
-  "project_041": {
-    "source": "移除此浏览器的访问记录",
-    "en": "Forget access in this browser"
-  },
-  "project_042": {
-    "source": "已移除此浏览器的访问记录，服务器项目仍保留。",
-    "en": "Access was removed from this browser. The project remains on the server."
-  },
-  "project_043": {
-    "source": "浏览器无法更新项目访问记录",
-    "en": "The browser could not update saved project access."
-  },
-  "project_044": {
-    "source": "生成只读分享链接",
-    "en": "Generate read-only sharing link"
-  },
-  "project_045": {
-    "source": "撤销只读分享",
-    "en": "Revoke read-only sharing"
-  },
-  "project_046": {
-    "source": "只读分享链接",
-    "en": "Read-only sharing link"
   },
   "project_047": {
     "source": "项目实验记录",
@@ -262,10 +186,6 @@
   "project_workflow_1": {
     "source": "选择项目以保存结果",
     "en": "Choose a project to save this result"
-  },
-  "project_workflow_2": {
-    "source": "当前项目为只读访问",
-    "en": "The active project is read-only."
   },
   "project_workflow_3": {
     "source": "已保存到当前项目",
@@ -387,10 +307,6 @@
     "source": "保存选择不会启动计算。需要调整比较要求时，打开方案对比页并将设置保存回项目。",
     "en": "Saving selections does not start a calculation. To change requirements, open Compare Layouts and save its settings back to the project."
   },
-  "project_workflow_33": {
-    "source": "只读访问保留项目的方案选择，不能修改设置。",
-    "en": "Read-only access preserves the project selections and cannot change them."
-  },
   "project_workflow_34": {
     "source": "项目副本可以独立查看。工具页的新计算使用服务器当前可用的原始记录与科学环境。",
     "en": "Project copies can be viewed independently. New calculations in the tools use the original records and scientific environment currently available on the server."
@@ -467,21 +383,9 @@
     "source": "此标签页无法记住活动项目，可在项目页手动保存已完成结果。",
     "en": "This tab could not remember the active project. Save completed results manually from the project page."
   },
-  "project_workflow_53": {
-    "source": "新建、恢复或切换项目",
-    "en": "Create, restore or switch projects"
-  },
-  "project_workflow_54": {
-    "source": "项目说明、凭据与分享",
-    "en": "Project notes, credentials and sharing"
-  },
   "project_workflow_55": {
     "source": "项目交付",
     "en": "Project delivery"
-  },
-  "project_workflow_56": {
-    "source": "选择实验记录可查看原始指标并下载科学副本；项目凭据单独保存和分享。",
-    "en": "Select an experiment to inspect its original metrics and download its scientific copy. Project credentials are saved and shared separately."
   },
   "project_workflow_57": {
     "source": "正在载入结果视图…",
@@ -555,10 +459,6 @@
     "source": "交付清单 SHA-256",
     "en": "Delivery manifest SHA-256"
   },
-  "project_delivery_13": {
-    "source": "项目访问凭据单独保存和分享，不随交付包导出。",
-    "en": "Project access credentials are saved and shared separately and are not exported in the package."
-  },
   "project_delivery_14": {
     "source": "项目交付包格式无效",
     "en": "The project delivery package format is invalid."
@@ -579,10 +479,6 @@
     "source": "项目交付包缺少说明文档",
     "en": "The delivery package is missing its README."
   },
-  "project_delivery_19": {
-    "source": "交付包包含当前项目凭据，已停止下载。",
-    "en": "The delivery contains the current project credential. Download was stopped."
-  },
   "project_delivery_manifest_error": {
     "source": "项目交付清单校验失败",
     "en": "The delivery manifest checksum does not match."
@@ -591,8 +487,52 @@
     "source": "从项目移除此实验记录？项目保存的副本会被删除，原始结果不受影响。",
     "en": "Remove this experiment from the project? The copy saved in the project is deleted; the original result is not affected."
   },
-  "project_058": {
-    "source": "撤销后，所有已发出的只读链接立即失效。继续？",
-    "en": "Revoking makes every read-only link already shared stop working immediately. Continue?"
+  "project_workspace_switcher": {
+    "source": "新建或打开项目",
+    "en": "Create or open a project"
+  },
+  "project_workspace_list": {
+    "source": "此工作区的项目",
+    "en": "Projects in this workspace"
+  },
+  "project_workspace_refresh": {
+    "source": "刷新项目列表",
+    "en": "Refresh the project list"
+  },
+  "project_workspace_loading": {
+    "source": "正在读取项目目录…",
+    "en": "Reading the project directory…"
+  },
+  "project_workspace_empty": {
+    "source": "此工作区还没有项目。",
+    "en": "This workspace has no projects yet."
+  },
+  "project_workspace_entries": {
+    "source": "{{0}}条实验记录",
+    "en": "{{0}} records"
+  },
+  "project_workspace_storage": {
+    "source": "项目保存在当前工作区目录中，不随浏览器数据清除。",
+    "en": "Projects are saved in the workspace directory; clearing browser data does not remove them."
+  },
+  "project_workspace_edit": {
+    "source": "编辑项目说明",
+    "en": "Edit project description"
+  },
+  "project_workspace_created": {
+    "source": "项目已创建。",
+    "en": "Project created."
+  },
+  "project_workspace_invalid_directory": {
+    "source": "项目目录格式无效",
+    "en": "The project directory is invalid"
+  },
+  "project_workspace_directory_failed": {
+    "source": "项目目录未载入，请重新读取。",
+    "en": "The project directory could not be loaded. Read it again."
+  },
+  "project_workspace_invalid_id": {
+    "source": "项目编号无效",
+    "en": "Invalid project ID"
   }
 }

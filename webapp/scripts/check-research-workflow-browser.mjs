@@ -12,22 +12,20 @@ import { chromium } from 'playwright';
 import { translateText } from '../lib/i18n/core.ts';
 import { runProjectAssociationChecks } from './helpers/project-association-browser.mjs';
 import { runLocalDeliveryChecks } from './helpers/local-delivery-browser.mjs';
-import { openServiceSession, playwrightCookies } from './helpers/service-session.mjs';
+import { playwrightCookies, scriptServer } from './helpers/service-session.mjs';
 
 // EEG_REPOSITORY_ROOT is the root the server serves (default this checkout); the evidence and the fixtures the stages
-// read are below its artifacts. The server is the Node host at EEG_TEST_URL, or the Python service (eeglayoutlab serve
-// --cache-only): with EEG_SERVICE_RUNTIME (its <workspace>/.eeglayoutlab/runtime.json) or EEG_SERVICE_TOKEN and
-// EEG_TEST_URL, every browser context holds its session cookie. Stages 2 and 3 take EEG_SIGNAL_FIXTURE,
-// EEG_SECOND_LAYOUT_ID and EEG_EDITOR_RECORD_KEY as their helpers say.
+// read are below its artifacts. The server is the Python service (eeglayoutlab serve --cache-only): with
+// EEG_SERVICE_RUNTIME (its <workspace>/.eeglayoutlab/runtime.json), or EEG_SERVICE_TOKEN and EEG_TEST_URL, every
+// browser context holds its session cookie. Stages 2 and 3 save workspace projects, which need no credential there,
+// and take EEG_SIGNAL_FIXTURE, EEG_SECOND_LAYOUT_ID and EEG_EDITOR_RECORD_KEY as their helpers say; stage 1 also runs
+// against a legacy Node host at EEG_TEST_URL alone.
 const projectRoot = resolve(process.env.EEG_REPOSITORY_ROOT || resolve(import.meta.dirname, '../..'));
-const service = process.env.EEG_SERVICE_RUNTIME || process.env.EEG_SERVICE_TOKEN
-  ? await openServiceSession({ base: process.env.EEG_TEST_URL }) : null;
-assert.ok(service || process.env.EEG_TEST_URL, 'Set EEG_TEST_URL to an isolated verification server.');
-const origin = new URL(service?.base || process.env.EEG_TEST_URL);
-assert.ok(origin.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(origin.hostname) && origin.port && origin.port !== '3000', 'Use an explicit non-3000 loopback server.');
-assert.ok(origin.pathname === '/' && !origin.search && !origin.hash && !origin.username && !origin.password, 'EEG_TEST_URL must contain only the verification server origin.');
 assert.ok(process.argv.slice(2).length <= 1 && process.argv.slice(2).every(value => ['--stage2', '--stage3'].includes(value)), 'Use no arguments for Stage 1, --stage2 for associations or --stage3 for local deliveries.');
 const stage = process.argv.includes('--stage3') ? 3 : process.argv.includes('--stage2') ? 2 : 1;
+const { base, service } = await scriptServer({ node: stage === 1 });
+const origin = new URL(base);
+assert.ok(origin.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(origin.hostname) && origin.port && origin.port !== '3000', 'Use an explicit non-3000 loopback server.');
 const artifactRoot = join(projectRoot, 'artifacts/research-workflow/2026-11-14');
 const output = process.env.EEG_QA_OUTPUT || join(artifactRoot, `stage${stage}-browser`);
 const outputPath = relative(artifactRoot, output);

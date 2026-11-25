@@ -10,7 +10,7 @@ const cancelled = (signal?: AbortSignal) => { if (signal?.aborted) throw new DOM
 const digest = async (bytes: Uint8Array<ArrayBuffer>) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map(byte => byte.toString(16).padStart(2, '0')).join('');
 
 /** Verify delivered UTF-8 bytes without reserializing any scientific file. */
-export async function prepareProjectDelivery(value: unknown, project: { id: string; revision: number }, credential: string, signal?: AbortSignal) {
+export async function prepareProjectDelivery(value: unknown, project: { id: string; revision: number }, signal?: AbortSignal) {
   cancelled(signal);
   if (!object(value) || value.schema !== 'eeg-research-delivery/1' || !object(value.project) || value.project.id !== project.id ||
       value.scientific_results_recomputed !== false || typeof value.manifest_sha256 !== 'string' || !sha.test(value.manifest_sha256) || !Array.isArray(value.files))
@@ -38,7 +38,6 @@ export async function prepareProjectDelivery(value: unknown, project: { id: stri
   const manifest = { ...metadata, files: files.map(({ content: _content, ...file }) => file) };
   if (await digest(new TextEncoder().encode(JSON.stringify(manifest))) !== checksum) throw new Error('项目交付清单校验失败');
   const text = JSON.stringify(value, null, 2) + '\n';
-  if (credential && text.includes(credential)) throw new Error('交付包包含当前项目凭据，已停止下载。');
   cancelled(signal);
   return { bundle: value as ResearchDelivery, text, readme, totalBytes,
     filename: `eeg-research-project-${project.id}-r${project.revision}.json` };

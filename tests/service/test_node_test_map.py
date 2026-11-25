@@ -19,7 +19,8 @@ Dispositions (tests.md section 0):
 - ``NA``: stays in Node, adapted in ``slice``. ``D``: dropped, for ``reason`` R1-R7 (plan section 5.1).
   ``N``: stays in Node. ``E``: Node-host structure, retired with Node. ``CLI``: follows the Node command line.
 
-Any entry may carry a ``note``. ``python tests/service/test_node_test_map.py`` prints the counts.
+Phase 2 is done (``SLICES_DONE = 10``, its last slice): no entry may be ``pending`` or ``NA`` any more. Any entry
+may carry a ``note``. ``python tests/service/test_node_test_map.py`` prints the counts.
 """
 from __future__ import annotations
 
@@ -40,7 +41,8 @@ FORMATS = ROOT / 'tests/schema_parity/formats'
 UNIT_TEST_IMPORT = re.compile(r'''from ['"]node:test['"]''')  # as run-unit-tests.mjs selects files
 
 # Slices whose ports are done: a pending (or NA) entry for one of them fails, unless PENDING_ALLOWED lists it.
-SLICES_DONE = 9
+# Slice 10 is the last of phase 2, so nothing may be pending (test_phase_2_left_nothing_pending).
+SLICES_DONE = 10
 # Sites of a done slice whose ports are written beside the map in the same stage; empty once a slice is linked.
 PENDING_ALLOWED: frozenset[str] = frozenset()
 
@@ -371,6 +373,15 @@ def test_pending_ports_belong_to_open_slices():
     assert overdue == [], f'slices up to {SLICES_DONE} are done; port or map these sites:\n' + '\n'.join(overdue)
     linked = sorted(key for key in PENDING_ALLOWED if entries().get(key, {}).get('disposition') != 'pending')
     assert linked == [], 'these sites are not pending; remove them from PENDING_ALLOWED:\n' + '\n'.join(linked)
+
+
+def test_phase_2_left_nothing_pending():
+    # Plan section 6.3, item 5: from slice 10 no site waits for a port (pending) or for its adaptation (NA),
+    # whatever its slice and whatever PENDING_ALLOWED says.
+    assert SLICES_DONE == 10
+    left = sorted(f'{key}: {entry.get("disposition")}' for key, entry in entries().items()
+                  if isinstance(entry, dict) and entry.get('disposition') in ('pending', 'NA'))
+    assert left == [], 'phase 2 is done; port or map these sites:\n' + '\n'.join(left)
 
 
 def test_scripts_lists_every_opt_in_script():

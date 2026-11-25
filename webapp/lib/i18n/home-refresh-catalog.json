@@ -15,7 +15,6 @@
   "scope": { "source": "本页实验条件与阅读说明", "en": "Experiment conditions and reading notes" },
   "whole_scope": { "source": "全头候选区：不限制毛发位置，由算法选择区域。", "en": "Whole-scalp candidates: no hair-location restriction; the algorithm selects the regions." },
   "hair_scope": { "source": "少毛发候选区：耳后、前额与眶周的模型近似范围，不包含完整扩展耳周。", "en": "Low-hair candidates: model-defined approximations behind the ears, on the forehead and around the eyes; the full extended ear region is excluded." },
-  "status": { "source": "查看访客与计算队列", "en": "View visitors and computation queue" },
   "online": { "source": "在线", "en": "Online" },
   "queue": { "source": "队列", "en": "Queue" },
   "queue_summary": { "source": "运行中：{{0}}项 · 等待中：{{1}}项", "en": "Running: {{0}} · Queued: {{1}}" },

@@ -1,4 +1,4 @@
-import type { RecordVisibility, SavedRecord } from './local-library';
+import type { SavedRecord } from './local-library';
 import type { XYZ } from '../../contracts/layout';
 export type { XYZ } from '../../contracts/layout';
 export type Slot = { bank_index: number; enabled: boolean };
@@ -62,7 +62,6 @@ export type EditorRecord = {
   active_regions: number;
   metrics: EditorMetrics;
   request: EditorRequest;
-  visibility?: RecordVisibility;
 };
 export const initialSlots = (domain: EditorDomain): Slot[] =>
   domain.original_indices.map((bank_index) => ({ bank_index, enabled: true }));

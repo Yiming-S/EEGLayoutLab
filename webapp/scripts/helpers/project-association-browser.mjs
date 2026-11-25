@@ -3,18 +3,20 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { translateText } from '../../lib/i18n/core.ts';
+import { assertCacheOnly } from './service-session.mjs';
 
 /**
  * Stage 2 shares the runner's real Chrome, safety routing and diagnostic report. The cached signal result is
  * EEG_SIGNAL_FIXTURE (default the root's bank signal result) and the other completed layout EEG_SECOND_LAYOUT_ID
- * (default the installation's 1c23da5c...).
+ * (default the installation's 1c23da5c...). A workspace project needs no credential: every browser of the session opens
+ * it by its identifier.
  */
 export async function runProjectAssociationChecks({ root, base, check, newContext, read, button, screenshot, requests, keepSecret, setPage }) {
   const fixture = JSON.parse(await readFile(process.env.EEG_SIGNAL_FIXTURE || join(root, 'artifacts/performance-optimizations/2026-11-13/bank-signal-result.json'), 'utf8'));
   const golden = JSON.parse(await readFile(join(root, 'artifacts/productization/2026-11-13/scientific-baseline/design-request.json'), 'utf8'));
   const english = await newContext('en'), { context, state } = english;
   let page = await context.newPage(); setPage(page);
-  let project, accessKey, signalReceipt, aliases, referenceEntry, candidateEntry, aliasEntries, signalEntry;
+  let project, signalReceipt, aliases, referenceEntry, candidateEntry, aliasEntries, signalEntry;
   const t = (value, locale = 'en') => translateText(value, locale);
   const escape = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const sourceId = fixture.request.record_id, otherId = process.env.EEG_SECOND_LAYOUT_ID || '1c23da5c1dae629610c0f2a39fe7b48d8c0fba86d41c1c77276f2b90a937b0f4';
@@ -22,7 +24,7 @@ export async function runProjectAssociationChecks({ root, base, check, newContex
   async function lookup(path, body) {
     assert.ok(['/api/source-reception/lookup', '/api/design-evaluation/lookup'].includes(path));
     const health = await read(context, '/api/local-compute/health');
-    assert.equal(health.maintenance, true); assert.equal(health.drained, true); keepSecret(health.token);
+    assertCacheOnly(health); keepSecret(health.token);
     requests.push({ locale: 'en', transport: 'real-fixture-lookup', method: 'POST', path, query: '' });
     const response = await context.request.post(base + path, { headers: { Origin: base, 'X-EEG-Compute-Token': health.token }, data: body });
     assert.equal(response.status(), 200); const value = await response.json();
@@ -62,7 +64,7 @@ export async function runProjectAssociationChecks({ root, base, check, newContex
     await page.locator('[data-candidate-source-total]').filter({ hasText: /./ }).waitFor();
   }
   async function storedProject() {
-    const response = await context.request.get(`${base}/api/projects/${project.id}`, { headers: { 'X-EEG-Project-Key': accessKey } });
+    const response = await context.request.get(`${base}/api/projects/${project.id}`);
     assert.equal(response.status(), 200); return (await response.json()).project;
   }
   const field = (scope, source, locale = 'en') => scope.locator('dt').filter({ hasText: new RegExp('^' + escape(t(source, locale)) + '$') }).locator('..').locator('dd');
@@ -98,7 +100,8 @@ export async function runProjectAssociationChecks({ root, base, check, newContex
     await label('项目名称').fill('Signal associations ' + Date.now()); await label('负责人姓名').fill('Browser verification');
     await transition('Create project and refresh record directory', async () => {
       const value = await mutation('/api/projects', 'POST', () => button(page, '创建项目', 'en').click());
-      assert.match(value.access_key, /^[a-f0-9]{64}$/); keepSecret(value.access_key); accessKey = value.access_key; project = value.project;
+      if (typeof value.access_key === 'string' && value.access_key) keepSecret(value.access_key);
+      project = value.project;
       await page.getByRole('heading', { name: project.title, exact: true }).waitFor();
     });
     referenceEntry = await attach('layout:' + sourceId, 'Source parent layout');
@@ -108,7 +111,7 @@ export async function runProjectAssociationChecks({ root, base, check, newContex
     signalEntry = await attach('source:' + signalReceipt.id, 'Saved signal for source parent');
     assert.equal(project.entries.length, 5);
     for (const entry of project.entries) {
-      const response = await context.request.get(`${base}/api/projects/${project.id}/entries/${entry.id}`, { headers: { 'X-EEG-Project-Key': accessKey } });
+      const response = await context.request.get(`${base}/api/projects/${project.id}/entries/${entry.id}`);
       assert.equal(response.status(), 200); snapshots.set(entry.id, (await response.json()).snapshot);
     }
     assert.deepEqual(snapshots.get(signalEntry.id).payload, fixture);
@@ -143,13 +146,12 @@ export async function runProjectAssociationChecks({ root, base, check, newContex
     assert.equal(await entriesRegion().getByRole('article').count(), 5);
     return { saved_layout_copies: 4, distinct_scientific_layouts: 3, aliases_are_one_scientific_record: true };
   });
-  await check('A fresh Chinese browser restores the project and can filter the same archived association', async () => {
+  await check('A fresh Chinese browser opens the workspace project and can filter the same archived association', async () => {
     await page.waitForLoadState('networkidle');
     const chinese = await newContext('zh-CN'); page = await chinese.context.newPage(); setPage(page);
-    await transition('Open Chinese project workspace', () => page.goto(base + '/projects', { waitUntil: 'networkidle' }), chinese.state);
-    await label('项目编号', 'zh-CN').fill(project.id); await label('项目访问凭据', 'zh-CN').fill(accessKey);
-    await transition('Restore Chinese project and refresh record directory', async () => {
-      await button(page, '打开项目', 'zh-CN').click(); await page.getByRole('heading', { name: project.title, exact: true }).waitFor();
+    await transition('Open the Chinese project by its identifier and refresh record directory', async () => {
+      await page.goto(`${base}/projects?project=${project.id}`, { waitUntil: 'networkidle' });
+      await page.getByRole('heading', { name: project.title, exact: true }).waitFor();
     }, chinese.state);
     assert.equal(await page.locator('[data-project-source-total]').innerText(), '1');
     await button(page, '只看当前候选的信号记录', 'zh-CN').click(); assert.equal(await entriesRegion('zh-CN').getByRole('article').count(), 1);
@@ -159,11 +161,11 @@ export async function runProjectAssociationChecks({ root, base, check, newContex
   await check('All original science and immutable project snapshots survive candidate and view changes unchanged', async () => {
     const fresh = await storedProject(); assert.equal(fresh.entries.length, snapshots.size);
     for (const entry of fresh.entries) {
-      const response = await context.request.get(`${base}/api/projects/${project.id}/entries/${entry.id}`, { headers: { 'X-EEG-Project-Key': accessKey } });
+      const response = await context.request.get(`${base}/api/projects/${project.id}/entries/${entry.id}`);
       assert.equal(response.status(), 200); assert.ok(isDeepStrictEqual((await response.json()).snapshot, snapshots.get(entry.id)));
     }
     for (const [id, record] of originalRecords) assert.deepEqual((await read(context, '/api/local-compute/library/' + id)).record, record);
-    const health = await read(context, '/api/local-compute/health'); assert.equal(health.maintenance, true); assert.equal(health.drained, true);
+    const health = await read(context, '/api/local-compute/health'); assertCacheOnly(health);
     return { snapshots_unchanged: snapshots.size, original_records_unchanged: originalRecords.size, maintenance: true, drained: true };
   });
   return { project_id: project.id, source_parent_id: sourceId, alternate_layout_id: otherId, alias_scientific_key: aliases[0].key, project_entries: project.entries.length };

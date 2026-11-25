@@ -1,16 +1,16 @@
 # Source installation
 
-These instructions run the maintained web application locally and prepare a checkout for development. The interface opens in a browser; Node and Python/SimNIBS run on the same computer.
+These instructions run the maintained web application locally and prepare a checkout for development. The interface opens in a browser; the local Python service (`eeglayoutlab serve`) and its Python/SimNIBS workers run on the same computer.
 
 [简体中文源码安装说明](source-installation.zh-CN.md)
 
-This guide covers the **Apple Silicon macOS** setup first. [Linux x86_64](#linux-x86_64) has its own runtime without SimNIBS that computes from published scalp-node tables. [Windows](#windows) is not supported natively yet; use WSL2 (not yet tested). For the planned hosted version, see [Server deployment preparation](server-deployment.md).
+This guide covers the **Apple Silicon macOS** setup first. [Linux x86_64](#linux-x86_64) has its own runtime without SimNIBS that computes from published scalp-node tables. [Windows](#windows) is not supported natively yet; use WSL2 (not yet tested). Hosted deployments use the legacy Node host, frozen at the tag `node-host-freeze`; see [Server deployment preparation](server-deployment.md).
 
 ## Requirements
 
 - An Apple Silicon Mac running macOS **14 or newer**.
-- Node.js **22.13.0 or newer**, with npm.
-- Python **3.10 or newer** to run the setup tools. The managed computation environment installs its own **Python 3.11** interpreter, as specified in the [runtime manifest](../configs/runtime/manifest.json).
+- Node.js **22.13.0 or newer**, with npm, to build the interface.
+- Python **3.10 or newer** to run the setup tools, and a **Python 3.11** of your own (for example from Homebrew or python.org) for the `eeglayoutlab` command. The managed computation environment installs its own **Python 3.11** interpreter, as specified in the [runtime manifest](../configs/runtime/manifest.json); the command does not run in it.
 - An Apple Silicon Conda installation with the `conda` command available in Terminal.
 - Git and Apple's Command Line Tools.
 - [GitHub CLI](https://cli.github.com/) (`gh`) and a GitHub account with access to this private repository.
@@ -68,17 +68,20 @@ python3 scripts/bootstrap_runtime.py --execute
 
 Wait for installation and the environment check to finish successfully before continuing. The web service selects this environment automatically; no manual Conda activation is needed.
 
-### 4. Install the web dependencies and open the browser interface
+### 4. Install the `eeglayoutlab` command, build the interface and start the application
+
+From the repository root, install the command into a Python 3.11 environment of your own, build the interface once, and start the local service for a **workspace**, a directory of your choice that keeps your task list, electrode names, robustness studies and research projects:
 
 ```sh
-cd webapp
-npm ci
-npm run dev
+python3.11 -m venv .venv
+.venv/bin/python -m pip install -e '.[service]'
+(cd webapp && npm ci && npm run build)
+.venv/bin/eeglayoutlab serve ~/eeglayoutlab-workspace
 ```
 
-![Expected terminal output checkpoints for data verification, Python runtime bootstrap, and starting the local server](images/install-terminal-checkpoints.svg)
+![Expected terminal output checkpoints for data verification, Python runtime bootstrap, and starting the local service](images/install-terminal-checkpoints.svg)
 
-Open [http://127.0.0.1:3000](http://127.0.0.1:3000) in your browser. Keep Terminal running while using the application. Press **Control + C** in Terminal to stop it. On first launch, check that the top-right **Tasks / Queue** badge shows `0` (connected):
+The service prints its address, `http://127.0.0.1:<port>/open?token=…`, and opens it in your browser once it answers. Use that page: the address signs the browser in, and the port is new on every start, so a bookmark or an address typed by hand does not open the application. Keep Terminal running while using the application. Press **Control + C** in Terminal to stop it. On first launch, check that the top-right **Tasks / Queue** badge shows `0` (connected):
 
 ![Annotated Workspace home screen on first launch showing the five top-bar areas, connected task queue badge, language and theme switcher, and starting options](images/workspace-first-launch.svg)
 
@@ -87,11 +90,13 @@ Open [http://127.0.0.1:3000](http://127.0.0.1:3000) in your browser. Keep Termin
 From the folder containing your checkout, run:
 
 ```sh
-cd EEGLayoutLab/webapp
-npm run dev
+cd EEGLayoutLab
+.venv/bin/eeglayoutlab serve ~/eeglayoutlab-workspace
 ```
 
-Then open [http://127.0.0.1:3000](http://127.0.0.1:3000). You do not need to reinstall the data or dependencies each time.
+It opens the application in your browser. You do not need to reinstall the data or dependencies each time; build the interface again (`cd webapp && npm run build`) after updating the source. A tab left from an earlier run cannot reach the new service: it asks you to run the command again, and the command opens a new page. Running the command while the service runs opens the running instance. [CONTRIBUTING](../CONTRIBUTING.md#the-local-service) describes the command's options, and `npm run dev` for interface development ([interface development](../CONTRIBUTING.md#interface-development)).
+
+The earlier Node host (`npm start` in `webapp/`) is a legacy host, frozen for hosted deployments at the tag `node-host-freeze`; the current interface no longer opens its research projects.
 
 For the application's workflow, see [How to use](../README.md#how-to-use).
 

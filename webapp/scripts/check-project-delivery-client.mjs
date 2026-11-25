@@ -18,7 +18,7 @@ function fixture({ readme = '# Study\r\n脑电研究\n', raw = '{"coordinates":[
 
 void test('the downloaded wrapper keeps every original file string, UTF-8 byte and scientific number representation', async () => {
   const value = fixture(), before = JSON.stringify(value);
-  const result = await prepareProjectDelivery(value, project, 'f'.repeat(64));
+  const result = await prepareProjectDelivery(value, project);
   assert.equal(result.bundle, value); assert.equal(result.readme, value.files[0]);
   assert.equal(result.readme.content, '# Study\r\n脑电研究\n');
   assert.equal(result.filename, `eeg-research-project-${project.id}-r7.json`);
@@ -40,16 +40,16 @@ void test('a damaged file or changed manifest is rejected before preparing a dow
     value => { value.manifest_sha256 = '0'.repeat(64); },
   ]) {
     const value = fixture(); mutate(value);
-    await assert.rejects(prepareProjectDelivery(value, project, ''), /校验|大小/);
+    await assert.rejects(prepareProjectDelivery(value, project), /校验|大小/);
   }
 });
 
 void test('an export for another project or revision cannot replace the selected project delivery', async () => {
   const value = fixture();
-  await assert.rejects(prepareProjectDelivery(value, { ...project, id: '00000000-0000-4000-8000-000000000099' }, ''), /格式/);
-  await assert.rejects(prepareProjectDelivery(value, { ...project, revision: 8 }, ''), /重新读取/);
+  await assert.rejects(prepareProjectDelivery(value, { ...project, id: '00000000-0000-4000-8000-000000000099' }), /格式/);
+  await assert.rejects(prepareProjectDelivery(value, { ...project, revision: 8 }), /重新读取/);
   value.scientific_results_recomputed = true;
-  await assert.rejects(prepareProjectDelivery(value, project, ''), /格式/);
+  await assert.rejects(prepareProjectDelivery(value, project), /格式/);
 });
 
 void test('unsafe inventory paths, duplicates and unexpected encodings are rejected', async () => {
@@ -63,13 +63,14 @@ void test('unsafe inventory paths, duplicates and unexpected encodings are rejec
     value => { value.files.shift(); },
   ]) {
     const value = fixture(); mutate(value);
-    await assert.rejects(prepareProjectDelivery(value, project, ''), /清单|说明文档/);
+    await assert.rejects(prepareProjectDelivery(value, project), /清单|说明文档/);
   }
 });
 
-void test('an aborted request and an accidentally included current access key cannot produce a download', async () => {
+void test('an aborted request cannot produce a download', async () => {
   const controller = new AbortController(); controller.abort();
-  await assert.rejects(prepareProjectDelivery(fixture(), project, '', controller.signal), { name: 'AbortError' });
-  const credential = '9'.repeat(64), value = fixture({ readme: '# Study\n' + credential });
-  await assert.rejects(prepareProjectDelivery(value, project, credential), /凭据/);
+  await assert.rejects(prepareProjectDelivery(fixture(), project, controller.signal), { name: 'AbortError' });
+  // Projects carry no access key, so a delivery is not searched for one.
+  const value = fixture({ readme: '# Study\n' + '9'.repeat(64) });
+  assert.equal((await prepareProjectDelivery(value, project)).readme.content, '# Study\n' + '9'.repeat(64));
 });

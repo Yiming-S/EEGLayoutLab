@@ -7,20 +7,21 @@ import { Button } from './ui/button';
 import { percent } from './performance-summary';
 import { localizedEditorParentTitle, localizedRecordTitle } from '@/lib/i18n/records';
 import { CONDITION_LABELS } from '@/lib/source-reception';
-import { RecordVisibilityControl } from '@/components/record-visibility-control';
 import { editorRecordLink, savedSourceLink, type CatalogEntry, type ExperimentReceipt } from '@/lib/records-catalog';
 import type { SavedSummary } from '@/lib/local-library';
 import { layoutHref } from '@/lib/layout-page';
+import { apiJson } from '@/client/task-client';
 
+/** The saved result of a signal experiment of the workspace, by its receipt. */
 export async function downloadExperimentReceipt(receipt: ExperimentReceipt) {
-  const response = await fetch(`/api/community/records/${receipt.id}/result`, { cache: 'no-store', signal: AbortSignal.timeout(30000) });
-  const data = await response.json();
-  if (!response.ok || !data.result) throw new Error(data.error ?? '计算记录无法读取，请重新提交');
+  const data = await apiJson<{ result?: unknown }>(`/api/community/records/${encodeURIComponent(receipt.id)}/result`,
+    { timeoutMs: 30000, errorMessage: '计算记录无法读取，请重新提交' });
+  if (!data.result) throw new Error('计算记录无法读取，请重新提交');
   const url = URL.createObjectURL(new Blob([JSON.stringify(data.result, null, 2)], { type: 'application/json' }));
   const link = document.createElement('a'); link.href = url; link.download = `eeg-result-${receipt.id}.json`; link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-export function CatalogExperimentDetails({ entry, parents, ar, returnHref, onVisibilityChange }: { entry: CatalogEntry; parents: SavedSummary[]; ar: number; returnHref: string; onVisibilityChange?: () => void }) {
+export function CatalogExperimentDetails({ entry, parents, ar, returnHref }: { entry: CatalogEntry; parents: SavedSummary[]; ar: number; returnHref: string }) {
   const { tx, locale, date } = useLanguage();
   const [failure, setFailure] = useState(''), [downloading, setDownloading] = useState(false);
   if ('summary' in entry) return null;
@@ -37,7 +38,6 @@ export function CatalogExperimentDetails({ entry, parents, ar, returnHref, onVis
   };
   return <article className="lab-panel space-y-4">
     <header><p className="lab-eyebrow">{tx(entry.kind === 'editor' ? '编辑副本' : '信号实验')}</p><h2 className="mt-2 text-lg font-semibold">{parentTitle}</h2></header>
-    {entry.kind === 'editor' && <RecordVisibilityControl id={entry.editor.key} name={`${parentTitle} · ${tx('编辑副本')}`} visibility={entry.editor.visibility} onChange={onVisibilityChange} />}
     <dl className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
       <div><dt className="inline text-muted-foreground">{tx('保存时间')}：</dt><dd className="inline">{entry.finished_at ? date(entry.finished_at, true) : tx('未记录')}</dd></div>
       <div><dt className="inline text-muted-foreground">{tx('电极数 / 区域数')}：</dt><dd className="inline">{entry.electrode_count ?? '—'} / {entry.region_count ?? '—'}</dd></div>

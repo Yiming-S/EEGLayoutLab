@@ -5,19 +5,16 @@ import { resolve, relative, join } from 'node:path';
 import { chromium } from 'playwright';
 import { createHash } from 'node:crypto';
 import { translateText } from '../lib/i18n/core.ts';
-import { openServiceSession, playwrightCookies } from './helpers/service-session.mjs';
+import { playwrightCookies, scriptServer } from './helpers/service-session.mjs';
 
 // EEG_REPOSITORY_ROOT is the root the server serves (default this checkout); the evidence goes below its artifacts and
-// EEG_SIGNAL_FIXTURE defaults to its cached signal result. The server is the Node host at EEG_TEST_URL, or the Python
-// service (eeglayoutlab serve --cache-only): with EEG_SERVICE_RUNTIME (its <workspace>/.eeglayoutlab/runtime.json) or
-// EEG_SERVICE_TOKEN and EEG_TEST_URL, every browser holds its session cookie. EEG_SECOND_LAYOUT_ID is the completed
-// layout saved beside the signal's parent (default the installation's 1c23da5c...). Read-only sharing links are not
-// checked: the service has none (one local user), and the project key is a credential of the Node host only.
+// EEG_SIGNAL_FIXTURE defaults to its cached signal result. The server is the Python service (eeglayoutlab serve
+// --cache-only): with EEG_SERVICE_RUNTIME (its <workspace>/.eeglayoutlab/runtime.json), or EEG_SERVICE_TOKEN and
+// EEG_TEST_URL, every browser holds its session cookie. EEG_SECOND_LAYOUT_ID is the completed layout saved beside the
+// signal's parent (default the installation's 1c23da5c...). A workspace project has no credential, sharing link or
+// role: every browser of the session opens it by its identifier. A legacy Node host is not checked.
 const root = resolve(process.env.EEG_REPOSITORY_ROOT || resolve(import.meta.dirname, '../..'));
-const service = process.env.EEG_SERVICE_RUNTIME || process.env.EEG_SERVICE_TOKEN
-  ? await openServiceSession({ base: process.env.EEG_TEST_URL }) : null;
-const base = service?.base || process.env.EEG_TEST_URL;
-assert.ok(base, 'Set EEG_TEST_URL to the isolated verification server.');
+const { base, service } = await scriptServer({ node: false });
 const origin = new URL(base);
 assert.ok(origin.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(origin.hostname) && origin.port && origin.port !== '3000');
 const includeDelivery = process.argv.includes('--with-delivery');
@@ -31,7 +28,7 @@ assert.ok(layoutIds.every(id => /^[a-f0-9]{64}$/.test(id)) && layoutIds[0] !== l
 const observations = [], requests = [], pageErrors = [], consoleErrors = [], httpFailures = [], requestFailures = [], blockedDependencies = [], secrets = [];
 // The session cookie and the CSRF token never reach the report.
 if (service) secrets.push(service.cookie.slice(service.cookie.indexOf('=') + 1), service.csrf);
-let browser, ownerContext, ownerPage, chineseContext, chinesePage, project, ownerKey, sourceEntry, signalHref, failure;
+let browser, ownerContext, ownerPage, chineseContext, chinesePage, project, sourceEntry, signalHref, failure;
 const t = (text, locale = 'en') => translateText(text, locale);
 const decoded = value => { let text = value; for (let i = 0; i < 3; i++) { try { const next = decodeURIComponent(text); if (next === text) break; text = next; } catch { break; } } return text; };
 const redact = value => secrets.reduce((text, secret) => text.replaceAll(secret, '[credential]'), value);
@@ -75,7 +72,16 @@ async function openProject(page, locale = 'en') {
 }
 async function assertNoCredentialLinks(page) {
   const links = await page.locator('a[href]').evaluateAll(nodes => nodes.map(node => node.getAttribute('href')));
-  assert.ok(links.every(href => secrets.every(secret => !decoded(href || '').includes(secret))), 'A project credential appeared in a navigation link.');
+  assert.ok(links.every(href => secrets.every(secret => !decoded(href || '').includes(secret))), 'A session secret appeared in a navigation link.');
+}
+// The service may still answer a project's creation with an unused key; it is kept out of the report and the browser.
+const keepKey = value => { if (typeof value?.access_key === 'string' && value.access_key) secrets.push(value.access_key); };
+// The project form of the switcher, whose summary text the page may change: the details holding the new-project form.
+// A closed details hides its heading from role queries, hence includeHidden.
+async function openSwitcher(page, locale = 'en') {
+  const details = page.locator('details').filter({ has: page.getByRole('heading', { name: t('新建项目', locale), exact: true, includeHidden: true }) }).last();
+  if (!await details.evaluate(element => element.open)) await details.locator(':scope > summary').click();
+  return details;
 }
 async function openDetails(page, source, locale = 'en') {
   const summary = page.locator('summary').filter({ hasText: new RegExp('^' + t(source, locale).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$') });
@@ -127,10 +133,15 @@ try {
     await label(ownerPage, '项目名称').fill(title);
     await label(ownerPage, '负责人姓名').fill('Verification');
     const created = await mutation(ownerPage, '/api/projects', 'POST', () => button(ownerPage, '创建项目').click());
-    project = created.project; ownerKey = created.access_key; secrets.push(ownerKey);
+    project = created.project; keepKey(created);
     await ownerPage.getByRole('heading', { name: title, exact: true }).waitFor();
-    const active = await ownerPage.evaluate(() => JSON.parse(sessionStorage.getItem('eeg-active-project/1') || 'null'));
-    assert.equal(active.project_id, project.id); assert.equal(active.role, 'owner');
+    // The tab's active project names the project only: no key or role is stored anywhere in the browser.
+    const storage = await ownerPage.evaluate(() => ({ active: sessionStorage.getItem('eeg-active-project/1'),
+      all: JSON.stringify([Object.entries(localStorage), Object.entries(sessionStorage)]) }));
+    const active = JSON.parse(storage.active || 'null');
+    assert.equal(typeof active === 'string' ? active : active?.project_id, project.id);
+    assert.ok(!/access_key|"role"/.test(storage.all), 'A project credential or role was stored in the browser.');
+    assert.ok(secrets.every(secret => !storage.all.includes(secret)), 'A secret was stored in the browser.');
     await assertNoCredentialLinks(ownerPage);
     return { project_id: project.id, noScientificJobs: true };
   });
@@ -197,7 +208,7 @@ try {
     await button(ownerPage, '保存信号实验到项目').click();
     await button(ownerPage, '已保存到当前项目').waitFor();
     assert.equal(requests.filter(request => request.method === 'POST' && request.path === `/api/projects/${project.id}/entries`).length, before);
-    const saved = await ownerContext.request.get(`${base}/api/projects/${project.id}`, { headers: { 'X-EEG-Project-Key': ownerKey } });
+    const saved = await ownerContext.request.get(`${base}/api/projects/${project.id}`);
     assert.equal(saved.status(), 200); const data = await saved.json();
     assert.equal(data.project.revision, project.revision); assert.equal(data.project.entries.filter(entry => entry.kind === 'source').length, 1);
     return { additional_attachment_posts: 0, source_entries: 1, project_revision_unchanged: true };
@@ -223,13 +234,12 @@ try {
     return { independent_of_original_task: true, download_matches_full_fixture: true, selected_channels: [1, 2], original_source_requests: blockedDependencies.length };
   });
 
-  await check('A fresh Chinese browser restores owner access and opens the saved signal without the original receipt', async () => {
+  await check('A fresh Chinese browser opens the workspace project and its saved signal without the original receipt', async () => {
     chineseContext = await context('zh-CN'); const page = chinesePage = await chineseContext.newPage();
-    await page.goto(`${base}/projects`, { waitUntil: 'domcontentloaded' });
-    await label(page, '项目编号', 'zh-CN').fill(project.id);
-    await label(page, '项目访问凭据', 'zh-CN').fill(ownerKey);
-    await button(page, '打开项目', 'zh-CN').click();
-    await page.getByRole('heading', { name: project.title, exact: true }).waitFor();
+    // The workspace lists its projects; the address names one, without any credential.
+    const listed = await chineseContext.request.get(`${base}/api/projects`);
+    assert.equal(listed.status(), 200); assert.ok((await listed.json()).projects.some(row => row.id === project.id));
+    await openProject(page, 'zh-CN');
     assert.equal(await page.locator('html').getAttribute('lang'), 'zh-CN');
     const slider = await archiveResult(page, 'zh-CN'); assert.ok(Number.isInteger(Number(await slider.inputValue())));
     await assertNoCredentialLinks(page);
@@ -255,7 +265,7 @@ try {
       const checked = verifyDelivery(ownerDelivery);
       assert.deepEqual([...new Set(ownerDelivery.records.map(record => record.kind))].sort((a, b) => a.localeCompare(b)), ['editor', 'layout', 'source']);
       for (const record of ownerDelivery.records) {
-        const response = await ownerContext.request.get(`${base}/api/projects/${project.id}/entries/${record.id}`, { headers: { 'X-EEG-Project-Key': ownerKey } });
+        const response = await ownerContext.request.get(`${base}/api/projects/${project.id}/entries/${record.id}`);
         assert.equal(response.status(), 200); const saved = await response.json();
         const file = ownerDelivery.files.find(file => file.path === record.path);
         assert.equal(file.content, JSON.stringify(saved.snapshot));
@@ -308,12 +318,12 @@ try {
           await button(ownerPage, '下载项目交付包').click(); await held;
           if (action === 'cancel') await button(ownerPage, '取消下载准备').click();
           else {
-            await openDetails(ownerPage, '新建、恢复或切换项目');
+            await openSwitcher(ownerPage);
             const form = ownerPage.getByRole('heading', { name: t('新建项目'), exact: true }).locator('..');
             await label(form, '项目名称').fill(`Abort cleanup study ${Date.now()}`);
             await label(form, '负责人姓名').fill('Verification');
             const changed = await mutation(ownerPage, '/api/projects', 'POST', () => button(form, '创建项目').click());
-            secrets.push(changed.access_key);
+            keepKey(changed);
           }
           await ownerPage.waitForFunction(() => window.__deliveryFetchSignals?.at(-1)?.aborted === true, null, { timeout: 10000, polling: 50 });
           if (action === 'cancel') assert.equal(await ownerPage.locator('#project-delivery [role="alert"]').count(), 0);

@@ -6,10 +6,15 @@ import { isAbsolute, join, relative, resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { chromium } from 'playwright';
 import { translateText } from '../lib/i18n/core.ts';
+import { playwrightCookies, scriptServer } from './helpers/service-session.mjs';
 
-const project = resolve(import.meta.dirname, '../..');
-assert.ok(process.env.EEG_TEST_URL, 'Set EEG_TEST_URL to the isolated verification server.');
-const origin = new URL(process.env.EEG_TEST_URL);
+// The Python service (eeglayoutlab serve, which serves identity encoding): with EEG_SERVICE_RUNTIME (its
+// <workspace>/.eeglayoutlab/runtime.json), or EEG_SERVICE_TOKEN and EEG_TEST_URL, the browser holds its session cookie.
+// With EEG_TEST_URL alone, the legacy Node host there. EEG_REPOSITORY_ROOT is the root the server serves (default
+// this checkout): the fixture and the report are below its artifacts.
+const project = resolve(process.env.EEG_REPOSITORY_ROOT || resolve(import.meta.dirname, '../..'));
+const { base, service } = await scriptServer();
+const origin = new URL(base);
 assert.ok(origin.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(origin.hostname) && origin.port && origin.port !== '3000', 'Use an explicit isolated loopback port, never the working app.');
 const expectShared = process.argv.includes('--expect-shared');
 const expectDeferred = process.argv.includes('--expect-deferred');
@@ -114,7 +119,7 @@ try {
   browser = await chromium.launch({ headless: true, executablePath: process.env.EEG_BROWSER_EXECUTABLE || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
     args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   context = await browser.newContext({ viewport: { width: 1440, height: 1100 }, deviceScaleFactor: 1 });
-  await context.addCookies([{ name: 'eeg-layout-language', value: 'en', url: origin.origin }]);
+  await context.addCookies([{ name: 'eeg-layout-language', value: 'en', url: origin.origin }, ...(service ? playwrightCookies(service) : [])]);
   page = await context.newPage(); page.setDefaultTimeout(60000); page.setDefaultNavigationTimeout(60000);
   page.on('pageerror', error => diagnostics.pageErrors.push({ phase, message: error.message }));
   page.on('console', event => { if (event.type() === 'error') diagnostics.consoleErrors.push({ phase, message: event.text(), location: event.location() }); });

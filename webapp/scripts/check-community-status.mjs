@@ -1,15 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
-import { createServer } from 'node:http';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { CommunityQueue, communityMiddleware } from '../server/community-queue.mjs';
-import { COMMUNITY_HEARTBEAT_PATH, COMMUNITY_STATUS_PATH, REQUEST_TIMEOUT_MS, fetchCommunityStatus, hasVisitorCounts,
-  readCommunityStatus, refreshCommunityStatus } from '../components/community-status-model.ts';
+import { readFileSync } from 'node:fs';
+import { COMMUNITY_STATUS_PATH, REQUEST_TIMEOUT_MS, fetchCommunityStatus, readCommunityStatus } from '../components/community-status-model.ts';
+import { ApiError, isServiceUnreachable, SERVICE_CONNECTION_EVENT, SERVICE_UNREACHABLE_MESSAGE, SESSION_REOPEN_MESSAGE } from '../client/task-client.ts';
 
-// The two shapes of GET /api/community/status: the Python service's workspace queue, and the Node host's scheduler,
-// which adds its visitor count.
+// GET /api/community/status of the Python service's workspace queue; the legacy Node host adds a visitor count.
 const job = { id: '6f1c2b8e-3d4a-4f5b-9c6d-7e8f9a0b1c2d', key: 'a'.repeat(64), kind: 'local-compute', status: 'queued',
   created_at: '2026-11-23T08:00:00.000Z', finished_at: null, queue_position: 1, message: '已加入计算队列', progress: 0,
   cached: false, request: { region_count: 1, radius_mm: 15, mode: 'whole_surface' }, catalog: {} };
@@ -17,21 +12,17 @@ const python = { queued_tasks: 1, running_tasks: 0, available: true, resource_bl
   maintenance: false, drained: false, jobs: [job] };
 const node = { online_visitors: 2, ...python };
 const reply = (value, status = 200) => ({ ok: status < 400, status, json: async () => value });
-const nativeFetch = globalThis.fetch;
 
-void test('the task menu reads both status shapes and counts visitors only when the host does', () => {
+void test('the task menu reads the status of both hosts and ignores a visitor count', () => {
   assert.deepEqual(readCommunityStatus(python), python);
   assert.deepEqual(readCommunityStatus(node), node);
-  assert.equal(hasVisitorCounts(readCommunityStatus(python)), false);
-  assert.equal(hasVisitorCounts(readCommunityStatus(node)), true);
-  assert.equal(hasVisitorCounts(readCommunityStatus({ ...node, online_visitors: 0 })), true);
-  assert.equal(hasVisitorCounts(null), false);
+  assert.deepEqual(readCommunityStatus({ ...node, online_visitors: '2' }), { ...node, online_visitors: '2' });
 });
 
 void test('an answer the menu cannot show is not a status', () => {
   for (const value of [null, [], 'text', { ...python, jobs: null }, { ...python, queued_tasks: -1 },
     { ...python, running_tasks: 0.5 }, { ...python, available: 'yes' }, { ...python, recovery_blocked: undefined },
-    { ...python, jobs: [{ ...job, id: 7 }] }, { ...python, jobs: [null] }, { ...node, online_visitors: '2' }]) {
+    { ...python, jobs: [{ ...job, id: 7 }] }, { ...python, jobs: [null] }]) {
     assert.equal(readCommunityStatus(value), null, JSON.stringify(value));
   }
 });
@@ -44,145 +35,82 @@ void test('the status route is read with a plain GET: no token, no heartbeat, no
     t.mock.restoreAll();  // a second mock of the same method would otherwise outlive the test
   }
   assert.equal(COMMUNITY_STATUS_PATH, '/api/community/status');
+  assert.equal(calls.length, 2);
   for (const { url, options } of calls) {
     assert.equal(url, COMMUNITY_STATUS_PATH);
     assert.equal(options.method ?? 'GET', 'GET');
     assert.equal(options.headers, undefined);
     assert.equal(options.body, undefined);
     assert.equal(options.cache, 'no-store');
+    assert.ok(options.signal instanceof AbortSignal);
   }
 });
 
-// The host's answers by route: health gives the token, the heartbeat counts this browser.
-function host(t, status, heartbeat = status) {
-  const calls = [];
-  t.mock.method(globalThis, 'fetch', async (url, options = {}) => {
-    calls.push({ url, options });
-    if (url === COMMUNITY_STATUS_PATH) return reply(status);
-    if (url === '/api/local-compute/health') return reply({ token: 'compute-token' });
-    if (url === COMMUNITY_HEARTBEAT_PATH) return typeof heartbeat === 'number' ? reply({ error: '刷新页面后重试' }, heartbeat) : reply(heartbeat);
-    throw new Error(`unexpected ${url}`);
-  });
-  return calls;
-}
-
-void test('the Python service gets the plain status read only', async t => {
-  for (const visible of [true, false]) {
-    const calls = host(t, python);
-    assert.deepEqual(await refreshCommunityStatus(visible), python);
-    assert.deepEqual(calls.map(call => call.url), [COMMUNITY_STATUS_PATH]);
-    t.mock.restoreAll();
-  }
-});
-
-void test('the Node host, which counts visitors, gets its visible-page heartbeat and the menu shows its answer', async t => {
-  const counted = { ...node, online_visitors: 3 };
-  for (const [visible, flag] of [[true, '1'], [false, '0']]) {
-    const calls = host(t, { ...node, online_visitors: 0 }, counted);
-    assert.deepEqual(await refreshCommunityStatus(visible), counted);
-    assert.deepEqual(calls.map(call => call.url), [COMMUNITY_STATUS_PATH, '/api/local-compute/health', COMMUNITY_HEARTBEAT_PATH]);
-    const beat = calls[2].options;
-    assert.equal(beat.method, 'POST');
-    assert.deepEqual(beat.headers, { 'x-eeg-compute-token': 'compute-token', 'x-eeg-visible': flag });
-    assert.equal(beat.body, undefined);
-    assert.equal(beat.cache, 'no-store');
-    // Each request has its own time limit, as health and the heartbeat each had.
-    assert.ok(calls.every(call => call.options.signal instanceof AbortSignal));
-    assert.equal(new Set(calls.map(call => call.options.signal)).size, 3);
-    t.mock.restoreAll();
-  }
-  // As before the status route existed: a refused heartbeat is offline.
-  host(t, node, 403);
-  await assert.rejects(refreshCommunityStatus(true), /offline/);
-  t.mock.restoreAll();
-  host(t, node, { ...node, jobs: 'none' });
-  await assert.rejects(refreshCommunityStatus(true), /offline/);
-});
-
-void test('each request of a refresh has its own time limit, so a slow Node host still answers', async t => {
-  // Every request answers after `delay` ms (or fails when its signal aborts first). Three of them take longer than
-  // one limit, each one less: the Node host's refresh succeeds, as health and the heartbeat did with 8 s each.
-  const delay = 200, limit = 500;
-  const slow = (answer) => t.mock.method(globalThis, 'fetch', (url, options = {}) => new Promise((resolve, reject) => {
-    const timer = setTimeout(() => resolve(answer(url)), delay);
+void test('a status slower than its time limit is offline', async t => {
+  const delay = 200;
+  t.mock.method(globalThis, 'fetch', (_url, options = {}) => new Promise((resolve, reject) => {
+    const timer = setTimeout(() => resolve(reply(python)), delay);
     options.signal?.addEventListener('abort', () => { clearTimeout(timer); reject(options.signal.reason); }, { once: true });
   }));
   assert.equal(REQUEST_TIMEOUT_MS, 8000);
-  const counted = { ...node, online_visitors: 3 };
-  slow(url => reply(url === '/api/local-compute/health' ? { token: 'compute-token' } : url === COMMUNITY_HEARTBEAT_PATH ? counted : node));
-  const started = performance.now();
-  assert.deepEqual(await refreshCommunityStatus(true, limit), counted);
-  assert.ok(performance.now() - started >= 3 * delay - 5);
-  t.mock.restoreAll();
-  slow(() => reply(python));
-  assert.deepEqual(await refreshCommunityStatus(true, limit), python);
-  t.mock.restoreAll();
-  // One request slower than the limit is offline.
-  slow(() => reply(python));
-  await assert.rejects(refreshCommunityStatus(true, delay / 2), { name: 'TimeoutError' });
-});
-
-void test('on the Node host the menu still counts each browser and logs its visit', async t => {
-  // Node's own scheduler and community routes, with its queue directory in a temporary folder.
-  const directory = mkdtempSync(join(tmpdir(), 'eeg-community-status-'));
-  const adapters = {};
-  for (const kind of ['local-compute', 'source-reception', 'design-evaluation', 'electrode-editor']) {
-    adapters[kind] = { prepare: async r => ({ request: r, key: 'k' }), lookup: async () => ({ hit: false }),
-      start: async () => ({}), get: () => undefined, pid: () => undefined, busy: () => false, cancel: () => {} };
-  }
-  const scheduler = new CommunityQueue({ directory, adapters, pollMs: 3600000 });
-  const token = 't'.repeat(64);
-  const send = (res, status, body) => { res.writeHead(status, { 'content-type': 'application/json' }); res.end(JSON.stringify(body)); };
-  const middleware = communityMiddleware({ scheduler, legacy: (req, res) => send(res, 404, {}), guard: () => true, send,
-    queue: { token, health: () => ({ token }) }, tokenMatches: (a, b) => a === b });
-  const server = createServer((req, res) => { void middleware(req, res, () => {}); });
-  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  t.after(async () => {
-    await new Promise(resolve => { server.close(resolve); server.closeAllConnections(); });
-    scheduler.dispose();
-    rmSync(directory, { recursive: true, force: true });
-  });
-  const base = `http://127.0.0.1:${server.address().port}`;
-  const counts = [];
-  for (let browser = 0; browser < 2; browser += 1) {
-    // A browser without the other's cookie.
-    let cookie = '';
-    t.mock.method(globalThis, 'fetch', async (url, options = {}) => {
-      const response = await nativeFetch(base + url, { ...options, headers: { ...options.headers, ...(cookie ? { cookie } : {}) } });
-      cookie = response.headers.get('set-cookie')?.split(';')[0] || cookie;
-      return response;
-    });
-    for (let poll = 0; poll < 2; poll += 1) counts.push((await refreshCommunityStatus(true)).online_visitors);
-    t.mock.restoreAll();
-  }
-  assert.deepEqual(counts, [1, 1, 2, 2]);
-  const access = join(directory, 'access');
-  assert.ok(existsSync(access));
-  const lines = readdirSync(access).flatMap(name => readFileSync(join(access, name), 'utf8').trim().split('\n'));
-  assert.equal(lines.length, 2);
+  assert.deepEqual(await fetchCommunityStatus(delay * 4), python);
+  await assert.rejects(fetchCommunityStatus(delay / 2), { name: 'TimeoutError' });
 });
 
 void test('a refused or unreadable status is offline', async t => {
   for (const answer of [reply({ error: 'Unknown community endpoint' }, 404), reply({ error: '计算队列不可用' }, 503),
-    reply({ ...python, jobs: 'none' })]) {
+    reply({ ...python, jobs: 'none' }), reply({ error: 'Request rejected by access policy.', code: 'request_forbidden' }, 403)]) {
     t.mock.method(globalThis, 'fetch', async () => answer);
     await assert.rejects(fetchCommunityStatus(), /offline/);
     t.mock.restoreAll();
   }
 });
 
-void test('the component refreshes through the model with the page visibility and shows the visitor notices only with a count', () => {
+void test('a status refused for the session of an earlier run asks to reopen from the eeglayoutlab command', async t => {
+  t.mock.method(globalThis, 'fetch', async () => reply({ error: '本地服务会话已失效，请重新运行 eeglayoutlab 打开', code: 'authentication_required' }, 401));
+  await assert.rejects(fetchCommunityStatus(), error => error instanceof ApiError && error.status === 401 && error.message === SESSION_REOPEN_MESSAGE);
+  // The component keeps the reopen message for the menu and marks the header (useTaskStatus).
   const source = readFileSync(new URL('../components/community-status.tsx', import.meta.url), 'utf8');
-  assert.doesNotMatch(source, /\/api\/community\/|x-eeg-visible/);
-  assert.match(source, /refreshCommunityStatus\(document\.visibilityState === 'visible'\)/);
-  // The notices live in VisitorNotice, which renders nothing before its guard passes.
-  const start = source.indexOf('export function VisitorNotice(');
-  assert.ok(start > 0);
-  const guarded = source.slice(start, source.indexOf('\n}\n', start));
-  const guard = guarded.indexOf('if (!hasVisitorCounts(status)) return null;');
-  assert.ok(guard > 0 && guarded.indexOf('<details') > guard);
-  for (const notice of ['在线访客', '在线访客按最近90秒活跃的浏览器估算', '后台记录IP用于访问日志和限流']) {
-    assert.ok(guarded.includes(notice), notice);
-    assert.equal(source.split(notice).length - 1, notice === '在线访客' ? 2 : 1, notice);
+  assert.match(source, /setOffline\(error instanceof ApiError && error\.status === 401 \? 'expired' : isServiceUnreachable\(error\) \? 'unreachable' : 'failed'\)/);
+  assert.match(source, /offline === 'expired' \? SESSION_REOPEN_MESSAGE : offline === 'unreachable' \? SERVICE_UNREACHABLE_MESSAGE : null/);
+  assert.match(source, /\{reopen && <p role="alert"[^>]*>\{tx\(reopen\)\}<\/p>\}/);
+});
+
+void test('a status that reaches no server asks to run the eeglayoutlab command again and claims no empty queue', async t => {
+  // `eeglayoutlab serve` takes a new port on every start, so a tab of an earlier run gets a network error.
+  const events = new EventTarget();
+  let announced = 0;
+  events.addEventListener(SERVICE_CONNECTION_EVENT, () => { announced++; });
+  globalThis.window = events;
+  t.after(() => { delete globalThis.window; });
+  t.mock.method(globalThis, 'fetch', async () => { throw new TypeError('fetch failed'); });
+  await assert.rejects(fetchCommunityStatus(), error => isServiceUnreachable(error) && error.message === SERVICE_UNREACHABLE_MESSAGE);
+  // The status read answers the announcement, so it never makes one (two menus would wake each other forever).
+  assert.equal(announced, 0);
+  const component = readFileSync(new URL('../components/community-status.tsx', import.meta.url), 'utf8');
+  const home = readFileSync(new URL('../features/workspace/home-workspace.tsx', import.meta.url), 'utf8');
+  // A request of the page that finds the session ended or no server makes the menu read its status at once.
+  assert.match(component, /window\.addEventListener\(SERVICE_CONNECTION_EVENT, refresh\)/);
+  assert.match(component, /window\.removeEventListener\(SERVICE_CONNECTION_EVENT, refresh\)/);
+  // The advice is a notice at the foot of the window at every width, outside the header (whose backdrop filter
+  // would hold a fixed element), not only the header's text, which is hidden on narrow screens.
+  assert.match(component, /\{reopen && createPortal\(<p role="alert" className="fixed [^"]*">\{tx\(reopen\)\}<\/p>, document\.body\)\}/);
+  assert.doesNotMatch(component.match(/createPortal\(<p[^>]*>/)[0], /\bhidden\b|sm:/);
+  // Without a status the workspace's queue is unknown, not empty: the menu and the home say so only with a status.
+  assert.match(component, /\{status && !status\.jobs\.length && <p[^>]*>\{tx\('此工作区暂无计算任务'\)\}<\/p>\}/);
+  assert.equal(component.match(/此工作区暂无计算任务/g).length, 1);
+  assert.match(home, /const idle = !failure && \(status \? !status\.jobs\.length && !status\.recovery_blocked && status\.available !== false : offline === 'loading'\);/);
+});
+
+void test('the component reads the status through the model and shows no visitor count or access-log notice', () => {
+  const component = readFileSync(new URL('../components/community-status.tsx', import.meta.url), 'utf8');
+  const home = readFileSync(new URL('../features/workspace/home-workspace.tsx', import.meta.url), 'utf8');
+  assert.match(component, /await fetchCommunityStatus\(\)/);
+  for (const source of [component, home]) {
+    assert.doesNotMatch(source, /\/api\/community\/|x-eeg-visible|heartbeat|online_visitors|VisitorNotice|访客|记录IP|当前浏览器/i);
+    assert.match(source, /此工作区暂无计算任务/);
   }
+  // Task actions go through the task client, which sends the session token and reads an expired session.
+  assert.match(component, /cancelTask</); assert.match(component, /readTask</);
+  assert.doesNotMatch(component, /fetch\(/);
 });

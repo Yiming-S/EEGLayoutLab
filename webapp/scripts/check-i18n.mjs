@@ -428,11 +428,11 @@ void test('project snapshot layout and edited metrics render bilingual values di
 
 void test('project delivery controls are bilingual and never render access credentials', () => {
   const { ProjectDeliveryPanel } = loadUI('features/projects/project-delivery-panel.tsx');
-  const access = { project_id: '00000000-0000-4000-8000-000000000001', access_key: 'secret'.repeat(12), role: 'viewer' };
-  const project = { id: access.project_id, revision: 3, entries: [{ id: 'entry' }] };
+  const project = { id: '00000000-0000-4000-8000-000000000001', revision: 3, entries: [{ id: 'entry' }] };
   for (const locale of ['en', 'zh-CN']) {
-    const html = render(ProjectDeliveryPanel, { project, access }, locale);
-    assert.ok(!html.includes(access.access_key));
+    // The workspace owns its projects: the panel takes the project alone and names no credential.
+    const html = render(ProjectDeliveryPanel, { project }, locale);
+    assert.doesNotMatch(visibleText(html), /凭据|credential|access key|访问密钥/i);
     assert.match(html, /type="button"/);
     if (locale === 'en') { assert.doesNotMatch(visibleText(html), /[\u3400-\u9fff]/); assert.match(html, /Download project delivery package/); }
     else assert.match(html, /下载项目交付包/);
@@ -597,25 +597,11 @@ void test('correlated-noise layouts explain the missing simulation hand-off and 
   assert.equal(origin, '其他头模的预计算头皮节点表'); assert.doesNotMatch(translateText(origin, 'en'), /[㐀-鿿]/);
 });
 
-void test('shared-library visibility states and the publish confirmation are translated', () => {
-  const { RecordVisibilityControl, visibilityLabel } = loadUI('components/record-visibility-control.tsx');
-  const view = (state, extra = {}) => ({ scope: 'owner', review: true, owned: true, state, published_by_me: state === 'pending', ...extra });
-  assert.equal(visibilityLabel({ ...view('private'), scope: 'shared' }), null, 'a shared library shows no visibility state');
-  assert.equal(visibilityLabel({ ...view('removed'), scope: 'shared' }), '已被管理员从共享库移除', 'owners still learn about a removal');
-  assert.equal(visibilityLabel({ ...view('removed'), scope: 'shared', owned: false }), null);
-  const sharedRemoved = render(RecordVisibilityControl, { id: 'a'.repeat(64), name: 'Layout', visibility: { ...view('removed', { reason: 'Name' }), scope: 'shared', published_by_me: true } }, 'en');
-  assert.match(sharedRemoved, /Reason for removal: Name/); assert.doesNotMatch(sharedRemoved, /<button/, 'no publication controls in a shared library');
-  assert.equal(visibilityLabel(undefined), null);
-  for (const state of ['private', 'pending', 'public', 'removed']) {
-    assert.doesNotMatch(translateText(visibilityLabel(view(state)), 'en'), /[㐀-鿿]/);
-    const english = render(RecordVisibilityControl, { id: 'a'.repeat(64), name: 'Layout', visibility: view(state, state === 'removed' ? { reason: 'Name' } : {}) }, 'en');
-    assert.doesNotMatch(english, /[㐀-鿿]/, english);
-  }
-  assert.doesNotMatch(translateText(visibilityLabel(view('public', { owned: false })), 'en'), /[㐀-鿿]/);
-  assert.equal(translateText('公开后，所有访客都能在共享库看到这条记录：名称「Ear layout」、电极坐标、计算参数和指标。可随时撤回公开。确认公开？', 'en'),
-    'Once published, every visitor can see this record in the shared library: the name “Ear layout”, the electrode coordinates, the computation settings and the metrics. You can withdraw it at any time. Publish?');
-  for (const message of ['只有提交过这条记录的浏览器才能更改公开状态', '管理员已将这条记录从共享库移除，不能再次公开', '请选择是否公开这条记录', '公开状态未能更新，请刷新后重试'])
-    assert.doesNotMatch(translateText(message, 'en'), /[㐀-鿿]/, message);
+void test('the library names the workspace scope of its signal records in both languages', () => {
   const library = fs.readFileSync(path.join(root, 'features/library/library-workspace.tsx'), 'utf8');
-  for (const note of library.match(/'本浏览器提交的计算[^']+'/g)) assert.doesNotMatch(translateText(note.slice(1, -1), 'en'), /[㐀-鿿]/);
+  assert.doesNotMatch(library, /RecordVisibilityControl|visibility|本浏览器|当前浏览器|共享库/);
+  const notes = library.match(/'[^']*此工作区[^']*'|'其他工作区[^']*'/g) ?? [];
+  assert.ok(notes.length >= 2, 'workspace-scoped notes');
+  for (const note of notes) assert.doesNotMatch(translateText(note.slice(1, -1), 'en'), /[㐀-鿿]/, note);
+  assert.equal(fs.existsSync(path.join(root, 'components/record-visibility-control.tsx')), false);
 });

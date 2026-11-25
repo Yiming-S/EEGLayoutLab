@@ -4,7 +4,7 @@ import { useLanguage } from '@/components/language-provider';
 /* oxlint-disable next/no-html-link-for-pages -- preserve established vinext navigation */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
-import { apiJson, followTask, submitTask, cancelTask, type TaskConnection } from '@/client/task-client';
+import { apiJson, followTask, submitTask, cancelTask, type TaskConnection, apiFetch } from '@/client/task-client';
 
 import { safeReturnHref } from '@/lib/ui-language';
 import { parseAR } from '@/lib/lab-workflow';
@@ -116,11 +116,11 @@ export function useReceptionController() {
   useEffect(() => {
     const c = new AbortController();
     void Promise.all([
-      fetch('/api/source-reception/layouts', {
+      apiFetch('/api/source-reception/layouts', {
         signal: c.signal,
         cache: 'no-store',
       }),
-      fetch('/api/source-reception/health', {
+      apiFetch('/api/source-reception/health', {
         signal: c.signal,
         cache: 'no-store',
       }),
@@ -148,7 +148,7 @@ export function useReceptionController() {
   useEffect(() => {
     if (mode === 'multi_source') return;
     const c = new AbortController();
-    fetch('/api/source-reception/catalog', {
+    apiFetch('/api/source-reception/catalog', {
       signal: c.signal,
       cache: 'no-store',
     })

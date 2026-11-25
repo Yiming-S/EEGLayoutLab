@@ -3,6 +3,7 @@
   "version": "0.2.0",
   "license": "GPL-3.0-only",
   "private": true,
+  "//": "npm start runs the legacy Node host, kept until phase 4 (frozen at tag node-host-freeze). The application is `eeglayoutlab serve`; `npm run dev` forwards /api and /open to it (EEG_WORKSPACE or EEG_API_TARGET), or mounts the legacy Node API with EEG_NODE_API=1.",
   "engines": {
     "node": ">=22.13.0"
   },

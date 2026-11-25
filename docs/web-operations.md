@@ -1,6 +1,6 @@
 # Web operations
 
-These procedures manage one Node host, one persistent queue and its scientific checkout. They have local tests; each production installation requires target-platform qualification. Follow [deployment preparation](server-deployment.md) for HTTPS and access configuration.
+These procedures manage one legacy Node host (`npm start`), one persistent queue and its scientific checkout. Hosted deployments stay on that host at the tag `node-host-freeze` until phase 4 of [design 0001](design/0001-local-first-architecture.md); the current interface no longer opens its research projects, and its projects, studies and signal records can be copied into a workspace of the local Python service (`eeglayoutlab workspace import-legacy`, see [CONTRIBUTING](../CONTRIBUTING.md#data-from-the-node-host)). They have local tests; each production installation requires target-platform qualification. Follow [deployment preparation](server-deployment.md) for HTTPS and access configuration.
 
 ## Configure and start
 
@@ -148,9 +148,9 @@ Private request logs use generated request identifiers and optional task identif
 
 ## Project recovery and retention
 
-Projects are private archives under the configured queue directory. They contain immutable copies of validated layouts, edits and signal results, plus separately editable research metadata. Source receipts may expire without removing the project snapshot. Project credentials are restored manually on another browser using the project identifier and key or downloaded access file; this release does not provide researcher accounts or email recovery. Keep owner access files privately backed up, separate from scientific delivery packages.
+Projects are private archives under the configured queue directory. They contain immutable copies of validated layouts, edits and signal results, plus separately editable research metadata. Source receipts may expire without removing the project snapshot. The Node host's project credentials (owner and read-only keys, read-only shares, access files) are its own API: the current interface no longer sends or stores them, so it does not open this host's projects. A client of that API restores a project on another browser with the project identifier and key; there are no researcher accounts or email recovery. Keep owner access files privately backed up, separate from scientific delivery packages.
 
-Creating a read-only share replaces the previous shared credential; revoking it stops subsequent shared reads. Project credentials do not change who sees the original records in the library lists; that follows the [library scope](anonymous-queue.md#shared-library-visibility). A record the operator removed from the shared library can be attached to a project only from a browser that owns it. A delivery bundle is an offline scientific archive: revoking a credential cannot recall files already downloaded by its holder.
+Through that API, creating a read-only share replaces the previous shared credential; revoking it stops subsequent shared reads. Project credentials do not change who sees the original records in the library lists; that follows the [library scope](anonymous-queue.md#shared-library-visibility). A record the operator removed from the shared library can be attached to a project only from a browser that owns it. A delivery bundle is an offline scientific archive: revoking a credential cannot recall files already downloaded by its holder.
 
 The project store currently bounds entries, snapshot size and total snapshot storage. Removing an entry detaches it from the current project but preserves its immutable project copy and the original scientific record; detached copies still count toward the storage budget. Do not clean projects by deleting arbitrary files beneath `results/`. Define a separate operator retention procedure and make a verified stopped-service backup before any destructive cleanup.
 

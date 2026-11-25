@@ -1,15 +1,10 @@
 {
-  "community_online": { "source": "在线访客", "en": "Online visitors" },
   "community_wait": { "source": "等待", "en": "Queued" },
   "community_run": { "source": "计算中", "en": "Running" },
   "community_queue": { "source": "排队中", "en": "Queued" },
   "community_stop": { "source": "正在停止", "en": "Stopping" },
   "community_offline": { "source": "服务状态暂不可用", "en": "Service status unavailable" },
-  "community_tasks": { "source": "当前浏览器的任务", "en": "Tasks in this browser" },
-  "community_count": { "source": "在线访客按最近90秒活跃的浏览器估算，同一浏览器多个标签页计为一个。", "en": "Estimated browsers active in the last 90 seconds. Multiple tabs in one browser count once." },
-  "community_privacy": { "source": "无需登录。后台记录IP用于访问日志和限流，日志保留7天，不公开显示。", "en": "No sign-in. IP addresses are logged privately for access monitoring and rate limits, and retained for 7 days." },
   "community_paused": { "source": "队列暂停，等待服务检查", "en": "Queue paused; service inspection required" },
-  "community_empty": { "source": "当前浏览器暂无计算任务", "en": "No computation tasks in this browser" },
   "community_position": { "source": "数字为等待队列中的位置，按提交顺序执行。", "en": "The number is your position in the waiting queue. Tasks run in submission order." },
   "community_cancel": { "source": "取消等待或计算", "en": "Cancel task" },
   "community_download": { "source": "下载计算结果", "en": "Download result" },
@@ -265,5 +260,6 @@
   "objective_err_draft": {
     "source": "草稿优化目标无效",
     "en": "Invalid draft optimization objective."
-  }
+  },
+  "community_empty_workspace": { "source": "此工作区暂无计算任务", "en": "No computation tasks in this workspace" }
 }
