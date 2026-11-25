@@ -2373,6 +2373,10 @@ note = "static showcase build tooling and browser shim, not the Node host"
 disposition = "N"
 note = "static showcase build tooling and browser shim, not the Node host"
 
+[sites."check-showcase.mjs::in the showcase the guide opens the page of each step, except the workspace home it leaves out"]
+disposition = "N"
+note = "static showcase build tooling and browser shim, not the Node host"
+
 # --- check-single-head-results.mjs ------------------------------------------------------------------------------------
 
 [sites."check-single-head-results.mjs::balanced allocation always totals 64 with no fractional channels"]

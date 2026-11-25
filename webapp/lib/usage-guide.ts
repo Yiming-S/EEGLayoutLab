@@ -8,3 +8,11 @@ export const USAGE_EXPLANATIONS = [
   ['6. 信号仿真', '先选一个完整的64点布局，再设置脑源位置、波形和模拟干扰。布局坐标固定；此页比较所选场景下标准64导与当前布局的接收波形和信号重建。只有独立噪声下得到的布局进入信号仿真。'],
   ['7. 三项保留率与AR', '与同一协议下的标准全头64导比较。信号重建保留率衡量恢复全头信号的能力；幅度保留率（最差10%）取相对损失最大的10%源面积权重的幅度比；相对定位评分由误差换算。默认三项都要达到同一最低要求AR；修改AR只重新判断已有数值，不改变点位、不重新计算。'],
 ] as const;
+
+/**
+ * The address a guide step opens. The showcase has no workspace home (design 0004, section 1), so the step that
+ * opens it has no page link there; every other step opens its own page, which the showcase shows read-only.
+ */
+export function guideStepHref(path: string, ar: number, showcase: boolean): string | null {
+  return showcase && path === '/' ? null : path + '?ar=' + ar;
+}

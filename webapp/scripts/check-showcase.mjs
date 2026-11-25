@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { curateLibrary, redactHomePaths, showcaseHealth, SHOWCASE_DATA_SCHEMA as WRITTEN_SCHEMA } from './build-showcase-data.mjs';
 import { installShowcaseApi, showcaseFile, showcaseRefusal, SHOWCASE_DATA_SCHEMA, SHOWCASE_READ_ONLY_CODE } from '../lib/showcase-api.ts';
+import { guideStepHref } from '../lib/usage-guide.ts';
 
 const library = {
   schema: 'local-data-library/1',
@@ -95,4 +96,14 @@ void test('the committed curation names records the committed data includes', as
   for (const record of published.records) assert.ok(index.paths.includes(`/api/local-compute/library/${record.id}`), record.id);
   const text = await Promise.all(index.paths.map((path) => readFile(new URL(`../showcase/api/${path.slice('/api/'.length)}.json`, import.meta.url), 'utf8')));
   assert.ok(!text.some((body) => /\/Users\/|\/home\/|\/private\/var\//.test(body)), 'no local path is published');
+});
+
+void test('in the showcase the guide opens the page of each step, except the workspace home it leaves out', async () => {
+  const source = await readFile(new URL('../app/guide/page.tsx', import.meta.url), 'utf8');
+  const paths = [...source.matchAll(/\bpath: '([^']+)'/g)].map((match) => match[1]);
+  assert.ok(paths.includes('/') && paths.includes('/design') && paths.includes('/reception'), paths.join(' '));
+  for (const path of paths) {
+    assert.equal(guideStepHref(path, 75, false), path + '?ar=75');
+    assert.equal(guideStepHref(path, 75, true), path === '/' ? null : path + '?ar=75');
+  }
 });

@@ -9,7 +9,7 @@ import { buttonVariants } from '@/components/ui/button';
 import { useLanguage } from '@/components/language-provider';
 import { parseAR } from '@/lib/lab-workflow';
 import { SHOWCASE } from '@/lib/showcase';
-import { USAGE_EXPLANATIONS } from '@/lib/usage-guide';
+import { USAGE_EXPLANATIONS, guideStepHref } from '@/lib/usage-guide';
 
 // One step per area of the interface; each opens its page and the matching method chapter.
 const STEPS = [
@@ -30,7 +30,6 @@ export default function GuidePage() {
     restore(); window.addEventListener('popstate', restore);
     return () => window.removeEventListener('popstate', restore);
   }, []);
-  const href = (path: string) => (SHOWCASE && ['/', '/projects', '/design', '/reception'].includes(path) ? '/findings' : path) + '?ar=' + ar;
   return <main className="lab-page">
     <SiteHeader current="guide" />
     <div className="lab-container max-w-5xl space-y-5 py-6">
@@ -55,7 +54,7 @@ export default function GuidePage() {
           ))}
         </nav>
       </header>
-      {STEPS.map((step, index) => <section key={step.id} id={step.id} aria-labelledby={step.id + '-title'} className="lab-panel scroll-mt-36 space-y-3">
+      {STEPS.map((step, index) => { const href = guideStepHref(step.path, ar, SHOWCASE); return <section key={step.id} id={step.id} aria-labelledby={step.id + '-title'} className="lab-panel scroll-mt-36 space-y-3">
         <div className="flex items-baseline gap-3">
           <span aria-hidden="true" className="rounded border border-border bg-secondary/75 px-2 py-0.5 font-mono text-[11px] font-semibold text-foreground">
             {String(index + 1).padStart(2, '0')}
@@ -65,14 +64,14 @@ export default function GuidePage() {
         <p className="text-sm leading-7 text-foreground/95">{tx(step.note)}</p>
         <p className="text-[0.8125rem] leading-6.5 text-ink-soft">{tx(USAGE_EXPLANATIONS[step.paragraph][1])}</p>
         <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3.5">
-          <a href={href(step.path)} className={buttonVariants({ size: 'sm' })}>
+          {href && <a href={href} className={buttonVariants({ size: 'sm' })}>
             {tx(step.action)}
             <ArrowUpRight aria-hidden className="size-3.5" />
-          </a>
+          </a>}
           {step.id === 'usage-design' && <a href={'/coordinates?ar=' + ar} className="lab-link-pill">{tx('坐标导入')}</a>}
           <DocumentationLink target="method" section={step.section} className="lab-link-pill">{tx('查看对应计算原理')}</DocumentationLink>
         </div>
-      </section>)}
+      </section>; })}
     </div>
   </main>;
 }
