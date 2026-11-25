@@ -222,6 +222,17 @@ for (const [lbl, value] of Object.entries({
   add(`local-compute-${lbl}`, value);
 add('data-prior-search', free({ data_prior: PRIOR }));
 add('data-prior-search-with-spatial', free({ data_prior: PRIOR, noise_model: SPATIAL }));
+add('allocation-adaptive-preset', preset({ allocation_mode: 'adaptive' }));
+add('allocation-adaptive-free', free({ allocation_mode: 'adaptive' }));
+add('allocation-balanced-dropped', preset({ allocation_mode: 'balanced' }));
+add('allocation-null-dropped', preset({ allocation_mode: null }));
+add('allocation-single-rejected', free({ region_count: 1, allocation_mode: 'adaptive' }));
+add('allocation-invalid-rejected', preset({ allocation_mode: 'free' }));
+add('objective-composite-preset', preset({ objective_mode: 'composite' }));
+add('objective-composite-adaptive', preset({ allocation_mode: 'adaptive', objective_mode: 'composite' }));
+add('objective-min-dropped', preset({ objective_mode: 'min' }));
+add('objective-null-dropped', preset({ objective_mode: null }));
+add('objective-invalid-rejected', preset({ objective_mode: 'shannon' }));
 
 // Raw bytes: the body is decoded as UTF-8 with replacement before JSON.parse.
 for (const [lbl, bytes] of Object.entries({

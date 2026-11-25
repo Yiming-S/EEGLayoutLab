@@ -1,5 +1,5 @@
 import { createAccessPolicy } from './http/access-policy.mjs';
-import { DATA_PRIOR_FILES, normalizeDataPrior, normalizeNoiseModel } from '../contracts/scientific-options.mjs';
+import { DATA_PRIOR_FILES, MIN_ADAPTIVE_REGION_ELECTRODES, normalizeAllocationMode, normalizeDataPrior, normalizeNoiseModel, normalizeObjectiveMode } from '../contracts/scientific-options.mjs';
 import { startPythonWorker } from './jobs/python-worker.mjs';
 import { executionSlotFor } from './jobs/execution-slot.mjs';
 import { runtimeConfig } from './runtime/config.mjs';
@@ -34,15 +34,19 @@ const hash = (value) => createHash('sha256').update(value).digest('hex');
 
 export function normalizeRequest(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('配置必须是JSON对象');
-  if (Object.keys(input).some((key) => !['region_count', 'radius_mm', 'mode', 'mask_codes', 'noise_model', 'data_prior'].includes(key))) {
+  if (Object.keys(input).some((key) => !['region_count', 'radius_mm', 'mode', 'mask_codes', 'noise_model', 'data_prior', 'allocation_mode', 'objective_mode'].includes(key))) {
     throw new Error('配置含未支持字段');
   }
-  // Independent noise is the default and is omitted, keeping existing request keys and search seeds.
+  // Independent noise, balanced quota and min objective are defaults and omitted, keeping existing keys and seeds.
   const noiseModel = normalizeNoiseModel(input.noise_model, { allowBrainBackground: false });
   const prior = normalizeDataPrior(input.data_prior, { noiseModel });
-  const noise = { ...(noiseModel ? { noise_model: noiseModel } : {}), ...(prior ? { data_prior: prior } : {}) };
   const { region_count, radius_mm, mode } = input;
   if (![1, 2, 3, 4, 6].includes(region_count)) throw new Error('区域数只支持1、2、3、4、6');
+  const allocationMode = normalizeAllocationMode(input.allocation_mode, region_count);
+  const objectiveMode = normalizeObjectiveMode(input.objective_mode);
+  const options = { ...(noiseModel ? { noise_model: noiseModel } : {}), ...(prior ? { data_prior: prior } : {}),
+    ...(allocationMode ? { allocation_mode: allocationMode } : {}),
+    ...(objectiveMode ? { objective_mode: objectiveMode } : {}) };
   if (!Number.isInteger(radius_mm) || radius_mm < 15 || radius_mm > 80 || radius_mm % 5) {
     throw new Error('半径须为15–80 mm，步长5 mm');
   }
@@ -52,12 +56,12 @@ export function normalizeRequest(input) {
         input.mask_codes.some((code) => !MASK_CODES.includes(code))) {
       throw new Error('该组合的细分解剖掩膜尚未建立；请选择已支持的耳后、耳周、前额或眶周代理区域');
     }
-    return { region_count, radius_mm, mode, mask_codes: [...input.mask_codes], ...noise };
+    return { region_count, radius_mm, mode, mask_codes: [...input.mask_codes], ...options };
   }
   if (input.mask_codes !== undefined && (!Array.isArray(input.mask_codes) || input.mask_codes.length)) {
     throw new Error('自由中心模式不接受指定掩膜');
   }
-  return { region_count, radius_mm, mode, ...noise };
+  return { region_count, radius_mm, mode, ...options };
 }
 
 export { loopbackRequest } from './http/access-policy.mjs';
@@ -77,7 +81,9 @@ export function validateWorkerResult(result, request) {
       !Array.isArray(layout.regionIndices) || layout.regionIndices.length !== 64 ||
       !layout.regionIndices.every((r) => Number.isInteger(r) && r >= 0 && r < request.region_count)) throw new Error('无效64点坐标');
   const counts = Array.from({ length: request.region_count }, (_, r) => layout.regionIndices.filter((v) => v === r).length);
-  if (counts.some((count, r) => count !== Math.floor(64 / request.region_count) + Number(r < 64 % request.region_count))) throw new Error('区域分配错误');
+  if (request.allocation_mode === 'adaptive'
+    ? counts.some((count) => count < MIN_ADAPTIVE_REGION_ELECTRODES)
+    : counts.some((count, r) => count !== Math.floor(64 / request.region_count) + Number(r < 64 % request.region_count))) throw new Error('区域分配错误');
   if (!geometry || geometry.union_connected_component_count !== request.region_count ||
       !Number.isFinite(geometry.common_graph_radius_mm) || geometry.common_graph_radius_mm <= 0 ||
       geometry.common_graph_radius_mm > request.radius_mm + 1e-7 ||

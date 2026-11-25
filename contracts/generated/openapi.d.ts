@@ -470,6 +470,16 @@ export interface components {
             mask_codes?: ("PL" | "PR" | "AL" | "AR" | "FL" | "FM" | "FR" | "OL" | "OR")[];
             noise_model?: components["schemas"]["SpatialNoise"];
             data_prior?: components["schemas"]["DataPrior"];
+            /**
+             * Allocation Mode
+             * @constant
+             */
+            allocation_mode?: "adaptive";
+            /**
+             * Objective Mode
+             * @constant
+             */
+            objective_mode?: "composite";
         };
         /** SpatialNoise */
         SpatialNoise: {

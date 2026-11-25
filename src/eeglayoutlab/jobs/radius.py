@@ -33,6 +33,7 @@ __all__ = ['MASK_CODES', 'RADIUS_IDENTITY_VERSION', 'RADIUS_THREADS', 'RadiusRes
 
 RADIUS_IDENTITY_VERSION = 'local-radius-queue/1'
 RADIUS_THREADS = 2
+MIN_ADAPTIVE_REGION_ELECTRODES = 4
 CODE_FILES = ('scripts/run_local_radius_compute.py', 'configs/single_head_optimization.json', BANK_POINTER,
               ADMISSION_POINTER)
 _SCORES = ('field_relative', 'sensitivity_tail', 'localization_relative')
@@ -85,7 +86,10 @@ def validate_worker_result(result: Any, request: dict) -> None:
             or not all(jsjson.is_integer(r) and 0 <= r < regions for r in layout['regionIndices'])):
         raise RadiusResultError('无效64点坐标')
     labels = layout['regionIndices']
-    if any(sum(1 for v in labels if v == r) != balanced_count(r, regions) for r in range(regions)):
+    if _same(_member(request, 'allocation_mode'), 'adaptive'):
+        if any(sum(1 for v in labels if v == r) < MIN_ADAPTIVE_REGION_ELECTRODES for r in range(regions)):
+            raise RadiusResultError('区域分配错误')
+    elif any(sum(1 for v in labels if v == r) != balanced_count(r, regions) for r in range(regions)):
         raise RadiusResultError('区域分配错误')
     if not js_truthy(geometry) or not _same(_member(geometry, 'union_connected_component_count'), request['region_count']):
         raise RadiusResultError('区域几何无效')

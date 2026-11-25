@@ -159,7 +159,7 @@ export default function LayoutWorkspace() {
             <h2 id="layout-actions" className="text-lg font-semibold">{tx('对这个布局提问')}</h2>
             <p className="text-sm text-muted-foreground">{tx('一次请求就能回答的问题在这里发起；需要多次请求的问题是稳健性研究。')}</p>
             <div className="flex flex-wrap gap-2">
-              {['strict_area', 'cache', 'design_evaluation'].includes(shown.dataset_id) && shown.status === 'completed' && <>
+              {['strict_area', 'cache', 'design_evaluation'].includes(shown.dataset_id) && shown.status === 'completed' && !shown.request?.allocation_mode && <>
                 <a className={buttonVariants({ variant: 'default' })} href={decisionHref([shown.id], jointDecisionThresholds(ar))}>{tx('在其他条件下评价 · 位置偏移测试')}</a>
                 <a className={buttonVariants({ variant: 'outline' })} href={decisionHref([shown.id], jointDecisionThresholds(ar)) + '#compare-pick'}>{tx('与另一个布局对比')}</a>
               </>}

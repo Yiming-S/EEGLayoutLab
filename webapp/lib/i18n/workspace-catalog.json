@@ -185,5 +185,85 @@
   "workspace36": {
     "source": "坐标文件与评价条件",
     "en": "Coordinate file and evaluation conditions"
+  },
+  "allocation_title": {
+    "source": "区域通道配额",
+    "en": "Regional channel quota"
+  },
+  "allocation_balanced": {
+    "source": "各区均分（默认）",
+    "en": "Equal split per region (default)"
+  },
+  "allocation_adaptive": {
+    "source": "跨区自适应配额",
+    "en": "Adaptive cross-region quota"
+  },
+  "allocation_adaptive_full": {
+    "source": "跨区自适应配额（每区≥4，共64）",
+    "en": "Adaptive cross-region quota (min 4 per region, 64 total)"
+  },
+  "allocation_auto_summary": {
+    "source": "自动调配（每区 ≥ 4，共 64）",
+    "en": "Adaptive split (≥ 4 per region, 64 total)"
+  },
+  "allocation_hint_adaptive": {
+    "source": "每区至少保留 4 个锚点电极，其余通道按有效孔径与信噪比跨区自动调配。",
+    "en": "Preserves at least 4 anchor electrodes per region and reallocates remaining channels across regions by effective aperture and SNR."
+  },
+  "allocation_hint_balanced": {
+    "source": "固定按 64/R 均分各区电极数，与面积和历史基线口径一致。",
+    "en": "Fixes 64/R electrodes per region, matching the area-budget and baseline protocol."
+  },
+  "allocation_err_mode": {
+    "source": "区域通道配额模式无效",
+    "en": "Invalid regional channel quota mode."
+  },
+  "allocation_err_single": {
+    "source": "单区域不支持跨区自适应配额",
+    "en": "Single-region layouts do not support adaptive cross-region quota."
+  },
+  "allocation_err_draft": {
+    "source": "草稿配额模式无效",
+    "en": "Invalid draft quota mode."
+  },
+  "allocation_progress_waterfill": {
+    "source": "跨区信息配额注水初始化 {{0}}/{{1}}",
+    "en": "Adaptive cross-region water-filling initialization {{0}}/{{1}}"
+  },
+  "fedorov_progress_screen": {
+    "source": "多起点全池初筛 {{0}}/{{1}}",
+    "en": "Multi-start full-pool screening {{0}}/{{1}}"
+  },
+  "fedorov_progress_round": {
+    "source": "收敛交换与中心重填（起点 {{0}}/{{1}} · 第 {{2}} 轮）",
+    "en": "Convergent exchange & center refill (finalist {{0}}/{{1}}, round {{2}})"
+  },
+  "objective_title": {
+    "source": "搜索优化目标",
+    "en": "Search optimization objective"
+  },
+  "objective_min": {
+    "source": "下尾极小极大（默认）",
+    "en": "Lower-tail minimax (default)"
+  },
+  "objective_composite": {
+    "source": "子空间信息复合目标",
+    "en": "Subspace-info composite"
+  },
+  "objective_hint_composite": {
+    "source": "联合优化下尾保留率、全脑场保留率与63维子空间互信息（0.55·min + 0.30·场 + 0.15·信息），为贴片内部电极提供持续空间去相关梯度。",
+    "en": "Jointly optimizes lower-tail retention, field retention and 63D subspace mutual information (0.55·min + 0.30·field + 0.15·info), providing continuous spatial decorrelation gradients for interior electrodes."
+  },
+  "objective_hint_min": {
+    "source": "最大化场重建与双极幅值下10%分位数的较小值 min(场, 幅值)，与默认基线完全一致。",
+    "en": "Maximizes min(field, amplitude lower-10% tail), matching the default baseline protocol."
+  },
+  "objective_err_mode": {
+    "source": "搜索优化目标模式无效",
+    "en": "Invalid search optimization objective mode."
+  },
+  "objective_err_draft": {
+    "source": "草稿优化目标无效",
+    "en": "Invalid draft optimization objective."
   }
 }

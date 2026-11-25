@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { readFile, stat, realpath } from 'node:fs/promises';
 import { join, resolve, sep } from 'node:path';
 import { designReceptionRecord } from './reception-v2-support.mjs';
-import { dataPriorLabel, noiseModelLabel } from '../contracts/scientific-options.mjs';
+import { MIN_ADAPTIVE_REGION_ELECTRODES, allocationModeLabel, dataPriorLabel, noiseModelLabel, objectiveModeLabel } from '../contracts/scientific-options.mjs';
 import { RecordStore } from './storage/records.mjs';
 import { layoutKeyText } from '../contracts/layout-key.mjs';
 
@@ -43,7 +43,9 @@ export function validateSavedRecord(record) {
       new Set(layout.xyzMm.map((p) => p.join(','))).size !== 64 ||
       !Array.isArray(layout.regionIndices) || layout.regionIndices.length !== 64 ||
       layout.regionIndices.some((n) => !Number.isInteger(n) || n < 0 || n >= r) ||
-      Array.from({ length: r }, (_, n) => n).some((n) => layout.regionIndices.filter((i) => i === n).length !== Math.floor(64 / r) + Number(n < 64 % r))) throw new Error('记录坐标与区域标签无效');
+      (record.request?.allocation_mode === 'adaptive'
+        ? Array.from({ length: r }, (_, n) => n).some((n) => layout.regionIndices.filter((i) => i === n).length < MIN_ADAPTIVE_REGION_ELECTRODES)
+        : Array.from({ length: r }, (_, n) => n).some((n) => layout.regionIndices.filter((i) => i === n).length !== Math.floor(64 / r) + Number(n < 64 % r)))) throw new Error('记录坐标与区域标签无效');
   const scores = ['field_relative', 'sensitivity_tail', 'localization_relative'].map((k) => m?.[k]);
   if (!m || scores.some((v) => v !== null && !Number.isFinite(v))) throw new Error('无效保留率');
   const g = scores.includes(null) ? null : Math.min(...scores);
@@ -195,7 +197,7 @@ export class LocalDataLibrary {
   cacheRecord(cache, compatible) {
     const r = cache.result, request = cache.request;
     return validateSavedRecord({ id: cache.key, dataset_id: 'cache', status: r.status,
-      label: `${request.region_count}区 · ${request.mode === 'preset' ? request.mask_codes.join(' + ') : domainLabel(request.mode)} · 半径≤${request.radius_mm} mm${request.noise_model ? ' · ' + noiseModelLabel(request.noise_model) : ''}${request.data_prior ? ' · ' + dataPriorLabel(request.data_prior) : ''}`,
+      label: `${request.region_count}区 · ${request.mode === 'preset' ? request.mask_codes.join(' + ') : domainLabel(request.mode)} · 半径≤${request.radius_mm} mm${request.noise_model ? ' · ' + noiseModelLabel(request.noise_model) : ''}${request.data_prior ? ' · ' + dataPriorLabel(request.data_prior) : ''}${request.allocation_mode ? ' · ' + allocationModeLabel(request.allocation_mode) : ''}${request.objective_mode ? ' · ' + objectiveModeLabel(request.objective_mode) : ''}`,
       region_count: request.region_count, radius_cap_mm: request.radius_mm, mode: request.mode,
       spacing_mm: 4, compatible, request, finished_at: cache.finished_at,
       metrics: r.metrics ?? null, geometry: r.geometry ?? null, layout: r.layout ?? null,

@@ -20,6 +20,8 @@ export function useDesignController() {
   const [source, setSource] = useState<SavedRecord | null>(null), [originId, setOriginId] = useState(''), [originKind, setOriginKind] = useState('saved');
   const [editing, setEditing] = useState(true), [draft, setDraft] = useState(false);
   const [regions, setRegions] = useState(2), [choiceId, setChoiceId] = useState('PL,PR'), [radius, setRadius] = useState(35), [ar, setAR] = useState(90);
+  const [allocationMode, setAllocationMode] = useState<'balanced' | 'adaptive'>('balanced');
+  const [objectiveMode, setObjectiveMode] = useState<'min' | 'composite'>('min');
   const [computed, setComputed] = useState<ComputeResult | null>(null), [status, setStatus] = useState<ComputeJob | null>(null);
   const [notice, setNotice] = useState('');
   const [routeParams, setRouteParams] = useState('');
@@ -49,6 +51,8 @@ export function useDesignController() {
         if (record.request) {
           const r = record.request; const key = r.mode === 'preset' ? r.mask_codes!.join(',') : r.mode;
           setRegions(r.region_count); setRadius(r.radius_mm); setChoiceId(key);
+          setAllocationMode(r.allocation_mode === 'adaptive' && r.region_count > 1 ? 'adaptive' : 'balanced');
+          setObjectiveMode(r.objective_mode === 'composite' ? 'composite' : 'min');
           setCustomSlots(r.mask_codes ? [...r.mask_codes] : []);
           setNoiseModelId(presetIdFor(r.noise_model));
           setDataPrior((normalizeDataPrior(r.data_prior) as DataPrior | undefined) ?? null);
@@ -61,7 +65,13 @@ export function useDesignController() {
         const masks = q.has('masks') ? q.get('masks')!.split(',') : [];
         if (mode === 'preset' && (masks.length !== r || masks.some((m) => !(m in MASKS)))) throw new Error('草稿位置组合无效');
         if (mode === 'choose' && (masks.length > r || masks.some((m) => m && !(m in MASKS)))) throw new Error('草稿区域部位无效');
+        const alloc = q.get('allocation') ?? 'balanced';
+        if (!['balanced', 'adaptive'].includes(alloc) || (alloc === 'adaptive' && r === 1)) throw new Error('草稿配额模式无效');
+        const obj = q.get('objective') ?? 'min';
+        if (!['min', 'composite'].includes(obj)) throw new Error('草稿优化目标无效');
         setRegions(r); setRadius(a); setChoiceId(mode === 'choose' ? '' : mode === 'preset' ? masks.join(',') : mode!);
+        setAllocationMode(alloc as 'balanced' | 'adaptive');
+        setObjectiveMode(obj as 'min' | 'composite');
         setCustomSlots(mode === 'preset' || mode === 'choose' ? masks : []);
         if (mode === 'preset') setExtraChoice({ id: masks.join(','), label: masks.map((m) => MASKS[m]).join(' + '), mode, maskCodes: masks });
         const noise = q.get('noise') ?? 'iid';
@@ -88,8 +98,10 @@ export function useDesignController() {
     const noise_model = searchNoise(noiseModelId);
     // A data prior carries its own noise and replaces the noise model.
     return { region_count: regions, radius_mm: radius, mode: choice.mode, ...(choice.mode === 'preset' ? { mask_codes: choice.maskCodes } : {}),
-      ...(noise_model && !dataPrior ? { noise_model } : {}), ...(dataPrior ? { data_prior: dataPrior } : {}) };
-  }, [choice, regions, radius, noiseModelId, dataPrior]);
+      ...(noise_model && !dataPrior ? { noise_model } : {}), ...(dataPrior ? { data_prior: dataPrior } : {}),
+      ...(allocationMode === 'adaptive' && regions > 1 ? { allocation_mode: 'adaptive' as const } : {}),
+      ...(objectiveMode === 'composite' ? { objective_mode: 'composite' as const } : {}) };
+  }, [choice, regions, radius, noiseModelId, dataPrior, allocationMode, objectiveMode]);
   const result = editing && request && computed && requestKey(computed.request) === requestKey(request) ? computed : null;
   const currentStatus = request && status && requestKey(status.request) === requestKey(request) ? status : null;
   const layout = editing ? result?.layout : source?.layout;
@@ -98,7 +110,7 @@ export function useDesignController() {
   const metrics = editing ? result?.metrics : source?.metrics;
   const here = useMemo(() => {
     const q = new URLSearchParams(routeParams);
-    for (const key of ['saved', 'from', 'draft', 'r', 'radius', 'mode', 'masks', 'noise', 'prior', 'layoutRecord', 'layoutState', 'layoutChannels', 'layoutRegions']) q.delete(key);
+    for (const key of ['saved', 'from', 'draft', 'r', 'radius', 'mode', 'masks', 'noise', 'prior', 'allocation', 'objective', 'layoutRecord', 'layoutState', 'layoutChannels', 'layoutRegions']) q.delete(key);
     q.set('ar', String(ar));
     if (originId) q.set(originKind, originId);
     if (draft) {
@@ -107,13 +119,16 @@ export function useDesignController() {
       else if (!choice && customSlots.some(Boolean)) q.set('masks', customSlots.join(','));
       if (noiseModelId !== 'iid') q.set('noise', noiseModelId);
       if (dataPrior) q.set('prior', dataPriorParam(dataPrior));
+      if (allocationMode === 'adaptive' && regions > 1) q.set('allocation', 'adaptive');
+      if (objectiveMode === 'composite') q.set('objective', 'composite');
     }
     return '/design?' + q.toString();
-  }, [ar, originId, originKind, draft, regions, radius, choice, customSlots, noiseModelId, dataPrior, routeParams]);
+  }, [ar, originId, originKind, draft, regions, radius, choice, customSlots, noiseModelId, dataPrior, allocationMode, objectiveMode, routeParams]);
   useEffect(() => { if (ready) window.history.replaceState(null, '', here); }, [ready, here]);
   const changeRegions = (n: number) => {
     if (n === regions) return;
     setDraft(true); setRegions(n);
+    if (n === 1) setAllocationMode('balanced');
     setCustomSlots([]);
     if (choice?.mode === 'preset' && choice.maskCodes?.length !== n) { setChoiceId(''); setNotice('区域数量已改变，请重新选择各区域的部位。'); }
   };
@@ -133,9 +148,16 @@ export function useDesignController() {
   const selectDataPrior = (value: DataPrior | null, from = '') => {
     setDataPrior(value); setDataPriorSource(value ? from : ''); setDraft(true);
   };
+  const selectAllocationMode = (mode: 'balanced' | 'adaptive') => {
+    if (regions === 1 && mode === 'adaptive') return;
+    setAllocationMode(mode); setDraft(true);
+  };
+  const selectObjectiveMode = (mode: 'min' | 'composite') => {
+    setObjectiveMode(mode); setDraft(true);
+  };
   const startRadius = () => {
     if (!source) return;
-    setRegions(source.region_count); setChoiceId(source.mode.includes('whole') ? 'whole_surface' : 'low_hair'); setRadius(35); setNoiseModelId('iid'); setDataPrior(null); setDataPriorSource('');
+    setRegions(source.region_count); setChoiceId(source.mode.includes('whole') ? 'whole_surface' : 'low_hair'); setRadius(35); setAllocationMode('balanced'); setObjectiveMode('min'); setNoiseModelId('iid'); setDataPrior(null); setDataPriorSource('');
     setCustomSlots([]);
     setEditing(true); setDraft(true);
     setNotice('已新建每区半径约束方案：仅保留区域数和允许位置域，半径初始值为35 mm。区域中心、64点位置和指标由新配置重新计算。');
@@ -150,5 +172,5 @@ export function useDesignController() {
   const correlatedNoise = Boolean(shown?.noise_model || shown?.data_prior);
   const savedId = layout ? editing ? currentStatus?.status === 'completed' ? currentStatus.key : null : source?.id ?? null : null;
   const receptionId = correlatedNoise ? null : savedId;
-  return { error, ready, ar, comparison, here, savedId, receptionId, correlatedNoise, count, source, notice, settingsRef, editing, radius, regions, choices, choice, customSlots, selectChoice, selectSlot, changeRegions, startRadius, setRadius, noiseModelId, selectNoiseModel, dataPrior, dataPriorSource, selectDataPrior, setDraft, setAR, request, originId, setComputed, setStatus, metrics, layout, geometry, pendingText, currentStatus };
+  return { error, ready, ar, comparison, here, savedId, receptionId, correlatedNoise, count, source, notice, settingsRef, editing, radius, regions, allocationMode, selectAllocationMode, objectiveMode, selectObjectiveMode, choices, choice, customSlots, selectChoice, selectSlot, changeRegions, startRadius, setRadius, noiseModelId, selectNoiseModel, dataPrior, dataPriorSource, selectDataPrior, setDraft, setAR, request, originId, setComputed, setStatus, metrics, layout, geometry, pendingText, currentStatus };
 }
