@@ -91,6 +91,7 @@ export function SavedLayoutContent({ record, ar, returnHref, compact = false }: 
               </a>
             ))}
           </div>
+          {layout && layout.xyzMm.length !== 64 && <p className="text-xs text-muted-foreground">{tx('此布局为少于64导方案，支持三维查看、导出与双栏方案对比；电极编辑与信号仿真仅适用于64导布局。')}</p>}
           {record.request?.data_prior && <p className="text-xs text-muted-foreground">{tx('此布局按数据先验（区域源功率与拟合噪声）搜索；分数只与相同数据先验的记录直接比较，不进入信号仿真和电极编辑。')}</p>}
           {record.request?.noise_model && <p className="text-xs text-muted-foreground">{tx('信号仿真使用独立噪声；空间相关噪声下搜索的布局不进入信号仿真')}</p>}
           {record.evaluation_condition && <p className="text-xs text-muted-foreground">{tx('此坐标评价使用非默认的噪声模型、电导率情景或头模；分数只与相同条件的评价直接比较，信号仿真只接受默认协议下的布局。')}</p>}

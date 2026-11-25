@@ -19,6 +19,9 @@ import {
   decisionThresholdMode,
   designCSV,
   exportDesign,
+  exportRecordCoordinates,
+  tryExportDesign,
+  recordElectrodeCount,
   isConductivityScenario,
   isPerturbationRadius,
   minimumDistance,
@@ -28,9 +31,8 @@ import {
   pct,
   qualification,
   type DecisionThresholds,
-  type ElectrodeDesign,
 } from '@/lib/design-decision';
-import { figureSpacing, layoutFigureSvg, sharedFigureRadius } from '@/lib/layout-figure';
+import { plotFigureSpacing, plotFigureSvg, sharedPlotFigureRadius } from '@/lib/layout-figure';
 import { useDecisionController } from './use-decision-controller';
 import { RecordPicker } from './record-picker';
 import { ComparisonConclusion } from './comparison-conclusion';
@@ -68,12 +70,13 @@ function download(name: string, body: string, mime: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function safeExportDesign(record: SavedRecord): ElectrodeDesign | null {
-  try {
-    return exportDesign(record);
-  } catch {
-    return null;
-  }
+function regionalSplitLabel(record: SavedRecord) {
+  const total = recordElectrodeCount(record);
+  if (!record.layout?.regionIndices?.length) return String(total);
+  const split = Array.from({ length: record.region_count }, (_, r) =>
+    record.layout!.regionIndices.filter((v) => v === r).length,
+  ).join(' + ');
+  return record.region_count > 1 ? `${total} (${split})` : String(total);
 }
 
 type Difference = {
@@ -172,16 +175,18 @@ function LayoutPairComparisonPanel({
         const slotIndex = ids.indexOf(record.id) === 1 ? 1 : 0,
           slotKey = (slotIndex === 1 ? 'b' : 'a') as 'a' | 'b',
           slotName = slotIndex === 1 ? '方案B' : '方案A',
-          design = safeExportDesign(record);
-        return { record, slotKey, slotName, design };
+          plot = exportRecordCoordinates(record),
+          design = tryExportDesign(record);
+        return { record, slotKey, slotName, plot, design };
       }),
     [shown, ids],
   );
   const { radius, defaultShowLabels } = useMemo(() => {
-    const radius = sharedFigureRadius(cards.flatMap(({ design }) => design ? [design] : []));
+    const plots = cards.flatMap(({ plot }) => (plot ? [plot] : []));
+    const radius = plots.length > 0 ? sharedPlotFigureRadius(plots) : 236;
     return {
       radius,
-      defaultShowLabels: cards.length > 0 && cards.every(({ design }) => design && figureSpacing(design, radius) >= 16),
+      defaultShowLabels: cards.length > 0 && cards.every(({ plot }) => plot && plotFigureSpacing(plot, radius) >= 16),
     };
   }, [cards]);
   const pairIdentity = cards.map((card) => card.record.id).join(':');
@@ -192,13 +197,18 @@ function LayoutPairComparisonPanel({
     () =>
       cards.map((card) => {
         const titleText = `${tx(card.slotName)} · ${localizedRecordTitle(card.record, locale)}`;
-        if (!card.design) return { ...card, titleText, svg: null, preview: null };
-        const regionCount = Math.max(...card.design.region_indices) + 1;
-        const svg = layoutFigureSvg(
-          card.design,
+        if (!card.plot) return { ...card, titleText, svg: null, preview: null };
+        const regionCount = Math.max(...card.plot.region_indices) + 1;
+        const total = card.plot.xyz_mm.length;
+        const subtitle =
+          total === 64
+            ? tx(`64个电极 · ${regionCount}个区域 · Ernie模板头`)
+            : tx(`${total}导 · ${regionCount}个区域 · Ernie模板头`);
+        const svg = plotFigureSvg(
+          card.plot,
           {
             title: titleText,
-            subtitle: tx(`64个电极 · ${regionCount}个区域 · Ernie模板头`),
+            subtitle,
             region: (index) => (locale === 'en' ? `Region ${index + 1}` : `区域${index + 1}`),
             caption: [
               tx('圆为NAS–LPA–RPA平面，低于该平面的电极画在圆外。位置为模板头上的设计位置，不是实测位置。'),
@@ -242,6 +252,7 @@ function LayoutPairComparisonPanel({
       <div className={cn('grid gap-4', rendered.length > 1 ? 'md:grid-cols-2' : 'max-w-xl')}>
         {rendered.map((card) => {
           const activeTarget = testTarget === card.slotKey;
+          const channels = recordElectrodeCount(card.record);
           return (
             <div
               key={card.record.id}
@@ -260,7 +271,7 @@ function LayoutPairComparisonPanel({
                         : 'bg-sky-500/15 text-sky-700 dark:text-sky-300',
                     )}
                   >
-                    {tx(card.slotName)} · {card.record.region_count}
+                    {tx(card.slotName)} · {channels} {tx('电极')} · {card.record.region_count}
                     {tx('区')}
                   </span>
                   <div className="flex flex-wrap items-center gap-2 font-mono text-xs text-muted-foreground tabular-nums">
@@ -289,15 +300,21 @@ function LayoutPairComparisonPanel({
                 )}
               </div>
               <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={activeTarget ? 'default' : 'outline'}
-                  aria-pressed={activeTarget}
-                  onClick={() => onSelectTarget(card.slotKey)}
-                >
-                  {tx(activeTarget ? '当前偏移测试对象' : '设为偏移测试对象')}
-                </Button>
+                {card.design ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={activeTarget ? 'default' : 'outline'}
+                    aria-pressed={activeTarget}
+                    onClick={() => onSelectTarget(card.slotKey)}
+                  >
+                    {tx(activeTarget ? '当前偏移测试对象' : '设为偏移测试对象')}
+                  </Button>
+                ) : (
+                  <span className="text-xs text-muted-foreground">
+                    {tx('仅64导均衡方案支持偏移测试')}
+                  </span>
+                )}
                 {card.svg && (
                   <Button
                     type="button"
@@ -591,6 +608,9 @@ export default function DecisionPage({
   const importOptions = { regionCount: regionCount || undefined };
   const recordA = shown.find((r) => ids.indexOf(r.id) === 0),
     recordB = shown.find((r) => ids.indexOf(r.id) === 1);
+  const selectedTargetRecord = shown.find(
+    (r) => r.id === ids[testTarget === 'b' ? 1 : 0],
+  );
   const pair = !!recordA && !!recordB;
   const presentation = result ? evaluationPresentation(job, result) : null;
   // Every coordinate evaluation is a library record (labelled with its conditions);
@@ -633,7 +653,7 @@ export default function DecisionPage({
               {tx(
                 mode === 'coordinates'
                   ? '导入已有64点坐标，评价后保存为独立布局；不运行区域布局搜索。'
-                  : '选择两个64电极方案，核对约束与性能，再检查坐标偏移对重建的影响。',
+                  : '选择两个已保存布局（支持8–64导及跨区自适应配额），并排核对约束、空间分布与三项保留率；64导均衡方案还可检查网格位置偏移。',
               )}
             </p>
           </div>
@@ -715,6 +735,7 @@ export default function DecisionPage({
                             shown.map((r) => (
                               <th key={r.id} className="px-3 py-3">
                                 {tx(ids.indexOf(r.id) === 0 ? '方案A' : '方案B')} ·{tx(' ')}
+                                {recordElectrodeCount(r)} {tx('电极')} ·{tx(' ')}
                                 {tx(r.region_count)}
                                 {tx('区')}
                               </th>
@@ -728,6 +749,7 @@ export default function DecisionPage({
                           (
                             [
                               ['实验类型', (r: SavedRecord) => protocolName(r.dataset_id)],
+                              ['电极数 / 各区分配', (r: SavedRecord) => regionalSplitLabel(r)],
                               [
                                 '面积上限',
                                 (r: SavedRecord) =>
@@ -815,24 +837,29 @@ export default function DecisionPage({
                   </p>
                   <div className="mt-4 flex flex-wrap gap-2.5">
                     {tx(
-                      shown.map((r) => (
-                        <Button
-                          key={r.id}
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            download(
-                              `eeg-${ids.indexOf(r.id) === 0 ? 'A' : 'B'}-coordinates.csv`,
-                              designCSV(exportDesign(r)),
-                              'text/csv;charset=utf-8',
-                            )
-                          }
-                        >
-                          {tx('导出方案')}
-                          {tx(ids.indexOf(r.id) === 0 ? 'A' : 'B')}
-                          {tx('坐标')}
-                        </Button>
-                      )),
+                      shown.map((r) => {
+                        const coords = exportRecordCoordinates(r);
+                        return (
+                          <Button
+                            key={r.id}
+                            size="sm"
+                            variant="outline"
+                            disabled={!coords}
+                            onClick={() =>
+                              coords &&
+                              download(
+                                `eeg-${ids.indexOf(r.id) === 0 ? 'A' : 'B'}-coordinates.csv`,
+                                designCSV(coords),
+                                'text/csv;charset=utf-8',
+                              )
+                            }
+                          >
+                            {tx('导出方案')}
+                            {tx(ids.indexOf(r.id) === 0 ? 'A' : 'B')}
+                            {tx('坐标')}
+                          </Button>
+                        );
+                      }),
                     )}
                     <Button
                       size="sm"
@@ -887,6 +914,11 @@ export default function DecisionPage({
                     <option value="b">{tx('方案B')}</option>
                   </select>
                 </label>
+              )}
+              {mode === 'compare' && selectedTargetRecord && !design && (
+                <p className="rounded-xl border border-border/75 bg-muted/35 px-3.5 py-2.5 text-xs leading-5 text-muted-foreground">
+                  {tx('当前所选方案使用少于64导或跨区自适应配额；上方已完成并排性能与空间对比，下方跨条件坐标评价与网格偏移仅适用于均衡分配的64电极方案。')}
+                </p>
               )}
               {mode === 'coordinates' ? (
                 <>
@@ -1064,7 +1096,7 @@ export default function DecisionPage({
                     ),
                   )}
                   {tx(
-                    shown[0] && (
+                    tryExportDesign(shown[0]) && (
                       <Button
                         size="sm"
                         variant="outline"

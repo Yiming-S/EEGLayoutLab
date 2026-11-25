@@ -88,6 +88,19 @@ void test('layouts searched under correlated noise offer neither signal simulati
   const links = workspaceLinks('/library?record=' + id, 32, noisy, saved);
   assert.equal(url(links.reception).searchParams.has('record'), false);
   assert.equal(url(links.electrodes).searchParams.has('parent'), false);
+  const sparse = {
+    ...record,
+    request: { ...record.request, electrode_count: 24, allocation_mode: 'adaptive' },
+    layout: { ...record.layout, xyzMm: record.layout.xyzMm.slice(0, 24), regionElectrodeCounts: [8, 16] },
+  };
+  assert.equal(canCompareRecord(sparse), true);
+  assert.equal(canSimulateRecord(sparse), false);
+  assert.deepEqual(layoutCapabilities(sparse, saved), { design: true, edit: false, compare: true, reception: false });
+  const sparseActions = savedLayoutActions(sparse, 32, '/library');
+  assert.ok(sparseActions.compare);
+  assert.ok(sparseActions.design);
+  assert.equal(sparseActions.edit, null);
+  assert.equal(sparseActions.reception, null);
 });
 
 void test('drafts and edited copies never use their parent as a completed evaluation', () => {
