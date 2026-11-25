@@ -30,6 +30,11 @@ from the request data formats below.
 | `/api/electrode-editor`, preparation | `action`, `parent_id` | Action: `prepare`. Parent is a lowercase 64-character hexadecimal identifier. |
 | `/api/electrode-editor`, evaluation | `action`, `parent_id`, `parent_digest`, `seed`, `slots` | Action: `evaluate`. Parent identity and digest are lowercase 64-character hexadecimal identifiers. Seed: 2026. |
 | `/api/robustness-studies` | `protocol`, `design`, `cases` | Protocol: `noise_seeds`, `grid_displacements` or `heads`. 1–12 cases of `seed` and `radius_mm`, plus `head_id` in a cross-head study. Optional `title`, `notes`, `noise_model`, `conductivity_scenario`. |
+| `/api/projects`, create | `title`, `owner_name` | Optional `notes`. Title at most 200, name at most 120, notes at most 8000 UTF-16 units, without control characters other than tab and line breaks; title and name not blank. Texts are trimmed. No other fields. |
+| `/api/projects/<id>`, change | `revision` and at least one of `title`, `owner_name`, `notes`, `workflow` | `revision` is the project's current revision, a positive safe integer. `workflow`: `reference_entry_id`, `candidate_entry_id` (saved layouts of the project, or `null`) and `comparison_href` (`null` or a `/decision?` link of at most 4096 units naming both layouts' records with `a` and `b`, and optionally `ar`, `thresholdMode`, `sensitivity`, `localization`, `p90`). |
+| `/api/projects/<id>/entries`, attach | `revision`, `kind`, `record_id` or `receipt_id` | Kind: `layout`, `editor` (with `record_id`, a lowercase 64-character hexadecimal identifier) or `source` (with `receipt_id`, a completed signal task). Optional `annotation_id` (a layout's electrode-name annotation), `title`, `notes`. |
+| `/api/projects/<id>/entries/<entry>`, change | `revision` and at least one of `title`, `notes` | Same text rules as the project. |
+| `/api/projects/<id>/entries/<entry>`, detach | `revision` | Sent as the body, or as the `If-Match` header. |
 
 The radius request permits `mask_codes`. Preset mode requires exactly
 `region_count` entries drawn from `PL`, `PR`, `AL`, `AR`, `FL`, `FM`, `FR`, `OL`,

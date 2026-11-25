@@ -7,12 +7,16 @@
 // service's per-visitor and per-network admission limits, which the Python service does not have, are lifted: the
 // submission rate, the pending tasks per browser and network, and the annotation window. The global queue bound and
 // the electrode-name bounds per receipt stay. Each step is {method, path, body?, raw?, type?, token?, chunks?, until?,
-// field?, progress?, brief?}:
+// field?, progress?, brief?, headers?, capture?, key?}:
 // - `{N}` in a path is the N-th distinct UUID string found in the response bodies so far (the receipts), `{aN}`
 //   the N-th distinct "annotation_id" value and `{kN}` the N-th distinct "key" value;
-// - a POST sends `raw` as it is, else JSON.stringify(body), with content-type `type` (default application/json)
-//   and the CSRF token of the health answer unless `token` is false; with `chunks` its UTF-8 bytes go one per
-//   chunk of a streamed body;
+// - `capture` ({name: 'dot.path'}) keeps that member of the answer's JSON as `{$name}`, which a path, a body (`raw`
+//   or the text of `body`) and a header value may name;
+// - a step other than GET sends `raw` as it is, else JSON.stringify(body), with content-type `type` (default
+//   application/json) and the CSRF token of the health answer unless `token` is false; with `chunks` its UTF-8
+//   bytes go one per chunk of a streamed body; `headers` are sent too;
+// - a step under /api/projects/<id> sends the X-EEG-Project-Key of the 201 answer to POST /api/projects that created
+//   that project (Node's project credential; the Python service ignores it) unless `key` is false;
 // - with `until` (statuses) the GET is repeated every 20 ms until body.job.status is one of them (and, with
 //   `progress`, body.job.progress > 0), for at most settle_ms; with `field` (a dot path such as `study.status` or
 //   `study.cases.0.status`) that member of the body is compared instead;
@@ -20,10 +24,12 @@
 //   study's pump; test_study_routes.py compares it in part);
 // - a step {method: 'FILE', path, text} sends nothing: it writes `text` (UTF-8, its `{N}`, `{aN}` and `{kN}`
 //   replaced too) to `path` below the root, or removes that file when `text` is null, and is recorded as
-//   {method: 'FILE', path, status: 0, type: null, body: ''}.
-// Each answer is recorded as {method, path, status, type, body} (the body as text). The token is recorded too.
+//   {method: 'FILE', path, status: 0, type: null, disposition: null, body: ''}.
+// Each answer is recorded as {method, path, status, type, disposition, body} (the body as text, `disposition` the
+// Content-Disposition header or null). The token is recorded too.
 // The robustness studies (RobustnessStudyService of the same composed service) keep their records in
-// <queueDirectory>/studies, which the test reads after the run.
+// <queueDirectory>/studies, and the research projects (ProjectService) in <queueDirectory>/projects, which the tests
+// read after the run.
 // The root's workers are the fakes of tests/service/compute_support.py (the radius search's, and on an editor root
 // the coordinate evaluation's and the electrode editor's, on a reception root also both reception workers, all
 // kinds sharing the one queue and slot); the records they write stay under the root, which must be a synthetic
@@ -53,7 +59,8 @@ const base = `http://127.0.0.1:${server.address().port}`;
 // Receipts are UUIDs that are whole JSON strings, not ones inside a path such as the interpreter's.
 const UUID = /"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"/g;
 const ANNOTATION = /"annotation_id":"([a-f0-9]{64})"/g, KEY = /"key":"([a-f0-9]{64})"/g;
-const seen = { '': [], a: [], k: [] };
+const seen = { '': [], a: [], k: [] }, captured = {}, projectKeys = {};
+const PROJECT = /^\/api\/projects\/([0-9a-f-]{36})(?:[/?]|$)/;
 const remember = (kind, values) => {
   for (const value of values) if (!seen[kind].includes(value)) seen[kind].push(value);
 };
@@ -61,22 +68,26 @@ const answers = [];
 let token;
 try {
   token = (await (await fetch(`${base}/api/local-compute/health`)).json()).token;
-  const substitute = text => text.replace(/\{([ak]?)(\d+)\}/g, (_, kind, n) => seen[kind][Number(n)]);
+  const substitute = text => text.replace(/\{([ak]?)(\d+)\}/g, (_, kind, n) => seen[kind][Number(n)])
+    .replace(/\{\$(\w+)\}/g, (_, name) => String(captured[name]));
   for (const step of spec.steps) {
     const target = substitute(step.path);
     if (step.method === 'FILE') {
       const file = join(spec.root, target);
       if (step.text === null) rmSync(file); else writeFileSync(file, substitute(step.text));
-      answers.push({ method: 'FILE', path: step.path, status: 0, type: null, body: '' });
+      answers.push({ method: 'FILE', path: step.path, status: 0, type: null, disposition: null, body: '' });
       continue;
     }
     const headers = { 'accept-encoding': 'identity' };
     let payload;
-    if (step.method === 'POST') {
+    if (step.method !== 'GET') {
       headers['content-type'] = step.type ?? 'application/json';
       if (step.token !== false) headers['x-eeg-compute-token'] = token;
-      payload = 'raw' in step ? step.raw : 'body' in step ? JSON.stringify(step.body) : undefined;
+      payload = 'raw' in step ? substitute(step.raw) : 'body' in step ? substitute(JSON.stringify(step.body)) : undefined;
     }
+    const project = target.match(PROJECT);
+    if (project && projectKeys[project[1]] && step.key !== false) headers['x-eeg-project-key'] = projectKeys[project[1]];
+    for (const [name, value] of Object.entries(step.headers ?? {})) headers[name.toLowerCase()] = substitute(value);
     const bodyOptions = () => {
       if (!step.chunks) return { body: payload };
       const bytes = Buffer.from(payload ?? '', 'utf8');
@@ -103,13 +114,19 @@ try {
       if (Date.now() > deadline) throw new Error(`${target} did not settle: ${body}`);
       await new Promise(resolve => setTimeout(resolve, 20));
     }
+    if (step.method === 'POST' && target === '/api/projects' && response.status === 201) {
+      const created = JSON.parse(body);
+      projectKeys[created.project.id] = created.access_key;
+    }
+    for (const [name, field] of Object.entries(step.capture ?? {}))
+      captured[name] = field.split('.').reduce((member, part) => member?.[part], JSON.parse(body));
     if (!step.brief) {
       remember('', [...body.matchAll(UUID)].map(match => match[1]));
       remember('a', [...body.matchAll(ANNOTATION)].map(match => match[1]));
       remember('k', [...body.matchAll(KEY)].map(match => match[1]));
     }
     answers.push({ method: step.method, path: step.path, status: response.status,
-      type: response.headers.get('content-type'), body });
+      type: response.headers.get('content-type'), disposition: response.headers.get('content-disposition'), body });
   }
 } finally {
   server.close(); server.closeAllConnections();

@@ -6,13 +6,19 @@ import { translateText } from '../../lib/i18n/core.ts';
 import { DELIVERY_INPUT_LIMIT } from '../../features/projects/research-delivery-reader.ts';
 
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
+/**
+ * Stage 3: the older delivery below the root, the cached signal result EEG_SIGNAL_FIXTURE (default the root's bank
+ * signal result), the other completed layout EEG_SECOND_LAYOUT_ID (default the installation's 1c23da5c...) and the
+ * completed electrode edit EEG_EDITOR_RECORD_KEY (default the installation's 18fa179e...).
+ */
 export async function runLocalDeliveryChecks({ root, output, base, check, newContext, read, button, screenshot, requests, keepSecret, setPage }) {
   const oldPath = join(root, 'artifacts/productization/2026-11-13/stage4-browser/owner-research-delivery.json');
   const oldBytes = await readFile(oldPath), oldBundle = JSON.parse(oldBytes.toString('utf8'));
-  const sourceFixture = JSON.parse(await readFile(join(root, 'artifacts/performance-optimizations/2026-11-13/bank-signal-result.json'), 'utf8'));
+  const sourceFixture = JSON.parse(await readFile(process.env.EEG_SIGNAL_FIXTURE || join(root, 'artifacts/performance-optimizations/2026-11-13/bank-signal-result.json'), 'utf8'));
   const golden = JSON.parse(await readFile(join(root, 'artifacts/productization/2026-11-13/scientific-baseline/design-request.json'), 'utf8'));
   const setup = await newContext('en');
-  const editorKey = '18fa179ed208203da9ae07f013a4e81c69f635889a4ee1436f0fc12409fadc06';
+  const editorKey = process.env.EEG_EDITOR_RECORD_KEY || '18fa179ed208203da9ae07f013a4e81c69f635889a4ee1436f0fc12409fadc06';
+  const otherId = process.env.EEG_SECOND_LAYOUT_ID || '1c23da5c1dae629610c0f2a39fe7b48d8c0fba86d41c1c77276f2b90a937b0f4';
   let page = await setup.context.newPage(); setPage(page);
   let ownerKey, project, currentBytes, currentBundle;
   const t = (text, locale = 'en') => translateText(text, locale);
@@ -43,7 +49,8 @@ export async function runLocalDeliveryChecks({ root, output, base, check, newCon
     await page.getByRole('heading', { level: 1, name: t('打开本地交付包', locale), exact: true }).waitFor();
     return created.context;
   }
-  const input = (locale = 'en') => page.getByLabel(t('项目交付包 JSON', locale), { exact: true });
+  // The file picker's button and chosen name follow the label text in the input's accessible name.
+  const input = (locale = 'en') => page.getByLabel(new RegExp('^' + escape(t('项目交付包 JSON', locale))));
   const verified = (locale = 'en') => page.getByRole('region', { name: t('已校验的交付项目', locale), exact: true });
   async function upload(bytes, name, bundle, locale = 'en') {
     await input(locale).setInputFiles({ name, mimeType: 'application/json', buffer: bytes });
@@ -79,7 +86,7 @@ export async function runLocalDeliveryChecks({ root, output, base, check, newCon
     const created = await (await server('/api/projects', 'POST', { title: 'Local delivery acceptance ' + Date.now(), owner_name: 'Browser verification', notes: 'Read as plain text: <img src="/api/local-file-probe" onerror="window.__unsafeDeliveryNote=true">' })).json();
     if (typeof created.access_key === 'string') keepSecret(created.access_key); assert.match(created.access_key, /^[a-f0-9]{64}$/); ownerKey = created.access_key; project = created.project;
     const added = [];
-    for (const attachment of [{ kind: 'layout', record_id: sourceFixture.request.record_id }, { kind: 'layout', record_id: '1c23da5c1dae629610c0f2a39fe7b48d8c0fba86d41c1c77276f2b90a937b0f4' }, { kind: 'layout', record_id: named.job.key, annotation_id: named.job.annotation_id }, { kind: 'source', receipt_id: source.job.id }, { kind: 'editor', record_id: editorKey }]) {
+    for (const attachment of [{ kind: 'layout', record_id: sourceFixture.request.record_id }, { kind: 'layout', record_id: otherId }, { kind: 'layout', record_id: named.job.key, annotation_id: named.job.annotation_id }, { kind: 'source', receipt_id: source.job.id }, { kind: 'editor', record_id: editorKey }]) {
       const result = await (await server(`/api/projects/${project.id}/entries`, 'POST', { revision: project.revision, ...attachment }, ownerKey)).json(); project = result.project; added.push(result.entry);
     }
     const href = `/decision?a=${added[0].record_id}&b=${added[1].record_id}&ar=87&thresholdMode=custom&sensitivity=63&localization=52&p90=28.5`;

@@ -68,6 +68,15 @@ with 503 ``The service is stopping.``. The services stop in Node's ``dispose`` o
 pump or submission), then the queue's scheduling and the job services; the pumps and study writes still running are
 awaited (``RobustnessStudyService.flush``) before the queue is written a last time.
 
+It holds the workspace's research projects too (slice 9, ``routes.projects``): a ``workspace_projects.ProjectService``
+with its ``ProjectStore`` in ``W/projects``, built with the studies. A new entry's snapshot comes from the library (the
+library routes' ``Library``; a layout's reproducibility bundle with the compute interpreter, as Node passes
+``queue.python``), the electrode editor's records, a completed signal receipt of the queue and the workspace's
+electrode-name annotations; its delivery (``server.delivery.ProjectDelivery``) names the root's data manifest and
+runtime lock. The store's ``before_write`` is the studies' ``admit``. As in Node's ``dispose``, the store closes right
+after the studies stop (a later write is 503 ``Project store is stopping.``), and its accepted writes are awaited
+(``ProjectService.flush``) before the studies' and before the queue's last write.
+
 The modules of ``eeglayoutlab.jobs`` are imported when the services start, not when the application is built.
 """
 from __future__ import annotations
@@ -97,6 +106,7 @@ if TYPE_CHECKING:
     from ...jobs.runtime import RuntimeConfig
     from ...jobs.slot import ExecutionSlot
     from ..app import ServiceConfig
+    from ..workspace_projects import ProjectService
     from ..workspace_studies import RobustnessStudyService
 
 LOG = logging.getLogger('eeglayoutlab.server')
@@ -144,7 +154,8 @@ class ComputeHost:
     ``queue_options`` are passed to ``RadiusJobs``, ``DesignJobs``, ``EditorJobs``, ``ReceptionJobs`` and
     ``WorkspaceQueue`` (tests set a timeout, a clock or a bound there before the lifespan starts); ``study_options``
     to ``RobustnessStudyService`` (its poll interval, clock or identifiers), except ``store``, which holds options of
-    its ``StudyStore``.
+    its ``StudyStore``; ``project_options`` to ``ProjectService`` (a ``delivery``, a ``bundle``), except ``store``,
+    which holds options of its ``ProjectStore`` (its clock, identifiers and keys).
     ``failure`` is the message of a start that failed, or of the queue's last write at shutdown when it failed; the
     command line reports it and exits 1, as Node's host does when its ``dispose`` throws (start.mjs)."""
 
@@ -158,6 +169,7 @@ class ComputeHost:
         self.reception_options: dict[str, Any] = {}
         self.queue_options: dict[str, Any] = {}
         self.study_options: dict[str, Any] = {}
+        self.project_options: dict[str, Any] = {}
         self.slot: Optional[ExecutionSlot] = None
         self.radius: Optional[RadiusJobs] = None
         self.design: Optional[DesignJobs] = None
@@ -166,6 +178,9 @@ class ComputeHost:
         self.annotations: Optional[ElectrodeAnnotations] = None
         self.queue: Optional[WorkspaceQueue] = None
         self.studies: Optional[RobustnessStudyService] = None
+        self.projects: Optional[ProjectService] = None
+        self._runtime: Optional[RuntimeConfig] = None
+        self._library: Optional[Callable[[], Library]] = None
         self.failure: Optional[str] = None
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._stop_requested = False
@@ -182,6 +197,13 @@ class ComputeHost:
         from ..workspace_studies import STUDIES
 
         return nodepath.join(nodepath.resolve(self.config.user.workspace), STUDIES)
+
+    @property
+    def project_directory(self) -> str:
+        """The projects' directory, ``W/projects``."""
+        from ..workspace_projects import PROJECTS
+
+        return nodepath.join(nodepath.resolve(self.config.user.workspace), PROJECTS)
 
     def _build(self) -> tuple['ExecutionSlot', 'RadiusJobs', 'DesignJobs', 'EditorJobs', 'ReceptionJobs',
                               'ElectrodeAnnotations', 'WorkspaceQueue']:
@@ -217,6 +239,8 @@ class ComputeHost:
                                   compute_python=runtime.python, execution_slot=slot, store=radius.store,
                                   **self.reception_options)
         annotations = ElectrodeAnnotations.local(workspace_annotations, runtime.repository_root)
+        # The projects read the same library and interpreters.
+        self._runtime, self._library = runtime, library
         queue = WorkspaceQueue(self.directory, community_adapters(radius, design, editor, reception), slot=slot,
                                annotations=annotations, cache_only=self.config.cache_only,
                                clear_interrupted=self.config.clear_interrupted, **self.queue_options)
@@ -242,6 +266,7 @@ class ComputeHost:
                 return
             await self.queue.start()
             self.studies = self._study_service(self.queue, self.design.root)
+            self.projects = self._project_service()
         except QueueStateError as error:
             self.failure = str(error)
             raise
@@ -265,9 +290,24 @@ class ComputeHost:
         store = StudyStore(self.study_directory, before_write=self._admit, **options.pop('store', {}))
         return RobustnessStudyService(queue, root, store=store, **options)
 
+    def _project_service(self) -> 'ProjectService':
+        """Node's ``ProjectService({queue, scheduler, beforeWrite: admit})`` for the workspace: its store in
+        ``W/projects``, its snapshots from the library (bundled with the root and the compute interpreter, as Node's
+        ``experimentBundle(queue.root, record, {python: queue.python})``), the editor, the queue and the
+        annotations, and its delivery on the root."""
+        from ..workspace_projects import ProjectService, ProjectStore
+
+        options = dict(self.project_options)
+        store = ProjectStore(self.project_directory, **options.pop('store', {}))
+        runtime = self._runtime
+        assert runtime is not None
+        return ProjectService(store=store, library=self._library, root=runtime.repository_root, python=runtime.python,
+                              editor=self.editor, queue=self.queue, annotations=self.annotations,
+                              before_write=self._admit, **options)
+
     def _admit(self) -> None:
         """Node's ``admit`` (local-compute-server.mjs:445-449) without the resource gate (R2): a study write that
-        is not a cancellation is refused once the services stop."""
+        is not a cancellation, and every project write, is refused once the services stop."""
         if self._disposing:
             from ..workspace_studies import ResourceError
 
@@ -275,12 +315,12 @@ class ComputeHost:
 
     def stop_soon(self) -> None:
         """Node's synchronous ``dispose`` from a signal handler: on the services' event loop, the studies stop, the
-        queue stops scheduling, the services refuse new work and stop their running worker (the radius search's with
-        ``server_restart``, the other kinds' with ``restart``), and the queue is written (a launch still in flight goes
-        back to ``queued``), unless a study is still pumped or written: as Node defers ``scheduler.dispose()``,
-        ``close`` then writes it after them. ``close`` then waits for the worker's records.
-        Before the services exist the request is kept, and ``start`` applies it; once the loop is closed it does
-        nothing."""
+        project store closes, the queue stops scheduling, the services refuse new work and stop their running worker
+        (the radius search's with ``server_restart``, the other kinds' with ``restart``), and the queue is written (a
+        launch still in flight goes back to ``queued``), unless a study is still pumped or written or a project write
+        is still pending: as Node defers ``scheduler.dispose()``, ``close`` then writes it after them. ``close`` then
+        waits for the worker's records. Before the services exist the request is kept, and ``start`` applies it; once
+        the loop is closed it does nothing."""
         self._stop_requested = True
         loop = self._loop
         if loop is None:
@@ -299,37 +339,48 @@ class ComputeHost:
         queue = self.queue
         if queue is None:
             return
-        # Node's dispose: the studies stop before the scheduler (no new pump, submission or study write).
+        # Node's dispose: the studies stop and the projects close before the scheduler (no new pump, submission,
+        # study or project write).
         self._disposing = True
-        studies = self.studies
+        studies, projects = self.studies, self.projects
         if studies is not None:
             studies.stop()
+        if projects is not None:
+            projects.close()
         queue.stop_scheduling()
         for service in self._services():
             service.dispose()
-        # The scheduler is written last: while a study is pumped or written, close() writes it once they are done.
-        if studies is None or not (studies.inflight or studies.store.pending_writes):
+        # The scheduler is written last: while a study is pumped or written or a project written, close() writes it
+        # once they are done.
+        if not ((studies is not None and (studies.inflight or studies.store.pending_writes))
+                or (projects is not None and projects.store.pending_writes)):
             queue.dispose()
 
     async def close(self) -> None:
-        """Node's ``dispose`` of the composed service: the studies stop, the queue stops scheduling, the services
-        refuse new work and stop their running worker; once the studies' pumps and writes have finished (the store
-        is then closed) and that job's records are written, the queue is written a last time (unless ``stop_soon``
-        wrote it already) and its dispatcher has left. A receipt that was running stays ``running`` on disk; the next
-        start fails it with ``服务重启中断了计算，可重新提交`` (or promotes it when its result was stored), and a
-        running study becomes ``paused_recovery``. When the queue's last write failed, ``failure`` says so."""
+        """Node's ``dispose`` of the composed service: the studies stop, the project store closes, the queue stops
+        scheduling, the services refuse new work and stop their running worker; once the accepted project writes,
+        then the studies' pumps and writes have finished (the study store is then closed) and that job's records are
+        written, the queue is written a last time (unless ``stop_soon`` wrote it already) and its dispatcher has
+        left. A receipt that was running stays ``running`` on disk; the next start fails it with
+        ``服务重启中断了计算，可重新提交`` (or promotes it when its result was stored), and a running study becomes
+        ``paused_recovery``. When the queue's last write failed, ``failure`` says so."""
         queue = self.queue
         if queue is None:
             return
         self._disposing = True
-        studies = self.studies
+        studies, projects = self.studies, self.projects
         if studies is not None:
             studies.stop()
+        if projects is not None:
+            projects.close()
         queue.stop_scheduling()
         services = self._services()
         # Every service refuses new work before any is awaited, as Node disposes them one after another.
         for service in services:
             service.dispose()
+        if projects is not None:
+            # Node's projects.flush(): the writes accepted before the stop.
+            await projects.flush()
         if studies is not None:
             # Node's studies.flush() and studies.close() before scheduler.dispose(); a failed recovery is logged.
             await studies.aclose()

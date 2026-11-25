@@ -56,6 +56,17 @@ cancel answer is compared without the members that race with the pump). ``study_
 snapshot's whose record was removed), and ``study_masked`` / ``study_tree_masked`` put the answers and the trees in
 the compared form (ids numbered as the answers show them, times, revisions and Node's session ``network`` masked, a
 directory's rows in id order).
+
+Research projects (slice 9): ``project_compute_root`` is a reception root (as above) that also holds a stored
+coordinate evaluation of ``DESIGN_REQUESTS['cached']`` (a named evaluation's record), a stored electrode edit
+(``stored-evaluate`` of ``editor_requests``) and the data manifest and runtime lock a delivery names. ``project_steps``
+are the HTTP steps both hosts run on it (``capture`` keeps a project's and its entries' ids, and Node's project key is
+sent and ignored); a step marked ``differs`` is a deliberate difference (the list, sharing), which
+``project_differences`` checks apart. ``project_masked`` puts the answers in the compared form (``masked``, a
+create's ``access_key`` and a delivery's Node or Python ``source_files`` and ``manifest_sha256`` masked once each
+side's delivery passed its host's checks) and ``project_tree_masked`` the project trees (Node's ``Q/projects``, ours
+``W/projects``: ids numbered, times, the ``owner_key_hash`` of a key nobody holds and Node's ``creator_network``
+masked).
 """
 from __future__ import annotations
 
@@ -70,6 +81,7 @@ import sys
 import time
 from typing import Any, Iterator, Optional
 
+from eeglayoutlab.jobs.identity import UNDEFINED
 from eeglayoutlab.jobs.radius import WORKER_SCRIPT, RadiusCache, code_identity
 from eeglayoutlab.jobs.runtime import runtime_config
 from eeglayoutlab.schemas import jsjson
@@ -298,9 +310,7 @@ def design_compute_root(directory: Path, heads: tuple[str, ...] = ()) -> Path:
     """A design root with ``DESIGN_WORKER``, a stored evaluation of ``DESIGN_REQUESTS['cached']`` and the inputs
     of the library (the radius code tree and the offline datasets), so that its records and bundles can be read;
     ``heads`` adds those head packages (and the nominal table), as ``design_root`` builds them."""
-    from eeglayoutlab.jobs.design_result import normalize_design_request
-    from eeglayoutlab.jobs.identity import DATA_PRIOR_FILES, design_context
-    from eeglayoutlab.jobs.integrity import InputIntegrity
+    from eeglayoutlab.jobs.identity import DATA_PRIOR_FILES
 
     root = Path(design_root(directory, heads=heads))
     kept = {path: (root / path).read_bytes() for path in DATA_PRIOR_FILES}
@@ -310,14 +320,25 @@ def design_compute_root(directory: Path, heads: tuple[str, ...] = ()) -> Path:
     for path, data in kept.items():  # code_tree writes them too; the design root's bytes stay
         write(root, path, data)
     write(root, 'scripts/design_evaluation.py', DESIGN_WORKER)
-    request = normalize_design_request(DESIGN_REQUESTS['cached'])
+    stored_design(root, DESIGN_REQUESTS['cached'])
+    assert (root / ADMISSION_POINTER).is_file()
+    return root
+
+
+def stored_design(root: Path, raw: Any) -> str:
+    """Writes the ``cache.json`` a coordinate evaluation of ``raw`` would publish on ``root`` (its context computed
+    here, as both hosts compute it) with a fixed finish time; returns the key."""
+    from eeglayoutlab.jobs.design_result import normalize_design_request
+    from eeglayoutlab.jobs.identity import design_context
+    from eeglayoutlab.jobs.integrity import InputIntegrity
+
+    request = normalize_design_request(raw)
     context = design_context(str(root), sys.executable, InputIntegrity(str(root)), request)
     result = run_result(request)
     write(root, f'{DESIGN_JOBS}/{context.key}/cache.json', {
         'key': context.key, 'identity': context.identity, 'result': result,
         'result_sha256': jsjson.sha256_hex(result), 'finished_at': '2026-01-01T00:00:00.000Z'})
-    assert (root / ADMISSION_POINTER).is_file()
-    return root
+    return context.key
 
 
 def tree(base: Path, skip: tuple[str, ...] = ()) -> dict[str, str]:
@@ -1042,8 +1063,22 @@ def run_node(root: Path, scratch: Path, steps: list[dict] = STEPS, owner: str = 
     return json.loads(out.read_text(encoding='utf-8'))
 
 
-def _target(path: str, seen: dict[str, list[str]]) -> str:
-    return re.sub(r'\{([ak]?)(\d+)\}', lambda match: seen[match.group(1)][int(match.group(2))], path)
+def _target(path: str, seen: dict[str, list[str]], captured: Optional[dict[str, Any]] = None) -> str:
+    """The driver's ``substitute``: ``{N}``, ``{aN}`` and ``{kN}`` from ``seen``, ``{$name}`` from ``captured`` (as
+    JavaScript's ``String`` writes it)."""
+    text = re.sub(r'\{([ak]?)(\d+)\}', lambda match: seen[match.group(1)][int(match.group(2))], path)
+    return re.sub(r'\{\$(\w+)\}', lambda match: _js_text((captured or {}).get(match.group(1), UNDEFINED)), text)
+
+
+def _js_text(value: Any) -> str:
+    if value is UNDEFINED:
+        return 'undefined'
+    if isinstance(value, str):
+        return value
+    return jsjson.stringify(value)
+
+
+_PROJECT_PATH = re.compile(r'/api/projects/([0-9a-f-]{36})(?:[/?]|$)')
 
 
 def chunked(app: Service, client: Any, method: str, target: str, data: bytes, headers: dict[str, str]) -> Any:
@@ -1078,53 +1113,67 @@ def chunked(app: Service, client: Any, method: str, target: str, data: bytes, he
     return start['status'], received, body.decode('utf-8')
 
 
-def _member(value: Any, field: str) -> Any:
-    """The driver's ``field.split('.').reduce((member, name) => member?.[name], value)``."""
+def _member(value: Any, field: str, missing: Any = None) -> Any:
+    """The driver's ``field.split('.').reduce((member, name) => member?.[name], value)``; ``missing`` stands for
+    ``undefined``."""
     for name in field.split('.'):
-        if isinstance(value, dict):
-            value = value.get(name)
+        if isinstance(value, dict) and name in value:
+            value = value[name]
         elif isinstance(value, list) and name.isdigit() and int(name) < len(value):
             value = value[int(name)]
         else:
-            return None
+            return missing
     return value
 
 
-def run_python(root: Path, workspace: Path, steps: list[dict] = STEPS) -> dict:
+def run_python(root: Path, workspace: Path, steps: list[dict] = STEPS, **options: Any) -> dict:
     """The same steps through the Python application, as the driver sends them: ``{N}`` is the N-th distinct id
     in the bodies so far (``{aN}`` the N-th annotation id, ``{kN}`` the N-th key; a ``brief`` step's are not
-    collected), POSTs carry the CSRF token unless the step says ``token: false``, a step with ``chunks`` sends its
-    body one byte at a time, a step with ``until`` is repeated until its job (or the member ``field`` names) reaches
-    one of those statuses (with ``progress``, a progress above 0), and a ``FILE`` step writes ``text`` to its path
-    below the root (removes the file when ``text`` is ``None``)."""
+    collected) and ``{$name}`` a member an earlier step's ``capture`` kept; a step other than GET carries the CSRF
+    token unless it says ``token: false``, and its ``headers``; a step under ``/api/projects/<id>`` carries the access
+    key of that project's create answer (ignored, as Node's credential); a step with ``chunks`` sends its body one byte
+    at a time, a step with ``until`` is repeated until its job (or the member ``field`` names) reaches one of those
+    statuses (with ``progress``, a progress above 0), and a ``FILE`` step writes ``text`` to its path below the root
+    (removes the file when ``text`` is ``None``). ``options`` go to ``serving``."""
     answers: list[dict] = []
     seen: dict[str, list[str]] = {'': [], 'a': [], 'k': []}
-    with serving(root, workspace, csrf=False) as (app, client):
+    captured: dict[str, Any] = {}
+    keys: dict[str, str] = {}
+    with serving(root, workspace, csrf=False, **options) as (app, client):
         for step in steps:
-            target = _target(step['path'], seen)
+            target = _target(step['path'], seen, captured)
             if step['method'] == 'FILE':
                 path = Path(root) / target
                 if step['text'] is None:
                     path.unlink()
                 else:
-                    path.write_bytes(_target(step['text'], seen).encode('utf-8'))
-                answers.append({'method': 'FILE', 'path': step['path'], 'status': 0, 'type': None, 'body': ''})
+                    path.write_bytes(_target(step['text'], seen, captured).encode('utf-8'))
+                answers.append({'method': 'FILE', 'path': step['path'], 'status': 0, 'type': None, 'disposition': None,
+                                'body': ''})
                 continue
             headers = {}
-            if step['method'] == 'POST':
+            data = None
+            if step['method'] != 'GET':
                 headers['content-type'] = step.get('type', 'application/json')
                 if step.get('token', True):
                     headers['x-eeg-compute-token'] = TOKENS.csrf
-            data = step['raw'] if 'raw' in step else jsjson.stringify(step['body']) if 'body' in step else None
+                data = (_target(step['raw'], seen, captured) if 'raw' in step
+                        else _target(jsjson.stringify(step['body']), seen, captured) if 'body' in step else None)
+            project = _PROJECT_PATH.match(target)
+            if project and project.group(1) in keys and step.get('key', True):
+                headers['x-eeg-project-key'] = keys[project.group(1)]
+            for name, value in step.get('headers', {}).items():
+                headers[name.lower()] = _target(value, seen, captured)
             deadline = time.monotonic() + SETTLE
             while True:
                 if step.get('chunks'):
                     status, received, body = chunked(app, client, step['method'], target,
                                                      (data or '').encode('utf-8'), headers)
-                    kind = received.get('content-type')
+                    kind, disposition = received.get('content-type'), received.get('content-disposition')
                 else:
                     response = client.request(step['method'], target, content=data, headers=headers)
                     status, kind, body = response.status_code, response.headers.get('content-type'), response.text
+                    disposition = response.headers.get('content-disposition')
                 until = step.get('until')
                 if until is None:
                     break
@@ -1138,14 +1187,19 @@ def run_python(root: Path, workspace: Path, steps: list[dict] = STEPS) -> dict:
                 if time.monotonic() > deadline:
                     raise AssertionError(f'{target} did not settle: {body}')
                 time.sleep(0.02)
+            if step['method'] == 'POST' and target == '/api/projects' and status == 201:
+                created = jsjson.parse(body)
+                keys[created['project']['id']] = created['access_key']
+            for name, field in step.get('capture', {}).items():
+                captured[name] = _member(jsjson.parse(body), field, UNDEFINED)
             if not step.get('brief'):
                 _seen(body, seen)
             answers.append({'method': step['method'], 'path': step['path'], 'status': status, 'type': kind,
-                            'body': body})
+                            'disposition': disposition, 'body': body})
     return {'answers': answers, 'token': TOKENS.csrf, 'tree': jobs_tree(root), 'queue': queue_file(workspace),
             'design_tree': design_tree(root), 'editor_tree': editor_tree(root), 'reception_tree': reception_tree(root),
             'annotations': annotation_tree(workspace / WORKSPACE_ANNOTATIONS),
-            'studies': study_tree(workspace / 'studies')}
+            'studies': study_tree(workspace / 'studies'), 'projects': study_tree(workspace / 'projects')}
 
 
 # --- Robustness studies -----------------------------------------------------------------------------------------------
@@ -1373,3 +1427,225 @@ def study_tree_masked(tree: dict[str, tuple[Optional[str], int]], digests: dict[
         return text.replace(f',"network":"{STUDY_NETWORK}"', '')
 
     return {mask(path): (None if text is None else mask(text), mode) for path, (text, mode) in tree.items()}
+
+
+# --- Research projects ------------------------------------------------------------------------------------------------
+
+_P = '/api/projects'
+DATA_MANIFEST = {'schema_version': 'eeglayoutlab-data-bundle/1', 'bundle_id': 'fixture-data'}
+RUNTIME_LOCK = {'schema': 'eeglayoutlab-runtime-lock/1'}
+# Node's source files a delivery's host names (project-delivery.mjs hostFiles).
+NODE_HOST_FILES = ('webapp/package.json', 'webapp/package-lock.json', 'webapp/server/projects/store.mjs',
+                   'webapp/server/projects/service.mjs', 'webapp/server/delivery/research-bundle.mjs',
+                   'webapp/server/delivery/project-delivery.mjs')
+
+
+def project_compute_root(directory: Path) -> dict:
+    """``reception_compute_root`` plus a stored coordinate evaluation of ``DESIGN_REQUESTS['cached']``, a stored
+    electrode edit and the data manifest and runtime lock a delivery reads. Returns ``reception_compute_root``'s
+    ``{root, ids, requests, stored}`` with ``design`` and ``edit``, the two stored records' keys."""
+    built = reception_compute_root(directory)
+    root, ids = Path(built['root']), built['ids']
+    design = stored_design(root, DESIGN_REQUESTS['cached'])
+    request = editor_requests(ids, parent_digests(str(root), ids, sys.executable, {}))['stored-evaluate']
+    edit = stored_edit(str(root), request, evaluate_result(request))
+    write(root, 'data/manifest.json', DATA_MANIFEST)
+    write(root, 'configs/runtime/manifest.json', RUNTIME_LOCK)
+    return {**built, 'design': design, 'edit': edit}
+
+
+def _entry(revision: int, **members: Any) -> dict:
+    return {'revision': revision, **members}
+
+
+def project_steps(built: dict) -> list[dict]:
+    """The research projects on ``project_compute_root``'s root ``built``: a project ({$p}) renamed, its entries (two
+    library layouts {$reference} and {$candidate}, a named coordinate evaluation {$named} with the annotation
+    {$annotation}, an electrode edit {$edit}, a signal receipt {$receipt} saved as {$signal}), its comparison settings,
+    its delivery, its detaches; the refusals of attachments (one whose bundle fails: the generic 500), revisions,
+    methods, queries, paths, bodies and the token; the list and sharing (``differs``). Each comment names the revision
+    a write leaves."""
+    ids, r = built['ids'], built['requests']
+    P = _P + '/{$p}'
+    href = (f'/decision?a={ids["cache"]}&b={ids["strict"]}&ar=87&thresholdMode=custom&sensitivity=63'
+            '&localization=52&p90=28.5')
+    workflow = {'reference_entry_id': '{$reference}', 'candidate_entry_id': '{$candidate}', 'comparison_href': href}
+    return [
+        {'method': 'GET', 'path': _P, 'differs': True},
+        {'method': 'POST', 'path': _P, 'capture': {'p': 'project.id'},
+         'body': {'title': '  Study A  ', 'owner_name': 'Researcher', 'notes': 'Plain <b>text</b>, 中文'}},  # 1
+        {'method': 'GET', 'path': P},
+        {'method': 'PATCH', 'path': P, 'body': _entry(1, title='Renamed study')},  # 2
+        {'method': 'PATCH', 'path': P, 'body': _entry(1, title='Stale')},
+        {'method': 'PATCH', 'path': P, 'body': _entry(2, identity={'fake': True})},
+        {'method': 'PATCH', 'path': P, 'body': _entry(2)},
+        # Two library layouts, a named coordinate evaluation, an electrode edit and a signal receipt.
+        {'method': 'POST', 'path': P + '/entries', 'capture': {'reference': 'entry.id'},
+         'body': _entry(2, kind='layout', record_id=ids['cache'], title='Reference')},  # 3
+        {'method': 'POST', 'path': P + '/entries', 'capture': {'candidate': 'entry.id'},
+         'body': _entry(3, kind='layout', record_id=ids['strict'], notes='Candidate')},  # 4
+        {'method': 'POST', 'path': P + '/entries', 'body': _entry(4, kind='layout', record_id=ids['cache'])},
+        {'method': 'POST', 'path': '/api/design-evaluation/jobs', 'capture': {'annotation': 'job.annotation_id'},
+         'body': envelope(DESIGN_REQUESTS['cached'], 'A', SOURCE)},
+        {'method': 'POST', 'path': P + '/entries', 'capture': {'named': 'entry.id'},
+         'body': _entry(4, kind='layout', record_id=built['design'], annotation_id='{$annotation}')},  # 5
+        {'method': 'POST', 'path': P + '/entries', 'capture': {'edit': 'entry.id'},
+         'body': _entry(5, kind='editor', record_id=built['edit'])},  # 6
+        {'method': 'POST', 'path': f'{_SR}/lookup', 'body': r['stored'], 'capture': {'receipt': 'job.id'}},
+        {'method': 'POST', 'path': P + '/entries', 'capture': {'signal': 'entry.id'},
+         'body': _entry(6, kind='source', receipt_id='{$receipt}', title='Signal case')},  # 7
+        {'method': 'GET', 'path': P + '/entries/{$reference}'},
+        {'method': 'GET', 'path': P + '/entries/{$named}'},
+        {'method': 'GET', 'path': P + '/entries/{$edit}'},
+        {'method': 'GET', 'path': P + '/entries/{$signal}'},
+        {'method': 'PATCH', 'path': P + '/entries/{$signal}',
+         'body': _entry(7, title='Renamed case', notes='Original values retained')},  # 8
+        {'method': 'PATCH', 'path': P + '/entries/{$signal}', 'body': _entry(8)},
+        {'method': 'PATCH', 'path': P, 'body': _entry(8, workflow=workflow)},  # 9
+        {'method': 'PATCH', 'path': P, 'body': _entry(9, workflow={**workflow, 'comparison_href': 'https://x.test/'})},
+        {'method': 'GET', 'path': P},
+        {'method': 'GET', 'path': P + '/export'},
+        # Attachments refused: no such layout, edit or receipt, client data, a stale revision, another record's names,
+        # a receipt that has not completed.
+        {'method': 'POST', 'path': P + '/entries', 'body': _entry(9, kind='layout', record_id='d' * 64)},
+        {'method': 'POST', 'path': P + '/entries', 'body': _entry(9, kind='editor', record_id='d' * 64)},
+        {'method': 'POST', 'path': P + '/entries', 'body': _entry(9, kind='source', receipt_id=_UNKNOWN)},
+        {'method': 'POST', 'path': P + '/entries', 'body': _entry(9, kind='source', receipt_id='{$receipt}',
+                                                                   payload={'schema_version': 'source-reception/2'})},
+        {'method': 'POST', 'path': P + '/entries', 'body': _entry(8, kind='layout', record_id=ids['strict-2'])},
+        {'method': 'POST', 'path': P + '/entries',
+         'body': _entry(9, kind='layout', record_id=ids['cache'], annotation_id='{$annotation}')},
+        # A layout whose source cannot be read (the offline radius report the root's pointer names is missing).
+        {'method': 'POST', 'path': P + '/entries', 'body': _entry(9, kind='layout', record_id=ids['offline'])},
+        {'method': 'POST', 'path': f'{_SR}/jobs', 'body': r['hold'], 'capture': {'held': 'job.id'}},
+        {'method': 'GET', 'path': f'{_SR}/jobs/{{$held}}', 'until': ('running',), 'progress': True},
+        {'method': 'POST', 'path': P + '/entries', 'body': _entry(9, kind='source', receipt_id='{$held}')},
+        {'method': 'POST', 'path': f'{_SR}/jobs/{{$held}}/cancel'},
+        {'method': 'GET', 'path': f'{_SR}/jobs/{{$held}}', 'until': TERMINAL},
+        # Detaches: by If-Match and by body, a stale revision, an entry already removed.
+        {'method': 'DELETE', 'path': P + '/entries/{$candidate}', 'headers': {'If-Match': '"8"'}},
+        {'method': 'DELETE', 'path': P + '/entries/{$candidate}', 'headers': {'If-Match': '"9"'}},  # 10
+        {'method': 'DELETE', 'path': P + '/entries/{$edit}', 'body': _entry(10)},  # 11
+        {'method': 'DELETE', 'path': P + '/entries/{$edit}', 'body': _entry(11)},
+        {'method': 'GET', 'path': P + '/entries/{$edit}'},
+        {'method': 'GET', 'path': P + '/export'},
+        # A second project, and the list; sharing (Node: a stale revision, so its record stays as Python's).
+        {'method': 'POST', 'path': _P, 'body': {'title': 'Study B', 'owner_name': '研究者'}},  # 1
+        {'method': 'GET', 'path': _P, 'differs': True},
+        {'method': 'POST', 'path': P + '/share', 'body': _entry(1), 'differs': True},
+        {'method': 'POST', 'path': P + '/revoke-share', 'body': _entry(1), 'differs': True},
+        # Methods, queries, paths, bodies and the token.
+        {'method': 'PUT', 'path': P, 'body': {}},
+        {'method': 'HEAD', 'path': P},
+        {'method': 'GET', 'path': P + '?key=x'},
+        {'method': 'PATCH', 'path': P + '?x', 'body': _entry(11, title='Query')},
+        {'method': 'GET', 'path': f'{_P}/{_UNKNOWN}'},
+        {'method': 'GET', 'path': f'{_P}/not-a-project'},
+        {'method': 'GET', 'path': f'{_P}/'},
+        {'method': 'GET', 'path': P + '/other'},
+        {'method': 'GET', 'path': P + '/entries'},
+        {'method': 'GET', 'path': P + '/entries/not-an-entry'},
+        {'method': 'POST', 'path': P + '/export', 'body': {}},
+        {'method': 'POST', 'path': P, 'body': {}},
+        {'method': 'PATCH', 'path': f'{P}/entries/{_UNKNOWN}', 'body': _entry(11, title='Nobody')},
+        {'method': 'POST', 'path': _P, 'raw': '{"title":'},
+        {'method': 'POST', 'path': _P, 'raw': '[]'},
+        {'method': 'POST', 'path': _P, 'raw': '{}', 'type': 'text/plain'},
+        {'method': 'POST', 'path': _P, 'raw': padded({'title': 'Too large', 'owner_name': 'R'}, 65537)},
+        {'method': 'POST', 'path': _P, 'raw': padded({'title': 'At the limit', 'owner_name': 'R'}, 65536)},  # 1
+        {'method': 'POST', 'path': _P, 'body': {'title': 'Chunked 研究', 'owner_name': 'R'}, 'chunks': True},  # 1
+        {'method': 'POST', 'path': _P, 'body': {'title': '', 'owner_name': 'R'}},
+        {'method': 'POST', 'path': _P, 'body': {'title': 'No token', 'owner_name': 'R'}, 'token': False},
+        {'method': 'PATCH', 'path': P, 'body': _entry(11, title='No token'), 'token': False},
+        {'method': 'DELETE', 'path': P + '/entries/{$reference}', 'body': _entry(11), 'token': False},
+        {'method': 'GET', 'path': P},
+    ]
+
+
+def project_differences(steps: list[dict], node: list[dict], python: list[dict]) -> None:
+    """The deliberate differences of the ``differs`` steps: Node's ``GET /api/projects`` is 405 and the service lists
+    the workspace's projects; Node's ``share`` and ``revoke-share`` refuse a stale revision (409) and are not the
+    service's endpoints (404)."""
+    for step, theirs, ours in zip(steps, node, python):
+        if not step.get('differs'):
+            continue
+        if step['path'] == _P:
+            assert (theirs['status'], jsjson.parse(theirs['body'])['error']) == (
+                405, 'Projects are opened with their identifier and credential.'), theirs
+            listed = jsjson.parse(ours['body'])
+            assert ours['status'] == 200 and list(listed) == ['projects'], ours
+        else:
+            assert (theirs['status'], jsjson.parse(theirs['body'])['error']) == (
+                409, 'Project changed. Reload it before saving.'), theirs
+            assert (ours['status'], jsjson.parse(ours['body'])) == (
+                404, {'error': 'Project endpoint not found.', 'code': 'not_found'}), ours
+
+
+_ACCESS_KEY = re.compile(r'"access_key":"[a-f0-9]{64}"')
+
+
+def _delivery(body: str, files: tuple[str, ...]) -> str:
+    """A delivery answer with its host's ``source_files``, its ``manifest_sha256`` and the digest of its README (which
+    names the project's id) masked, once they are checked: the files are ``files`` (Node's or the Python service's),
+    the manifest is the delivery's own and each file's digest is its content's."""
+    from eeglayoutlab.server.delivery import validate_research_delivery
+
+    try:
+        value = jsjson.parse(body)
+    except ValueError:
+        return body
+    if not (isinstance(value, dict) and value.get('schema') == 'eeg-research-delivery/1'):
+        return body
+    assert validate_research_delivery(value) is True
+    assert tuple(row['path'] for row in value['host']['source_files']) == files
+    for file in value['files']:
+        assert file['sha256'] == hashlib.sha256(file['content'].encode('utf-8')).hexdigest()
+    assert value['files'][0]['path'] == 'README.md'
+    value['files'][0]['sha256'] = '<readme>'
+    value['host']['source_files'] = '<source files>'
+    value['manifest_sha256'] = '<manifest>'
+    return jsjson.stringify(value)
+
+
+def project_masked(answers: list[dict], token: str, steps: list[dict], node: bool) -> list[dict]:
+    """``masked`` of the answers to the steps that are not ``differs``, each create's ``access_key`` and each
+    delivery's ``source_files`` (Node's or ``delivery.HOST_FILES``), ``manifest_sha256`` and README digest masked;
+    the project id of a ``Content-Disposition`` is numbered as in the bodies."""
+    from eeglayoutlab.server.delivery import HOST_FILES
+
+    files = NODE_HOST_FILES if node else HOST_FILES
+    kept = [{**answer, 'body': _delivery(_ACCESS_KEY.sub('"access_key":"<key>"', answer['body']), files)}
+            for step, answer in zip(steps, answers) if not step.get('differs')]
+    ids: list[str] = []
+    for answer in kept:
+        _ids(answer['body'], ids)
+    return [{**answer, 'disposition': answer['disposition'] and _ID.sub(
+                lambda match: f'<id{ids.index(match.group(0))}>', answer['disposition'])}
+            for answer in masked(kept, token)]
+
+
+_KEY_HASH = re.compile(r'"owner_key_hash":"[a-f0-9]{64}"')
+
+
+def project_tree_masked(tree: dict[str, tuple[Optional[str], int]], ids: list[str]) -> dict:
+    """A projects directory (``study_tree``) with ids numbered as in the answers (an id no answer showed fails),
+    times masked, the ``owner_key_hash`` masked and Node's ``creator_network`` (the pinned session's) removed."""
+    for path, (text, _) in tree.items():
+        for id in _UUID_TEXT.findall(path + (text or '')):
+            assert id in ids, f'{id} of {path} is in no answer'
+
+    def mask(text: str) -> str:
+        text = _UUID_TEXT.sub(lambda match: f'<id{ids.index(match.group(0))}>', text)
+        text = _KEY_HASH.sub('"owner_key_hash":"<hash>"', _TIME.sub('<time>', text))
+        return text.replace(f',"creator_network":"{STUDY_NETWORK}"', '')
+
+    return {mask(path): (None if text is None else mask(text), mode) for path, (text, mode) in tree.items()}
+
+
+def project_ids(answers: list[dict], steps: list[dict]) -> list[str]:
+    """The ids of the compared answers in the order ``masked`` numbers them."""
+    ids: list[str] = []
+    for step, answer in zip(steps, answers):
+        if not step.get('differs'):
+            _ids(answer['body'], ids)
+    return ids

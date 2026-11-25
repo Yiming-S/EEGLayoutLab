@@ -19,7 +19,8 @@ A store keeps one directory per record, named by a UUID v4, under its own direct
   failure is raised again by every later call, as Node's rejected promise is.
 - ``serialize(operation)``: Node's promise chain. Operations run one after another in call order, each once the one
   before it has settled; a closed store refuses new ones (503 ``Project store is stopping.``); ``flush()`` waits for
-  the last one, ``pending_writes`` counts those not yet settled.
+  the last one, ``pending_writes`` counts those not yet settled. ``enqueue(operation)`` registers one at the call and
+  returns its task.
 
 Writes are ``records.atomic_json`` and ``records.atomic_bytes`` (Node's ``atomicJson`` and ``atomicBytes``: a new
 ``<path>.<uuid4>.tmp`` opened ``wx`` with mode 0600, fsync, rename, fsync of the directory). File-system failures are
@@ -197,6 +198,11 @@ class WorkspaceFiles:
     async def serialize(self, operation: Callable[[], Awaitable[T]]) -> T:
         """``serialize(operation)``: runs ``operation()`` once every earlier one has settled and returns its value
         (or raises its error). The operation runs to its end even when the caller is cancelled."""
+        return await asyncio.shield(self.enqueue(operation))
+
+    def enqueue(self, operation: Callable[[], Awaitable[T]]) -> 'asyncio.Task[T]':
+        """``serialize`` registered at the call, as Node's is (a store method that is synchronous in Node calls it
+        before it returns): the task of ``operation()``, on the running loop; a closed store raises 503 at once."""
         if self.closed:
             raise ProjectError(STOPPING, 503)
         self.pending_writes += 1
@@ -210,7 +216,7 @@ class WorkspaceFiles:
         task = asyncio.ensure_future(run())
         task.add_done_callback(self._settled)
         self._tail = task
-        return await asyncio.shield(task)
+        return task
 
     def _settled(self, task: asyncio.Future) -> None:
         self.pending_writes -= 1

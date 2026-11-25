@@ -183,6 +183,301 @@
         }
       }
     },
+    "/api/normalize/project-create": {
+      "post": {
+        "operationId": "normalize_project_create",
+        "summary": "Validate a project-create request and return its canonical form",
+        "description": "Diagnostic endpoint. Reproduces body + ProjectStore.create (webapp/server/projects/service.mjs, store.mjs).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The canonical request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NormalizedRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not valid JSON or not a valid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The body is larger than 65,536 bytes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not application/json.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/normalize/project-entry": {
+      "post": {
+        "operationId": "normalize_project_entry",
+        "summary": "Validate a project-entry request and return its canonical form",
+        "description": "Diagnostic endpoint. Reproduces body + attachment + ProjectStore.attach (webapp/server/projects/service.mjs, store.mjs).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectEntryInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The canonical request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NormalizedRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not valid JSON or not a valid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The body is larger than 65,536 bytes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not application/json.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/normalize/project-entry-delete": {
+      "post": {
+        "operationId": "normalize_project_entry_delete",
+        "summary": "Validate a project-entry-delete request and return its canonical form",
+        "description": "Diagnostic endpoint. Reproduces body + ProjectStore.detach (webapp/server/projects/service.mjs, store.mjs).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectEntryDelete"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The canonical request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NormalizedRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not valid JSON or not a valid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The body is larger than 65,536 bytes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not application/json.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/normalize/project-entry-patch": {
+      "post": {
+        "operationId": "normalize_project_entry_patch",
+        "summary": "Validate a project-entry-patch request and return its canonical form",
+        "description": "Diagnostic endpoint. Reproduces body + ProjectStore.patchEntry (webapp/server/projects/service.mjs, store.mjs).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectEntryPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The canonical request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NormalizedRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not valid JSON or not a valid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The body is larger than 65,536 bytes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not application/json.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/normalize/project-patch": {
+      "post": {
+        "operationId": "normalize_project_patch",
+        "summary": "Validate a project-patch request and return its canonical form",
+        "description": "Diagnostic endpoint. Reproduces body + ProjectStore.patch (webapp/server/projects/service.mjs, store.mjs).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The canonical request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NormalizedRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not valid JSON or not a valid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The body is larger than 65,536 bytes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not application/json.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/normalize/radius-search": {
       "post": {
         "operationId": "normalize_radius_search",
@@ -1112,6 +1407,50 @@
         "title": "DesignSubmission",
         "type": "object"
       },
+      "EditorRecordEntry": {
+        "additionalProperties": false,
+        "description": "A completed evaluation of the electrode editor.",
+        "properties": {
+          "revision": {
+            "description": "The project's current revision, which the change replaces.",
+            "maximum": 9007199254740991,
+            "minimum": 1,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "title": {
+            "description": "Trimmed; defaults to the kind and the first 8 digits of the record.",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "notes": {
+            "description": "Trimmed; no control characters other than tab and line breaks.",
+            "maxLength": 8000,
+            "title": "Notes",
+            "type": "string"
+          },
+          "kind": {
+            "const": "editor",
+            "title": "Kind",
+            "type": "string"
+          },
+          "record_id": {
+            "description": "The scientific record: a lowercase SHA-256 hex digest.",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Record Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision",
+          "kind",
+          "record_id"
+        ],
+        "title": "EditorRecordEntry",
+        "type": "object"
+      },
       "ElectrodeDesign": {
         "description": "``eeg-electrode-design/1`` in Ernie native millimetres. Other design fields are dropped.",
         "properties": {
@@ -1570,6 +1909,50 @@
         "title": "LabelConversion",
         "type": "object"
       },
+      "LayoutRecordEntry": {
+        "additionalProperties": false,
+        "description": "A completed layout record of the library.",
+        "properties": {
+          "revision": {
+            "description": "The project's current revision, which the change replaces.",
+            "maximum": 9007199254740991,
+            "minimum": 1,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "title": {
+            "description": "Trimmed; defaults to the kind and the first 8 digits of the record.",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "notes": {
+            "description": "Trimmed; no control characters other than tab and line breaks.",
+            "maxLength": 8000,
+            "title": "Notes",
+            "type": "string"
+          },
+          "kind": {
+            "const": "layout",
+            "title": "Kind",
+            "type": "string"
+          },
+          "record_id": {
+            "description": "The scientific record: a lowercase SHA-256 hex digest.",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Record Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision",
+          "kind",
+          "record_id"
+        ],
+        "title": "LayoutRecordEntry",
+        "type": "object"
+      },
       "MniConversion": {
         "additionalProperties": false,
         "description": "MNI template coordinates mapped onto Ernie's scalp with the SimNIBS nonlinear warp.",
@@ -1696,6 +2079,57 @@
         "title": "MultiSourceReception",
         "type": "object"
       },
+      "NamedEvaluationEntry": {
+        "additionalProperties": false,
+        "description": "A completed design evaluation with the electrode-name annotation it was submitted with.",
+        "properties": {
+          "revision": {
+            "description": "The project's current revision, which the change replaces.",
+            "maximum": 9007199254740991,
+            "minimum": 1,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "title": {
+            "description": "Trimmed; defaults to the kind and the first 8 digits of the record.",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "notes": {
+            "description": "Trimmed; no control characters other than tab and line breaks.",
+            "maxLength": 8000,
+            "title": "Notes",
+            "type": "string"
+          },
+          "kind": {
+            "const": "layout",
+            "title": "Kind",
+            "type": "string"
+          },
+          "record_id": {
+            "description": "The scientific record: a lowercase SHA-256 hex digest.",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "annotation_id": {
+            "description": "The electrode-name annotation of the evaluation.",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Annotation Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision",
+          "kind",
+          "record_id",
+          "annotation_id"
+        ],
+        "title": "NamedEvaluationEntry",
+        "type": "object"
+      },
       "NoiseSeedStudy": {
         "additionalProperties": false,
         "description": "Distinct seeds at one radius: the spread of nominal metrics over noise draws on Ernie, optionally under\none data-generating conductivity scenario.",
@@ -1794,6 +2228,168 @@
           "canonical",
           "canonical_sha256"
         ]
+      },
+      "ProjectCreate": {
+        "additionalProperties": false,
+        "description": "A new project: its title, the researcher's name and optional notes.",
+        "properties": {
+          "title": {
+            "description": "Trimmed; no control characters other than tab and line breaks.",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "owner_name": {
+            "description": "The researcher named on the project; trimmed.",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Owner Name",
+            "type": "string"
+          },
+          "notes": {
+            "default": "",
+            "description": "Trimmed; no control characters other than tab and line breaks.",
+            "maxLength": 8000,
+            "title": "Notes",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "owner_name"
+        ],
+        "title": "ProjectCreate",
+        "type": "object"
+      },
+      "ProjectEntryDelete": {
+        "description": "The project's current revision, when the request has no ``If-Match`` header; other keys are ignored.",
+        "properties": {
+          "revision": {
+            "description": "The project's current revision, which the change replaces.",
+            "maximum": 9007199254740991,
+            "minimum": 1,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "revision"
+        ],
+        "title": "ProjectEntryDelete",
+        "type": "object"
+      },
+      "ProjectEntryInput": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/LayoutRecordEntry"
+          },
+          {
+            "$ref": "#/components/schemas/NamedEvaluationEntry"
+          },
+          {
+            "$ref": "#/components/schemas/EditorRecordEntry"
+          },
+          {
+            "$ref": "#/components/schemas/SignalReceiptEntry"
+          }
+        ]
+      },
+      "ProjectEntryPatch": {
+        "additionalProperties": false,
+        "description": "Changes to an entry at the project's current revision: its title, its notes or both.",
+        "properties": {
+          "revision": {
+            "description": "The project's current revision, which the change replaces.",
+            "maximum": 9007199254740991,
+            "minimum": 1,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "title": {
+            "description": "Trimmed; no control characters other than tab and line breaks.",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "notes": {
+            "description": "Trimmed; no control characters other than tab and line breaks.",
+            "maxLength": 8000,
+            "title": "Notes",
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision"
+        ],
+        "title": "ProjectEntryPatch",
+        "type": "object"
+      },
+      "ProjectPatch": {
+        "additionalProperties": false,
+        "description": "Changes to a project at its current revision: at least one of title, researcher name, notes and the\ncomparison settings.",
+        "properties": {
+          "revision": {
+            "description": "The project's current revision, which the change replaces.",
+            "maximum": 9007199254740991,
+            "minimum": 1,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "title": {
+            "description": "Trimmed; no control characters other than tab and line breaks.",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "owner_name": {
+            "description": "The researcher named on the project; trimmed.",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Owner Name",
+            "type": "string"
+          },
+          "notes": {
+            "description": "Trimmed; no control characters other than tab and line breaks.",
+            "maxLength": 8000,
+            "title": "Notes",
+            "type": "string"
+          },
+          "workflow": {
+            "additionalProperties": false,
+            "description": "Comparison settings, checked against the project's entries when saved: two different saved layouts and a /decision? link to their comparison.",
+            "properties": {
+              "reference_entry_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "candidate_entry_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "comparison_href": {
+                "maxLength": 4096,
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "title": "ProjectWorkflowInput",
+            "type": "object"
+          }
+        },
+        "required": [
+          "revision"
+        ],
+        "title": "ProjectPatch",
+        "type": "object"
       },
       "RadiusSearchRequest": {
         "additionalProperties": false,
@@ -1894,6 +2490,50 @@
             "heads": "#/components/schemas/CrossHeadStudy"
           }
         }
+      },
+      "SignalReceiptEntry": {
+        "additionalProperties": false,
+        "description": "A completed signal-reception task, by its receipt.",
+        "properties": {
+          "revision": {
+            "description": "The project's current revision, which the change replaces.",
+            "maximum": 9007199254740991,
+            "minimum": 1,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "title": {
+            "description": "Trimmed; defaults to the kind and the first 8 digits of the record.",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "notes": {
+            "description": "Trimmed; no control characters other than tab and line breaks.",
+            "maxLength": 8000,
+            "title": "Notes",
+            "type": "string"
+          },
+          "kind": {
+            "const": "source",
+            "title": "Kind",
+            "type": "string"
+          },
+          "receipt_id": {
+            "description": "The receipt of a completed signal-reception task.",
+            "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$",
+            "title": "Receipt Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision",
+          "kind",
+          "receipt_id"
+        ],
+        "title": "SignalReceiptEntry",
+        "type": "object"
       },
       "SingleSourceReception": {
         "additionalProperties": false,

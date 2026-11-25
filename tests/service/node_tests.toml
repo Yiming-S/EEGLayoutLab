@@ -60,7 +60,7 @@ target = "tests/service/test_queue.py::test_a_failed_queue_write_stops_new_work_
 [sites."check-abuse-limits.mjs::projects are capped per network; never-used empty projects are removed after a month"]
 disposition = "D"
 reason = "R1"
-note = "projects per network; empty-project expiry is also R5 silent deletion"
+note = "projects per network; empty-project expiry is also R5 silent deletion (test_projects.py::test_unused_projects_are_never_pruned_and_counts_are_not_capped)"
 
 [sites."check-abuse-limits.mjs::cache keys carry the interpreter identity off macOS only"]
 disposition = "P"
@@ -388,14 +388,13 @@ target = "tests/service/test_key_parity.py::test_source_metadata_cannot_change_n
 note = "the production adapter (jobs.kinds.design_evaluation_adapter) on synthetic roots with the real context; ids also under the local owner; per-envelope parity with Node's adapter in test_envelope_prepare_parity"
 
 [sites."check-coordinate-review.mjs::source declarations survive trusted project snapshots and deliveries without entering or changing scientific payload"]
-disposition = "pending"
-slice = 9
-module = "tests/service/test_projects.py"
+disposition = "P"
+target = "tests/service/test_projects.py::test_source_declarations_survive_project_snapshots_without_changing_the_scientific_payload"
+note = "the source metadata is given literally; the BIDS reader and exportDesign are the interface's and stay in Node"
 
 [sites."check-coordinate-review.mjs::signal project summaries copy only verified original request fields, leave omissions absent and clone arrays"]
-disposition = "pending"
-slice = 9
-module = "tests/service/test_projects.py"
+disposition = "P"
+target = "tests/service/test_projects.py::test_signal_summaries_copy_only_verified_request_fields"
 
 # --- check-cross-region-contract.mjs ----------------------------------------------------------------------------------
 
@@ -498,15 +497,13 @@ disposition = "N"
 
 # --- check-delivery-upload-contract.mjs -------------------------------------------------------------------------------
 
-[sites."check-delivery-upload-contract.mjs:39"]
-disposition = "NA"
-slice = 10
-note = "its fixture is built with Node buildResearchDelivery; use Python-built packages (slice 9)"
+[sites."check-delivery-upload-contract.mjs:29"]
+disposition = "N"
+note = "reads the Python-built deliveries in tests/service/fixtures/delivery (slice 9), which test_delivery.py::test_the_delivery_fixtures_are_the_python_builds_of_the_checks_inputs keeps current and ::test_the_delivery_fixtures_are_nodes_builds_of_the_checks_inputs checks against Node's builder"
 
-[sites."check-delivery-upload-contract.mjs:52"]
-disposition = "NA"
-slice = 10
-note = "its fixture is built with Node buildResearchDelivery; use Python-built packages (slice 9)"
+[sites."check-delivery-upload-contract.mjs:42"]
+disposition = "N"
+note = "reads the Python-built deliveries in tests/service/fixtures/delivery (slice 9), which test_delivery.py::test_the_delivery_fixtures_are_the_python_builds_of_the_checks_inputs keeps current and ::test_the_delivery_fixtures_are_nodes_builds_of_the_checks_inputs checks against Node's builder"
 
 # --- check-demand-renderer.mjs ----------------------------------------------------------------------------------------
 
@@ -685,7 +682,7 @@ note = "the per-owner part becomes the 32,768-byte file bound; the per-owner bou
 [sites."check-electrode-annotations.mjs::HTTP annotations require policy/token and owner; snapshots and delivery preserve each variant after sidecars disappear"]
 disposition = "P"
 target = "tests/service/test_compute_routes.py::test_an_evaluation_runs_and_its_names_are_an_annotation_of_the_workspace"
-note = "?annotation_id on the job view, the library record and the bundle (404, 400); below HTTP in test_annotations.py::test_named_variants_are_read_by_the_library_and_validate_as_snapshot_annotations; the token in test_design_writes_need_the_csrf_token_and_fit_the_kind_limit; Node's answers and annotation bytes in test_the_design_routes_answer_and_write_as_node_does; owners and sharing are dropped (R1, R5); the project snapshot and delivery half ports with projects in slice 9"
+note = "?annotation_id on the job view, the library record and the bundle (404, 400); below HTTP in test_annotations.py::test_named_variants_are_read_by_the_library_and_validate_as_snapshot_annotations; the token in test_design_writes_need_the_csrf_token_and_fit_the_kind_limit; Node's answers and annotation bytes in test_the_design_routes_answer_and_write_as_node_does; owners and sharing are dropped (R1, R5); the project snapshots and the delivery after the sidecars are gone in test_project_routes.py::test_each_name_variant_survives_the_loss_of_its_annotation_in_snapshots_and_the_delivery"
 
 [sites."check-electrode-annotations.mjs::task polling retains the explicitly selected name variant when a shared receipt has a newer variant"]
 disposition = "N"
@@ -1419,54 +1416,51 @@ reason = "R2"
 note = "request IDs and operations logs"
 
 [sites."check-product-operations-integration.mjs::service disposal waits for accepted project writes and log flushing before releasing its queue lock"]
-disposition = "pending"
-slice = 9
-module = "tests/service/test_delivery.py"
-note = "disposal waits for accepted project writes"
+disposition = "P"
+target = "tests/service/test_project_routes.py::test_shutdown_awaits_an_accepted_project_write_before_the_queues_last_write"
+note = "the log flush is dropped (R2); after stop_soon in ::test_stop_soon_leaves_the_queues_last_write_until_a_project_write_is_done"
 
 [sites."check-product-operations-integration.mjs::shutdown during asynchronous admission cannot persist a late queued task or project"]
 disposition = "P"
 target = "tests/service/test_queue.py::test_shutdown_during_asynchronous_admission_cannot_persist_a_late_queued_task"
-note = "the queued task; projects are slice 9"
+note = "the site submits a queued task only; a project write after the stop is 503 'Project store is stopping.' (test_project_routes.py::test_stop_soon_closes_the_projects_and_reads_still_answer)"
 
 # --- check-project-api.mjs --------------------------------------------------------------------------------------------
 
 [sites."check-project-api.mjs::project API restores credentials across browsers and never lists private projects"]
-disposition = "D"
-reason = "R5"
-note = "project credentials; a workspace lists all its projects"
+disposition = "P"
+target = "tests/service/test_project_routes.py::test_the_list_names_the_projects_and_a_project_reads_without_a_key"
+note = "one local user (R5): GET /api/projects lists the workspace's projects (Node: 405), and a project reads with any X-EEG-Project-Key or none; the query refusal and answers without keys or key hashes as in Node; the list at the service in test_projects.py::test_the_list_names_every_project_most_recent_first"
 
 [sites."check-project-api.mjs::research export authenticates, preserves saved science and remains read-only for shared access"]
-disposition = "pending"
-slice = 9
-module = "tests/service/test_projects.py"
-note = "the shared-access part is dropped (R5)"
+disposition = "P"
+target = "tests/service/test_projects.py::test_research_export_preserves_saved_science"
+note = "the export of the saved signal copy, read without the scientific cache, and its 413 bound; Cache-Control and Content-Disposition over HTTP in test_project_routes.py::test_the_export_is_an_uncached_attachment_within_the_delivery_bound, the snapshot bytes of every kind in ::test_a_project_holds_every_kind_of_result_and_exports_their_snapshot_bytes; the key check and the shared and revoked exports are dropped (R5)"
 
 [sites."check-project-api.mjs::project writes require policy, session token, bounded JSON and current revisions"]
-disposition = "pending"
-slice = 9
-module = "tests/service/test_projects.py"
+disposition = "P"
+target = "tests/service/test_project_routes.py::test_project_writes_need_the_token_every_request_a_loopback_origin_and_the_session"
+note = "the service half in test_projects.py::test_project_writes_need_bounded_json_and_current_revisions"
 
 [sites."check-project-api.mjs::shared credentials read but cannot edit, attach, remove or rotate sharing"]
 disposition = "D"
 reason = "R5"
-note = "shared credentials"
+note = "shared credentials; share and revoke-share are 404 'Project endpoint not found.' (test_project_routes.py::test_sharing_is_not_an_endpoint)"
 
 [sites."check-project-api.mjs::saved source copies survive receipt pruning and cache loss with every scientific field intact"]
-disposition = "pending"
-slice = 9
-module = "tests/service/test_projects.py"
+disposition = "P"
+target = "tests/service/test_projects.py::test_saved_source_copies_survive_receipt_pruning_and_cache_loss"
+note = "over HTTP with the workspace queue's receipt and its records removed in test_project_routes.py::test_a_project_holds_every_kind_of_result_and_exports_their_snapshot_bytes"
 
 [sites."check-project-api.mjs::source attachment rejects foreign, incomplete or client-supplied scientific data before reading cache"]
-disposition = "pending"
-slice = 9
-module = "tests/service/test_projects.py"
-note = "the foreign-browser part is dropped (R1)"
+disposition = "P"
+target = "tests/service/test_projects.py::test_source_attachment_refuses_foreign_incomplete_or_client_data_before_reading_the_cache"
+note = "another browser's receipt (R1) becomes one the workspace queue does not give; over HTTP on the workspace queue in test_project_routes.py::test_signal_attachments_refuse_foreign_running_or_client_results_before_reading_one"
 
 [sites."check-project-api.mjs::layout attachment loads the trusted archive and detach retains original science"]
-disposition = "pending"
-slice = 9
-module = "tests/service/test_projects.py"
+disposition = "P"
+target = "tests/service/test_projects.py::test_layout_attachment_loads_the_trusted_archive_and_detach_keeps_the_science"
+note = "over HTTP with the library's bundle in test_project_routes.py::test_a_project_holds_every_kind_of_result_and_exports_their_snapshot_bytes"
 
 # --- check-project-client.mjs -----------------------------------------------------------------------------------------
 
@@ -1526,25 +1520,23 @@ note = "the access-key half goes"
 # --- check-project-delivery.mjs ---------------------------------------------------------------------------------------
 
 [sites."check-project-delivery.mjs::project delivery serves complete archives to an owner or viewer and rejects revoked access"]
-disposition = "pending"
-slice = 9
-module = "tests/service/test_delivery.py"
-note = "viewer and revoked access are dropped (R5)"
+disposition = "P"
+target = "tests/service/test_delivery.py::test_project_delivery_serves_complete_archives_of_the_workspace_project"
+note = "one local reader; viewer and revoked access are dropped (R5). Through the workspace's ProjectStore in test_projects.py::test_research_export_preserves_saved_science and over HTTP in test_project_routes.py::test_a_project_holds_every_kind_of_result_and_exports_their_snapshot_bytes"
 
 [sites."check-project-delivery.mjs::delivery limits memory and concurrent exports, then recovers from a failed attempt"]
-disposition = "pending"
-slice = 9
-module = "tests/service/test_delivery.py"
+disposition = "P"
+target = "tests/service/test_delivery.py::test_delivery_limits_memory_and_concurrent_exports_then_recovers_from_a_failed_attempt"
 
 [sites."check-project-delivery.mjs::delivery distinguishes current host bytes from the scientific data/runtime lock and fails on missing identities"]
-disposition = "pending"
-slice = 9
-module = "tests/service/test_delivery.py"
+disposition = "P"
+target = "tests/service/test_delivery.py::test_delivery_versions_tell_host_bytes_from_the_data_and_runtime_lock_and_fail_without_identities"
+note = "source_files name the Python service's files (pyproject.toml and the project and delivery modules), not Node's"
 
 [sites."check-project-delivery.mjs::delivery names the lock of the managed runtime in use"]
-disposition = "pending"
-slice = 9
-module = "tests/service/test_delivery.py"
+disposition = "P"
+target = "tests/service/test_delivery.py::test_delivery_names_the_lock_of_the_managed_runtime_in_use"
+note = "Node's runtimeLockPath on synthetic roots in test_delivery_versions_equal_nodes"
 
 # --- check-project-experiment-associations.mjs ------------------------------------------------------------------------
 
@@ -1578,64 +1570,58 @@ disposition = "N"
 # --- check-project-store.mjs ------------------------------------------------------------------------------------------
 
 [sites."check-project-store.mjs::project comparison settings retain exact requirements without changing archived calculations"]
-disposition = "pending"
-slice = 9
-module = "tests/service/test_projects.py"
+disposition = "P"
+target = "tests/service/test_projects.py::test_comparison_settings_keep_exact_requirements_without_changing_archived_calculations"
+note = "Node's store on the same operations, files byte for byte, in test_the_store_equals_node"
 
 [sites."check-project-store.mjs::comparison settings reject external links, foreign layouts, unsupported parameters and fake scores"]
-disposition = "pending"
-slice = 9
-module = "tests/service/test_projects.py"
+disposition = "P"
+target = "tests/service/test_projects.py::test_comparison_settings_reject_external_links_foreign_layouts_parameters_and_fake_scores"
+note = "Node's answer for each of 500 comparison links in test_comparison_links_equal_node"
 
 [sites."check-project-store.mjs::projects survive restart and cross-browser credentials without storing raw keys"]
-disposition = "D"
-reason = "R5"
-note = "owner key hashes; restart survival is covered by the ports of 72 and 116"
+disposition = "P"
+target = "tests/service/test_projects.py::test_a_project_stores_no_key_and_survives_restart"
+note = "credentials dropped (R5): the access key a create returns is neither stored nor hashed into the record (owner_key_hash is the hash of another fresh key, viewer_key_hash null, no creator_network); a restarted store reads the same project and the store's directory is the real path, as in Node"
 
 [sites."check-project-store.mjs::an interrupted atomic snapshot write does not prevent recovery or become a scientific result"]
-disposition = "pending"
-slice = 9
-module = "tests/service/test_projects.py"
+disposition = "P"
+target = "tests/service/test_projects.py::test_an_interrupted_snapshot_write_neither_blocks_recovery_nor_becomes_a_result"
 
 [sites."check-project-store.mjs::read-only sharing can be rotated and revoked without changing scientific copies"]
 disposition = "D"
 reason = "R5"
-note = "read-only sharing"
+note = "read-only sharing; share and revoke-share are 404 'Project endpoint not found.' (test_projects.py and test_project_routes.py::test_sharing_is_not_an_endpoint)"
 
 [sites."check-project-store.mjs::rename and entry notes preserve exact archived scientific JSON and checksums"]
-disposition = "pending"
-slice = 9
-module = "tests/service/test_projects.py"
+disposition = "P"
+target = "tests/service/test_projects.py::test_rename_and_entry_notes_preserve_exact_archived_json_and_checksums"
 
 [sites."check-project-store.mjs::snapshot persistence precedes metadata and queued mutations enforce revisions"]
-disposition = "pending"
-slice = 9
-module = "tests/service/test_projects.py"
+disposition = "P"
+target = "tests/service/test_projects.py::test_queued_mutations_enforce_revisions"
 
 [sites."check-project-store.mjs::detaching entries never deletes original snapshots or scientific files"]
-disposition = "pending"
-slice = 9
-module = "tests/service/test_projects.py"
+disposition = "P"
+target = "tests/service/test_projects.py::test_detaching_entries_never_deletes_original_snapshots"
 
 [sites."check-project-store.mjs::corrupt metadata, snapshots, symlinks and traversal fail closed"]
-disposition = "pending"
-slice = 9
-module = "tests/service/test_projects.py"
+disposition = "P"
+target = "tests/service/test_projects.py::test_corrupt_metadata_snapshots_links_and_traversal_fail_closed"
+note = "77 crafted metadata files and 17 snapshots read as Node reads them in test_crafted_metadata_and_snapshots_read_as_node_reads_them"
 
 [sites."check-project-store.mjs::project root symlinks are rejected rather than followed"]
-disposition = "pending"
-slice = 9
-module = "tests/service/test_projects.py"
+disposition = "P"
+target = "tests/service/test_projects.py::test_a_linked_project_root_is_refused_rather_than_followed"
 
 [sites."check-project-store.mjs::bounded snapshots and export preflight reject large data before loading payloads"]
-disposition = "pending"
-slice = 9
-module = "tests/service/test_projects.py"
+disposition = "P"
+target = "tests/service/test_projects.py::test_bounded_snapshots_and_export_preflight_refuse_large_data_before_loading_payloads"
 
 [sites."check-project-store.mjs::shutdown rejects new writes while flushing already accepted metadata writes"]
-disposition = "pending"
-slice = 9
-module = "tests/service/test_projects.py"
+disposition = "P"
+target = "tests/service/test_projects.py::test_shutdown_refuses_new_writes_while_flushing_accepted_ones"
+note = "the service's shutdown order in test_project_routes.py::test_shutdown_awaits_an_accepted_project_write_before_the_queues_last_write"
 
 # --- check-project-structure.mjs --------------------------------------------------------------------------------------
 
@@ -1675,9 +1661,8 @@ disposition = "N"
 disposition = "N"
 
 [sites."check-project-workflow.mjs::project layout summaries mark whether signal simulation accepts the layout"]
-disposition = "pending"
-slice = 9
-module = "tests/service/test_projects.py"
+disposition = "P"
+target = "tests/service/test_projects.py::test_layout_summaries_mark_whether_signal_simulation_accepts_the_layout"
 
 # --- check-queue-maintenance.mjs --------------------------------------------------------------------------------------
 
@@ -1867,62 +1852,53 @@ disposition = "N"
 
 # --- check-research-delivery-reader.mjs -------------------------------------------------------------------------------
 
-[sites."check-research-delivery-reader.mjs:99"]
-disposition = "NA"
-slice = 10
-note = "its fixture is built with Node buildResearchDelivery; use Python-built packages (slice 9)"
+[sites."check-research-delivery-reader.mjs:45"]
+disposition = "N"
+note = "reads the Python-built deliveries in tests/service/fixtures/delivery (slice 9), which test_delivery.py::test_the_delivery_fixtures_are_the_python_builds_of_the_checks_inputs keeps current and ::test_the_delivery_fixtures_are_nodes_builds_of_the_checks_inputs checks against Node's builder"
 
-[sites."check-research-delivery-reader.mjs:205"]
-disposition = "NA"
-slice = 10
-note = "its fixture is built with Node buildResearchDelivery; use Python-built packages (slice 9)"
+[sites."check-research-delivery-reader.mjs:151"]
+disposition = "N"
+note = "reads the Python-built deliveries in tests/service/fixtures/delivery (slice 9), which test_delivery.py::test_the_delivery_fixtures_are_the_python_builds_of_the_checks_inputs keeps current and ::test_the_delivery_fixtures_are_nodes_builds_of_the_checks_inputs checks against Node's builder"
 
 [sites."check-research-delivery-reader.mjs::delivery reader rejects excess input and honours cancellation before parsing"]
-disposition = "NA"
-slice = 10
-note = "its fixture is built with Node buildResearchDelivery; use Python-built packages (slice 9)"
+disposition = "N"
+note = "reads the Python-built deliveries in tests/service/fixtures/delivery (slice 9), which test_delivery.py::test_the_delivery_fixtures_are_the_python_builds_of_the_checks_inputs keeps current and ::test_the_delivery_fixtures_are_nodes_builds_of_the_checks_inputs checks against Node's builder"
 
 [sites."check-research-delivery-reader.mjs::completed editor delivery binds both saved keys and the result checksum"]
-disposition = "NA"
-slice = 10
-note = "its fixture is built with Node buildResearchDelivery; use Python-built packages (slice 9)"
+disposition = "N"
+note = "reads the Python-built deliveries in tests/service/fixtures/delivery (slice 9), which test_delivery.py::test_the_delivery_fixtures_are_the_python_builds_of_the_checks_inputs keeps current and ::test_the_delivery_fixtures_are_nodes_builds_of_the_checks_inputs checks against Node's builder"
 
 [sites."check-research-delivery-reader.mjs::uploaded metric and summary display values retain their original scalar types"]
-disposition = "NA"
-slice = 10
-note = "its fixture is built with Node buildResearchDelivery; use Python-built packages (slice 9)"
+disposition = "N"
+note = "reads the Python-built deliveries in tests/service/fixtures/delivery (slice 9), which test_delivery.py::test_the_delivery_fixtures_are_the_python_builds_of_the_checks_inputs keeps current and ::test_the_delivery_fixtures_are_nodes_builds_of_the_checks_inputs checks against Node's builder"
 
 # --- check-research-delivery.mjs --------------------------------------------------------------------------------------
 
 [sites."check-research-delivery.mjs::one research delivery retains exact snapshot bytes and every scientific number"]
-disposition = "pending"
-slice = 9
-module = "tests/service/test_delivery.py"
+disposition = "P"
+target = "tests/service/test_delivery.py::test_one_research_delivery_retains_exact_snapshot_bytes_and_every_scientific_number"
+note = "Node's builder on the same inputs in test_delivery_builds_equal_nodes"
 
 [sites."check-research-delivery.mjs::export refuses changed scientific text, missing entries and oversized delivery"]
-disposition = "pending"
-slice = 9
-module = "tests/service/test_delivery.py"
+disposition = "P"
+target = "tests/service/test_delivery.py::test_export_refuses_changed_scientific_text_missing_entries_and_oversized_delivery"
 
 [sites."check-research-delivery.mjs::identity substitution and duplicate project entries cannot pass delivery"]
-disposition = "pending"
-slice = 9
-module = "tests/service/test_delivery.py"
+disposition = "P"
+target = "tests/service/test_delivery.py::test_identity_substitution_and_duplicate_project_entries_cannot_pass_delivery"
 
 [sites."check-research-delivery.mjs::verification detects edits to payload, project annotations, host version and manifest"]
-disposition = "pending"
-slice = 9
-module = "tests/service/test_delivery.py"
+disposition = "P"
+target = "tests/service/test_delivery.py::test_verification_detects_edits_to_payload_project_annotations_host_version_and_manifest"
+note = "Node's verifier on changed deliveries in test_delivery_validation_equals_nodes"
 
 [sites."check-research-delivery.mjs::empty projects yield a valid readable handoff and retain saved workflow metadata"]
-disposition = "pending"
-slice = 9
-module = "tests/service/test_delivery.py"
+disposition = "P"
+target = "tests/service/test_delivery.py::test_empty_projects_yield_a_valid_readable_handoff_and_retain_saved_workflow_metadata"
 
 [sites."check-research-delivery.mjs::a recomputed checksum does not make contradictory record paths or headers valid"]
-disposition = "pending"
-slice = 9
-module = "tests/service/test_delivery.py"
+disposition = "P"
+target = "tests/service/test_delivery.py::test_a_recomputed_checksum_does_not_make_contradictory_record_paths_or_headers_valid"
 
 # --- check-response-compression.mjs -----------------------------------------------------------------------------------
 
@@ -2790,12 +2766,12 @@ note = "the browser holds the Python service's session cookie (EEG_SERVICE_RUNTI
 [scripts."check-coordinate-names-browser.mjs"]
 kind = "browser"
 slice = 9
-note = "with --cache-only (EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN, EEG_REPOSITORY_ROOT); its evaluation steps follow its project form, so it stops at its first project request until slice 9"
+note = "retargeted (EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN, EEG_REPOSITORY_ROOT; serve --cache-only); it needs the stored evaluation of the golden request under the root. Its first 2 checks pass, its project form among them; then it waits on both hosts for the link Open the saved coordinate evaluation, which design 0004 (03b5e88) replaced with 打开布局详情, so its project entries and snapshots are not reached"
 
 [scripts."check-coordinate-review-browser.mjs"]
 kind = "browser"
 slice = 9
-note = "the evaluation part with --cache-only from slice 5 (EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN, EEG_REPOSITORY_ROOT): its 11 checks before the project snapshot pass; that last check, which checks the stored record and the browser's diagnostics again after its writes, waits for slice 9"
+note = "retargeted in slices 5 and 9 (EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN, EEG_REPOSITORY_ROOT; serve --cache-only): its 12 checks pass on both hosts, the project snapshot among them; it needs the stored evaluation of the golden request under the root"
 
 [scripts."check-robustness-browser.mjs"]
 kind = "browser"
@@ -2805,12 +2781,12 @@ note = "retargeted in slice 8: the Python service through EEG_SERVICE_RUNTIME or
 [scripts."check-research-workflow-browser.mjs"]
 kind = "browser"
 slice = 9
-note = "--stage2 and --stage3"
+note = "--stage2 and --stage3, retargeted in slice 9 (EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN, EEG_REPOSITORY_ROOT; serve --cache-only), with EEG_SIGNAL_FIXTURE (a stored v2 signal result), EEG_SECOND_LAYOUT_ID, EEG_EDITOR_RECORD_KEY and the golden request's stored evaluation. Stage 2 passes its 8 checks on both hosts. Stage 3 passes 2 of 3 on both: the local delivery reader refuses its first upload (Invalid delivered record metadata), because summaryShape in webapp/features/projects/research-delivery-format.mjs does not accept the layout summary's simulation member, which both hosts write since b5242fe"
 
 [scripts."check-project-workflow-browser.mjs"]
 kind = "browser"
 slice = 9
-note = "without its two credential checks (R5)"
+note = "retargeted in slice 9 (EEG_SERVICE_RUNTIME or EEG_SERVICE_TOKEN, EEG_REPOSITORY_ROOT; serve --cache-only), with EEG_SIGNAL_FIXTURE (a stored v2 signal result whose layout it saves) and EEG_SECOND_LAYOUT_ID, and without its two credential checks (R5); its 9 checks, and 14 with --with-delivery, pass on both hosts"
 
 [scripts."check-productization-browser.mjs"]
 kind = "browser"

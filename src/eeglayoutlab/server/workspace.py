@@ -43,11 +43,13 @@ from ..schemas import jsjson
 
 __all__ = [
     'MARKER', 'STATE', 'WORKSPACE_SCHEMA', 'RUNTIME_SCHEMA', 'LOCAL_OWNER', 'WorkspaceError', 'WorkspaceInUse',
-    'UserContext', 'Workspace', 'is_workspace', 'read_runtime', 'open_url', 'write_open_page', 'user_data_dir',
-    'iso_now',
+    'UserContext', 'Workspace', 'is_workspace', 'inside', 'NODE_QUEUE_DIRECTORY', 'read_runtime', 'open_url',
+    'write_open_page', 'user_data_dir', 'iso_now',
 ]
 
 MARKER = 'eeglayoutlab-workspace.json'
+# The Node host's queue directory Q under the scientific root (its default), which the Python service never writes.
+NODE_QUEUE_DIRECTORY = 'results/web-service'
 STATE = '.eeglayoutlab'
 RUNTIME = 'runtime.json'
 OPEN_PAGE = 'open.html'
@@ -116,6 +118,28 @@ def iso_now() -> str:
 
 def is_workspace(path: str) -> bool:
     return os.path.isfile(os.path.join(path, MARKER))
+
+
+def inside(path: str, directory: str) -> bool:
+    """Whether ``path`` (existing or not) is the existing ``directory`` or inside it, compared by the device and
+    inode of ``path`` resolved through links and of each existing directory above it (so another spelling, on a
+    case-insensitive file system, counts too)."""
+    try:
+        info = os.stat(directory)
+    except OSError:
+        return False
+    current = os.path.realpath(path)
+    while True:
+        try:
+            found = os.stat(current)
+            if (found.st_dev, found.st_ino) == (info.st_dev, info.st_ino):
+                return True
+        except OSError:
+            pass
+        parent = os.path.dirname(current)
+        if parent == current:
+            return False
+        current = parent
 
 
 def _read_marker(path: str) -> dict[str, Any]:

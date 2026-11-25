@@ -2,6 +2,8 @@
 
 Projects use `research-project/1`. They store research annotations and immutable copies of validated scientific results independently of computation receipts. The existing scientific request schemas, cache identities and numerical result formats are unchanged.
 
+The Node host keeps projects under its queue directory, `<queue directory>/projects/`, behind the credentials described below. The Python service (`eeglayoutlab serve`) keeps them in its workspace, `<workspace>/projects/<id>/project.json` with the snapshots in `snapshots/`, for its one local user; the differences are listed under [Python service](#python-service).
+
 ## Access
 
 `POST /api/projects` accepts `{title, owner_name, notes?}` and returns `{project, role: "owner", access_key}`. The server generates the project UUID and a random 32-byte credential, encoded as 64 hexadecimal characters. Only its hash is stored on the server. There is no public project-list endpoint.
@@ -59,6 +61,19 @@ A coordinate design can carry `electrode_names` (64 unique ordered labels) and `
 Per-electrode labels and source declarations do not enter the scientific request or cache key. The legacy overall `design.name` field retains its original request/key semantics. Two label sets can therefore reference one scientific result while retaining separate immutable annotation IDs.
 
 A project entry may contain `annotation_id`. Its `research-project-snapshot/1` file then carries `electrode_annotation` beside `payload`. The original scientific payload remains unchanged. The outer snapshot checksum includes the annotation, so differently named copies have different snapshot checksums even when their scientific record ID is identical. Explicit annotation selection is required when reopening a named copy; an unrelated latest label set is not substituted.
+
+## Python service
+
+The Python service writes the same `research-project/1` and `research-project-snapshot/1` bytes, keeps the revisions, the size limits and the delivery bundle, and answers the endpoints above with the same statuses and messages, except:
+
+- No credential is stored or checked. A new project's `owner_key_hash` hashes a random key that is never stored, `viewer_key_hash` is `null`, and `POST /api/projects` still returns an `access_key`, which is not stored and opens nothing. `X-EEG-Project-Key` is accepted and ignored.
+- `GET /api/projects` lists the workspace's projects, most recently updated first: `{projects: [{id, title, owner_name, revision, created_at, updated_at, entry_count}]}`.
+- `POST /api/projects/:id/share` and `/revoke-share` answer `404` `Project endpoint not found.`.
+- A source attachment needs a completed signal task of the workspace.
+- Unused projects are not pruned, and the number of projects is not capped.
+- A delivery's `host` describes the Python service: `application_version` is the version in `pyproject.toml`, and `source_files` hash the service's project and delivery modules and `pyproject.toml`. An installed package has no `pyproject.toml`: its distribution's version is used, and `source_files` hash the four modules only. Its `manifest_sha256` therefore differs from a Node-built delivery of the same project; the scientific files and their checksums do not.
+
+`eeglayoutlab workspace import-legacy [WORKSPACE] [--root R] [--queue-directory Q] [--dry-run]` copies the projects, the robustness studies and the completed signal tasks of the Node host's queue directory (default `R/results/web-service`) into a workspace. It only reads the queue directory. Each project and study is checked as the Node host reads it, every snapshot against its checksum, and copied byte for byte with its identifier; a record the workspace already holds with the same bytes is reported as present, and one with other bytes is refused, keeping the workspace's copy. The signal tasks join the workspace's task list without their owners. The command prints what it imported, found and refused, and exits `1` when it refused something.
 
 ## Repeated studies
 

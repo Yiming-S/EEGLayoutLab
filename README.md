@@ -40,7 +40,7 @@ npm start
 
 Open [http://127.0.0.1:3000](http://127.0.0.1:3000) and keep the terminal running. For development, use `npm run dev` instead of the build and start commands.
 
-The Python service that will replace this Node host (`eeglayoutlab serve`) is being built slice by slice; keep using the Node host for real work until it is complete ([contributing](CONTRIBUTING.md)). The service also serves the documentation site under `/docs/` once it has been built with MkDocs ([building the documentation](CONTRIBUTING.md#building-the-documentation)); until then, documentation links open on GitHub.
+The Python service that will replace this Node host (`eeglayoutlab serve`) is being built slice by slice; keep using the Node host for real work until it is complete ([contributing](CONTRIBUTING.md)). The projects, robustness studies and signal records saved by the Node host can then be copied into a Python workspace with `eeglayoutlab workspace import-legacy`, which leaves the Node host's files unchanged. The service also serves the documentation site under `/docs/` once it has been built with MkDocs ([building the documentation](CONTRIBUTING.md#building-the-documentation)); until then, documentation links open on GitHub.
 
 ## Model data
 

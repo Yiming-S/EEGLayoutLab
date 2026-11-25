@@ -4,16 +4,20 @@ import { join } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { translateText } from '../../lib/i18n/core.ts';
 
-/** Stage 2 shares the runner's real Chrome, safety routing and diagnostic report. */
+/**
+ * Stage 2 shares the runner's real Chrome, safety routing and diagnostic report. The cached signal result is
+ * EEG_SIGNAL_FIXTURE (default the root's bank signal result) and the other completed layout EEG_SECOND_LAYOUT_ID
+ * (default the installation's 1c23da5c...).
+ */
 export async function runProjectAssociationChecks({ root, base, check, newContext, read, button, screenshot, requests, keepSecret, setPage }) {
-  const fixture = JSON.parse(await readFile(join(root, 'artifacts/performance-optimizations/2026-11-13/bank-signal-result.json'), 'utf8'));
+  const fixture = JSON.parse(await readFile(process.env.EEG_SIGNAL_FIXTURE || join(root, 'artifacts/performance-optimizations/2026-11-13/bank-signal-result.json'), 'utf8'));
   const golden = JSON.parse(await readFile(join(root, 'artifacts/productization/2026-11-13/scientific-baseline/design-request.json'), 'utf8'));
   const english = await newContext('en'), { context, state } = english;
   let page = await context.newPage(); setPage(page);
   let project, accessKey, signalReceipt, aliases, referenceEntry, candidateEntry, aliasEntries, signalEntry;
   const t = (value, locale = 'en') => translateText(value, locale);
   const escape = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const sourceId = fixture.request.record_id, otherId = '1c23da5c1dae629610c0f2a39fe7b48d8c0fba86d41c1c77276f2b90a937b0f4';
+  const sourceId = fixture.request.record_id, otherId = process.env.EEG_SECOND_LAYOUT_ID || '1c23da5c1dae629610c0f2a39fe7b48d8c0fba86d41c1c77276f2b90a937b0f4';
   const snapshots = new Map(), originalRecords = new Map();
   async function lookup(path, body) {
     assert.ok(['/api/source-reception/lookup', '/api/design-evaluation/lookup'].includes(path));

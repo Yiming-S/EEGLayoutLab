@@ -1,11 +1,13 @@
 """``eeglayoutlab serve [WORKSPACE] [--root R] [--port N] [--static DIR] [--docs DIR] [--no-browser] [--cache-only]
-[--clear-interrupted]``, and ``eeglayoutlab data`` (data packages, ``eeglayoutlab.data.cli``).
+[--clear-interrupted]``, ``eeglayoutlab workspace import-legacy [WORKSPACE] [--root R] [--queue-directory Q]
+[--dry-run]`` (``server.legacy_import``) and ``eeglayoutlab data`` (data packages, ``eeglayoutlab.data.cli``).
 
 Starts the local service for one workspace (design 0001, decision 6):
 
 - **Workspace** (decision U3): the given directory, created when missing; without one, the current directory
   when it is a workspace, when it is empty, or when the person confirms on a terminal. Without a terminal a new
-  workspace needs an explicit path.
+  workspace needs an explicit path. The Node host's queue directory ``R/results/web-service``, or a directory inside
+  it, is refused (exit 2): the Python service never writes there.
 - **Root**: ``--root``, else ``EEG_REPOSITORY_ROOT``, else this checkout, spelled as Node spells it
   (``jobs.runtime.repository_root``). The static interface defaults to ``R/webapp/dist/client`` and the
   documentation site, served under ``/docs/``, to ``R/site`` (what ``mkdocs build`` writes).
@@ -36,6 +38,12 @@ built is applied as soon as they are, so nothing is dispatched. Every signal rea
 takes a repeated SIGINT (Ctrl+C twice) as a forced exit that skips the lifespan's shutdown; that shutdown waits for
 the worker and writes its records (``ComputeHost.close``). ``serve`` exits 1 when that last write of the queue fails,
 as Node's host does.
+
+``workspace import-legacy`` copies the Node host's research projects, robustness studies and completed signal records
+from its queue directory (``--queue-directory``, default ``R/results/web-service``), which it never writes, into the
+workspace, chosen as ``serve`` chooses it. It holds the workspace lock, so a served workspace is refused (stop the
+service first). It prints what it imported and refused, and exits 0 when nothing was refused, 1 otherwise, 2 for a
+usage error.
 """
 from __future__ import annotations
 
@@ -56,7 +64,9 @@ import webbrowser
 from ..data import cli as data_cli
 from ..jobs import nodepath
 from ..jobs.runtime import repository_root
-from ..server.workspace import Workspace, WorkspaceError, WorkspaceInUse, is_workspace, open_url, write_open_page
+from ..server.workspace import (
+    NODE_QUEUE_DIRECTORY, Workspace, WorkspaceError, WorkspaceInUse, inside, is_workspace, open_url, write_open_page,
+)
 
 __all__ = ['main', 'choose_workspace']
 
@@ -92,21 +102,34 @@ def _parser() -> argparse.ArgumentParser:
     serve.add_argument('--clear-interrupted', action='store_true',
                        help='dispatch again after an interrupted run whose worker may not have started or may still '
                             'run; use only once no worker of that run is still computing')
+    workspace = commands.add_parser('workspace', help='manage a workspace', description='Manage a workspace.')
+    actions = workspace.add_subparsers(dest='action', required=True, metavar='ACTION')
+    legacy = actions.add_parser(
+        'import-legacy', help="copy the Node host's projects, studies and signal records into a workspace",
+        description="Copy the Node host's research projects, robustness studies and completed signal records from its "
+                    'queue directory into a workspace. The queue directory is only read.')
+    legacy.add_argument('workspace', nargs='?', metavar='WORKSPACE',
+                        help='workspace directory (default: the current directory)')
+    legacy.add_argument('--root', metavar='R',
+                        help='scientific root (default: EEG_REPOSITORY_ROOT, else this checkout)')
+    legacy.add_argument('--queue-directory', metavar='Q',
+                        help="the Node host's queue directory (default: R/results/web-service)")
+    legacy.add_argument('--dry-run', action='store_true', help='report what would be imported; write nothing')
     data_cli.add_commands(commands)
     return parser
 
 
 def choose_workspace(argument: Optional[str], cwd: str, interactive: bool,
-                     ask: Callable[[str], str]) -> Optional[str]:
+                     ask: Callable[[str], str], command: str = 'serve') -> Optional[str]:
     """The workspace directory (decision U3), or ``None`` when the person declines; ``WorkspaceError`` when a
-    path is needed but none was given."""
+    path is needed but none was given (the message names ``command``)."""
     if argument:
         return os.path.abspath(argument)
     if is_workspace(cwd):
         return cwd
     if not interactive:
         raise WorkspaceError(f'{cwd} is not an EEG Layout Lab workspace. Give the workspace directory: '
-                             f'{PROGRAM} serve <directory>')
+                             f'{PROGRAM} {command} <directory>')
     with os.scandir(cwd) as entries:
         empty = next(entries, None) is None
     if empty:
@@ -298,6 +321,11 @@ def serve(args: argparse.Namespace) -> int:
         path = None
     if path is None:
         return _fail('no workspace chosen.')
+    queue = nodepath.join(root, NODE_QUEUE_DIRECTORY)
+    if inside(path, queue):
+        return _fail(f"the workspace {path} is the Node host's queue directory {queue} or inside it, which the "
+                     'service never writes. Choose a workspace elsewhere; eeglayoutlab workspace import-legacy copies '
+                     'what the Node host saved there into a workspace.', 2)
     try:
         workspace = Workspace.open(path)
     except WorkspaceInUse as running:
@@ -318,11 +346,51 @@ def serve(args: argparse.Namespace) -> int:
         workspace.close()
 
 
+def import_legacy(args: argparse.Namespace) -> int:
+    if importlib.util.find_spec('pydantic') is None:
+        return _fail("the import needs pydantic; install the service extra: pip install -e '.[service]'", 2)
+    from ..server import legacy_import
+
+    try:
+        root: Optional[str] = repository_root(nodepath.resolve(args.root) if args.root else None)
+    except ValueError as error:
+        if args.root or not args.queue_directory:
+            return _fail(str(error), 2)
+        root = None  # the queue directory is given; the root only says which records have a stored result
+    if args.queue_directory:
+        queue = nodepath.resolve(args.queue_directory)
+    else:
+        assert root is not None
+        queue = legacy_import.default_queue_directory(root)
+    interactive = sys.stdin is not None and sys.stdin.isatty()
+    try:
+        path = choose_workspace(args.workspace, os.getcwd(), interactive, input, 'workspace import-legacy')
+    except WorkspaceError as error:
+        return _fail(str(error), 2)
+    except (EOFError, KeyboardInterrupt):
+        path = None
+    if path is None:
+        return _fail('no workspace chosen.')
+    try:
+        report = legacy_import.import_legacy(path, queue, root=root, dry_run=args.dry_run)
+    except legacy_import.LegacyImportError as error:
+        return _fail(str(error), 2)
+    except WorkspaceInUse:
+        return _fail(f'{path} is in use by a running service (or another import). Stop it, then run the command '
+                     'again.')
+    except WorkspaceError as error:
+        return _fail(str(error))
+    print(legacy_import.describe(report), flush=True)
+    return 0 if legacy_import.succeeded(report) else 1
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     args = _parser().parse_args(argv)
     logging.basicConfig(level=logging.WARNING, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
     if args.command == 'serve':
         return serve(args)
+    if args.command == 'workspace':
+        return import_legacy(args)
     if args.command == 'data':
         return data_cli.run(args)
     return _fail(f'unknown command {args.command}', 2)

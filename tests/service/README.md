@@ -609,6 +609,103 @@ Slice 8 adds the robustness studies: their request format (`schemas.robustness_s
     the same requests, and Node's `normalizeDesignRequest` the same text (`parity/robustness_requests.mjs`, usage:
     `node tests/service/parity/robustness_requests.mjs <out.json>`).
 
+## Research projects, deliveries and legacy import
+
+Slice 9 adds the research projects: their request formats (`schemas.projects`), the store and service
+(`server.workspace_projects`), the deliveries (`server.delivery`), the routes (`server.routes.projects`) and the
+legacy import (`server.legacy_import`, `eeglayoutlab workspace import-legacy`). A project is stored in
+`W/projects/<id>/`, never under R or Q; the import only reads Q. Everything that computes or writes runs on synthetic
+roots, workspaces and queue directories in `tmp_path`; the Node references write only under their scratch
+directories.
+
+- `test_project_request.py`: the five normalizers (`project-create`, `project-patch`, `project-entry`,
+  `project-entry-patch`, `project-entry-delete`) give Node's value or Node's exact message and status (409 for
+  a layout entry whose `annotation_id` is not a string but converts to a digest, else 400) for every variant of
+  their corpora (`tests/schema_parity/formats/project-*.mjs`, 998 variants, 302 accepted), which run Node's own
+  `ProjectService` body and attachment checks and `ProjectStore` field checks (`project-validation.mjs`;
+  `generate.mjs` awaits a normalizer's promise). The variants reach every message, the input is never changed, and
+  Python values (`int`, tuples, `bool`, `UNDEFINED` members) are read as their JavaScript counterparts.
+- `projects_support.py`: `run_driver(mode, cases, scratch)` runs `parity/projects.mjs`; `python_store`,
+  `python_service` and `python_read` run the same cases on `workspace_projects` with the same clock, identifiers
+  and, for a new project's `owner_key_hash`, Node's key of the same create, so both write the same bytes.
+  `Fixtures` gives the results the cases attach: snapshots of each kind, library records and their bundles, editor
+  caches Node's checks accept, source receipts and saved results, and electrode-name annotations.
+- `test_projects.py`:
+  - Ports: the 12 sites of check-project-store.mjs but the read-only sharing (R5), the service halves of
+    check-project-api.mjs, check-project-workflow.mjs:96 (a layout summary's `simulation`) and the project halves of
+    check-coordinate-review.mjs:139 and :161. Adapted to one local user: no credential is stored or needed, the
+    restart reads a project without a key, and `share` and `revoke-share` are not endpoints.
+  - Then what Python adds: the list (most recently updated first), no pruning and no count caps, ISO-only times,
+    Node's `publicProject`, the middleware's methods, paths, content types and body bounds (65,536 and 65,537 bytes,
+    multi-byte text among them), and building the service without loading a library module.
+  - `parity/projects.mjs` runs Node's own `projects/` code (its header documents each mode), with `randomUUID`,
+    `randomBytes` and the clock pinned:
+    - `store`: `ProjectStore` on cases of lifecycle, refusals, bounds, files changed between steps (links, hard
+      links, stray entries, temporaries, modes, renames), concurrent calls, a 16 MiB snapshot and the save's own
+      path checks (`resave`). Values, refusals (status, message, code, whether the call threw) and the resulting
+      trees (names, types, modes, bytes) must be equal.
+    - `service`: Node's middleware on a flow of about 100 requests with stand-in records: every status, body and
+      header.
+    - `read`: 77 crafted metadata variants and 17 snapshot rows read as Node's `validateRecord` and snapshot read
+      read them; and 500 comparison links through Node's workflow check.
+    - A queue directory whose projects Node wrote reads back unchanged, and Python continues them with Node's bytes.
+      On a real installation (`data_bundle`), the projects of its Q read as Node reads them (it skips while Q has
+      none).
+- `test_delivery.py` (`server.delivery`):
+  - Ports: the 6 sites of check-research-delivery.mjs and the 4 of check-project-delivery.mjs (the owner's export;
+    viewer and revoked access are R5).
+  - `parity/delivery.mjs` runs Node's `delivery/` code: `build` (`buildResearchDelivery` on about 1,730 inputs,
+    boundary cases of the 32 MiB bound among them: the bundle's JSON text and the input after the call, or the
+    refusal), `validate` (`validateResearchDelivery` on 2,004 deliveries), `search` (1,549 comparison links through
+    `new URL(...).searchParams`), `versions` (`runtimeLockPath` and `deliveryVersions` on synthetic roots) and
+    `fixtures`.
+  - `fixtures/delivery/` holds the 5 deliveries that the 7 delivery builds of check-research-delivery-reader.mjs
+    (`reader.json`, `reader-named.json`, `reader-legacy.json`) and check-delivery-upload-contract.mjs
+    (`upload-source-reception-1.json`, `-2.json`) became. They must be the Python builds of those checks' original
+    inputs, and byte-equal to Node's builds of the same inputs; the upload check's 12 hash-valid mutations of a
+    fixture equal Node's builds of the mutated results.
+    `PYTHONPATH=src:tests python -m tests.service.test_delivery` writes them again.
+  - Then what Python adds: the wire text and the bound as `JSON.stringify` counts them, the documented time and link
+    readings, the default export time, and the build off the event loop.
+- `test_project_routes.py` (`server.routes.projects`, the lifespan): the application with its lifespan over HTTP on a
+  root with stored layouts, an electrode edit, signal results and electrode-name annotations
+  (`compute_support.project_compute_root`). A project holds every kind of result and exports their snapshot bytes;
+  two name variants of one evaluation keep their names in the snapshots and the delivery once the workspace's
+  annotations are gone (the project half of check-electrode-annotations.mjs:148); the export is an uncached
+  attachment within the delivery bound; the list, the key that is ignored, the token, a loopback origin and the
+  session on every request; sharing that is no endpoint; signal attachments that refuse foreign, running or client
+  results; 404 until the lifespan has started; a restart; and shutdown in Node's dispose order (the project store
+  closes after the studies stop, later writes get 503 and reads still answer, and an accepted write is awaited before
+  the queue's last write, also after `stop_soon`: check-product-operations-integration.mjs:113 without its log).
+  - `parity/compute_routes.mjs` runs the 70 steps of `compute_support.project_steps` on Node's composed service. The
+    answers (ids numbered, also inside `Content-Disposition`; the README digest, `source_files` and
+    `manifest_sha256` masked after each file's SHA-256 is checked against its content), the design and reception
+    trees and the project trees (Node's `Q/projects`, ours `W/projects`) must be equal, but for the deliberate
+    differences of `compute_support.project_differences` (the list, sharing).
+- `test_legacy_import.py` (`server.legacy_import` and the command):
+  - `legacy_support.build_q(base)` has Node's own stores write a synthetic Q: projects through `parity/projects.mjs`
+    (a project with every kind of entry, a name annotation, comparison settings and a detached snapshot; an empty
+    one; a hand-written one with Node's `viewer_key_hash` and `creator_network`), studies through
+    `parity/studies.mjs`, and `queue.json` through `parity/legacy_queue.mjs` `build` (Node's `CommunityQueue` with
+    stub adapters: three visitors and receipts of every kind and status). Every import of the module, the
+    command's too, compares `digest_tree` of the queue directory it reads before and after, whatever it returns or
+    raises (`q_is_never_written`); the main import runs on a Q without write permission.
+  - Node-written records are copied byte for byte, and read in Python as Node reads the originals: Node's project
+    and study reads on Q equal Node's and Python's on W, and Node's `records()` (`parity/legacy_queue.mjs`
+    `records`) for one owner of every receipt equals the workspace queue's. Python continues imported projects,
+    studies and records.
+  - Refusals with Node's messages: projects and studies Node refuses to read, a missing or altered study snapshot,
+    links (never followed), detached snapshots Node would refuse, the studies' total bound, a queue file Node's
+    constructor refuses, malformed receipts. Other kinds, unfinished receipts and older duplicates are counted and
+    not imported; receipts join the workspace queue in creation order under its retention.
+  - The workspace side: collisions keep W's copy, a re-run finds everything present and changes nothing, a re-run
+    after Node's own store changed and added projects in Q imports the new one and refuses the changed one, a served
+    workspace and nested directories are refused, `serve` refuses Q or a directory inside it as its workspace, a dry
+    run writes nothing and, through a linked workspace path, reports what the import does, a Node host still serving
+    Q is named, and a failed publish, a crash while staging and a failed queue write leave whole records and the old
+    queue, which a second run completes. The command's report and exit codes.
+  - On a real installation (`data_bundle`), a copy of its `queue.json` in `tmp_path` imports as Node lists it.
+
 ## Node test map
 
 Exit criterion 3 is that every Node test is ported or mapped. `node_tests.toml` has one entry per `test(` /

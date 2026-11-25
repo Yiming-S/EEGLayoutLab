@@ -5,9 +5,18 @@ import { resolve, relative, join } from 'node:path';
 import { chromium } from 'playwright';
 import { createHash } from 'node:crypto';
 import { translateText } from '../lib/i18n/core.ts';
+import { openServiceSession, playwrightCookies } from './helpers/service-session.mjs';
 
-const root = resolve(import.meta.dirname, '../..');
-const base = process.env.EEG_TEST_URL;
+// EEG_REPOSITORY_ROOT is the root the server serves (default this checkout); the evidence goes below its artifacts and
+// EEG_SIGNAL_FIXTURE defaults to its cached signal result. The server is the Node host at EEG_TEST_URL, or the Python
+// service (eeglayoutlab serve --cache-only): with EEG_SERVICE_RUNTIME (its <workspace>/.eeglayoutlab/runtime.json) or
+// EEG_SERVICE_TOKEN and EEG_TEST_URL, every browser holds its session cookie. EEG_SECOND_LAYOUT_ID is the completed
+// layout saved beside the signal's parent (default the installation's 1c23da5c...). Read-only sharing links are not
+// checked: the service has none (one local user), and the project key is a credential of the Node host only.
+const root = resolve(process.env.EEG_REPOSITORY_ROOT || resolve(import.meta.dirname, '../..'));
+const service = process.env.EEG_SERVICE_RUNTIME || process.env.EEG_SERVICE_TOKEN
+  ? await openServiceSession({ base: process.env.EEG_TEST_URL }) : null;
+const base = service?.base || process.env.EEG_TEST_URL;
 assert.ok(base, 'Set EEG_TEST_URL to the isolated verification server.');
 const origin = new URL(base);
 assert.ok(origin.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(origin.hostname) && origin.port && origin.port !== '3000');
@@ -17,10 +26,12 @@ const output = process.env.EEG_QA_OUTPUT || join(root, 'artifacts/productization
 assert.ok(relative(root, output).startsWith('artifacts/'), 'Keep verification evidence inside the project artifacts directory.');
 await mkdir(output, { recursive: true, mode: 0o700 });
 const fixture = JSON.parse(await readFile(process.env.EEG_SIGNAL_FIXTURE || join(root, 'artifacts/performance-optimizations/2026-11-13/bank-signal-result.json'), 'utf8'));
-const layoutIds = [fixture.request.record_id, '1c23da5c1dae629610c0f2a39fe7b48d8c0fba86d41c1c77276f2b90a937b0f4'];
+const layoutIds = [fixture.request.record_id, process.env.EEG_SECOND_LAYOUT_ID || '1c23da5c1dae629610c0f2a39fe7b48d8c0fba86d41c1c77276f2b90a937b0f4'];
 assert.ok(layoutIds.every(id => /^[a-f0-9]{64}$/.test(id)) && layoutIds[0] !== layoutIds[1]);
 const observations = [], requests = [], pageErrors = [], consoleErrors = [], httpFailures = [], requestFailures = [], blockedDependencies = [], secrets = [];
-let browser, ownerContext, ownerPage, viewerContext, viewerPage, chineseContext, chinesePage, project, ownerKey, viewerKey, sourceEntry, signalHref, failure;
+// The session cookie and the CSRF token never reach the report.
+if (service) secrets.push(service.cookie.slice(service.cookie.indexOf('=') + 1), service.csrf);
+let browser, ownerContext, ownerPage, chineseContext, chinesePage, project, ownerKey, sourceEntry, signalHref, failure;
 const t = (text, locale = 'en') => translateText(text, locale);
 const decoded = value => { let text = value; for (let i = 0; i < 3; i++) { try { const next = decodeURIComponent(text); if (next === text) break; text = next; } catch { break; } } return text; };
 const redact = value => secrets.reduce((text, secret) => text.replaceAll(secret, '[credential]'), value);
@@ -33,7 +44,7 @@ async function check(name, work) {
 }
 async function context(locale) {
   const result = await browser.newContext({ viewport: { width: 1440, height: 1100 } });
-  await result.addCookies([{ name: 'eeg-layout-language', value: locale, url: base }]);
+  await result.addCookies([{ name: 'eeg-layout-language', value: locale, url: base }, ...(service ? playwrightCookies(service) : [])]);
   // A regression must never dispatch an unexpected scientific job.
   await result.route('**/api/**/jobs', route => route.request().method() === 'POST' ? route.abort('blockedbyclient') : route.continue());
   result.on('request', request => {
@@ -212,29 +223,6 @@ try {
     return { independent_of_original_task: true, download_matches_full_fixture: true, selected_channels: [1, 2], original_source_requests: blockedDependencies.length };
   });
 
-  await check('Read-only sharing survives documentation navigation without exposing owner or viewer credentials in URLs', async () => {
-    await openProject(ownerPage);
-    const details = await openDetails(ownerPage, '项目说明、凭据与分享');
-    const shared = await mutation(ownerPage, `/api/projects/${project.id}/share`, 'POST', () => button(ownerPage, '生成新的只读链接').click());
-    project = shared.project; viewerKey = shared.access_key; secrets.push(viewerKey);
-    const link = await label(ownerPage, '只读分享链接').inputValue();
-    assert.equal(new URLSearchParams(new URL(link).hash.slice(1)).get('access'), viewerKey);
-    await details.locator('summary').first().click();
-    viewerContext = await context('en'); const page = viewerPage = await viewerContext.newPage();
-    await page.goto(link, { waitUntil: 'domcontentloaded' });
-    await page.getByRole('heading', { name: project.title, exact: true }).waitFor();
-    await page.waitForFunction(() => location.hash === '');
-    assert.equal(await button(page, '保存研究任务选择').count(), 0);
-    assert.equal(await button(page, '生成新的只读链接').count(), 0);
-    await assertNoCredentialLinks(page);
-    await page.getByRole('link', { name: t('文档'), exact: true }).click();
-    await page.waitForURL(url => url.pathname === '/guide');
-    await assertNoCredentialLinks(page);
-    assert.ok(secrets.every(secret => !decoded(page.url()).includes(secret)), 'A project credential appeared in the documentation URL.');
-    assert.ok(requests.every(request => secrets.every(secret => !decoded(request.query).includes(secret))), 'A project credential appeared in a network query.');
-    return { readonly: true, credentials_in_navigation_or_queries: false };
-  });
-
   await check('A fresh Chinese browser restores owner access and opens the saved signal without the original receipt', async () => {
     chineseContext = await context('zh-CN'); const page = chinesePage = await chineseContext.newPage();
     await page.goto(`${base}/projects`, { waitUntil: 'domcontentloaded' });
@@ -282,17 +270,6 @@ try {
       assert.equal(readme, ownerDelivery.files.find(file => file.path === 'README.md').content);
       assert.equal(requests.filter(request => request.path === `/api/projects/${project.id}/export`).length, before);
       return { shared_download_cache: true, readme_bytes: Buffer.byteLength(readme) };
-    });
-
-    await check('A read-only collaborator can download the same scientific copies without credentials in the package', async () => {
-      await viewerPage.goto(`${base}/projects?project=${project.id}`, { waitUntil: 'domcontentloaded' });
-      await viewerPage.getByRole('heading', { name: project.title, exact: true }).waitFor();
-      const viewerDelivery = JSON.parse(await downloadDelivery(viewerPage, 'viewer-research-delivery.json'));
-      const checked = verifyDelivery(viewerDelivery);
-      for (const file of ownerDelivery.files.filter(file => file.path.startsWith('records/')))
-        assert.equal(viewerDelivery.files.find(candidate => candidate.path === file.path).content, file.content);
-      await assertNoCredentialLinks(viewerPage);
-      return { ...checked, read_only_export_allowed: true, same_scientific_bytes: true };
     });
 
     await check('The Chinese project page downloads an equivalent delivery package', async () => {
