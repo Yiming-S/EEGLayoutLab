@@ -40,6 +40,32 @@ def archive_size(manifest: Manifest) -> int:
     return -(-size // tarfile.RECORDSIZE) * tarfile.RECORDSIZE
 
 
+class _HashSink:
+    """File-like write sink that counts and hashes tar bytes in memory without touching disk."""
+
+    def __init__(self) -> None:
+        self.digest = hashlib.sha256()
+        self.size = 0
+
+    def write(self, data: bytes) -> int:
+        self.digest.update(data)
+        self.size += len(data)
+        return len(data)
+
+
+def archive_digest(root: pathlib.Path, manifest: Manifest,
+                   progress: Optional[Progress] = None) -> tuple[int, str]:
+    """Computes the exact ``(size, sha256)`` of ``write_archive(root, manifest, ...)`` without writing an archive."""
+    sink = _HashSink()
+    with tarfile.open(fileobj=sink, mode='w|', format=tarfile.PAX_FORMAT, encoding=ENCODING) as tar:  # type: ignore[call-overload]
+        for entry in manifest.files:
+            with (root / entry.path).open('rb') as stream:
+                checked = _CheckedReader(stream, entry.path, entry.size, entry.sha256, progress)
+                tar.addfile(_member(entry), checked)
+                checked.finish()
+    return sink.size, sink.digest.hexdigest()
+
+
 def write_archive(root: pathlib.Path, manifest: Manifest, out: pathlib.Path,
                   progress: Optional[Progress] = None) -> tuple[int, str]:
     """Writes the archive of ``manifest``'s files from ``root`` to ``out``; returns its size and SHA-256. Each file

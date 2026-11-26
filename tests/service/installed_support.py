@@ -53,7 +53,7 @@ DISTRIBUTION = 'compact-eeg'
 
 # build.sh, step 3: the checkout's files at their relative paths.
 ROOT_TREES = ('src/compact_eeg', 'scripts', 'configs', 'examples')
-DATA_FILES = ('data/manifest.json', 'data/SOURCES.md', 'data/README.md')
+DATA_FILES = ('data/manifest.json', 'data/packages.json', 'data/SOURCES.md', 'data/README.md')
 # The worker inputs in the interface tree (0002, "What R holds today").
 WORKER_INPUTS = ('webapp/public/models/ernie/source-roi.json', 'webapp/public/models/ernie/source-roi-definition.json',
                  'webapp/public/data/ernie-mni-mapping.json', 'webapp/public/data/single_head_optimization.json')

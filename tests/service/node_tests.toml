@@ -161,20 +161,20 @@ note = "spawns webapp/scripts/eeglayoutlab.mjs, which stays until the Python com
 # --- check-cli.mjs ----------------------------------------------------------------------------------------------------
 
 [sites."check-cli.mjs::design builds the same design from a name list, its BIDS export and a search run"]
-disposition = "CLI"
-note = "spawns webapp/scripts/eeglayoutlab.mjs, which stays until the Python command line (phase 3, U5)"
+disposition = "P"
+target = "tests/cli/test_design_export.py::test_design_builds_the_same_design_from_a_name_list_its_bids_export_and_a_search_run"
 
 [sites."check-cli.mjs::export writes MNE, EEGLAB and SVG files and hides crowded names unless asked"]
-disposition = "CLI"
-note = "spawns webapp/scripts/eeglayoutlab.mjs, which stays until the Python command line (phase 3, U5)"
+disposition = "P"
+target = "tests/cli/test_layout_figure.py::test_export_writes_mne_eeglab_and_svg_files_and_hides_crowded_names_unless_asked"
 
 [sites."check-cli.mjs::design reads .elc and .sfp montages and assigns regions on request"]
-disposition = "CLI"
-note = "spawns webapp/scripts/eeglayoutlab.mjs, which stays until the Python command line (phase 3, U5)"
+disposition = "P"
+target = "tests/cli/test_design_export.py::test_design_reads_elc_and_sfp_montages_and_assigns_regions_on_request"
 
 [sites."check-cli.mjs::the command line rejects incomplete commands before starting a calculation"]
-disposition = "CLI"
-note = "spawns webapp/scripts/eeglayoutlab.mjs, which stays until the Python command line (phase 3, U5)"
+disposition = "P"
+target = "tests/cli/test_design_export.py::test_the_command_line_rejects_incomplete_commands_before_starting_a_calculation"
 
 # --- check-community-queue.mjs ----------------------------------------------------------------------------------------
 

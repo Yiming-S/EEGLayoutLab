@@ -419,3 +419,184 @@ def test_compose_refuses_a_read_only_root_and_writes_nothing(science: Path, tmp_
     assert result.stderr.startswith(f'eeglayoutlab data: {os.path.realpath(prefix.root)} is not writable. The '
                                     'installed application ') and 'create a user environment' in result.stderr
     assert tree_state(prefix.root) == before
+
+
+# --- Release index & install by name (phase 3 slice 8) -------------------------------------------------------------
+
+
+def _build_mirror(science: Path, out: Path) -> Path:
+    names = ('base', 'scalp-node-table', 'scalp-node-table-skull_x2', 'head-ernie_xh', 'head-ixi002')
+    argv = ['data', 'build', '--root', str(science), '--out', str(out), '--url-base', out.as_uri()]
+    for name in names:
+        argv += ['--archive', name]
+    assert data_cli.main(argv) == 0
+    return out
+
+
+def test_archive_digest_matches_write_archive_and_build_writes_packages_json(science: Path, tmp_path: Path) -> None:
+    from eeglayoutlab.data.archive import archive_digest
+    from eeglayoutlab.data.index import load_index
+
+    manifest = _by_name(science, only={'base'})['base'].manifest
+    streamed = archive_digest(science, manifest)
+    written = write_archive(science, manifest, tmp_path / 'base.tar')
+    assert streamed == written
+
+    digest_out = tmp_path / 'digest-only'
+    assert data_cli.main(['data', 'build', '--root', str(science), '--out', str(digest_out), '--digest-archives']) == 0
+    assert not list(digest_out.glob('*.tar'))
+    built_manifest = loads((digest_out / 'base-1.0.0.json').read_text())
+    assert built_manifest.archive == {'name': 'base-1.0.0.tar', 'size': written[0], 'sha256': written[1]}
+    pkg_index = load_index(digest_out / 'packages.json')
+    assert set(pkg_index.by_name) == {
+        'base', 'scalp-node-table', 'scalp-node-table-skull_x2', 'head-ernie_xh', 'head-ixi002',
+    }
+    assert pkg_index.by_name['base'].manifest_sha256 == hashlib.sha256(
+        (digest_out / 'base-1.0.0.json').read_bytes()
+    ).hexdigest()
+
+
+def test_install_by_name_resolves_dependencies_verifies_index_and_base_and_supports_legacy_form(
+    science: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    mirror = _build_mirror(science, tmp_path / 'mirror')
+    root = _checkout(tmp_path)
+    (root / 'src/compact_eeg').mkdir(parents=True)
+    _write(root, 'data/manifest.json', (science / 'data/manifest.json').read_bytes())
+    _write(root, 'data/packages.json', (mirror / 'packages.json').read_bytes())
+
+    # Default set (no package names): installs base + scalp-node-table; does NOT auto-compose in a checkout.
+    store_default = tmp_path / 'store-default'
+    assert data_cli.main(['data', '--data-dir', str(store_default), 'install', '--root', str(root)]) == 0
+    assert {item.manifest.name for item in Store(store_default).installed()} == {'base', 'scalp-node-table'}
+    assert not (root / 'results/v2').exists()
+    capsys.readouterr()
+
+    # Transitive dependency resolution via --from directory mirror: scalp-node-table-skull_x2 pulls base + nominal.
+    store_dep = tmp_path / 'store-dep'
+    assert data_cli.main([
+        'data', '--data-dir', str(store_dep), 'install', 'scalp-node-table-skull_x2',
+        '--root', str(root), '--from', str(mirror),
+    ]) == 0
+    assert [item.manifest.name for item in Store(store_dep).installed()] == [
+        'base', 'scalp-node-table', 'scalp-node-table-skull_x2',
+    ]
+    assert all(not problems for problems in Store(store_dep).verify().values())
+    capsys.readouterr()
+
+    # Unknown package name exits 1 cleanly.
+    assert data_cli.main(['data', '--data-dir', str(store_dep), 'install', 'no-such-pkg', '--root', str(root)]) == 1
+    assert 'unknown data package: no-such-pkg' in capsys.readouterr().err
+
+    # Tampered manifest SHA-256 is refused against data/packages.json.
+    tampered_mirror = tmp_path / 'tampered-mirror'
+    tampered_mirror.mkdir()
+    for item in mirror.iterdir():
+        if item.is_file():
+            (tampered_mirror / item.name).write_bytes(item.read_bytes())
+    (tampered_mirror / 'head-ixi002-1.0.0.json').write_text(
+        (mirror / 'head-ixi002-1.0.0.json').read_text() + '\n'
+    )
+    assert data_cli.main([
+        'data', '--data-dir', str(store_dep), 'install', 'head-ixi002',
+        '--root', str(root), '--from', str(tampered_mirror),
+    ]) == 1
+    assert 'differs from data/packages.json' in capsys.readouterr().err
+    assert Store(store_dep).find('head-ixi002') is None
+
+    # Mismatched R/data/manifest.json refuses base installation before extracting.
+    bad_root = _checkout(tmp_path / 'bad-root')
+    (bad_root / 'src/compact_eeg').mkdir(parents=True)
+    bad_bundle = json.loads((science / 'data/manifest.json').read_text())
+    bad_bundle['files'][0]['sha256'] = 'f' * 64
+    _write(bad_root, 'data/manifest.json', json.dumps(bad_bundle).encode())
+    _write(bad_root, 'data/packages.json', (mirror / 'packages.json').read_bytes())
+    store_bad = tmp_path / 'store-bad'
+    assert data_cli.main(['data', '--data-dir', str(store_bad), 'install', 'base', '--root', str(bad_root)]) == 1
+    assert 'do not match' in capsys.readouterr().err
+    assert Store(store_bad).installed() == []
+
+    # Legacy single-manifest path and file:// URL still work unchanged.
+    store_legacy = tmp_path / 'store-legacy'
+    assert data_cli.main([
+        'data', '--data-dir', str(store_legacy), 'install', str(mirror / 'head-ernie_xh-1.0.0.json'),
+    ]) == 0
+    assert Store(store_legacy).find('head-ernie_xh') is not None
+
+
+def test_install_in_installed_form_composes_automatically_unless_no_compose(science: Path, tmp_path: Path) -> None:
+    mirror = _build_mirror(science, tmp_path / 'mirror')
+
+    # Automatic compose into R when running in the installed form (0002; U19).
+    prefix = fake_prefix(tmp_path / 'P', public=())
+    (prefix.root / 'data/manifest.json').write_bytes((science / 'data/manifest.json').read_bytes())
+    (prefix.root / 'data/SOURCES.md').write_bytes((science / 'data/SOURCES.md').read_bytes())
+    (prefix.root / 'data/packages.json').write_bytes((mirror / 'packages.json').read_bytes())
+    store_auto = tmp_path / 'store-auto'
+    result = prefix.run(COMPOSE, 'data', '--data-dir', str(store_auto), 'install', '--from', mirror.as_uri())
+    assert result.returncode == 0, result.stderr
+    real_root = Path(os.path.realpath(prefix.root))
+    assert f'Root: {real_root}\n' in result.stdout
+    for pkg_name in ('base', 'scalp-node-table'):
+        installed = Store(store_auto).find(pkg_name)
+        assert installed is not None
+        for entry in installed.manifest.files:
+            assert (real_root / entry.path).is_file(), entry.path
+
+    # --no-compose skips composing into R even in the installed form.
+    prefix_skip = fake_prefix(tmp_path / 'P-skip', public=())
+    (prefix_skip.root / 'data/manifest.json').write_bytes((science / 'data/manifest.json').read_bytes())
+    (prefix_skip.root / 'data/SOURCES.md').write_bytes((science / 'data/SOURCES.md').read_bytes())
+    (prefix_skip.root / 'data/packages.json').write_bytes((mirror / 'packages.json').read_bytes())
+    store_skip = tmp_path / 'store-skip'
+    res_skip = prefix_skip.run(
+        COMPOSE, 'data', '--data-dir', str(store_skip), 'install', 'base', '--no-compose', '--from', str(mirror)
+    )
+    assert res_skip.returncode == 0, res_skip.stderr
+    assert Store(store_skip).find('base') is not None
+    assert not (prefix_skip.root / 'data/external/m2m_ernie/ernie.msh').exists()
+
+
+def test_resumable_remote_stream_recovers_after_midstream_drop(monkeypatch: pytest.MonkeyPatch) -> None:
+    from eeglayoutlab.data import store as data_store
+
+    payload = b'0123456789abcdef' * 64
+    calls: list[int] = []
+
+    class _FlakyStream:
+        def __init__(self, start: int, fail_after: int | None) -> None:
+            self._buf = io.BytesIO(payload[start:])
+            self._remaining = fail_after
+
+        def read(self, count: int = -1) -> bytes:
+            if self._remaining is not None:
+                if self._remaining <= 0:
+                    raise OSError('simulated connection reset')
+                step = min(count if count > 0 else self._remaining, self._remaining)
+                self._remaining -= step
+                return self._buf.read(step)
+            return self._buf.read(count)
+
+        def close(self) -> None:
+            self._buf.close()
+
+    def fake_open_url(url: str, start_byte: int = 0):
+        calls.append(start_byte)
+        if len(calls) == 1:
+            return _FlakyStream(0, fail_after=300)
+        if len(calls) == 2:
+            return _FlakyStream(start_byte, fail_after=250)
+        return _FlakyStream(start_byte, fail_after=None)
+
+    monkeypatch.setattr(data_store, '_open_url', fake_open_url)
+    remote_url = 'https' + '://mirror.invalid/scalp-node-table-1.0.0.tar'
+    received = bytearray()
+    with data_store._ResumableHttpsStream(remote_url, len(payload), max_retries=3) as stream:
+        while True:
+            chunk = stream.read(128)
+            if not chunk:
+                break
+            received.extend(chunk)
+    assert bytes(received) == payload
+    assert calls == [0, 300, 550]
+

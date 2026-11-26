@@ -3,6 +3,7 @@
 """
 from __future__ import annotations
 
+import math
 import re
 from typing import Any, Optional
 
@@ -183,9 +184,13 @@ def read_eeglab_sfp(file: dict[str, str]) -> dict[str, Any]:
     return _collect('eeglab-sfp/1', [r[0] for r in rows], [_coordinates(r[1:]) for r in rows], None)
 
 
+def _utf8_bytes_len(text: str) -> int:
+    return len(text.encode('utf-16-le', errors='surrogatepass').decode('utf-16-le', errors='replace').encode('utf-8'))
+
+
 def read_montage_file(file: dict[str, str]) -> dict[str, Any]:
     name = file['name']
-    if len(file['text'].encode('utf-8', errors='surrogatepass')) > 65536 or '/' in name or '\\' in name:
+    if _utf8_bytes_len(file['text']) > 65536 or '/' in name or '\\' in name:
         raise ValueError('电极坐标文件不超过64 KB。')
     lower = name.lower()
     if lower.endswith('.elc'):

@@ -41,6 +41,7 @@ coverage/
 data/*
 !data/README.md
 !data/manifest.json
+!data/packages.json
 !data/SOURCES.md
 /results/
 /releases/

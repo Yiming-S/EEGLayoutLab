@@ -106,3 +106,64 @@ class DataPrior(BaseModel):
 
     def canonical(self) -> dict[str, Any]:
         return {'region_gain': list(self.region_gain), 'rho': self.rho, 'length_mm': self.length_mm}
+
+
+DATA_PRIOR_SCHEMA = 'eeg-data-prior/1'
+DATA_PRIOR_REGIONS = ('frontal', 'central', 'parietal', 'occipital', 'temporal_left', 'temporal_right', 'other')
+
+
+def _js_truthy(value: Any) -> bool:
+    if value is None or value is False or value == '':
+        return False
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return value != 0 and value == value
+    return True
+
+
+def normalize_data_prior_value(value: Any) -> dict[str, Any] | None:
+    """``normalizeDataPrior(value)`` with Node's verbatim Chinese messages."""
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise ValueError('数据先验格式无效')
+    keys = ','.join(sorted(value, key=lambda key: key.encode('utf-16-be', errors='surrogatepass')))
+    if keys != 'length_mm,region_gain,rho':
+        raise ValueError('数据先验格式无效')
+    gains = value.get('region_gain')
+    rho = value.get('rho')
+    length = value.get('length_mm')
+    if (
+        not isinstance(gains, list)
+        or len(gains) != len(DATA_PRIOR_REGIONS)
+        or not all(
+            jsjson.is_number(g) and 1e-3 <= jsjson.to_number(g) <= 1e3 and jsjson.equals_to_precision(jsjson.to_number(g), 4)
+            for g in gains
+        )
+    ):
+        raise ValueError('数据先验的区域增益须为7个保留4位有效数字的正数')
+    if not jsjson.is_number(rho):
+        raise ValueError('数据先验的噪声相关比例无效')
+    rho_num = jsjson.to_number(rho)
+    if not (0.0 <= rho_num <= 0.95) or jsjson.round_half_up(rho_num * 100.0) / 100.0 != rho_num:
+        raise ValueError('数据先验的噪声相关比例无效')
+    if (length is not None) if rho_num == 0.0 else not (jsjson.is_number(length) and jsjson.to_number(length) in DATA_PRIOR_LENGTHS_MM):
+        raise ValueError('数据先验的噪声相关长度无效')
+    return {
+        'region_gain': [jsjson.to_number(g) for g in gains],
+        'rho': rho_num,
+        'length_mm': None if length is None else int(jsjson.to_number(length)),
+    }
+
+
+def data_prior_from_file(document: Any) -> dict[str, Any] | None:
+    """``dataPriorFromFile(document)`` from ``webapp/contracts/scientific-options.mjs``."""
+    if (
+        not isinstance(document, dict)
+        or document.get('schema') != DATA_PRIOR_SCHEMA
+        or not isinstance(document.get('regions'), list)
+        or jsjson.stringify(document['regions']) != jsjson.stringify(list(DATA_PRIOR_REGIONS))
+        or not _js_truthy(document.get('fit'))
+        or not isinstance(document.get('channels'), list)
+    ):
+        raise ValueError('不是eeg-data-prior/1数据先验文件')
+    return normalize_data_prior_value(document.get('request'))

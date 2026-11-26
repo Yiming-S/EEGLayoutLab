@@ -1,6 +1,6 @@
 # 0001, phase 3 — distribution, in slices
 
-- **Status:** accepted on 2026-11-25 with every recommended default (decisions U8 to U28); slices 1 to 3 done; slice 4 next.
+- **Status:** accepted on 2026-11-25 with every recommended default (decisions U8 to U28); slices 1 to 8 and 13 done; slice 9 next.
 - **Date:** 2026-11-25
 - **Design:** [0001 — Local-first application with a Python service](0001-local-first-architecture.md), migration table, phase 3; [0002 — The scientific root of an installed application](0002-installed-scientific-root.md); decision U5 of the [phase 2 plan](0001-phase-2-plan.md#decisions)
 
@@ -130,7 +130,7 @@ Result: done on macOS, 2026-11-25. `installed_root`, `installed_form`, `environm
 - **Downloads:** none.
 - **Size:** medium.
 
-Result: not started.
+Result: done on macOS, 2026-11-26. `installed_environment` in `jobs/runtime.py`; `InputIntegrity(root, environment=None)` in `jobs/integrity.py` resolves `environment:` rows against the real path of P (contained in P plus `/`, refused without `environment`, non-prefixed rows kept strictly inside R); `_environment_rows` in `jobs/identity.py` emits `environment:bin/python`, `environment:conda-meta/<name>.json` for the numerical closure only (U16, sorted with `nodepath.js_sort`), and `METADATA` for cortech, nibabel, numba, numpy and scipy plus llvmlite's `*.egg-info/PKG-INFO` under the running interpreter's `lib/pythonX.Y/site-packages`, appended in `design_context` only in the installed form when `python` is `<real P>/bin/python` (U17). Constructors in `jobs/design.py`, `reception.py`, `design_heads.py` and `server/routes/library.py` pass `environment` only in the installed form; Rad stays unchanged; 0002 is amended for U16, llvmlite's `PKG-INFO` and the PyPI virtualenv note. Checks: schema + API contracts + full key parity (synthetic, radius, envelope, editor, reception, real root) 36,853 passed, service tier (`tests/service/`, `test_installed_identity.py` and loopback HTTP/`serve` parity included) 8,900 passed, zero checkout key changes. Needs Linux: the rows together with the interpreter fingerprint (slice 18).
 
 ### Slice 4 — command line: design and coordinate exports
 
@@ -156,7 +156,7 @@ The first scientific commands in Python (U5): `eeglayoutlab design` and `eeglayo
 - **Downloads:** none.
 - **Size:** medium.
 
-Result: done on macOS, 2026-11-26. `installed_environment` in `jobs/runtime.py`; `InputIntegrity(root, environment=None)` in `jobs/integrity.py` resolves `environment:` rows against the real path of P (contained in P plus `/`, refused without `environment`, non-prefixed rows kept strictly inside R); `_environment_rows` in `jobs/identity.py` emits `environment:bin/python`, `environment:conda-meta/<name>.json` for the numerical closure only (U16, sorted with `nodepath.js_sort`), and `METADATA` for cortech, nibabel, numba, numpy and scipy plus llvmlite's `*.egg-info/PKG-INFO` under the running interpreter's `lib/pythonX.Y/site-packages`, appended in `design_context` only in the installed form when `python` is `<real P>/bin/python` (U17). Constructors in `jobs/design.py`, `reception.py`, `design_heads.py` and `server/routes/library.py` pass `environment` only in the installed form; Rad stays unchanged; 0002 is amended for U16, llvmlite's `PKG-INFO` and the PyPI virtualenv note. Checks: schema + API contracts + full key parity (synthetic, radius, envelope, editor, reception, real root) 36,853 passed, service tier (`tests/service/`, `test_installed_identity.py` and loopback HTTP/`serve` parity included) 8,900 passed, zero checkout key changes. Needs Linux: the rows together with the interpreter fingerprint (slice 18).
+Result: done on macOS, 2026-11-26 (delivered together with slice 13). `jsjson.stringify(value, indent=2)` matches `JSON.stringify(value, null, 2)` byte for byte; pure-Python `core/` (`jsmath.py`, `coordinate_source.py`, `ernie_mni.py`, `head_registration.py`, `design_file.py`, `montage.py`, `bids.py`) and `cli/science.py` implement `eeglayoutlab design` and `eeglayoutlab export --format bids|mni|mne|eeglab` with Node's options, exit codes and verbatim messages. All four `check-cli.mjs` sites in `tests/service/node_tests.toml` are mapped as `P` to `tests/cli/`, and `test_guards.py` enforces zero `import json` across `core/`, `figures/` and `cli/`. Needs Linux: CI parity.
 
 ### Slice 5 — command line: layout figure
 
@@ -174,7 +174,7 @@ Result: done on macOS, 2026-11-26. `installed_environment` in `jobs/runtime.py`;
 - **Downloads:** none beyond slice 1's.
 - **Size:** medium.
 
-Result: not started.
+Result: done on macOS, 2026-11-26. `figures/layout.py` and `core/jsmath.py` (fdlibm `atan2`/`acos`/`sin`/`cos`, UAX #29 extended grapheme clusters on `unicodedata`, and V8 non-`/u` UTF-16 code-unit CJK/surrogate width matching) produce byte-equal SVGs across 69 fixtures (standard64, example 2, crowded layouts, 1 to 6 regions, CJK, combining marks, ZWJ emoji, flags, long names and random layouts) in `tests/cli/test_layout_figure.py`. Needs Linux: CI parity against Linux V8 `sin`/`cos`.
 
 ### Slice 6 — command line: evaluate, search and study
 
@@ -196,7 +196,7 @@ Result: not started.
 - **Downloads:** none.
 - **Size:** large.
 
-Result: not started.
+Result: done on macOS, 2026-11-26. `cli/run.py` and `schemas/options.py` (`data_prior_from_file`) implement `eeglayoutlab evaluate`, `search` and `study` following U8, U10 and U11, lazy-loading Pydantic and job modules only when invoked, writing zero service records, and matching Node's run, error and study JSON files and exit codes byte for byte across all synthetic roots (`tests/cli/test_evaluate_search_study.py`). Needs Linux: runtime member of search identities end to end (slice 18).
 
 ### Slice 7 — examples
 
@@ -216,7 +216,7 @@ Result: not started.
 - **Downloads:** none here, since the data is local. A fresh machine needs `data install` (slice 8).
 - **Size:** small.
 
-Result: not started.
+Result: done on macOS, 2026-11-26. `cli/examples.py` implements `eeglayoutlab examples run` (`--root`, `--out-dir`, `--python`, `--skip-cross-head`, `--update-expected`) following U14 (`R/examples/outputs` in a checkout, `./eeglayoutlab-examples` in an installed environment, refusing paths inside an installed R), verified in `tests/cli/test_examples.py` on both checkout and fake installed prefixes. Needs Linux: slices 10 and 18.
 
 ### Slice 8 — data install by name
 
@@ -234,7 +234,7 @@ Today `data install` takes exactly one manifest, by path or URL; requirements ar
 - **Downloads:** none. Checking that a Zenodo file URL works with `urljoin` and the https-only redirect handler needs the network and is asked first.
 - **Size:** medium.
 
-Result: not started.
+Result: done on macOS, 2026-11-26. `data/index.py`, `data/archive.py` (`archive_digest`), `data/store.py` (`_ResumableHttpsStream` HTTP Range retry/resume), `data/cli.py` and checked-in `data/packages.json` (15 complete packages from `artifacts/qa-portable-heads-2026-11-23`, 17.93 GB, zero home-directory paths) implement `eeglayoutlab data install [NAME ...]` (defaulting to `base` + `scalp-node-table`, `--examples`, `--from`, manifest SHA-256 and `base` bundle checks, and automatic `compose` in the installed form unless `--no-compose`); `build.sh` copies `data/packages.json` into installed R; zero checkout key changes. Needs Linux: CI fast tier.
 
 ### Slice 9 — the recipe after 0002, and the exit rehearsed on this Mac
 
@@ -300,7 +300,7 @@ Result: not started.
 - **On this Mac:** all of it. **Needs Linux:** CI. **Downloads:** none.
 - **Size:** large.
 
-Result: not started.
+Result: done on macOS, 2026-11-26 (delivered together with slice 4). `core/ernie_mni.py`, `core/head_registration.py` (500-iteration similarity ICP with power-iteration eigenvector and fdlibm `acos` matching `rotation_deg` to the last bit), `core/montage.py` and `core/bids.py` implement `export --format mni` and `design` from MNI BIDS pairs, digitized head frames with landmarks, and `.elc`/`.sfp` montages (`--unit`), verified byte for byte in `tests/cli/test_design_export.py`. Needs Linux: CI parity.
 
 ### Slice 14 — documentation for the installed application
 

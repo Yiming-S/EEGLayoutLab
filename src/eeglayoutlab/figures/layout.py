@@ -27,10 +27,48 @@ _FIT_RADIUS = 290.0
 
 _ESCAPE_MAP = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}
 _ESCAPE_RE = re.compile(r'[&<>"\']')
-_CJK_RE = re.compile(r'[\u2e80-\uffef]')
 _UPPER_RE = re.compile(r'[A-Z]')
-_JS_WS = ''.join(sorted(jsjson.JS_TRIM))
-_TOKEN_RE = re.compile(rf'[\u2e80-\uffef]|[^{re.escape(_JS_WS)}\u2e80-\uffef]+[{re.escape(_JS_WS)}]*|[{re.escape(_JS_WS)}]+')
+
+
+def _has_utf16_cjk_unit(text: str) -> bool:
+    """``/[\\u2e80-\\uffef]/.test(text)`` in V8 (without ``/u``, supplementary surrogates 0xD800-0xDFFF also match)."""
+    return any(0x2E80 <= ord(ch) <= 0xFFEF or ord(ch) > 0xFFFF for ch in text)
+
+
+def _utf16_tokens(text: str) -> list[str]:
+    """``text.match(/[\\u2e80-\\uffef]|[^\\s\\u2e80-\\uffef]+\\s*|\\s+/g) ?? []`` over UTF-16 code units."""
+    raw = text.encode('utf-16-le', errors='surrogatepass')
+    units = [raw[i] | (raw[i + 1] << 8) for i in range(0, len(raw), 2)]
+    ws_codes = {ord(ch) for ch in jsjson.JS_TRIM}
+    n = len(units)
+    tokens: list[str] = []
+    i = 0
+
+    def decode_slice(start: int, end: int) -> str:
+        buf = bytearray()
+        for u in units[start:end]:
+            buf.append(u & 0xFF)
+            buf.append((u >> 8) & 0xFF)
+        return bytes(buf).decode('utf-16-le', errors='surrogatepass')
+
+    while i < n:
+        u = units[i]
+        if 0x2E80 <= u <= 0xFFEF:
+            tokens.append(decode_slice(i, i + 1))
+            i += 1
+        elif u in ws_codes:
+            start = i
+            while i < n and units[i] in ws_codes:
+                i += 1
+            tokens.append(decode_slice(start, i))
+        else:
+            start = i
+            while i < n and units[i] not in ws_codes and not (0x2E80 <= units[i] <= 0xFFEF):
+                i += 1
+            while i < n and units[i] in ws_codes:
+                i += 1
+            tokens.append(decode_slice(start, i))
+    return tokens
 
 
 def escape(text: str) -> str:
@@ -62,14 +100,14 @@ def _trim_end(text: str) -> str:
 def advance(text: str) -> float:
     total = 0.0
     for c in jsmath.graphemes(text):
-        total += 1.0 if _CJK_RE.search(c) else (0.66 if _UPPER_RE.search(c) else 0.54)
+        total += 1.0 if _has_utf16_cjk_unit(c) else (0.66 if _UPPER_RE.search(c) else 0.54)
     return total
 
 
 def wrap(text: str, size: float, width: float) -> list[str]:
     lines: list[str] = []
     line = ''
-    for token in _TOKEN_RE.findall(text):
+    for token in _utf16_tokens(text):
         if line and advance(_trim_end(line + token)) * size > width:
             lines.append(_trim_end(line))
             line = _trim_start(token)
@@ -232,7 +270,14 @@ def plot_figure_svg(
             for side in (-1, 1)
         ),
     ]
-    region_fn: Callable[[int, int], str] = text['region']
+    raw_region_fn = text['region']
+
+    def region_fn(reg: int, total_regions: int) -> str:
+        try:
+            return raw_region_fn(reg, total_regions)
+        except TypeError:
+            return raw_region_fn(reg)
+
     electrodes = []
     for idx, p in enumerate(disc):
         x = cx + p['x'] * r

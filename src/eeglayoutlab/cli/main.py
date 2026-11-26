@@ -90,9 +90,17 @@ def _port(text: str) -> int:
     return port
 
 
+class _ArgumentParser(argparse.ArgumentParser):
+    def error(self, message: str) -> None:
+        print(f'error: {message}', file=sys.stderr, flush=True)
+        raise SystemExit(2)
+
+
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog=PROGRAM, description='EEG Layout Lab, the local application.')
-    commands = parser.add_subparsers(dest='command', required=True, metavar='COMMAND')
+    from . import science as science_cli
+
+    parser = _ArgumentParser(prog=PROGRAM, description='EEG Layout Lab, the local application.')
+    commands = parser.add_subparsers(dest='command', required=True, metavar='COMMAND', parser_class=_ArgumentParser)
     serve = commands.add_parser('serve', help='serve the interface for a workspace on 127.0.0.1',
                                 description='Serve the interface for a workspace on 127.0.0.1 and open it.')
     serve.add_argument('workspace', nargs='?', metavar='WORKSPACE',
@@ -108,7 +116,7 @@ def _parser() -> argparse.ArgumentParser:
                        help='dispatch again after an interrupted run whose worker may not have started or may still '
                             'run; use only once no worker of that run is still computing')
     workspace = commands.add_parser('workspace', help='manage a workspace', description='Manage a workspace.')
-    actions = workspace.add_subparsers(dest='action', required=True, metavar='ACTION')
+    actions = workspace.add_subparsers(dest='action', required=True, metavar='ACTION', parser_class=_ArgumentParser)
     legacy = actions.add_parser(
         'import-legacy', help="copy the Node host's projects, studies and signal records into a workspace",
         description="Copy the Node host's research projects, robustness studies and completed signal records from its "
@@ -120,6 +128,7 @@ def _parser() -> argparse.ArgumentParser:
                         help="the Node host's queue directory (default: R/results/web-service)")
     legacy.add_argument('--dry-run', action='store_true', help='report what would be imported; write nothing')
     data_cli.add_commands(commands)
+    science_cli.add_commands(commands)
     return parser
 
 
@@ -407,8 +416,22 @@ def import_legacy(args: argparse.Namespace) -> int:
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
-    args = _parser().parse_args(argv)
+    actual = list(sys.argv[1:] if argv is None else argv)
     logging.basicConfig(level=logging.WARNING, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
+    if not actual or actual[0] in ('design', 'export', 'evaluate', 'search', 'study', 'help'):
+        from . import science as science_cli
+        return science_cli.run_science(actual)
+    if actual[0] == 'examples':
+        try:
+            args = _parser().parse_args(actual)
+        except SystemExit as error:
+            return int(error.code) if isinstance(error.code, int) else 2
+        from . import examples as examples_cli
+        return examples_cli.run_examples_cli(args)
+    if actual[0] not in ('serve', 'workspace', 'data', '-h', '--help'):
+        from . import science as science_cli
+        return science_cli.run_science(actual)
+    args = _parser().parse_args(actual)
     if args.command == 'serve':
         return serve(args)
     if args.command == 'workspace':

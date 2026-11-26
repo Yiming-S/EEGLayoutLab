@@ -39,7 +39,7 @@ def _imports_json(tree: ast.AST) -> list[int]:
 
 def test_service_code_does_not_import_python_json():
     offenders = {}
-    for directory in ('jobs', 'server'):
+    for directory in ('jobs', 'server', 'core', 'figures', 'cli'):
         for path in sorted((PACKAGE / directory).rglob('*.py')):
             relative = path.relative_to(PACKAGE).as_posix()
             lines = _imports_json(ast.parse(path.read_text(encoding='utf-8'), str(path)))

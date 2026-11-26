@@ -269,9 +269,9 @@ def defined(target: str) -> bool:
 
 
 def target_problem(disposition: str, target: str) -> str | None:
-    """Why ``target`` cannot be the Python test of a ``P`` (in tests/service/) or ``C`` entry; ``None`` if it can."""
-    if disposition == 'P' and not target.startswith('tests/service/'):
-        return 'a port is a test in tests/service/'
+    """Why ``target`` cannot be the Python test of a ``P`` (in tests/service/ or tests/cli/) or ``C`` entry."""
+    if disposition == 'P' and not target.startswith(('tests/service/', 'tests/cli/')):
+        return 'a port is a test in tests/service/ or tests/cli/'
     if not defined(target):
         return 'is not a test that pytest collects (a module-level test function or a Test class method, no [id])'
     return None

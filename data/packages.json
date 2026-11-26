@@ -1,0 +1,216 @@
+{
+  "schema": "eeglayoutlab-data-index/1",
+  "code_version": "0.2.0",
+  "packages": [
+    {
+      "name": "base",
+      "version": "1.0.0",
+      "kind": "base",
+      "accepts_code": ">=0.2.0,<1.0.0",
+      "requires": [],
+      "total_size": 406226293,
+      "archive_size": 406261760,
+      "content_sha256": "01083d8e504feee233b8a4142ce3a0204ad48b28550c3ee06c59b4206ef9c694",
+      "manifest_sha256": "defe75a4df548ed03b0d7da643705fd96d7c9727db5e5556539c3196c39cd5a5",
+      "urls": []
+    },
+    {
+      "name": "scalp-node-table",
+      "version": "1.0.0",
+      "kind": "scalp-node-table",
+      "accepts_code": ">=0.2.0,<1.0.0",
+      "requires": [
+        "base"
+      ],
+      "total_size": 1395744261,
+      "archive_size": 1395752960,
+      "content_sha256": "9a99d6420362fe060a9c30862a89a288e325c836f494071f799804daca652bd6",
+      "manifest_sha256": "aad25cffa9bc875f87002b2c71afe3ace76fb1835e0d244e7b5268593716085e",
+      "urls": []
+    },
+    {
+      "name": "scalp-node-table-skull_x0.5",
+      "version": "1.0.0",
+      "kind": "conductivity-scenario-table",
+      "accepts_code": ">=0.2.0,<1.0.0",
+      "requires": [
+        "base",
+        "scalp-node-table"
+      ],
+      "total_size": 1395752118,
+      "archive_size": 1395763200,
+      "content_sha256": "10235c1c03fcc0ea061fd121ffcdc5771375220de5260a21c151b5a4c073ad59",
+      "manifest_sha256": "90df5469f6b483d336a566f04e4726f0d1f2c0b728993a420f00b998629a1a86",
+      "urls": []
+    },
+    {
+      "name": "scalp-node-table-skull_x2",
+      "version": "1.0.0",
+      "kind": "conductivity-scenario-table",
+      "accepts_code": ">=0.2.0,<1.0.0",
+      "requires": [
+        "base",
+        "scalp-node-table"
+      ],
+      "total_size": 1395734795,
+      "archive_size": 1395742720,
+      "content_sha256": "0e8f744af8591468f868b205756c58538147ec86f338636312cc8712d8152545",
+      "manifest_sha256": "29fd723f808769ad890a04b1eb9c5d1b73a668e96c12d4d1b97fa7ab6ebde171",
+      "urls": []
+    },
+    {
+      "name": "head-ernie_xh",
+      "version": "1.0.0",
+      "kind": "head",
+      "accepts_code": ">=0.2.0,<1.0.0",
+      "requires": [
+        "base"
+      ],
+      "total_size": 1399296767,
+      "archive_size": 1399316480,
+      "content_sha256": "7733154c872c217a0223d976a66dad68d574fd5f381f7a16f673e5be4f97bcc5",
+      "manifest_sha256": "31782b73e461298a50e5ce44db3d1b715abc942b96cc01e7436c5de7c63572de",
+      "urls": []
+    },
+    {
+      "name": "head-ixi002",
+      "version": "1.0.0",
+      "kind": "head",
+      "accepts_code": ">=0.2.0,<1.0.0",
+      "requires": [
+        "base"
+      ],
+      "total_size": 1123995594,
+      "archive_size": 1124014080,
+      "content_sha256": "f26ce38a0d428a526f50011dd5952fbc42f8a1d854f4fc065ff770e3873deb1a",
+      "manifest_sha256": "e7dbc7c3d599346d78e2ef25fd4ea4cd65d82408c4307bb27cc140624bbbd820",
+      "urls": []
+    },
+    {
+      "name": "head-ixi012",
+      "version": "1.0.0",
+      "kind": "head",
+      "accepts_code": ">=0.2.0,<1.0.0",
+      "requires": [
+        "base"
+      ],
+      "total_size": 1257188833,
+      "archive_size": 1257205760,
+      "content_sha256": "22d522b5cf240b322f6db1ec99c742bec79ac3109e2cfa236816b66cc06f0a9d",
+      "manifest_sha256": "7bdde1005926e0d8465f36cb132d5a89bcc45b9e16999b56b239466c1e080d78",
+      "urls": []
+    },
+    {
+      "name": "head-ixi013",
+      "version": "1.0.0",
+      "kind": "head",
+      "accepts_code": ">=0.2.0,<1.0.0",
+      "requires": [
+        "base"
+      ],
+      "total_size": 1238023680,
+      "archive_size": 1238036480,
+      "content_sha256": "70cc11a784eda6c759d3fd3ef11f5dda37991871385f81725fbe5439d7a6bccc",
+      "manifest_sha256": "64bf87b098ebd59a3d22cf3523572226336c3d8104a69aff61dc666876f96918",
+      "urls": []
+    },
+    {
+      "name": "head-ixi015",
+      "version": "1.0.0",
+      "kind": "head",
+      "accepts_code": ">=0.2.0,<1.0.0",
+      "requires": [
+        "base"
+      ],
+      "total_size": 1181361304,
+      "archive_size": 1181378560,
+      "content_sha256": "47ed0e70eb9baf49c034a275c43ae646798fa97b500800d1ae3b72b049cf3aff",
+      "manifest_sha256": "e2c45505fab982fe26422d4156657a15dbb547105a176013a96851dd4266cceb",
+      "urls": []
+    },
+    {
+      "name": "head-ixi017",
+      "version": "1.0.0",
+      "kind": "head",
+      "accepts_code": ">=0.2.0,<1.0.0",
+      "requires": [
+        "base"
+      ],
+      "total_size": 1189364321,
+      "archive_size": 1189376000,
+      "content_sha256": "2aa5fc7eb8f2a4772a0db54419af6556499839fc7dde4be662917d1d809ce663",
+      "manifest_sha256": "7a925ead54e4bd9f7165376beff87796cd56f39d720d68898eb1ff437979bdad",
+      "urls": []
+    },
+    {
+      "name": "head-ixi019",
+      "version": "1.0.0",
+      "kind": "head",
+      "accepts_code": ">=0.2.0,<1.0.0",
+      "requires": [
+        "base"
+      ],
+      "total_size": 1268952987,
+      "archive_size": 1268971520,
+      "content_sha256": "924600970cef09136b1eb6c3e97f9255795466fb7a1142d10145666572588f1b",
+      "manifest_sha256": "afcd86c8f657b98510aaf137977ba319a3c7151ccb357766b9c838036ba5a7a2",
+      "urls": []
+    },
+    {
+      "name": "head-ixi020",
+      "version": "1.0.0",
+      "kind": "head",
+      "accepts_code": ">=0.2.0,<1.0.0",
+      "requires": [
+        "base"
+      ],
+      "total_size": 1231637975,
+      "archive_size": 1231656960,
+      "content_sha256": "d38d1c810195e4d19e311c3426c02682bc110d582e997414cac71484bd5e20dc",
+      "manifest_sha256": "f9240a1dbba1b1eab3fc47ae70456e2edbae93d3c90645b6ffb2384ad62d3b1a",
+      "urls": []
+    },
+    {
+      "name": "head-ixi035",
+      "version": "1.0.0",
+      "kind": "head",
+      "accepts_code": ">=0.2.0,<1.0.0",
+      "requires": [
+        "base"
+      ],
+      "total_size": 1203716155,
+      "archive_size": 1203732480,
+      "content_sha256": "01c1f63053f2ada08778be2c561ca7776033e9b92465799ced8ec4100a971929",
+      "manifest_sha256": "7c9f552dfa8ccab4551128b6e6d753c8c5522952409ff0708313c0288bc96d82",
+      "urls": []
+    },
+    {
+      "name": "head-ixi230",
+      "version": "1.0.0",
+      "kind": "head",
+      "accepts_code": ">=0.2.0,<1.0.0",
+      "requires": [
+        "base"
+      ],
+      "total_size": 1127650569,
+      "archive_size": 1127669760,
+      "content_sha256": "3568465ea6fa4ab178fa6f34ea44369030d888bc4d0e8d4915201020b64525fb",
+      "manifest_sha256": "bb9d63fc6c5793fa7cf659aba6688444948e9324ac860b6fb8bbc0b9526e8b4d",
+      "urls": []
+    },
+    {
+      "name": "head-ixi231",
+      "version": "1.0.0",
+      "kind": "head",
+      "accepts_code": ">=0.2.0,<1.0.0",
+      "requires": [
+        "base"
+      ],
+      "total_size": 1114620086,
+      "archive_size": 1114634240,
+      "content_sha256": "60cc785e9c341c50aa2b7325ed6a33904abe4871c47a6af432ed45d80977848f",
+      "manifest_sha256": "01b4e894688ffe494efe8fddf363a974cab80abc75bfcef2cc81fe15c484c52f",
+      "urls": []
+    }
+  ]
+}

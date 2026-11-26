@@ -75,15 +75,76 @@ def _is_url(location: str) -> bool:
     return urllib.parse.urlsplit(location).scheme in ('https', 'http', 'file', 'ftp')
 
 
-def _open_url(url: str) -> BinaryIO:
-    if urllib.parse.urlsplit(url).scheme not in ('https', 'file'):
+def _open_url(url: str, start_byte: int = 0) -> BinaryIO:
+    scheme = urllib.parse.urlsplit(url).scheme
+    if scheme not in ('https', 'file'):
         raise PackageError(f'only https:// and file:// addresses are accepted: {url}')
     opener = urllib.request.build_opener(_HttpsOnly)
-    opener.addheaders = [('User-Agent', 'eeglayoutlab-data')]
+    headers = [('User-Agent', 'eeglayoutlab-data')]
+    if start_byte > 0 and scheme == 'https':
+        headers.append(('Range', f'bytes={start_byte}-'))
+    opener.addheaders = headers
     try:
-        return opener.open(url, timeout=TIMEOUT_SECONDS)
+        response = opener.open(url, timeout=TIMEOUT_SECONDS)
     except OSError as error:
         raise PackageError(f'cannot open {url}: {error}') from error
+    if start_byte > 0 and scheme == 'https':
+        status = getattr(response, 'status', None) or response.getcode()
+        content_range = response.headers.get('Content-Range', '') if hasattr(response, 'headers') else ''
+        if status != 206 or not content_range.startswith(f'bytes {start_byte}-'):
+            response.close()
+            raise PackageError(f'cannot resume download of {url} at byte {start_byte} (HTTP {status})')
+    return response
+
+
+class _ResumableHttpsStream:
+    """Streams an ``https://`` archive with automatic retry and HTTP Range resumption on transient drops."""
+
+    def __init__(self, url: str, expected_size: Optional[int], max_retries: int = 3):
+        self._url = url
+        self._expected_size = expected_size
+        self._max_retries = max_retries
+        self._offset = 0
+        self._stream: Optional[BinaryIO] = _open_url(url, 0)
+
+    def read(self, count: int = -1) -> bytes:
+        retries = 0
+        while True:
+            if self._stream is None:
+                self._stream = _open_url(self._url, self._offset)
+            try:
+                chunk = self._stream.read(count)
+            except OSError as error:
+                self._close_current()
+                retries += 1
+                if retries > self._max_retries or self._offset == 0:
+                    raise PackageError(f'connection lost reading {self._url} at {self._offset} bytes: {error}') from error
+                continue
+            if chunk:
+                self._offset += len(chunk)
+                return chunk
+            if self._expected_size is not None and self._offset < self._expected_size and retries < self._max_retries and self._offset > 0:
+                self._close_current()
+                retries += 1
+                continue
+            return b''
+
+    def _close_current(self) -> None:
+        if self._stream is not None:
+            try:
+                self._stream.close()
+            except OSError:
+                pass
+            self._stream = None
+
+    def close(self) -> None:
+        self._close_current()
+
+    def __enter__(self) -> '_ResumableHttpsStream':
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
 
 
 @dataclass(frozen=True)
@@ -91,13 +152,17 @@ class Source:
     """Where a manifest was read and how to open the archive beside it."""
     manifest: Manifest
     location: str
+    raw_bytes: bytes = b''
 
     def open_archive(self) -> BinaryIO:
         archive = self.manifest.archive
         if archive is None:
             raise PackageError(f'{self.manifest.stem} is published without an archive; install it with --from-root')
         if _is_url(self.location):
-            return _open_url(urllib.parse.urljoin(self.location, archive['name']))
+            target_url = urllib.parse.urljoin(self.location, archive['name'])
+            if urllib.parse.urlsplit(target_url).scheme == 'https':
+                return _ResumableHttpsStream(target_url, int(archive['size']))  # type: ignore[return-value]
+            return _open_url(target_url)
         return (pathlib.Path(self.location).parent / archive['name']).open('rb')
 
 
@@ -115,7 +180,7 @@ def read_source(location: str) -> Source:
     if len(text) > MAX_MANIFEST_BYTES:
         raise PackageError(f'{location} is too large to be a manifest')
     try:
-        return Source(loads(text.decode('utf-8')), location)
+        return Source(loads(text.decode('utf-8')), location, text)
     except UnicodeDecodeError as error:
         raise PackageError(f'{location} is not UTF-8') from error
 
