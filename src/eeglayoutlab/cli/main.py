@@ -8,9 +8,13 @@ Starts the local service for one workspace (design 0001, decision 6):
   when it is a workspace, when it is empty, or when the person confirms on a terminal. Without a terminal a new
   workspace needs an explicit path. The Node host's queue directory ``R/results/web-service``, or a directory inside
   it, is refused (exit 2): the Python service never writes there.
-- **Root**: ``--root``, else ``EEG_REPOSITORY_ROOT``, else this checkout, spelled as Node spells it
-  (``jobs.runtime.repository_root``). The static interface defaults to ``R/webapp/dist/client`` and the
-  documentation site, served under ``/docs/``, to ``R/site`` (what ``mkdocs build`` writes).
+- **Root**: ``--root``, else ``EEG_REPOSITORY_ROOT``, else the checkout that holds this package, spelled as Node
+  spells it, else the installed root ``P/share/eeglayoutlab/root`` of the environment (``jobs.runtime.repository_root``,
+  design 0002). The static interface defaults to ``R/webapp/dist/client`` and the documentation site, served under
+  ``/docs/``, to ``R/site`` (what ``mkdocs build`` writes).
+- **Read-only root** (0002, decision 3): before a workspace is chosen or opened, R, and the deepest of
+  ``R/results/v2`` and ``R/results`` that exists, must be writable, also with ``--cache-only``; otherwise ``serve``
+  exits 2, in the installed form with the instruction to create a user environment.
 - **Port and token** (decision U6): a new loopback port (``--port``, default a free one) and new tokens at every
   start. The socket is bound before ``runtime.json`` is written, so the file never names a port in use by
   someone else.
@@ -63,7 +67,7 @@ import webbrowser
 
 from ..data import cli as data_cli
 from ..jobs import nodepath
-from ..jobs.runtime import repository_root
+from ..jobs.runtime import checkout_root, installed_form, repository_root, unwritable_root
 from ..server.workspace import (
     NODE_QUEUE_DIRECTORY, Workspace, WorkspaceError, WorkspaceInUse, inside, is_workspace, open_url, write_open_page,
 )
@@ -73,6 +77,7 @@ __all__ = ['main', 'choose_workspace']
 PROGRAM = 'eeglayoutlab'
 # How long the browser thread waits for the service to accept connections.
 STARTUP_SECONDS = 30.0
+ROOT_HELP = data_cli.ROOT_HELP
 
 
 def _port(text: str) -> int:
@@ -92,7 +97,7 @@ def _parser() -> argparse.ArgumentParser:
                                 description='Serve the interface for a workspace on 127.0.0.1 and open it.')
     serve.add_argument('workspace', nargs='?', metavar='WORKSPACE',
                        help='workspace directory (default: the current directory)')
-    serve.add_argument('--root', metavar='R', help='scientific root (default: EEG_REPOSITORY_ROOT, else this checkout)')
+    serve.add_argument('--root', metavar='R', help=ROOT_HELP)
     serve.add_argument('--port', type=_port, default=0, metavar='N', help='loopback port (default: a free port)')
     serve.add_argument('--static', metavar='DIR', help='static interface (default: R/webapp/dist/client)')
     serve.add_argument('--docs', metavar='DIR', help='built documentation site served under /docs/ (default: R/site)')
@@ -110,8 +115,7 @@ def _parser() -> argparse.ArgumentParser:
                     'queue directory into a workspace. The queue directory is only read.')
     legacy.add_argument('workspace', nargs='?', metavar='WORKSPACE',
                         help='workspace directory (default: the current directory)')
-    legacy.add_argument('--root', metavar='R',
-                        help='scientific root (default: EEG_REPOSITORY_ROOT, else this checkout)')
+    legacy.add_argument('--root', metavar='R', help=ROOT_HELP)
     legacy.add_argument('--queue-directory', metavar='Q',
                         help="the Node host's queue directory (default: R/results/web-service)")
     legacy.add_argument('--dry-run', action='store_true', help='report what would be imported; write nothing')
@@ -284,7 +288,7 @@ def _run(workspace: Workspace, root: str, static: str, port: int, browser: bool,
             if cache_only:
                 print('Cache only: stored results are served; new computations are refused.', flush=True)
             if export_root(static) is None:
-                print(f'The interface is not built ({static}); run npm run build in webapp/.', flush=True)
+                print(f'The interface is not built ({static}); {_interface_hint(root, static)}', flush=True)
             if browser:
                 threading.Thread(target=_open_when_started, args=(server, url, workspace.write_open_page),
                                  name='open-browser', daemon=True).start()
@@ -301,15 +305,33 @@ def _run(workspace: Workspace, root: str, static: str, port: int, browser: bool,
     return 0
 
 
+def _service_hint() -> str:
+    """How to get the service's packages: the service extra in a checkout, the environment's own packages else."""
+    if checkout_root() is not None:
+        return "install the service extra: pip install -e '.[service]'"
+    return 'they are dependencies of the eeglayoutlab package; install it again into this environment'
+
+
+def _interface_hint(root: str, static: str) -> str:
+    """How to get the built interface: build it in a checkout; the installed package ships it in R."""
+    if checkout_root() is not None:
+        return 'run npm run build in webapp/.'
+    if installed_form(root) and static == nodepath.join(root, 'webapp/dist/client'):
+        return 'it is part of the eeglayoutlab package, so install the package again.'
+    return 'build it in a checkout (npm run build in webapp/) and give it with --static DIR.'
+
+
 def serve(args: argparse.Namespace) -> int:
     missing = [name for name in ('fastapi', 'uvicorn') if importlib.util.find_spec(name) is None]
     if missing:
-        return _fail(f'the service needs {", ".join(missing)}; install the service extra: '
-                     "pip install -e '.[service]'", 2)
+        return _fail(f'the service needs {", ".join(missing)}; {_service_hint()}', 2)
     try:
         root = repository_root(nodepath.resolve(args.root) if args.root else None)
     except ValueError as error:
         return _fail(str(error), 2)
+    problem = unwritable_root(root)
+    if problem is not None:
+        return _fail(problem, 2)
     static = os.path.abspath(args.static) if args.static else nodepath.join(root, 'webapp/dist/client')
     docs = os.path.abspath(args.docs) if args.docs else nodepath.join(root, 'site')
     interactive = sys.stdin is not None and sys.stdin.isatty()
@@ -348,7 +370,7 @@ def serve(args: argparse.Namespace) -> int:
 
 def import_legacy(args: argparse.Namespace) -> int:
     if importlib.util.find_spec('pydantic') is None:
-        return _fail("the import needs pydantic; install the service extra: pip install -e '.[service]'", 2)
+        return _fail(f'the import needs pydantic; {_service_hint()}', 2)
     from ..server import legacy_import
 
     try:

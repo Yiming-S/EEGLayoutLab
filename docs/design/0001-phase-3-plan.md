@@ -106,7 +106,7 @@ Result: done on macOS, 2026-11-25. `test_iid_pin`: `information_retention_unclip
 - **Downloads:** none.
 - **Size:** medium.
 
-Result: not started.
+Result: done on macOS, 2026-11-25. `installed_root`, `installed_form`, `environment_python` and `default_repository_root` in `jobs/runtime.py`; `runtime_config` reads `python or EEG_COMPUTE_PYTHON or managed or P/bin/python or python3`, the fourth only in the installed form. `unwritable_root` checks R and the deepest of `results/v2` and `results` that exists, without writing; `serve` (also `--cache-only`) and `data compose` exit 2 before a workspace is chosen. Deliveries ask for `compact-eeg`; in the installed form without a managed runtime they name the Linux lock (confirmed: the recipe pins its versions, so no per-platform lock). `tests/service/installed_support.py` builds the fake prefix in a subprocess whose `sys.path` drops editable entries. Every existing case passes unchanged. Checks: service tier 54,014, Node 24.22.3 subset 45,589, real root 463, native 976, the installed and read-only cases under umask 022 and 002 (126), OpenAPI equal. Needs Linux: CI's fast tier.
 
 ### Slice 3 — environment identity rows
 

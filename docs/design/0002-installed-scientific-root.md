@@ -1,6 +1,6 @@
 # 0002 — The scientific root of an installed application
 
-- **Status:** accepted on 2026-11-23 (recommendation A and the three decisions below); not yet implemented
+- **Status:** accepted on 2026-11-23 (recommendation A and the three decisions below). Changes 1, 2 and 4 of the table below (the installed root, the environment's interpreter and the refusal of a read-only R) are implemented ([phase 3](0001-phase-3-plan.md), slice 2); the others are not yet
 - **Date:** 2026-11-23
 - **Design:** [0001 — Local-first application with a Python service](0001-local-first-architecture.md), migration table, phase 3
 

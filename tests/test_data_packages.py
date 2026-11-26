@@ -18,6 +18,7 @@ from eeglayoutlab.data import compose
 from eeglayoutlab.data.archive import archive_size, extract_archive, write_archive
 from eeglayoutlab.data.manifest import PackageError, accepts, loads, parse, relative_path
 from eeglayoutlab.data.store import Store, data_dir, read_source
+from service.installed_support import fake_prefix, needs_non_root, read_only, tree_state
 
 
 def _write(root: Path, path: str, data: bytes) -> str:
@@ -366,3 +367,55 @@ def test_compose_copies_when_a_hard_link_cannot_be_made(science: Path, tmp_path:
         assert not os.path.samestat(placed.stat(), (store.find('base').path / 'data/external/m2m_ernie/ernie.msh').stat())
         assert not stat.S_IMODE(placed.stat().st_mode) & 0o222
     assert not [path for path in _files(root) if '.compose-' in path]
+
+
+# --- The installed form (design 0002; phase 3 slice 2) ------------------------------------------------------------
+
+COMPOSE = 'from eeglayoutlab.data import cli\nsys.exit(cli.main(sys.argv[1:]))\n'
+
+
+def test_compose_without_a_root_places_packages_in_the_installed_root(science: Path, tmp_path: Path) -> None:
+    # installed_support's prefix, in a fresh interpreter whose sys.prefix is P: compose finds R by itself.
+    store_dir = _installed(science, tmp_path, 'base', 'head-ixi002')
+    prefix = fake_prefix(tmp_path / 'P', public=())
+    # R's data/SOURCES.md is the base package's file; the synthetic base has its own, which R then holds.
+    (prefix.root / 'data/SOURCES.md').write_bytes((science / 'data/SOURCES.md').read_bytes())
+    result = prefix.run(COMPOSE, 'data', '--data-dir', str(store_dir), 'compose')
+    assert result.returncode == 0, result.stderr
+    real = Path(os.path.realpath(prefix.root))
+    assert f'Root: {real}\n' in result.stdout and 'Packages: base-1.0.0, head-ixi002-1.0.0' in result.stdout
+    for name in ('base', 'head-ixi002'):
+        installed = Store(store_dir).find(name)
+        for entry in installed.manifest.files:
+            if entry.path != 'data/SOURCES.md':
+                assert os.path.samestat((real / entry.path).stat(), (installed.path / entry.path).stat()), entry.path
+    assert not (prefix.site / 'data').exists() and not (prefix.path / 'data').exists()
+
+
+@needs_non_root
+def test_compose_refuses_a_read_only_root_and_writes_nothing(science: Path, tmp_path: Path,
+                                                              capsys: pytest.CaptureFixture[str]) -> None:
+    store_dir = _installed(science, tmp_path, 'base')
+    capsys.readouterr()
+    root = _checkout(tmp_path)
+    (root / 'results/v2').mkdir(parents=True)
+    command = ['data', '--data-dir', str(store_dir), 'compose', '--root', str(root)]
+    for blocked in (root, root / 'results/v2'):
+        before = tree_state(root)
+        with read_only(blocked):
+            for flags in ([], ['--dry-run']):
+                assert data_cli.main(command + flags) == 2
+                captured = capsys.readouterr()
+                assert captured.err == (f'eeglayoutlab data: {blocked} is not writable. Records and data are written '
+                                        'under the scientific root; use a root you can write (--root or '
+                                        'EEG_REPOSITORY_ROOT).\n') and captured.out == ''
+        assert tree_state(root) == before
+    # The installed form names 0002's remedy.
+    prefix = fake_prefix(tmp_path / 'P', public=())
+    before = tree_state(prefix.root)
+    with read_only(prefix.root):
+        result = prefix.run(COMPOSE, 'data', '--data-dir', str(store_dir), 'compose')
+    assert result.returncode == 2 and result.stdout == ''
+    assert result.stderr.startswith(f'eeglayoutlab data: {os.path.realpath(prefix.root)} is not writable. The '
+                                    'installed application ') and 'create a user environment' in result.stderr
+    assert tree_state(prefix.root) == before

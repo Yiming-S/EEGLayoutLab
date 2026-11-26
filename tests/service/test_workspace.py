@@ -9,6 +9,7 @@ import importlib.util
 import os
 from pathlib import Path
 import re
+import shutil
 import signal
 import socket
 import stat
@@ -27,6 +28,7 @@ from eeglayoutlab.server.workspace import (
     read_runtime, write_open_page,
 )
 
+from .installed_support import MAIN, fake_prefix, needs_non_root, read_only, tree_state
 from .key_parity_support import REQUIRED
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -629,6 +631,80 @@ def test_serve_rejects_bad_arguments(tmp_path, args, message):
     result = subprocess.run(command(str(tmp_path / 'w'), *args, '--no-browser'), cwd=tmp_path, env=environment(),
                             stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=60)
     assert result.returncode == 2 and message in result.stderr
+
+
+# --- The installed form (design 0002, changes 1, 2 and 4; phase 3 slice 2) ----------------------------------------
+
+@needs_service
+def test_serve_in_the_installed_form_needs_no_root(tmp_path):
+    # installed_support's prefix: sys.prefix is P and the package is P's copy, so R and the interface are found as an
+    # installed eeglayoutlab finds them, with no --root, no --static and no EEG_* variable.
+    import httpx
+
+    prefix = fake_prefix(tmp_path / 'P', public=())
+    workspace = tmp_path / 'workspace'
+    process = prefix.popen(MAIN, 'serve', str(workspace), '--no-browser')
+    try:
+        runtime = wait_for_runtime(workspace, process)
+        assert runtime['root'] == os.path.realpath(prefix.root) and runtime['pid'] == process.pid
+        with httpx.Client(base_url=f'http://127.0.0.1:{runtime["port"]}', timeout=10) as client:
+            assert client.get(f'/open?token={runtime["token"]}').status_code == 303
+            health = client.get('/api/local-compute/health')
+            assert health.status_code == 200 and health.headers['x-eeg-api-version'] == '1'
+            assert health.json()['local_only'] is True
+            assert client.get('/').text == '<!doctype html><title>EEG Layout Lab</title>'
+            assert client.get('/design').text == '<!doctype html><title>design</title>'
+        code, out, err = stop(process, signal.SIGTERM)
+        assert code == 0, err
+        assert 'The interface is not built' not in out
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.communicate()
+    # Without its interface, the installed package says that the package is incomplete.
+    shutil.rmtree(prefix.root / 'webapp/dist/client')
+    process = prefix.popen(MAIN, 'serve', str(workspace), '--no-browser')
+    try:
+        wait_for_runtime(workspace, process, previous=runtime['token'])
+        code, out, err = stop(process, signal.SIGTERM)
+        assert code == 0, err
+        assert (f'The interface is not built ({os.path.realpath(prefix.root)}/webapp/dist/client); it is part of the '
+                'eeglayoutlab package, so install the package again.') in out
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.communicate()
+
+
+@needs_service
+@needs_non_root
+def test_serve_refuses_a_read_only_root_and_writes_nothing(tmp_path):
+    # 0002, decision 3: before a workspace is chosen or opened, also with --cache-only. The installed form says how
+    # to get a writable environment; a checkout's root gets the generic remedy.
+    prefix = fake_prefix(tmp_path / 'P', public=())
+    real = os.path.realpath(prefix.root)
+    workspace = tmp_path / 'workspace'
+    before = tree_state(prefix.root)
+    with read_only(prefix.root):
+        for args in ([str(workspace)], [str(workspace), '--cache-only'], []):
+            result = prefix.run(MAIN, 'serve', *args, '--no-browser', cwd=tmp_path)
+            assert result.returncode == 2, result.stderr
+            assert result.stderr.startswith(f'eeglayoutlab: {real} is not writable. The installed application '), \
+                result.stderr
+            assert 'create a user environment' in result.stderr and result.stdout == ''
+    assert tree_state(prefix.root) == before
+    assert not workspace.exists() and not (tmp_path / MARKER).exists() and not (tmp_path / STATE).exists()
+    root = tmp_path / 'checkout'
+    (root / 'results/v2').mkdir(parents=True)
+    for blocked in (root / 'results/v2', root):
+        with read_only(blocked):
+            result = subprocess.run(command(str(workspace), '--root', str(root), '--no-browser'), cwd=tmp_path,
+                                    env=environment(), stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                                    timeout=60)
+        assert result.returncode == 2, result.stderr
+        assert result.stderr == (f'eeglayoutlab: {blocked} is not writable. Records and data are written under the '
+                                 'scientific root; use a root you can write (--root or EEG_REPOSITORY_ROOT).\n')
+        assert not workspace.exists()
 
 
 # A stop that comes while serve starts: the handlers are installed before the runtime file is written, so a SIGTERM

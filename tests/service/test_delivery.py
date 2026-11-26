@@ -23,6 +23,7 @@ import asyncio
 import copy
 import hashlib
 import json
+import os
 import random
 import re
 import subprocess
@@ -337,32 +338,37 @@ def test_delivery_versions_tell_host_bytes_from_the_data_and_runtime_lock_and_fa
 
 
 def test_an_installed_package_describes_itself_without_a_checkout(tmp_path):
-    """The installed form of design 0002 (packaging/conda-forge): ``site-packages/eeglayoutlab`` with its
-    distribution's metadata, no ``pyproject.toml`` around it, and R elsewhere. The version is the distribution's, and
+    """The installed form of design 0002 (``installed_support``): ``site-packages/eeglayoutlab`` with the metadata of
+    its distribution ``compact-eeg`` (``compact_eeg-V.dist-info``, the only one the recipe makes), no
+    ``pyproject.toml`` around it, and R at ``P/share/eeglayoutlab/root``. The version is the distribution's, and
     ``source_files`` hash the package's own modules, the same bytes as this checkout's (Node's equivalent works there:
-    its host files are under R)."""
-    import shutil
-    import sys
+    its host files are under R). Without a managed runtime the lock is the Linux lock, whose versions the environment
+    pins; the same R read from this checkout keeps Node's macOS lock."""
+    from .installed_support import fake_prefix
 
-    site = tmp_path / 'prefix/lib/python3.11/site-packages'
-    shutil.copytree(ROOT / 'src/eeglayoutlab', site / 'eeglayoutlab', ignore=shutil.ignore_patterns('__pycache__'))
-    (site / 'eeglayoutlab-9.8.7.dist-info').mkdir()
-    (site / 'eeglayoutlab-9.8.7.dist-info/METADATA').write_text(
-        'Metadata-Version: 2.1\nName: eeglayoutlab\nVersion: 9.8.7\n', encoding='utf-8')
-    root = tmp_path / 'prefix/share/eeglayoutlab/root'
-    write_identities(root)
-    probe = ('import sys; sys.path.insert(0, sys.argv[1]); from eeglayoutlab.server import delivery; '
-             'from eeglayoutlab.schemas import jsjson; '
+    prefix = fake_prefix(tmp_path / 'P', version='9.8.7', public=())
+    probe = ('from eeglayoutlab.server import delivery; from eeglayoutlab.schemas import jsjson; '
+             'from eeglayoutlab.jobs.runtime import repository_root; '
              'assert delivery.__file__.startswith(sys.argv[1] + "/"), delivery.__file__; '
-             'print(jsjson.stringify(delivery.delivery_versions(sys.argv[2])))')
-    result = subprocess.run([sys.executable, '-I', '-B', '-c', probe, str(site), str(root)], capture_output=True,
-                            text=True, timeout=120)
+             'root = repository_root(); '
+             'print(jsjson.stringify([root, delivery.runtime_lock_path(root), delivery.delivery_versions(root)]))')
+    result = prefix.run(probe, str(prefix.site))
     assert result.returncode == 0, result.stderr
-    checkout = D.delivery_versions(str(root))
-    assert jsjson.parse(result.stdout) == {**checkout, 'application_version': '9.8.7',
-                                           'source_files': checkout['source_files'][1:]}
+    root, lock, installed = jsjson.parse(result.stdout)
+    assert root == os.path.realpath(prefix.root) and lock == D.LINUX_LOCK
+    checkout = D.delivery_versions(root)
+    assert D.runtime_lock_path(root) == D.MACOS_LOCK
+    assert checkout['runtime_lock_sha256'] == hashlib.sha256((prefix.root / D.MACOS_LOCK).read_bytes()).hexdigest()
+    assert installed == {**checkout, 'application_version': '9.8.7',
+                         'runtime_lock_sha256': hashlib.sha256((prefix.root / D.LINUX_LOCK).read_bytes()).hexdigest(),
+                         'source_files': checkout['source_files'][1:]}
     assert [row['path'] for row in checkout['source_files'][1:]] == [
         path for path in D.HOST_FILES if path.startswith('src/eeglayoutlab/')]
+    # Only compact-eeg's metadata gives the version: without it the export is a 503, as every export from an
+    # installed environment was while the version was asked of a distribution named eeglayoutlab.
+    (prefix.site / 'compact_eeg-9.8.7.dist-info/METADATA').unlink()
+    result = prefix.run(probe, str(prefix.site))
+    assert result.returncode != 0 and D.VERSIONS_UNAVAILABLE in result.stderr
 
 
 def test_delivery_names_the_lock_of_the_managed_runtime_in_use(tmp_path):
@@ -375,6 +381,25 @@ def test_delivery_names_the_lock_of_the_managed_runtime_in_use(tmp_path):
     (root / '.runtime/simnibs-4.6.0/bin').mkdir(parents=True)
     (root / '.runtime/simnibs-4.6.0/bin/python').write_text('fixture')
     assert D.runtime_lock_path(str(root)) == 'configs/runtime/manifest.json'
+
+
+def test_the_installed_form_names_the_linux_lock_unless_a_managed_runtime_says_otherwise(tmp_path):
+    prefix = tmp_path / 'P'
+    root = prefix / 'share/eeglayoutlab/root'
+    (root / 'src/compact_eeg').mkdir(parents=True)
+    package = prefix / 'lib/python3.11/site-packages/eeglayoutlab/jobs/runtime.py'
+    package.parent.mkdir(parents=True)
+    package.write_text('')
+    where = {'prefix': str(prefix), 'package_file': str(package)}
+    assert D.runtime_lock_path(str(root), **where) == D.LINUX_LOCK
+    # This checkout's package, another R, or a managed SimNIBS runtime: Node's rule.
+    assert D.runtime_lock_path(str(root), prefix=str(prefix)) == D.MACOS_LOCK
+    assert D.runtime_lock_path(str(tmp_path), **where) == D.MACOS_LOCK
+    runtime(root, 'simnibs-4.6.0')
+    assert D.runtime_lock_path(str(root), **where) == D.MACOS_LOCK
+    runtime(root, 'compute-linux-64')
+    (root / '.runtime/simnibs-4.6.0/bin/python').unlink()
+    assert D.runtime_lock_path(str(root), **where) == D.LINUX_LOCK
 
 
 def source_tree(source: Path, version: str = '0.2.0', pyproject: str | None = None) -> None:

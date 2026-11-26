@@ -28,10 +28,13 @@ Differences from Node, deliberate:
 - ``delivery_versions`` describes the Python service: ``application_version`` is ``[project] version`` of
   ``pyproject.toml``, and ``source_files`` hash ``HOST_FILES`` (``pyproject.toml`` and the service's project and
   delivery modules) instead of ``webapp/package.json``, ``package-lock.json`` and Node's four modules. An installed
-  package (design 0002) has no ``pyproject.toml``: its version is the distribution's, and ``source_files`` hash its
-  four modules only. A delivery is no key input, so this changes no key, but a delivery's ``manifest_sha256``
-  differs from a Node-built delivery of the same project. ``data_manifest_sha256``, ``data_bundle_id`` and
-  ``runtime_lock_sha256`` are Node's.
+  package (design 0002) has no ``pyproject.toml``: its version is the distribution's (``compact-eeg``,
+  ``data.store.DISTRIBUTION``), and ``source_files`` hash its four modules only. A delivery is no key input, so this
+  changes no key, but a delivery's ``manifest_sha256`` differs from a Node-built delivery of the same project.
+  ``data_manifest_sha256``, ``data_bundle_id`` and ``runtime_lock_sha256`` are Node's in a checkout.
+- In the installed form (``jobs.runtime.installed_form``) without a managed runtime, the runtime lock is the Linux
+  lock ``configs/runtime/manifest-linux-64.json``: the recipe pins its numerical versions on both platforms (0002,
+  decision 2), and the macOS lock describes a SimNIBS runtime that the installed form does not have.
 - ``ProjectDelivery.export(project_id)`` takes no credential (one local user); the build runs in a worker thread.
 - Times are checked as ``Date.parse``'s ISO date-time format (``workspace_studies.iso_date_finite``); a time in one
   of V8's legacy formats is refused here, accepted by Node. Every time a host writes is ``toISOString()``.
@@ -54,7 +57,7 @@ from typing import Any, Callable, Iterable, Optional
 
 from ..jobs import nodefs, nodepath
 from ..jobs.identity import UNDEFINED, JSTypeError, _js_string, _member, _same, js_truthy
-from ..jobs.runtime import managed_python, table_python_path
+from ..jobs.runtime import installed_form, managed_python, table_python_path
 from ..schemas import jsjson
 from .workspace_files import UUID, SHA, ProjectError
 
@@ -629,13 +632,19 @@ def _source_root() -> Optional[str]:
         return None
 
 
-def runtime_lock_path(scientific_root: str) -> str:
+LINUX_LOCK = 'configs/runtime/manifest-linux-64.json'
+MACOS_LOCK = 'configs/runtime/manifest.json'
+
+
+def runtime_lock_path(scientific_root: str, prefix: Optional[str] = None, package_file: Optional[str] = None) -> str:
     """``runtimeLockPath(root)``: the lock of the managed runtime in use, the Linux table runtime's own when that
-    runtime is the managed one, else the macOS lock."""
+    runtime is the managed one, else the macOS lock. The installed form without a managed runtime names the Linux
+    lock, whose versions its environment pins."""
     root = nodepath.resolve(scientific_root)
-    if managed_python(root) == table_python_path(root):
-        return 'configs/runtime/manifest-linux-64.json'
-    return 'configs/runtime/manifest.json'
+    managed = managed_python(root)
+    if managed == table_python_path(root) or (managed is None and installed_form(root, prefix, package_file)):
+        return LINUX_LOCK
+    return MACOS_LOCK
 
 
 def delivery_versions(scientific_root: str, source_root: Optional[str] = None) -> dict:
@@ -648,6 +657,8 @@ def delivery_versions(scientific_root: str, source_root: Optional[str] = None) -
         import importlib.metadata
         import tomllib
 
+        from ..data.store import DISTRIBUTION
+
         source = _source_root() if source_root is None else source_root
         data_bytes = nodefs.read_file(nodepath.resolve(scientific_root, 'data/manifest.json'))
         runtime_bytes = nodefs.read_file(nodepath.resolve(scientific_root, runtime_lock_path(scientific_root)))
@@ -655,7 +666,7 @@ def delivery_versions(scientific_root: str, source_root: Optional[str] = None) -
             package = _package_directory()
             files = [path for path in HOST_FILES if path.startswith(PACKAGE_SOURCE + '/')]
             source_bytes = [nodefs.read_file(nodepath.join(package, path[len(PACKAGE_SOURCE) + 1:])) for path in files]
-            version = importlib.metadata.version('eeglayoutlab')
+            version = importlib.metadata.version(DISTRIBUTION)
         else:
             files = list(HOST_FILES)
             source_bytes = [nodefs.read_file(nodepath.resolve(source, path)) for path in files]
