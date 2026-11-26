@@ -9,11 +9,10 @@ This guide covers the **Apple Silicon macOS** setup first. [Linux x86_64](#linux
 ## Requirements
 
 - An Apple Silicon Mac running macOS **14 or newer**.
-- Node.js **22.13.0 or newer**, with npm, to build the interface.
+- Node.js **22.18.0 or newer**, with npm, to build the interface.
 - Python **3.10 or newer** to run the setup tools, and a **Python 3.11** of your own (for example from Homebrew or python.org) for the `eeglayoutlab` command. The managed computation environment installs its own **Python 3.11** interpreter, as specified in the [runtime manifest](../configs/runtime/manifest.json); the command does not run in it.
 - An Apple Silicon Conda installation with the `conda` command available in Terminal.
-- Git and Apple's Command Line Tools.
-- [GitHub CLI](https://cli.github.com/) (`gh`) and a GitHub account with access to this private repository.
+- Git and Apple's Command Line Tools (and optionally [GitHub CLI](https://cli.github.com/) `gh` for command-line release downloads).
 - An internet connection for installing dependencies.
 
 Use the native Apple Silicon versions of these tools, without Rosetta. The runtime itself stays native. Only building head packages with `charm` also needs Rosetta 2 installed, for SimNIBS's bundled x86_64 tools (see [server deployment](server-deployment.md#building-head-packages)).
@@ -24,21 +23,20 @@ Use the native Apple Silicon versions of these tools, without Rosetta. The runti
 
 ### 1. Clone the repository
 
-Open Terminal, sign in with the account that has repository access, and clone the current development source:
+Open Terminal and clone the current source (from the GitHub repository page or with `gh`):
 
 ```sh
-gh auth login
 gh repo clone Yiming-S/EEGLayoutLab
 cd EEGLayoutLab
 ```
 
-Keep this Terminal window open for the following steps. The repository root is the folder containing `scripts/` and `webapp/`. Create a working branch with `git switch -c codex/my-changes` before editing the source. The data installer checks the archive against the manifest in this checkout; use the archive named below while that manifest remains the current one.
+Keep this Terminal window open for the following steps. The repository root is the folder containing `scripts/` and `webapp/`. Create a working branch before editing the source. The data installer checks the archive against the manifest in this checkout; use the archive named below while that manifest remains the current one.
 
 ### 2. Install the model data
 
-Download the matching `eeglayoutlab-data-v1.tar.gz` archive and checksum from [Release v0.2.0](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.2.0). Install this archive separately from the source code. This repository is private, so the release page and assets require repository access.
+Download `eeglayoutlab-data-v1.tar.gz` (282.5 MiB compressed; 387.41 MiB unpacked) and `eeglayoutlab-data-v1.tar.gz.sha256` from [Release v0.2.0](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.2.0) into `releases/` (directly in your browser, or with `gh release download` below; no GitHub sign-in is required). Install this archive separately from the source code.
 
-From the repository root, download and check the archive:
+From the repository root, download (if using `gh`) and check the archive:
 
 ```sh
 mkdir -p releases
@@ -81,7 +79,15 @@ python3.11 -m venv .venv
 
 ![Expected terminal output checkpoints for data verification, Python runtime bootstrap, and starting the local service](images/install-terminal-checkpoints.svg)
 
-The service prints its address, `http://127.0.0.1:<port>/open?token=…`, and opens it in your browser once it answers. Use that page: the address signs the browser in, and the port is new on every start, so a bookmark or an address typed by hand does not open the application. Keep Terminal running while using the application. Press **Control + C** in Terminal to stop it. On first launch, check that the top-right **Tasks / Queue** badge shows `0` (connected):
+The service prints its address, `http://127.0.0.1:<port>/open?token=…`, and opens it in your browser once it answers. Use that page: the address signs the browser in, and the port is new on every start, so a bookmark or an address typed by hand does not open the application. Keep Terminal running while using the application. Press **Control + C** in Terminal to stop it.
+
+To verify both the scientific runtime and the installed model data end to end (about 13–35 seconds on Apple Silicon), run Examples 1 and 2 in another Terminal window:
+
+```sh
+.venv/bin/eeglayoutlab examples run --skip-cross-head
+```
+
+On first launch in the browser, check that the top-right **Tasks / Queue** badge shows `0` (connected):
 
 ![Annotated Workspace home screen on first launch showing the five top-bar areas, connected task queue badge, language and theme switcher, and starting options](images/workspace-first-launch.svg)
 
@@ -104,11 +110,11 @@ For the application's workflow, see [How to use](../README.md#how-to-use).
 
 Linux uses a smaller computation environment without SimNIBS: Python 3.11.14 with the same numpy 2.3.0, scipy 1.17.1 and threadpoolctl 3.6.0 as the Mac, plus cortech 0.1, numba 0.64.0, llvmlite 0.46.0 and nibabel 5.3.3 for projecting coordinates onto the scalp. The lock is [`manifest-linux-64.json`](../configs/runtime/manifest-linux-64.json), with [`conda-linux-64.explicit.txt`](../configs/runtime/conda-linux-64.explicit.txt) (77 conda-forge packages by URL and SHA-256) and [`pip-linux-64.txt`](../configs/runtime/pip-linux-64.txt) (5 wheels, each with its SHA-256). Nothing is compiled from source.
 
-This environment cannot solve FEM. It computes new coordinates only from a published scalp-node table, and other heads only from their head packages and tables. These are not part of the data bundle; copy them from the Mac that built them (see [server deployment](server-deployment.md#memory-and-the-scalp-node-table)):
+This environment cannot solve FEM. With the `base` bundle alone it already runs regional radius search (`search`) and signal simulation v1 from the precomputed forward bank. Evaluating new or imported coordinates (`evaluate`) requires the nominal scalp-node table (`scalp-node-table`, 1.40 GB archive / 2.6 GB unpacked), and cross-head studies require the head packages (`head-<id>`). Install them via [data packages](data-packages.md) (`eeglayoutlab data install` and `eeglayoutlab data compose`), or copy them from the Mac that built them (see [server deployment](server-deployment.md#memory-and-the-scalp-node-table)):
 
-- `results/v2/current_scalp_node_table.json` and `results/v2/scalp_node_table/<table_id>/` (2.6 GB): needed for any new coordinates.
-- `results/v2/heads/<id>/` (about 1 GB each): needed for cross-head studies.
-- `results/v2/scalp_node_table_scenarios/<name>/`: needed for conductivity scenarios.
+- `results/v2/current_scalp_node_table.json` and `results/v2/scalp_node_table/<table_id>/` (2.6 GB): needed for evaluating any new coordinates (`scalp-node-table`).
+- `results/v2/heads/<id>/` (about 1 GB each): needed for cross-head studies (`head-<id>`).
+- `results/v2/scalp_node_table_scenarios/<name>/`: needed for conductivity scenarios (`scalp-node-table-<scenario>`).
 
 | Works with the table | Needs the Mac runtime with SimNIBS |
 | --- | --- |

@@ -247,45 +247,66 @@ def _own_keys(value: dict) -> list[str]:
     return indices + [key for key in value if not is_array_index(key)]
 
 
-def stringify(value: Any) -> str:
-    """``JSON.stringify(value)`` for JSON data: JavaScript own-key order, no whitespace, JS numbers.
+def _gap_string(indent: int | str | None) -> str:
+    if indent is None or isinstance(indent, bool):
+        return ''
+    if isinstance(indent, int):
+        return ' ' * min(max(indent, 0), 10)
+    if isinstance(indent, str):
+        return indent[:10]
+    return ''
+
+
+def stringify(value: Any, indent: int | str | None = None) -> str:
+    """``JSON.stringify(value, null, indent)`` for JSON data: JavaScript own-key order, JS numbers.
 
     Keys are written in V8's order for ordinary objects (ECMA-262 OrdinaryOwnPropertyKeys): array-index keys
     (``is_array_index``) first in ascending numeric order, then every other key in insertion order. This is
     the order ``JSON.parse`` gives an object, so ``stringify(parse(text))`` equals Node's
     ``JSON.stringify(JSON.parse(text))``; worker results with keys such as ``"1"`` and ``"-1"`` hash as in Node.
 
+    When ``indent`` is positive (or a non-empty string), non-empty objects and arrays are indented with ``gap``
+    per nesting level and ``": "`` after each property name, while empty ``{}`` and ``[]`` remain compact,
+    matching ``JSON.stringify(value, null, indent)`` byte for byte.
+
     Absent optional fields must be left out of the dict by the caller, as Node
     builds objects with conditional spreads; ``None`` is serialized as ``null``.
 
     It does not recurse, so like V8 it writes any nesting depth that ``parse`` accepts.
     """
+    gap = _gap_string(indent)
     if not isinstance(value, (list, tuple, dict)):
         return _scalar(value)
     out: list[str] = []
-    # Open containers: [iterator of (prefix, child), closing bracket, nothing written yet].
+    # Open containers: [iterator of (prefix, child), closing bracket, nothing written yet, depth].
     stack: list[list[Any]] = []
     child = value
     while True:
+        depth = len(stack)
         if isinstance(child, dict):
             out.append('{')
-            stack.append([_members(child), '}', True])
+            stack.append([_members(child, bool(gap)), '}', True, depth])
         elif isinstance(child, (list, tuple)):
             out.append('[')
-            stack.append([_items(child), ']', True])
+            stack.append([_items(child), ']', True, depth])
         else:
             out.append(_scalar(child))
         while stack:
             frame = stack[-1]
             entry = next(frame[0], None)
             if entry is None:
+                if not frame[2] and gap:
+                    out.append('\n' + gap * frame[3])
                 out.append(frame[1])
                 stack.pop()
                 continue
+            step = ('\n' + gap * (frame[3] + 1)) if gap else ''
             if frame[2]:
                 frame[2] = False
+                if step:
+                    out.append(step)
             else:
-                out.append(',')
+                out.append(',' + step)
             out.append(entry[0])
             child = entry[1]
             break
@@ -293,9 +314,10 @@ def stringify(value: Any) -> str:
             return ''.join(out)
 
 
-def _members(value: dict):
+def _members(value: dict, spaced: bool = False):
     keys = _own_keys(value)  # checked before anything of the object is written
-    return ((quote(key) + ':', value[key]) for key in keys)
+    sep = ': ' if spaced else ':'
+    return ((quote(key) + sep, value[key]) for key in keys)
 
 
 def _items(value):

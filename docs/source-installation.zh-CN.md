@@ -9,11 +9,10 @@
 ## 准备条件
 
 - Apple Silicon（M 系列芯片）Mac，macOS **14 或更新版本**。
-- Node.js **22.13.0 或更新版本**，以及 npm，用于构建界面。
+- Node.js **22.18.0 或更新版本**，以及 npm，用于构建界面。
 - 用于运行安装工具的 Python **3.10 或更新版本**，以及一个自备的 **Python 3.11**（例如来自 Homebrew 或 python.org），用于安装 `eeglayoutlab` 命令。安装工具会另行准备使用 **Python 3.11** 的计算环境，具体版本见[运行环境清单](../configs/runtime/manifest.json)；该命令不在这个环境中运行。
 - Apple Silicon 版本的 Conda，且终端中可以运行 `conda` 命令。
-- Git 和 Apple 命令行工具。
-- [GitHub 命令行工具](https://cli.github.com/)（`gh`），以及拥有此私有仓库访问权限的 GitHub 账号。
+- Git 和 Apple 命令行工具（可选安装 [GitHub 命令行工具](https://cli.github.com/) `gh` 用于命令行下载发布附件）。
 - 安装依赖时需要联网。
 
 使用上述工具的原生 Apple Silicon 版本，不通过 Rosetta 运行。运行环境本身保持原生；只有用 `charm` 构建头模包时，还需安装 Rosetta 2 来运行 SimNIBS 自带的 x86_64 工具（见 [server deployment](server-deployment.md#building-head-packages)）。
@@ -24,21 +23,20 @@
 
 ### 1. 克隆仓库
 
-打开终端，登录有仓库访问权限的账号，并克隆当前开发源码：
+打开终端并克隆源码（可直接通过 GitHub 仓库页面地址或 `gh` 克隆）：
 
 ```sh
-gh auth login
 gh repo clone Yiming-S/EEGLayoutLab
 cd EEGLayoutLab
 ```
 
-后续步骤继续在这个终端窗口中操作。仓库根目录是同时包含 `scripts/` 和 `webapp/` 的文件夹。修改源码前，运行 `git switch -c codex/my-changes` 创建工作分支。数据安装工具会按当前源码中的清单核对数据包；下文列出的数据包对应当前清单。
+后续步骤继续在这个终端窗口中操作。仓库根目录是同时包含 `scripts/` 和 `webapp/` 的文件夹。修改源码前请先创建工作分支。数据安装工具会按当前源码中的清单核对数据包；下文列出的数据包对应当前清单。
 
 ### 2. 安装模型数据
 
-从 [v0.2.0 版本页面](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.2.0)下载匹配的 `eeglayoutlab-data-v1.tar.gz` 数据包及校验文件。数据包与源码分别安装。当前仓库为私有仓库，访问版本页面和附件需要仓库权限。
+从 [v0.2.0 版本页面](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.2.0)将匹配的 `eeglayoutlab-data-v1.tar.gz`（压缩包约 282.5 MiB，展开 387.41 MiB）及 `eeglayoutlab-data-v1.tar.gz.sha256` 下载到 `releases/` 目录（无需登录 GitHub，可直接用浏览器下载或用下方 `gh` 命令获取）。数据包与源码分别安装。
 
-在仓库根目录下载并校验数据包：
+在仓库根目录下载（若使用 `gh`）并校验数据包：
 
 ```sh
 mkdir -p releases
@@ -81,7 +79,15 @@ python3.11 -m venv .venv
 
 ![终端安装各步骤成功输出检查点示意图：数据包校验、Python 运行环境就绪与本地服务启动](images/install-terminal-checkpoints.svg)
 
-服务会打印地址 `http://127.0.0.1:<端口>/open?token=…`，并在就绪后用浏览器打开它。请使用这个页面：该地址负责让浏览器登录本地服务，而且每次启动的端口都不同，所以书签或手动输入的地址无法打开应用。使用期间保持终端运行；结束使用时，在终端按 **Control + C** 停止服务。首次打开页面后，确认右上角**任务 / 队列**显示 `0`（已连接本地服务）即可开始使用：
+服务会打印地址 `http://127.0.0.1:<端口>/open?token=…`，并在就绪后用浏览器打开它。请使用这个页面：该地址负责让浏览器登录本地服务，而且每次启动的端口都不同，所以书签或手动输入的地址无法打开应用。使用期间保持终端运行；结束使用时，在终端按 **Control + C** 停止服务。
+
+若要一次性验证科学计算环境与模型数据均已就绪（在 M 系列 Mac 上约 13–35 秒），可在另一终端窗口运行示例 1 和示例 2：
+
+```sh
+.venv/bin/eeglayoutlab examples run --skip-cross-head
+```
+
+首次打开浏览器页面后，确认右上角**任务 / 队列**显示 `0`（已连接本地服务）即可开始使用：
 
 ![首次打开浏览器工作区界面标注图：顶栏五大板块、任务队列连接状态、语言与主题切换以及三个起点入口](images/workspace-first-launch.svg)
 
@@ -104,7 +110,7 @@ cd EEGLayoutLab
 
 Linux 使用较小的计算环境：Python 3.11.14，numpy、scipy 与 Mac 版本相同，另含 cortech、numba、llvmlite 和 nibabel，不含 SimNIBS。锁文件为 [`manifest-linux-64.json`](../configs/runtime/manifest-linux-64.json)、[`conda-linux-64.explicit.txt`](../configs/runtime/conda-linux-64.explicit.txt) 和 [`pip-linux-64.txt`](../configs/runtime/pip-linux-64.txt)，每个包都记录 SHA-256，不从源码编译。
 
-该环境不能求解 FEM。计算新坐标需要已发布的头皮节点表（`results/v2/current_scalp_node_table.json` 和 `results/v2/scalp_node_table/<table_id>/`，约 2.6 GB）；跨头模研究还需要 `results/v2/heads/<id>/`。这些文件不在数据包中，需从构建它们的 Mac 复制。
+该环境不能求解 FEM。仅安装 `base` 数据包时，即可运行区域半径搜索（`search`）与 v1 信号仿真；若要评估导入或新构造的电极坐标（`evaluate`），还需安装名义头皮节点表数据包（`scalp-node-table`，归档约 1.40 GB，展开约 2.6 GB）；跨头模研究还需安装各头模包（`head-<id>`）。可通过[数据包工具](data-packages.md)（`eeglayoutlab data install` 与 `eeglayoutlab data compose`）安装，或从构建它们的 Mac 复制。
 
 需要 x86_64 Linux（glibc 2.28 或更新，例如 Ubuntu 24.04）、Node.js 22.18 或更新、Python 3.10 或更新，以及 Miniforge 或 micromamba；不需要 Git 和编译器。按第 2 步安装数据（Linux 上用 `sha256sum -c` 校验），复制头皮节点表，然后在仓库根目录运行：
 

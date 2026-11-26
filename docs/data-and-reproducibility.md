@@ -12,10 +12,9 @@ The bundle is limited to the application inputs and supplied records. Installed 
 
 ## Install and verify
 
-Download the archive and checksum from [Release v0.2.0](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.2.0), using an account with access to this private repository. With [GitHub CLI](https://cli.github.com/) installed, run from the matching source checkout:
+Download `eeglayoutlab-data-v1.tar.gz` and `eeglayoutlab-data-v1.tar.gz.sha256` from [Release v0.2.0](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.2.0) into `releases/` (directly in a browser, or with [GitHub CLI](https://cli.github.com/) below; no GitHub sign-in is required), then run from the matching source checkout:
 
 ```sh
-gh auth login
 mkdir -p releases
 gh release download v0.2.0 --repo Yiming-S/EEGLayoutLab \
   --pattern eeglayoutlab-data-v1.tar.gz \
@@ -26,7 +25,7 @@ python3 scripts/data_bundle.py install releases/eeglayoutlab-data-v1.tar.gz
 python3 scripts/data_bundle.py verify
 ```
 
-Check the checksum before installing. Browser downloads require the same repository access; place both downloaded files in `releases/` to use these commands. The bundle tool operates on local files and uses only the Python standard library. An explicit `--root` can select another checkout. See the [source installation guide](source-installation.md) for the current Apple Silicon macOS setup.
+Check the checksum before installing. Place both downloaded files in `releases/` before running the checksum and installer commands. The bundle tool operates on local files and uses only the Python standard library. An explicit `--root` can select another checkout. See the [source installation guide](source-installation.md) for the current Apple Silicon macOS and Linux setup.
 
 Installation uses the destination checkout's manifest as the trust baseline. The archive manifest must match it byte for byte. The installer rejects members outside the inventory, path traversal, links, mismatched content, and conflicting files already present at the destination. A mismatch should be resolved by obtaining the matching archive or selecting the appropriate code/data version; do not edit the manifest to make an unknown file pass.
 
