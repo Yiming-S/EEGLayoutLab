@@ -353,9 +353,8 @@ disposition = "N"
 disposition = "N"
 
 [sites."check-coordinate-review.mjs::source metadata remains bounded and cannot change scientific normalization, context identity or legacy annotation IDs"]
-disposition = "pending"
-slice = 5
-module = "tests/service/test_key_parity.py"
+disposition = "P"
+target = "tests/service/test_key_parity.py::test_source_metadata_remains_bounded_and_cannot_change_scientific_key_or_legacy_annotation_ids"
 note = "source metadata never enters the key"
 
 [sites."check-coordinate-review.mjs::source declarations survive trusted project snapshots and deliveries without entering or changing scientific payload"]
@@ -523,32 +522,27 @@ disposition = "N"
 disposition = "N"
 
 [sites."check-design-decision.mjs::result validator rejects a switched request or displaced nominal coordinates"]
-disposition = "pending"
-slice = 5
-module = "tests/service/test_design.py"
+disposition = "P"
+target = "tests/service/test_design.py::test_result_validator_rejects_switched_request_or_displaced_nominal_coordinates"
 
 [sites."check-design-decision.mjs::worker results cache by exact inputs and do not consume another worker slot on hit"]
-disposition = "pending"
-slice = 5
-module = "tests/service/test_design.py"
+disposition = "P"
+target = "tests/service/test_design.py::test_worker_results_cache_by_exact_inputs_and_do_not_consume_another_slot_on_hit"
 
 [sites."check-design-decision.mjs::cancel keeps shared slot until process close and never creates a success cache"]
-disposition = "pending"
-slice = 5
-module = "tests/service/test_design.py"
+disposition = "P"
+target = "tests/service/test_design.py::test_cancel_keeps_shared_slot_until_process_close_and_never_creates_success_cache"
 
 [sites."check-design-decision.mjs::shutdown during input validation cannot start a late worker"]
-disposition = "pending"
-slice = 5
-module = "tests/service/test_design.py"
+disposition = "P"
+target = "tests/service/test_design.py::test_shutdown_during_input_validation_cannot_start_a_late_worker"
 
 [sites."check-design-decision.mjs::missing cache identities and different anatomical domains are never silent matches"]
 disposition = "N"
 
 [sites."check-design-decision.mjs::corrupt perturbation coordinates, labels or derived spacing are rejected"]
-disposition = "pending"
-slice = 5
-module = "tests/service/test_design.py"
+disposition = "P"
+target = "tests/service/test_design.py::test_corrupt_perturbation_coordinates_labels_or_derived_spacing_are_rejected"
 
 [sites."check-design-decision.mjs::source, scalp and manifest bytes all invalidate the real context identity"]
 disposition = "P"
@@ -569,9 +563,8 @@ formats = ["design-evaluation"]
 note = "the browser half (designSubmission) stays in Node"
 
 [sites."check-design-robustness.mjs::the result validator requires the block exactly when requested and checks its structure"]
-disposition = "pending"
-slice = 5
-module = "tests/service/test_design.py"
+disposition = "P"
+target = "tests/service/test_design.py::test_result_validator_requires_robustness_block_when_requested_and_checks_all_eight_corruptions"
 note = "all eight corruptions"
 
 [sites."check-design-robustness.mjs::the library summary, the table rows and the critical electrodes come from the same block"]
@@ -635,47 +628,40 @@ disposition = "N"
 disposition = "N"
 
 [sites."check-electrode-annotations.mjs::production adapter normalization excludes A/B names from request, worker input and scientific key"]
-disposition = "pending"
-slice = 5
-module = "tests/service/test_key_parity.py"
+disposition = "P"
+target = "tests/service/test_key_parity.py::test_production_adapter_normalization_excludes_electrode_names_from_request_worker_input_and_key"
 note = "the electrode names never enter the request or the key"
 
 [sites."check-electrode-annotations.mjs::shared receipts retain owner-specific and same-owner variants across restart without scientific file changes"]
-disposition = "pending"
-slice = 5
-module = "tests/service/test_annotations.py"
+disposition = "P"
+target = "tests/service/test_annotations.py::test_shared_receipts_retain_variants_across_restart_without_scientific_file_changes"
 note = "variants survive restart; owners are dropped (R1)"
 
 [sites."check-electrode-annotations.mjs::sidecar integrity, paths, crashed temporaries, private output and storage limits are enforced"]
-disposition = "pending"
-slice = 5
-module = "tests/service/test_annotations.py"
+disposition = "P"
+target = "tests/service/test_annotations.py::test_sidecar_integrity_paths_crashed_temporaries_private_output_and_storage_limits"
 
 [sites."check-electrode-annotations.mjs::lookup misses do not create metadata, blocked writes fail before receipts, bare cached reads stay available"]
-disposition = "pending"
-slice = 5
-module = "tests/service/test_annotations.py"
+disposition = "P"
+target = "tests/service/test_annotations.py::test_lookup_misses_do_not_create_metadata_and_bare_cached_reads_stay_available"
 note = "the resource-blocking part is dropped (R2)"
 
 [sites."check-electrode-annotations.mjs::per-owner and per-receipt metadata bounds reject new variants without creating files"]
-disposition = "pending"
-slice = 5
-module = "tests/service/test_annotations.py"
+disposition = "P"
+target = "tests/service/test_annotations.py::test_per_receipt_metadata_bound_rejects_new_variants_without_creating_files"
 note = "the per-receipt bound; the per-owner bound is dropped (R1)"
 
 [sites."check-electrode-annotations.mjs::HTTP annotations require policy/token and owner; snapshots and delivery preserve each variant after sidecars disappear"]
-disposition = "pending"
-slice = 5
-module = "tests/service/test_annotations.py"
+disposition = "P"
+target = "tests/service/test_annotations.py::test_http_annotations_require_policy_and_token_and_serve_annotation_id_on_jobs_library_and_bundles"
 note = "policy, token and annotation_id reads; the owner and sharing parts are dropped (R1, R5)"
 
 [sites."check-electrode-annotations.mjs::task polling retains the explicitly selected name variant when a shared receipt has a newer variant"]
 disposition = "N"
 
 [sites."check-electrode-annotations.mjs::multibyte electrode names survive request chunks split inside every UTF-8 character"]
-disposition = "pending"
-slice = 5
-module = "tests/service/test_annotations.py"
+disposition = "P"
+target = "tests/service/test_annotations.py::test_multibyte_electrode_names_survive_request_chunks_split_inside_every_utf8_character"
 
 [sites."check-electrode-annotations.mjs::opening and refreshing a saved evaluation restores original inputs, exact names, seed and radius with GET only"]
 disposition = "N"
@@ -686,7 +672,6 @@ disposition = "N"
 disposition = "C"
 mirror = "tests/test_schema_parity.py::test_variant_parity"
 formats = ["electrode-editor"]
-slice = 6
 note = "normalizeEditorRequest"
 
 [sites."check-electrode-editor.mjs::deactivation preserves all stable identities and undo/redo restores exact state"]
@@ -699,9 +684,8 @@ disposition = "N"
 disposition = "N"
 
 [sites."check-electrode-editor.mjs::result schema rejects stale requests, malformed geometry and fabricated combined score"]
-disposition = "pending"
-slice = 6
-module = "tests/service/test_editor.py"
+disposition = "P"
+target = "tests/service/test_editor.py::test_result_schema_rejects_stale_requests_malformed_geometry_and_fabricated_combined_score"
 note = "its checks already run, with Node's messages, in test_catalogs.py::test_validate_editor_result_messages"
 
 [sites."check-electrode-editor.mjs::new local endpoint retains loopback and session-token protection"]
@@ -712,9 +696,8 @@ target = "tests/service/test_access.py::test_editor_endpoint_retains_loopback_an
 disposition = "N"
 
 [sites."check-electrode-editor.mjs::editor shares capacity, caches completed results and retains capacity while cancelling"]
-disposition = "pending"
-slice = 6
-module = "tests/service/test_editor.py"
+disposition = "P"
+target = "tests/service/test_editor.py::test_editor_shares_capacity_caches_completed_results_and_retains_capacity_while_cancelling"
 
 # --- check-evaluation-conditions.mjs ----------------------------------------------------------------------------------
 

@@ -444,3 +444,214 @@ def test_real_root_radius_key_parity(tmp_path):
         assert radius_outcome(case) == node_outcome(node[case['id']]), case['id']
     assert stored and all(node[f'real/default/stored-{key}']['ok'] for key in stored)
     assert node['real/default/whole']['ok']
+
+
+# --- Slice 5: Design submission & coordinate source isolation ---------------------------------------------------
+
+def test_production_adapter_normalization_excludes_electrode_names_from_request_worker_input_and_key(tmp_path):
+    """Ported from check-electrode-annotations.mjs:
+    'production adapter normalization excludes A/B names from request, worker input and scientific key'."""
+    from eeglayoutlab.jobs.annotations import ElectrodeAnnotations, design_submission
+    from eeglayoutlab.jobs.design import DesignEvaluationService, design_adapter
+    from eeglayoutlab.jobs.queue import WorkspaceQueue
+    from .key_parity_support import design_root
+
+    root = design_root(tmp_path / 'root')
+    service = DesignEvaluationService(repository_root=root)
+    adapter = design_adapter(service)
+    ws_ann = str(tmp_path / 'workspace' / 'annotations' / 'electrode-names')
+    annotations = ElectrodeAnnotations.local(ws_ann, root)
+    scheduler = WorkspaceQueue(
+        str(tmp_path / 'workspace' / 'queue'),
+        {'design-evaluation': adapter},
+        root=root,
+        annotations=annotations,
+        poll_ms=None,
+    )
+    try:
+        xyz = [[float((i % 8) * 5), float((i // 8) * 5), 0.0] for i in range(64)]
+        regions = [i % 2 for i in range(64)]
+        source_v1 = {
+            'schema': 'electrode-coordinate-source/1',
+            'format': 'bids-electrodes/1',
+            'electrodes_file': 'sub-01_electrodes.tsv',
+            'coordsystem_file': 'sub-01_coordsystem.json',
+            'coordinate_system': 'ernie_native_mm',
+            'unit': 'mm',
+            'coordinate_system_description': 'Ernie native frame in millimetres.',
+            'region_index_base': 0,
+            'region_description': 'Explicit zero-based EEGLayoutLab regions.',
+        }
+        bare = {
+            'action': 'evaluate',
+            'design': {
+                'schema': 'eeg-electrode-design/1',
+                'coordinate_system': 'ernie_native_mm',
+                'unit': 'mm',
+                'name': 'Isolation check',
+                'xyz_mm': xyz,
+                'region_indices': regions,
+                'electrode_names': [f'Extra{i + 1}' for i in range(64)],
+                'source_metadata': source_v1,
+            },
+            'radius_mm': 3,
+            'seed': 2026,
+        }
+        names_a = [f'A{i + 1}' for i in range(64)]
+        names_b = [f'B{i + 1}' for i in range(64)]
+        env_a = {'schema': 'design-submission/1', 'request': bare, 'electrode_names': names_a}
+        env_b = {'schema': 'design-submission/1', 'request': bare, 'electrode_names': names_b}
+
+        sub_bare = design_submission(bare)
+        sub_a = design_submission(env_a)
+        sub_b = design_submission(env_b)
+        norm_bare = service.normalize(sub_bare['request'])
+        norm_a = service.normalize(sub_a['request'])
+        norm_b = service.normalize(sub_b['request'])
+
+        assert norm_bare == norm_a == norm_b
+        assert 'electrode_names' not in norm_bare['design']
+        assert 'source_metadata' not in norm_bare['design']
+
+        prep_bare = adapter['prepare'](bare)
+        prep_a = adapter['prepare'](env_a)
+        prep_b = adapter['prepare'](env_b)
+        assert prep_bare['key'] == prep_a['key'] == prep_b['key']
+        assert prep_bare['ctx']['identity'] == prep_a['ctx']['identity'] == prep_b['ctx']['identity']
+
+        class _JobStub:
+            def __init__(self, req, ctx):
+                self.request = req
+                self.ctx = ctx
+
+        wi_bare = service.worker_input(_JobStub(prep_bare['request'], prep_bare['ctx']))
+        wi_a = service.worker_input(_JobStub(prep_a['request'], prep_a['ctx']))
+        wi_b = service.worker_input(_JobStub(prep_b['request'], prep_b['ctx']))
+        assert wi_bare == wi_a == wi_b
+        assert 'electrode_names' not in jsjson.stringify(wi_a)
+    finally:
+        scheduler.dispose()
+        service.dispose()
+
+
+def test_source_metadata_remains_bounded_and_cannot_change_scientific_key_or_legacy_annotation_ids(tmp_path):
+    """Ported from check-coordinate-review.mjs:
+    'source metadata remains bounded and cannot change scientific normalization, context identity or legacy annotation IDs'."""
+    import shutil
+    import subprocess
+    from eeglayoutlab.jobs.annotations import ElectrodeAnnotations, design_submission
+    from eeglayoutlab.jobs.design import DesignEvaluationService, design_adapter
+    from .key_parity_support import NODE_ENV, design_root
+
+    root = design_root(tmp_path / 'root')
+    service = DesignEvaluationService(repository_root=root)
+    adapter = design_adapter(service)
+    (tmp_path / 'workspace').mkdir(parents=True, exist_ok=True)
+    ws_ann = str(tmp_path / 'workspace' / 'annotations' / 'electrode-names')
+    annotations = ElectrodeAnnotations.local(ws_ann, root)
+    try:
+        xyz = [[float((i % 8) * 5), float((i // 8) * 5), 0.0] for i in range(64)]
+        bare = {
+            'action': 'evaluate',
+            'design': {
+                'schema': 'eeg-electrode-design/1',
+                'coordinate_system': 'ernie_native_mm',
+                'unit': 'mm',
+                'name': 'Source metadata check',
+                'xyz_mm': xyz,
+                'region_indices': [i % 2 for i in range(64)],
+            },
+            'radius_mm': 3,
+            'seed': 2026,
+        }
+        names = [f'Ch{i + 1}' for i in range(64)]
+        mapping = 'f3c1a9e07b2d4c6f8a1e0d9c7b5a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a'
+        source_v1 = {
+            'schema': 'electrode-coordinate-source/1',
+            'format': 'bids-electrodes/1',
+            'electrodes_file': 'sub-01_electrodes.tsv',
+            'coordsystem_file': 'sub-01_coordsystem.json',
+            'coordinate_system': 'ernie_native_mm',
+            'unit': 'mm',
+            'coordinate_system_description': 'Ernie native frame in millimetres.',
+            'region_index_base': 0,
+            'region_description': 'Explicit zero-based EEGLayoutLab regions.',
+        }
+        source_v3 = {
+            'schema': 'electrode-coordinate-source/3',
+            'format': 'bids-electrodes/1',
+            'electrodes_file': 'sub-01_electrodes.tsv',
+            'coordsystem_file': 'sub-01_coordsystem.json',
+            'coordinate_system': 'ernie_native_mm',
+            'unit': 'mm',
+            'coordinate_system_description': 'Ernie native frame in millimetres.',
+            'region_index_base': 0,
+            'region_description': 'Explicit zero-based EEGLayoutLab regions.',
+            'conversion': {
+                'method': 'ernie-mni-scalp/1',
+                'mapping_id': mapping,
+                'input_coordinate_system': 'MNI152NLin2009cAsym',
+                'input_unit': 'mm',
+                'max_surface_distance_mm': 3.27,
+            },
+            'region_assignment': {'method': 'balanced-spatial/1', 'region_count': 2},
+        }
+
+        prep_legacy = adapter['prepare']({'schema': 'design-submission/1', 'request': bare, 'electrode_names': names})
+        prep_v1 = adapter['prepare']({
+            'schema': 'design-submission/1', 'request': bare, 'electrode_names': names, 'source_metadata': source_v1,
+        })
+        prep_v3 = adapter['prepare']({
+            'schema': 'design-submission/1', 'request': bare, 'electrode_names': names, 'source_metadata': source_v3,
+        })
+
+        assert prep_legacy['request'] == prep_v1['request'] == prep_v3['request']
+        assert prep_legacy['key'] == prep_v1['key'] == prep_v3['key']
+        assert prep_legacy['ctx']['identity'] == prep_v1['ctx']['identity'] == prep_v3['ctx']['identity']
+
+        owner = 'a' * 64
+        rec_legacy = annotations.create(prep_legacy, owner)
+        rec_v1 = annotations.create(prep_v1, owner)
+        rec_v3 = annotations.create(prep_v3, owner)
+        assert rec_v1['id'] != rec_legacy['id']
+        assert rec_v3['id'] != rec_v1['id']
+
+        if shutil.which('node') is not None:
+            checkout = Path(__file__).resolve().parents[2]
+            ann_mod = str(checkout / 'webapp/server/annotations/electrode-names.mjs')
+            node_ws = str(tmp_path / 'node_ws' / 'annotations' / 'electrode-names')
+            (tmp_path / 'node_ws' / 'annotations' / 'electrode-names').mkdir(parents=True, exist_ok=True)
+            script = (
+                f"import {{ ElectrodeAnnotations }} from {jsjson.stringify(ann_mod)};\n"
+                f"const store = new ElectrodeAnnotations({jsjson.stringify(node_ws)});\n"
+                f"const owner = {jsjson.stringify(owner)};\n"
+                f"const legacy = store.identity({jsjson.stringify(prep_legacy)}, owner);\n"
+                f"const v1 = store.identity({jsjson.stringify(prep_v1)}, owner);\n"
+                f"const v3 = store.identity({jsjson.stringify(prep_v3)}, owner);\n"
+                "console.log(JSON.stringify({ legacy: legacy.id, v1: v1.id, v3: v3.id }));\n"
+            )
+            proc = subprocess.run(
+                ['node', '--input-type=module', '-e', script],
+                check=True, capture_output=True, text=True, env=NODE_ENV,
+            )
+            node_ids = jsjson.parse(proc.stdout.strip())
+            assert {'legacy': rec_legacy['id'], 'v1': rec_v1['id'], 'v3': rec_v3['id']} == node_ids
+
+        # Boundedness: oversized electrodes_file or invalid unit is rejected before touching scientific state.
+        with pytest.raises(ValueError):
+            design_submission({
+                'schema': 'design-submission/1',
+                'request': bare,
+                'electrode_names': names,
+                'source_metadata': {**source_v1, 'electrodes_file': 'x' * 201},
+            })
+        with pytest.raises(ValueError):
+            design_submission({
+                'schema': 'design-submission/1',
+                'request': bare,
+                'electrode_names': names,
+                'source_metadata': {**source_v1, 'unit': 'cm'},
+            })
+    finally:
+        service.dispose()
+

@@ -1,6 +1,6 @@
 # 0001, phase 2 — the Python service, in slices
 
-- **Status:** in progress; slices 1 to 4 done, slice 5 next. Decisions U1, U2, U3 and U6 were confirmed on 2026-11-23; U4, U5 and U7 are proposed defaults.
+- **Status:** in progress; slices 1 to 6 done, slice 7 next. Decisions U1, U2, U3 and U6 were confirmed on 2026-11-23; U4, U5 and U7 are proposed defaults.
 - **Date:** 2026-11-23
 - **Design:** [0001 — Local-first application with a Python service](0001-local-first-architecture.md), migration table, phase 2
 

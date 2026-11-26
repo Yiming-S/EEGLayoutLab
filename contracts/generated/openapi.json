@@ -124,6 +124,65 @@
         }
       }
     },
+    "/api/normalize/electrode-editor": {
+      "post": {
+        "operationId": "normalize_electrode_editor",
+        "summary": "Validate a electrode-editor request and return its canonical form",
+        "description": "Diagnostic endpoint. Reproduces normalizeEditorRequest (webapp/server/electrode-editor-server.mjs).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ElectrodeEditorRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The canonical request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NormalizedRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not valid JSON or not a valid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The body is larger than 65,536 bytes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not application/json.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/normalize/radius-search": {
       "post": {
         "operationId": "normalize_radius_search",
@@ -865,6 +924,45 @@
         "title": "ElectrodeDesign",
         "type": "object"
       },
+      "ElectrodeEditorRequest": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/PrepareEditorRequest"
+          },
+          {
+            "$ref": "#/components/schemas/EvaluateEditorRequest"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "action",
+          "mapping": {
+            "prepare": "#/components/schemas/PrepareEditorRequest",
+            "evaluate": "#/components/schemas/EvaluateEditorRequest"
+          }
+        }
+      },
+      "ElectrodeSlot": {
+        "additionalProperties": false,
+        "description": "One of the 64 fixed electrode slots of a parent layout.",
+        "properties": {
+          "bank_index": {
+            "maximum": 1000000,
+            "minimum": 0,
+            "title": "Bank Index",
+            "type": "integer"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "bank_index",
+          "enabled"
+        ],
+        "title": "ElectrodeSlot",
+        "type": "object"
+      },
       "ErrorResponse": {
         "type": "object",
         "title": "ErrorResponse",
@@ -882,6 +980,50 @@
           "error",
           "code"
         ]
+      },
+      "EvaluateEditorRequest": {
+        "additionalProperties": false,
+        "description": "Evaluate an edited subset or within-patch relocation of a parent layout's 64 electrode slots.",
+        "properties": {
+          "action": {
+            "const": "evaluate",
+            "title": "Action",
+            "type": "string"
+          },
+          "parent_id": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Parent Id",
+            "type": "string"
+          },
+          "parent_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Parent Digest",
+            "type": "string"
+          },
+          "seed": {
+            "const": 2026,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "slots": {
+            "items": {
+              "$ref": "#/components/schemas/ElectrodeSlot"
+            },
+            "maxItems": 64,
+            "minItems": 64,
+            "title": "Slots",
+            "type": "array"
+          }
+        },
+        "required": [
+          "action",
+          "parent_id",
+          "parent_digest",
+          "seed",
+          "slots"
+        ],
+        "title": "EvaluateEditorRequest",
+        "type": "object"
       },
       "FileRegionAssignment": {
         "additionalProperties": false,
@@ -1109,6 +1251,28 @@
           "canonical",
           "canonical_sha256"
         ]
+      },
+      "PrepareEditorRequest": {
+        "additionalProperties": false,
+        "description": "Load the candidate bank indices inside each region patch of a saved 64-electrode layout.",
+        "properties": {
+          "action": {
+            "const": "prepare",
+            "title": "Action",
+            "type": "string"
+          },
+          "parent_id": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Parent Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "parent_id"
+        ],
+        "title": "PrepareEditorRequest",
+        "type": "object"
       },
       "RadiusSearchRequest": {
         "additionalProperties": false,

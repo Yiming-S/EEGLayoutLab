@@ -1,4 +1,4 @@
-"""Durable workspace FIFO queue and startup receipt reconciliation (phase 2 slice 4).
+"""Durable workspace FIFO queue and startup receipt reconciliation (phase 2 slices 4–6).
 
 Ports the local-workspace subset of ``webapp/server/community-queue.mjs`` together with the receipt recovery rules of
 ``webapp/server/operations/reconciliation.mjs`` and ``scripts/inspect_service_reconciliation.mjs``:
@@ -8,6 +8,9 @@ Ports the local-workspace subset of ``webapp/server/community-queue.mjs`` togeth
 - Single shared ``ExecutionSlot`` across all workflow adapters; FIFO dispatch; pending-key deduplication for
   ``queued`` and ``running`` receipts (never ``cancelling``); cache hits bypass a busy worker and reuse receipts
   without moving a computed receipt into the cached retention pool.
+- Electrode-name sidecars (slice 5): ``design-submission/1`` envelopes create content-addressed sidecars in
+  ``W/annotations/electrode-names/`` on hit or enqueue (never on lookup miss), enforce the 100-variant per-receipt
+  bound without writing files, and return ``annotation_id`` + ``electrode_annotation`` when requested.
 - Startup recovery reconciles ``running`` and restart-interrupted ``failed`` receipts when a verified on-disk cache
   exists, while blocking dispatch if a prior worker PID is still alive or an unconfirmed spawn marker remains.
 - ``cache_only`` replaces Node's public maintenance mode: lookups and cache hits succeed, uncached submissions raise
@@ -23,13 +26,13 @@ import os
 import re
 import stat
 import threading
-import time
 from typing import Any, Callable, Optional
 import uuid
 
 from ..schemas import jsjson
 from ..server.workspace import LOCAL_OWNER, iso_now
 from . import nodefs, nodepath
+from .annotations import ANNOTATION_LIMITS, ElectrodeAnnotations
 from .records import KEY
 from .worker import ExecutionSlot
 
@@ -461,7 +464,7 @@ def radius_adapter(service: Any) -> dict[str, Callable[..., Any]]:
 # --- WorkspaceQueue ----------------------------------------------------------------------------------------------
 
 class WorkspaceQueue:
-    """Single-workspace durable FIFO scheduler (phase 2 slice 4)."""
+    """Single-workspace durable FIFO scheduler (phase 2 slices 4–6)."""
 
     def __init__(
         self,
@@ -470,6 +473,7 @@ class WorkspaceQueue:
         *,
         root: Optional[str] = None,
         owner: str = LOCAL_OWNER,
+        annotations: Optional[ElectrodeAnnotations] = None,
         execution_slot: Optional[ExecutionSlot] = None,
         cache_only: bool = False,
         max_queued: int = 50,
@@ -481,6 +485,7 @@ class WorkspaceQueue:
         self.directory = directory
         self.root = root
         self.owner = owner
+        self.annotations = annotations
         self.adapters = adapters
         self.execution_slot = execution_slot
         self.cache_only = bool(cache_only)
@@ -672,6 +677,79 @@ class WorkspaceQueue:
         self.tasks.append(task)
         return task
 
+    @staticmethod
+    def _task_annotation_ids(task: Optional[dict[str, Any]]) -> list[str]:
+        if not _plain(task):
+            return []
+        refs = task.get('annotation_refs')
+        if not _plain(refs):
+            return []
+        out: list[str] = []
+        for ids in refs.values():
+            if isinstance(ids, list):
+                for item in ids:
+                    if isinstance(item, str) and item not in out:
+                        out.append(item)
+        return out
+
+    @staticmethod
+    def _latest_annotation_id(task: dict[str, Any], owner: str) -> Optional[str]:
+        refs = task.get('annotation_refs')
+        if not _plain(refs):
+            return None
+        own_ids = refs.get(owner)
+        if isinstance(own_ids, list) and own_ids and isinstance(own_ids[-1], str):
+            return own_ids[-1]
+        for ids in refs.values():
+            if isinstance(ids, list) and ids and isinstance(ids[-1], str):
+                return ids[-1]
+        return None
+
+    def _annotation_for(
+        self,
+        prepared: dict[str, Any],
+        task: Optional[dict[str, Any]],
+        *,
+        admitted: bool = False,
+    ) -> Optional[dict[str, Any]]:
+        if not prepared.get('electrode_names'):
+            return None
+        if self.annotations is None:
+            raise QueueError('Electrode name storage is unavailable.', 503)
+        ann_id = self.annotations.identity(prepared, self.owner)['id']
+        existing_ids = self._task_annotation_ids(task)
+        if ann_id in existing_ids:
+            return self.annotations.read(ann_id, prepared['key'])
+        total_refs = sum(
+            len(ids) for ids in ((task or {}).get('annotation_refs') or {}).values()
+            if isinstance(ids, list)
+        )
+        if total_refs >= ANNOTATION_LIMITS['referencesPerTask']:
+            raise QueueError('This task already has 100 electrode name variants.', 413)
+        if not admitted:
+            _call_maybe_async(self.before_new_work)
+            if self.disposed or self.stopping or self.failure:
+                raise QueueError('计算队列不可用，请稍后重试', 503)
+        return self.annotations.create(prepared, self.owner)
+
+    def _attach_annotation(self, task: dict[str, Any], annotation: Optional[dict[str, Any]]) -> None:
+        if annotation is None:
+            return
+        refs = task.setdefault('annotation_refs', {})
+        prev = refs.get(self.owner)
+        prev_list = [aid for aid in prev if aid != annotation['id']] if isinstance(prev, list) else []
+        refs[self.owner] = [*prev_list, annotation['id']]
+
+    def _annotation_view(self, task: dict[str, Any], selected_id: Optional[str]) -> dict[str, Any]:
+        if selected_id is None:
+            return {}
+        if selected_id not in self._task_annotation_ids(task) or self.annotations is None:
+            raise QueueError('Electrode name annotation not found.', 404)
+        return {
+            'annotation_id': selected_id,
+            'electrode_annotation': self.annotations.read(selected_id, task['key']),
+        }
+
     def submit(self, kind: str, raw: Any, *, lookup_only: bool = False) -> dict[str, Any]:
         with self._serial:
             if self.disposed or self.stopping or self.failure:
@@ -686,15 +764,36 @@ class WorkspaceQueue:
             if self.disposed or self.stopping or self.failure:
                 raise QueueError('计算队列不可用，请稍后重试', 503)
             if ready.get('hit'):
+                status = ready['job']['status']
+                previous = next(
+                    (t for t in self.tasks
+                     if t.get('kind') == kind and t.get('key') == prepared['key'] and t.get('status') == status),
+                    None,
+                )
+                annotation = self._annotation_for(prepared, previous, admitted=False)
+                if self.disposed or self.stopping or self.failure:
+                    raise QueueError('计算队列不可用，请稍后重试', 503)
                 before_len = len(self.tasks)
-                task = self._receipt(kind, prepared, ready['job']['status'])
+                task = self._receipt(kind, prepared, status)
+                self._attach_annotation(task, annotation)
                 created = len(self.tasks) != before_len
                 if created:
                     task['cached'] = True
                     task['finished_at'] = ready['job'].get('finished_at') or self._now_iso()
                     task['catalog'] = receipt_catalog(kind, prepared, ready['job'].get('result'))
+                if created or annotation is not None:
                     self._persist()
-                return {'hit': True, 'job': {**ready['job'], **_task_view(task), 'cached': True, 'source': 'local_cache'}}
+                ann_fields = self._annotation_view(task, annotation['id'] if annotation is not None else None)
+                return {
+                    'hit': True,
+                    'job': {
+                        **ready['job'],
+                        **_task_view(task),
+                        'cached': True,
+                        'source': 'local_cache',
+                        **ann_fields,
+                    },
+                }
 
             existing = next(
                 (t for t in self.tasks
@@ -703,7 +802,20 @@ class WorkspaceQueue:
                 None,
             )
             if existing is not None:
-                return {'hit': True, 'job': self.view(existing, include_result=True)}
+                annotation = self._annotation_for(prepared, existing, admitted=False)
+                if self.disposed or self.stopping or self.failure:
+                    raise QueueError('计算队列不可用，请稍后重试', 503)
+                self._attach_annotation(existing, annotation)
+                if annotation is not None:
+                    self._persist()
+                return {
+                    'hit': True,
+                    'job': self.view(
+                        existing,
+                        include_result=True,
+                        annotation_id=annotation['id'] if annotation is not None else None,
+                    ),
+                }
 
             if lookup_only:
                 return {'hit': False}
@@ -717,9 +829,21 @@ class WorkspaceQueue:
                 raise QueueError('计算队列不可用，请稍后重试', 503)
             if self.cache_only:
                 raise QueueError('服务维护中，已有结果仍可读取；请稍后提交新计算', 503)
+            annotation = self._annotation_for(prepared, None, admitted=True)
+            if self.disposed or self.stopping or self.failure:
+                raise QueueError('计算队列不可用，请稍后重试', 503)
+            if self.cache_only:
+                raise QueueError('服务维护中，已有结果仍可读取；请稍后提交新计算', 503)
             task = self._receipt(kind, prepared, 'queued')
+            self._attach_annotation(task, annotation)
             self._persist()
-            return {'job': self.view(task, include_result=True)}
+            return {
+                'job': self.view(
+                    task,
+                    include_result=True,
+                    annotation_id=annotation['id'] if annotation is not None else None,
+                ),
+            }
 
     def get_task(self, task_id: str, kind: Optional[str] = None) -> dict[str, Any]:
         with self._serial:
@@ -731,7 +855,13 @@ class WorkspaceQueue:
                 raise QueueError('任务不存在或不属于当前浏览器', 404)
             return task
 
-    def view(self, task: dict[str, Any], *, include_result: bool = True) -> dict[str, Any]:
+    def view(
+        self,
+        task: dict[str, Any],
+        *,
+        include_result: bool = True,
+        annotation_id: Optional[str] = None,
+    ) -> dict[str, Any]:
         adapter = self.adapters[task['kind']]
         worker = adapter['get'](task['backendId']) if task.get('backendId') else None
         value: dict[str, Any] = worker or {}
@@ -766,7 +896,7 @@ class WorkspaceQueue:
             combined['result'] = value.get('result') if task.get('status') in ('completed', 'no_layout') else None
         else:
             combined.pop('result', None)
-        return combined
+        return {**combined, **self._annotation_view(task, annotation_id)}
 
     def cancel(self, task_id: str, kind: Optional[str] = None) -> dict[str, Any]:
         with self._serial:
@@ -884,10 +1014,17 @@ class WorkspaceQueue:
                 self.active_id = None
                 self._persist()
 
+    def _safe_task_summary(self, task: dict[str, Any]) -> dict[str, Any]:
+        latest_ann = self._latest_annotation_id(task, self.owner)
+        try:
+            return self.view(task, include_result=False, annotation_id=latest_ann)
+        except Exception:  # noqa: BLE001
+            return self.view(task, include_result=False)
+
     def stats(self) -> dict[str, Any]:
         with self._serial:
             recent = list(reversed(self.tasks[-12:]))
-            jobs = [self.view(t, include_result=False) for t in recent]
+            jobs = [self._safe_task_summary(t) for t in recent]
             return {
                 'queued_tasks': sum(1 for t in self.tasks if t.get('status') == 'queued'),
                 'running_tasks': int(bool(self.active_id is not None or self.blocked_pids)),
@@ -919,7 +1056,7 @@ class WorkspaceQueue:
     def active(self, kind: str) -> Optional[dict[str, Any]]:
         with self._serial:
             task = next((t for t in self.tasks if t.get('kind') == kind and t.get('status') in _PENDING), None)
-            return self.view(task, include_result=False) if task is not None else None
+            return self._safe_task_summary(task) if task is not None else None
 
     def _release_lock(self) -> None:
         if os.path.exists(self.lock_path):

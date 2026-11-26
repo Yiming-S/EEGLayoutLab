@@ -12,7 +12,7 @@ from typing import Any, Callable, Mapping
 
 from pydantic import TypeAdapter
 
-from . import coordinate_source, options, radius_search, submission
+from . import coordinate_source, electrode_editor, options, radius_search, submission
 
 
 @dataclass(frozen=True)
@@ -65,6 +65,13 @@ REQUEST_FORMATS: dict[str, RequestFormat] = {
                 'spatial_noise_lengths_mm': options.SPATIAL_NOISE_LENGTHS_MM,
                 'data_prior_lengths_mm': options.DATA_PRIOR_LENGTHS_MM,
             },
+        ),
+        RequestFormat(
+            name='electrode-editor',
+            schema_name='ElectrodeEditorRequest',
+            body=electrode_editor.ElectrodeEditorRequest,
+            canonical=electrode_editor.canonical,
+            node='normalizeEditorRequest (webapp/server/electrode-editor-server.mjs)',
         ),
         RequestFormat(
             name='radius-search',
