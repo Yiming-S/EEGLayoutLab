@@ -1,6 +1,6 @@
 # 0002 — The scientific root of an installed application
 
-- **Status:** accepted on 2026-11-23 (recommendation A and the three decisions below). Changes 1, 2 and 4 of the table below (the installed root, the environment's interpreter and the refusal of a read-only R) are implemented ([phase 3](0001-phase-3-plan.md), slice 2); the others are not yet
+- **Status:** accepted on 2026-11-23 (recommendation A and the three decisions below), amended on 2026-11-26 for the numerical closure of `conda-meta`, `llvmlite`'s `egg-info` metadata and virtual environments ([phase 3](0001-phase-3-plan.md), U16 and slice 3). Changes 1, 2, 3 and 4 of the table below (the installed root, the environment's interpreter, the environment identity rows and the refusal of a read-only R) are implemented; the others are not yet
 - **Date:** 2026-11-23
 - **Design:** [0001 — Local-first application with a Python service](0001-local-first-architecture.md), migration table, phase 3
 
@@ -102,15 +102,15 @@ $PREFIX/
 
 - **`repository_root()`**: `--root`, else `EEG_REPOSITORY_ROOT`, else the checkout that contains the package, else `<sys.prefix>/share/eeglayoutlab/root` when it holds `src/compact_eeg`. The default is the real path, as for a checkout. `serve`, `data compose`, the examples and the workers all find R this way.
 - **Worker interpreter.** In the installed form, when no managed runtime exists under R and `EEG_COMPUTE_PYTHON` is not set, it is `<sys.prefix>/bin/python`, the absolute path of the environment's interpreter, never `python3` from `PATH`. That string becomes D's `python`, as a managed interpreter's path does today, so it is stable across `conda update`.
-- **Environment rows.** When the interpreter is the environment's own and R is the installed root, the identity adds the files that the Linux managed runtime contributes, taken from the environment instead of `R/.runtime/compute-linux-64`:
-  - `conda-meta/*.json`;
-  - the `METADATA` of cortech, llvmlite, nibabel, numba, numpy and scipy;
-  - the interpreter.
+- **Environment rows.** When the interpreter is the environment's own and R is the installed root (U17), the identity adds the files that the Linux managed runtime contributes, taken from the environment instead of `R/.runtime/compute-linux-64`:
+  - `environment:bin/python`, the interpreter;
+  - `environment:conda-meta/<name>.json` for the numerical closure only (python, numpy, scipy, numba, llvmlite, nibabel, cortech, the BLAS packages and their dependencies from `depends`; U16), never `eeglayoutlab`'s own record or service-only packages, so `conda update eeglayoutlab` and unrelated `conda install` commands keep existing D, E, V2 and St keys;
+  - `environment:lib/pythonX.Y/site-packages/<dist>/METADATA` of cortech, nibabel, numba, numpy and scipy, and `llvmlite`'s `*.egg-info/PKG-INFO` (conda-forge's `llvmlite` ships an `egg-info` directory rather than `dist-info`), with `X.Y` taken from the running interpreter.
 
-  The row keys are prefix-relative paths under their own marker (for example `environment:conda-meta/…`), so they cannot collide with checkout rows. Input integrity accepts these files inside the real path of `sys.prefix`, and only for these rows. A checkout never produces these rows, so its keys do not change.
+  The row keys are prefix-relative paths under `environment:`, so they cannot collide with checkout rows. Input integrity accepts these files inside the real path of `sys.prefix`, and only for `environment:` rows when the environment base is given. A checkout never produces these rows, so its keys do not change.
 - **Data.** `eeglayoutlab data install` fills the data directory and `eeglayoutlab data compose` links the packages into R. Hard links work because a user environment and the data directory are normally on one file system; otherwise the files are copied. Several environments share one installed copy of the data.
 - **Examples.** `eeglayoutlab examples run` (decision U5 moves the scientific commands to phase 3) reads `R/examples` and writes to a directory the user names.
-- **The same layout for PyPI.** A wheel can install the same tree as data files under `sys.prefix/share/eeglayoutlab/root`. In a virtual environment this gives the same R and the same rules.
+- **Virtual environments (PyPI).** A wheel can install the same root tree as data files under `sys.prefix/share/eeglayoutlab/root`, giving the same R and `default_repository_root()` rule. However, a `venv` has no `conda-meta` directory and its `bin/python` resolves outside `sys.prefix` to the base interpreter, so the PyPI form needs its own environment-row and containment rule when PyPI distribution is added after phase 4.
 
 ### What changes, and where
 

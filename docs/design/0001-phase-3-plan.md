@@ -1,6 +1,6 @@
 # 0001, phase 3 — distribution, in slices
 
-- **Status:** accepted on 2026-11-25 with every recommended default (decisions U8 to U28); no slice started.
+- **Status:** accepted on 2026-11-25 with every recommended default (decisions U8 to U28); slices 1 to 3 done; slice 4 next.
 - **Date:** 2026-11-25
 - **Design:** [0001 — Local-first application with a Python service](0001-local-first-architecture.md), migration table, phase 3; [0002 — The scientific root of an installed application](0002-installed-scientific-root.md); decision U5 of the [phase 2 plan](0001-phase-2-plan.md#decisions)
 
@@ -156,7 +156,7 @@ The first scientific commands in Python (U5): `eeglayoutlab design` and `eeglayo
 - **Downloads:** none.
 - **Size:** medium.
 
-Result: not started.
+Result: done on macOS, 2026-11-26. `installed_environment` in `jobs/runtime.py`; `InputIntegrity(root, environment=None)` in `jobs/integrity.py` resolves `environment:` rows against the real path of P (contained in P plus `/`, refused without `environment`, non-prefixed rows kept strictly inside R); `_environment_rows` in `jobs/identity.py` emits `environment:bin/python`, `environment:conda-meta/<name>.json` for the numerical closure only (U16, sorted with `nodepath.js_sort`), and `METADATA` for cortech, nibabel, numba, numpy and scipy plus llvmlite's `*.egg-info/PKG-INFO` under the running interpreter's `lib/pythonX.Y/site-packages`, appended in `design_context` only in the installed form when `python` is `<real P>/bin/python` (U17). Constructors in `jobs/design.py`, `reception.py`, `design_heads.py` and `server/routes/library.py` pass `environment` only in the installed form; Rad stays unchanged; 0002 is amended for U16, llvmlite's `PKG-INFO` and the PyPI virtualenv note. Checks: schema + API contracts + full key parity (synthetic, radius, envelope, editor, reception, real root) 36,853 passed, service tier (`tests/service/`, `test_installed_identity.py` and loopback HTTP/`serve` parity included) 8,900 passed, zero checkout key changes. Needs Linux: the rows together with the interpreter fingerprint (slice 18).
 
 ### Slice 5 — command line: layout figure
 

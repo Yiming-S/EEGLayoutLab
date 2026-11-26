@@ -21,6 +21,7 @@ from . import nodefs, nodepath
 from .identity import UNDEFINED, _member, _path, _same
 from .integrity import InputIntegrity
 from .records import error_code, read_file, realpath, scandir, stat
+from .runtime import installed_environment
 
 __all__ = ['HEADS_DIRECTORY', 'HEAD_PACKAGE_FILES', 'heads']
 
@@ -65,7 +66,7 @@ def heads(root: str, inputs: Optional[InputIntegrity] = None) -> list[dict]:
     missing ``results/v2/heads`` lists nothing; any other error reading it propagates (Node rejects).
     """
     if inputs is None:
-        inputs = InputIntegrity(root)
+        inputs = InputIntegrity(root, installed_environment(root))
     try:
         entries = scandir(nodepath.join(root, HEADS_DIRECTORY))
     except OSError as error:

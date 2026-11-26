@@ -60,6 +60,7 @@ from .integrity import BANK_POINTER, InputIntegrity
 from .radius import iso_time
 from .reception_records import _hash_json, design_reception_record
 from .records import KEY, RecordStore, error_code, node_message, read_file, stat
+from .runtime import installed_environment
 from .runtime_digest import ProcessRegistry, RuntimeIdentityCache, exec_file, process_env
 from .slot import ExecutionSlot, InstallationLock
 from .worker import STDERR_LIMIT, WorkerError, _tail, _utf8, start_worker
@@ -413,7 +414,7 @@ class ReceptionJobs:
         self.timeout_ms = timeout_ms
         self.context_override = context
         self.native_context = native_context if native_context is not None else self._design_context
-        self.inputs = inputs if inputs is not None else InputIntegrity(self.root)
+        self.inputs = inputs if inputs is not None else InputIntegrity(self.root, installed_environment(self.root))
         self._own_runtime = runtime is None
         self.runtime = runtime if runtime is not None else RuntimeIdentityCache()
         self.jobs: dict[str, ReceptionJob] = {}

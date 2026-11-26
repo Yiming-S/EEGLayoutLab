@@ -1,19 +1,21 @@
-"""File digests for scientific identities: Node's ``InputIntegrity`` (``webapp/server/local-input-integrity.mjs``)."""
+"""File digests for scientific identities: Node's ``InputIntegrity`` (``webapp/server/local-input-integrity.mjs``),
+extended in the installed form with a second base for ``environment:`` rows (design 0002, phase 3 slice 3)."""
 from __future__ import annotations
 
 import hashlib
 import os
 import re
-from typing import Any, Iterable
+from typing import Any, Iterable, Optional
 
 from ..schemas import jsjson
 from . import nodefs, nodepath
 from .identity import UNDEFINED, IdentityError, JSTypeError, _js_string, _member, _path, _same, js_truthy
 
-__all__ = ['InputIntegrity', 'BANK_POINTER', 'ADMISSION_POINTER']
+__all__ = ['InputIntegrity', 'BANK_POINTER', 'ADMISSION_POINTER', 'ENVIRONMENT_PREFIX']
 
 BANK_POINTER = 'results/v2/current_multiregion_bank.json'
 ADMISSION_POINTER = 'results/v2/current_surface_admissibility.json'
+ENVIRONMENT_PREFIX = 'environment:'
 _SHA256 = re.compile('[a-f0-9]{64}')
 
 
@@ -22,24 +24,46 @@ def _stamp(info: os.stat_result) -> tuple[int, int, int, int, int]:
 
 
 class InputIntegrity:
-    """SHA-256 of files inside the checkout, read stably and memoized by real path and stat stamp.
+    """SHA-256 of files inside the checkout (and, in the installed form, ``environment:`` rows inside the conda
+    prefix P), read stably and memoized by real path and stat stamp.
 
     Node resolves the root and the inputs with different functions (``nodefs``): the root with
     ``fs.realpathSync`` (link targets lexically, its spelling kept) and each input with ``fs.promises.realpath``
     (``realpath(3)``: physically, and on macOS in the on-disk letter case and Unicode normalization). An input
     is digested only when that real path starts with ``root + '/'``, so on macOS a root spelled in another case
     or normalization than on disk refuses every input, and a link whose target spells the root differently is
-    still inside it. A missing file raises ``FileNotFoundError``, as Node rejects with ``ENOENT``; every system
-    error carries Node's syscall and path (``nodefs.system_error``), so its message is Node's. The memo never
-    enters a key.
+    still inside it.
+
+    When ``environment`` is given (the real path of P in the installed form, U17), only rows prefixed with
+    ``environment:`` resolve against ``environment``, and their real path must start with ``environment + '/'``;
+    without ``environment`` any ``environment:`` row is refused with ``输入文件超出本项目``, and non-prefixed rows
+    never resolve against ``environment``. A missing file raises ``FileNotFoundError``, as Node rejects with
+    ``ENOENT``; every system error carries Node's syscall and path (``nodefs.system_error``), so its message is
+    Node's. The memo never enters a key.
     """
 
-    def __init__(self, root: str):
+    def __init__(self, root: str, environment: Optional[str] = None):
         self.root = nodefs.realpath_sync(nodepath.resolve(root))
+        self.environment = (nodefs.realpath_sync(nodepath.resolve(environment))
+                            if environment is not None else None)
         self._memo: dict[str, tuple[tuple[int, int, int, int, int], str]] = {}
 
-    def _real_path(self, relative_path: str) -> str:
-        path = nodefs.realpath(nodepath.resolve(self.root, relative_path))
+    def _resolve_entry(self, path: Any) -> tuple[bool, Any, str]:
+        if isinstance(path, str) and path.startswith(ENVIRONMENT_PREFIX):
+            sub = path[len(ENVIRONMENT_PREFIX):]
+            base = self.environment if self.environment is not None else self.root
+            return True, sub, nodepath.resolve(base, sub)
+        return False, path, nodepath.resolve(self.root, path)
+
+    def _real_entry(self, is_environment: bool, sub: Any, resolved: str) -> str:
+        if is_environment:
+            if self.environment is None or not sub or nodepath.is_absolute(sub):
+                raise IdentityError('输入文件超出本项目')
+            path = nodefs.realpath(resolved)
+            if not path.startswith(self.environment + '/'):
+                raise IdentityError('输入文件超出本项目')
+            return path
+        path = nodefs.realpath(resolved)
         if not path.startswith(self.root + '/'):
             raise IdentityError('输入文件超出本项目')
         return path
@@ -75,15 +99,13 @@ class InputIntegrity:
         the queued requests strictly in order, so the inputs move through these stages together, in list order:
         every real path (``ENOENT``, ``ELOOP``, outside the project) is resolved before any input is opened
         (``EACCES``; a directory opens), and every input is opened before any is read (``EISDIR``). This method
-        reproduces that order. With the default pool of 4 it is only the usual one: an input can reach a later
-        stage before another finishes an earlier one, so Node may report either of two failures in different
-        stages, as it may for two in the same stage.
+        reproduces that order.
         """
         files = list(files)
-        resolved = [nodepath.resolve(self.root, path) for path in files]
-        for path in resolved:
-            nodefs.check_path(path)
-        real = [self._real_path(path) for path in files]
+        entries = [self._resolve_entry(path) for path in files]
+        for _, _, resolved in entries:
+            nodefs.check_path(resolved)
+        real = [self._real_entry(is_env, sub, resolved) for is_env, sub, resolved in entries]
         stamps = [_stamp(nodefs.stat(path)) for path in real]
         known = [self._known(path, stamp) for path, stamp in zip(real, stamps)]
         for path, digest in zip(real, known):

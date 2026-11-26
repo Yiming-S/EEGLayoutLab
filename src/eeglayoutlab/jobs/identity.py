@@ -23,18 +23,18 @@ from __future__ import annotations
 
 import math
 import re
-from typing import Any, NamedTuple
+import sys
+from typing import Any, NamedTuple, Optional
 
 from ..schemas import jsjson
 from . import nodefs, nodepath
 from .fingerprint import runtime_identity
-from .runtime import NATIVE_RUNTIME_RELATIVE, TABLE_RUNTIME_RELATIVE
+from .runtime import NATIVE_RUNTIME_RELATIVE, TABLE_RUNTIME_RELATIVE, installed_environment
 
 __all__ = [
     'WORKFLOW_BASE', 'DESIGN_WORKFLOW', 'RECEPTION_WORKFLOW', 'RECEPTION_V2_WORKFLOW', 'EDITOR_WORKFLOW',
-    'DATA_PRIOR_FILES', 'DESIGN_CACHE_SCHEMA', 'IdentityError', 'JSTypeError', 'DesignContext', 'js_truthy',
-    'to_number', 'request_key',
-    'design_context',
+    'DATA_PRIOR_FILES', 'DESIGN_CACHE_SCHEMA', 'CLOSURE_ROOTS', 'IdentityError', 'JSTypeError', 'DesignContext',
+    'js_truthy', 'to_number', 'request_key', '_environment_rows', 'design_context',
 ]
 
 # webapp/server/project-paths.mjs:16-38. Actual implementations must be fingerprinted, not just legacy CLI shims.
@@ -76,6 +76,15 @@ _SCENARIO_NAME = re.compile('[a-z0-9]+(?:[_.][a-z0-9]+)*')
 _HEAD_ID = re.compile('[a-z0-9]+(?:[_-][a-z0-9]+)*')
 _NATIVE_DIST_INFO = re.compile(f'(simnibs|cortech|numpy|scipy)-{_JS_DOT}*\\.dist-info')
 _TABLE_DIST_INFO = re.compile(f'(cortech|llvmlite|nibabel|numba|numpy|scipy)-{_JS_DOT}*\\.dist-info')
+_ENV_EGG_INFO = re.compile(f'llvmlite-{_JS_DOT}*\\.egg-info')
+_SPEC_NAME = re.compile(r'[^\s<>=!~]+')
+# Phase 3, decision U16: the numerical closure of conda-meta records in an installed prefix (never eeglayoutlab's
+# own record or service-only packages).
+CLOSURE_ROOTS = (
+    'python', 'numpy', 'scipy', 'numba', 'llvmlite', 'nibabel', 'cortech',
+    'libblas', 'libcblas', 'liblapack', 'libopenblas', 'blas', 'mkl', 'blis', 'threadpoolctl',
+)
+_CLOSURE_EXCLUDED = ('eeglayoutlab', 'compact-eeg')
 
 
 class IdentityError(ValueError):
@@ -266,12 +275,74 @@ def _runtime_rows(root: str, runtime_root: str, python: str, dist_info: re.Patte
     return rows
 
 
-def design_context(root: str, python: str, inputs: Any, request: Any) -> DesignContext:
+def _spec_package_name(spec: Any) -> Optional[str]:
+    if not isinstance(spec, str):
+        return None
+    tail = spec.split('::', 1)[-1].strip()
+    match = _SPEC_NAME.match(tail)
+    return match.group(0) if match is not None else None
+
+
+def _closure_conda_records(environment: str) -> list[str]:
+    """``conda-meta/<name>.json`` records of the numerical closure (U16), sorted with ``nodepath.js_sort``."""
+    meta_dir = nodepath.join(environment, 'conda-meta')
+    by_name: dict[str, list[tuple[str, list[str]]]] = {}
+    for filename in (n for n in nodefs.readdir(meta_dir) if n.endswith('.json')):
+        record = jsjson.parse(nodefs.decode(nodefs.read_file(nodepath.join(meta_dir, filename))))
+        pkg = record.get('name') if isinstance(record, dict) else None
+        if not isinstance(pkg, str) or not pkg or pkg in _CLOSURE_EXCLUDED:
+            continue
+        raw_depends = record.get('depends') if isinstance(record, dict) else None
+        deps = [dep for item in (raw_depends if isinstance(raw_depends, list) else ())
+                if (dep := _spec_package_name(item)) is not None]
+        by_name.setdefault(pkg, []).append((filename, deps))
+    queue = [pkg for pkg in CLOSURE_ROOTS if pkg in by_name]
+    visited = set(queue)
+    selected: list[str] = []
+    index = 0
+    while index < len(queue):
+        pkg = queue[index]
+        index += 1
+        for filename, deps in by_name.get(pkg, ()):
+            selected.append(filename)
+            for dep in deps:
+                if dep not in visited and dep not in _CLOSURE_EXCLUDED and dep in by_name:
+                    visited.add(dep)
+                    queue.append(dep)
+    return [f'environment:conda-meta/{name}' for name in nodepath.js_sort(selected)]
+
+
+def _environment_rows(prefix: str, python: Optional[str] = None, *,
+                      python_version: Optional[str] = None) -> list[str]:
+    """Environment identity rows in the installed form (design 0002, change 3; phase 3 slice 3):
+
+    - ``environment:bin/python``;
+    - ``environment:conda-meta/<name>.json`` for the numerical closure only (U16), sorted with ``nodepath.js_sort``;
+    - ``environment:lib/pythonX.Y/site-packages/<dist>/METADATA`` for cortech, nibabel, numba, numpy and scipy,
+      and llvmlite's ``*.egg-info/PKG-INFO`` (or ``METADATA`` if packaged as dist-info), using the running
+      interpreter's ``X.Y`` version rather than a literal ``python3.11``.
+    """
+    _ = python
+    real_prefix = nodefs.realpath_sync(nodepath.resolve(prefix))
+    rows = ['environment:bin/python', *_closure_conda_records(real_prefix)]
+    version = python_version or f'{sys.version_info.major}.{sys.version_info.minor}'
+    site = f'lib/python{version}/site-packages'
+    entries = nodefs.readdir(nodepath.join(real_prefix, site))
+    for name in nodepath.js_sort(n for n in entries if _TABLE_DIST_INFO.fullmatch(n)):
+        rows.append(f'environment:{site}/{name}/METADATA')
+    for name in nodepath.js_sort(n for n in entries if _ENV_EGG_INFO.fullmatch(n)):
+        rows.append(f'environment:{site}/{name}/PKG-INFO')
+    return rows
+
+
+def design_context(root: str, python: str, inputs: Any, request: Any, *,
+                   prefix: Optional[str] = None, package_file: Optional[str] = None) -> DesignContext:
     """``scientificContext({root, python, inputs}, request)``: the shared frozen-model identity.
 
     ``root`` is the configured root string (``RuntimeConfig.repository_root``), ``python`` the native
     interpreter string (``RuntimeConfig.native_python``) and ``inputs`` an ``InputIntegrity`` of that root.
-    Preserves Node's file order, so the serialized identity and key are Node's.
+    Preserves Node's file order in a checkout, so the serialized identity and key are Node's; in the installed
+    form (U17), adds ``_environment_rows`` when ``python`` is the environment's own interpreter.
     """
     p = _read_json(root, _BANK_POINTER)
     admission = _read_json(root, _ADMISSION_POINTER)
@@ -361,6 +432,10 @@ def design_context(root: str, python: str, inputs: Any, request: Any) -> DesignC
     elif python == nodepath.join(root, TABLE_RUNTIME_RELATIVE, 'bin/python'):
         # The Linux table runtime has no SimNIBS; its conda records and the projection packages identify it.
         files += _runtime_rows(root, TABLE_RUNTIME_RELATIVE, python, _TABLE_DIST_INFO, simnibs=False)
+    else:
+        environment = installed_environment(root, prefix=prefix, package_file=package_file)
+        if environment is not None and python == nodepath.join(environment, 'bin/python'):
+            files += _environment_rows(environment, python)
     # Object.fromEntries(await Promise.all(...)): a repeated path keeps its first position.
     digests = inputs.digest_all([_path(path) for path in files])
     if not _same(digests[_member(p, 'path')], _member(p, 'sha256')):

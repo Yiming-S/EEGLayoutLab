@@ -38,9 +38,9 @@ from . import nodefs, nodepath
 
 __all__ = [
     'NATIVE_RUNTIME_RELATIVE', 'TABLE_RUNTIME_RELATIVE', 'INSTALLED_ROOT_RELATIVE', 'RuntimeConfig',
-    'checkout_root', 'installed_root', 'installed_form', 'environment_python', 'default_repository_root',
-    'repository_root', 'native_python_path', 'table_python_path', 'managed_python', 'runtime_config',
-    'unwritable_root',
+    'checkout_root', 'installed_root', 'installed_form', 'installed_environment', 'environment_python',
+    'default_repository_root', 'repository_root', 'native_python_path', 'table_python_path', 'managed_python',
+    'runtime_config', 'unwritable_root',
 ]
 
 NATIVE_RUNTIME_RELATIVE = '.runtime/simnibs-4.6.0'
@@ -85,6 +85,17 @@ def installed_form(root: str, prefix: Optional[str] = None, package_file: Option
         return nodefs.realpath_sync(nodepath.resolve(root)) == installed
     except (OSError, TypeError):
         return False
+
+
+def installed_environment(root: str, prefix: Optional[str] = None,
+                          package_file: Optional[str] = None) -> Optional[str]:
+    """The real path of P when in the installed form for ``root`` (U17), else ``None``."""
+    if not installed_form(root, prefix, package_file):
+        return None
+    try:
+        return nodefs.realpath_sync(nodepath.resolve(prefix or sys.prefix))
+    except (OSError, TypeError):
+        return None
 
 
 def environment_python(prefix: Optional[str] = None) -> Optional[str]:

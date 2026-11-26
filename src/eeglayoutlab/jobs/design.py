@@ -32,6 +32,7 @@ from .identity import UNDEFINED, _js_string, _same, design_context, js_truthy, t
 from .integrity import InputIntegrity
 from .radius import RadiusJobError, iso_time
 from .records import RecordStore, error_code, node_message
+from .runtime import installed_environment
 from .slot import ExecutionSlot, InstallationLock
 from .worker import WorkerError, start_worker
 
@@ -180,7 +181,7 @@ class DesignJobs:
         self.spawn = spawn
         self.timeout_ms = timeout_ms
         self.context_override = context
-        self.inputs = inputs if inputs is not None else InputIntegrity(self.root)
+        self.inputs = inputs if inputs is not None else InputIntegrity(self.root, installed_environment(self.root))
         self.jobs: dict[str, DesignJob] = {}
         self.active: Optional[DesignJob] = None
         self.submitting = False

@@ -116,11 +116,12 @@ class LibraryRoutes:
     def inputs(self) -> 'InputIntegrity':
         """The service's ``InputIntegrity`` (the design service's in Node), whose digests the head listing checks."""
         from ...jobs.integrity import InputIntegrity
+        from ...jobs.runtime import installed_environment
 
         runtime = self.runtime()
         with self._lock:
             if self._inputs is None:
-                self._inputs = InputIntegrity(runtime.repository_root)
+                self._inputs = InputIntegrity(runtime.repository_root, installed_environment(runtime.repository_root))
             return self._inputs
 
     # --- Answers --------------------------------------------------------------------------------------------
