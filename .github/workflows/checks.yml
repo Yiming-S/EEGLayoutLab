@@ -1,5 +1,12 @@
 name: Fast checks
 
+# The fast tier (design 0001, decision 11; CONTRIBUTING.md, "Verification tiers"): source, packaged
+# browser assets and synthetic fixtures, without the scientific data or a native runtime. The interface
+# and the Python tests run as separate jobs on Linux x86_64 and macOS arm64 (phase 3, decision U25).
+# The labels fix the OS versions and Node is pinned exactly: 24.22.3 on both platforms and 26.5.0 on Linux,
+# the versions the phase 2 parity ran on. GitHub still updates the image behind a label (about weekly) and
+# setup-python takes the newest 3.11 patch; the log names both ("Set up job" and the Python setup step).
+
 on:
   push:
   pull_request:
@@ -12,20 +19,76 @@ concurrency:
   group: fast-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  PYTHONDONTWRITEBYTECODE: '1'
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+
 jobs:
-  source-checks:
-    runs-on: ubuntu-latest
+  interface:
+    name: Interface (${{ matrix.os }}, Node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 20
-    env:
-      PYTHONDONTWRITEBYTECODE: '1'
-      OMP_NUM_THREADS: '1'
-      OPENBLAS_NUM_THREADS: '1'
-      MKL_NUM_THREADS: '1'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+        node: ['24.22.3', '26.5.0']
+        exclude:
+          - os: macos-15
+            node: '26.5.0'
+          # While the repository is private, macOS runs only on pull requests to main, pushes to main and by
+          # hand; once public, on every run. The same expression is in the python job.
+          - os: ${{ (!github.event.repository.private || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.base_ref == 'main')) && 'none' || 'macos-15' }}
     steps:
       - uses: actions/checkout@v4
+      - name: Confirm scientific payloads and native environments are absent
+        run: test ! -e results && test ! -e data/external && test ! -e .runtime
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: webapp/package-lock.json
+      - name: Install locked web dependencies
+        working-directory: webapp
+        run: npm ci
+      - name: Check types
+        working-directory: webapp
+        run: npm run typecheck
+      - name: Lint
+        working-directory: webapp
+        run: npm run lint
+      - name: Synthetic services and browser asset contracts
+        working-directory: webapp
+        # About 10 s on an M3 Ultra; the limit stops a hung test file early.
+        timeout-minutes: 8
+        run: npm run test:fast
+      - name: Build the interface
+        working-directory: webapp
+        run: npm run build
+
+  python:
+    name: Python (${{ matrix.os }}, Node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+        node: ['24.22.3', '26.5.0']
+        exclude:
+          - os: macos-15
+            node: '26.5.0'
+          # As in the interface job.
+          - os: ${{ (!github.event.repository.private || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.base_ref == 'main')) && 'none' || 'macos-15' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Confirm scientific payloads and native environments are absent
+        run: test ! -e results && test ! -e data/external && test ! -e .runtime
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
           cache: npm
           cache-dependency-path: webapp/package-lock.json
       - uses: actions/setup-python@v5
@@ -33,23 +96,21 @@ jobs:
           python-version: '3.11'
           cache: pip
           cache-dependency-path: pyproject.toml
-      - name: Confirm scientific payloads and native environments are absent
-        run: test ! -e results && test ! -e data/external && test ! -e .runtime
-      - name: Install locked web dependencies
-        working-directory: webapp
-        run: npm ci
-      - name: Check types, lint, synthetic services and browser asset contracts
+      - name: Install locked web dependencies and build the interface
+        # The static parity imports vinext from webapp/node_modules; test_static.py also serves the real export.
+        # EEG_REQUIRE_SCHEMA_PARITY does not require these two files, so their absence must fail here, not skip.
         working-directory: webapp
         run: |
-          npm run typecheck
-          npm run lint
-          npm run test:fast
+          npm ci
           npm run build
+          test -f dist/client/index.html && test -f node_modules/vinext/dist/server/static-file-cache.js
       - name: Install Python source-test dependencies
         run: python -m pip install -e '.[dev,service]'
-      - name: Check Python without the external scientific bundle
+      - name: Check Python without the external scientific data
         env:
           # The schema and key parity tests (tests/test_schema_*.py, tests/service) compare with Node; here they
           # must run, not skip. On Linux the key parity also covers the interpreter fingerprint of python3.
           EEG_REQUIRE_SCHEMA_PARITY: '1'
-        run: python -m pytest -m 'not data_bundle and not native_runtime' -q
+        # About 19 minutes on an M3 Ultra, almost all in tests/service; the job limit allows a runner three times
+        # slower. Durations show where runner time goes.
+        run: python -m pytest -m 'not data_bundle and not native_runtime' -q --durations=25

@@ -16,27 +16,28 @@ Git contains application source, display assets, configuration, documentation an
 
 | Tier | Inputs and scope | Commands |
 | --- | --- | --- |
-| Fast | Source, packaged browser assets and synthetic fixtures; no external scientific bundle or native runtime | Commands below; also `.github/workflows/checks.yml` |
+| Fast | Source, packaged browser assets and synthetic fixtures; no external scientific bundle or native runtime | Commands below; also `.github/workflows/checks.yml` on Linux x86_64 and macOS arm64 |
 | Data | Verified frozen bundle and an isolated scientific workspace | Full unit/Python checks and real-data HTTP integration |
 | Native | Qualified Python/SimNIBS environment and native inputs | Environment check plus integration with `--native` |
 | Browser | Running `eeglayoutlab serve` and Chrome | Viewer checks and complete bilingual user workflows |
 
-The fast workflow has been exercised locally on a source copy without scientific payloads or an installed native runtime. A remote GitHub Actions run has not been performed. Data/native cases are explicitly skipped or deselected in that tier; passing it does not run a FEM solve.
-
-From the repository root:
+The fast tier needs Python 3.11 and Node.js 22.18.0 or newer. On macOS every command below has run with Node.js 26.5.0; with 24.22.3 only `typecheck` and `test:fast` have, because the 24.22.3 binary at hand (arm64, with library validation) refuses the native modules of `lint` and `build` (oxlint, rolldown); CI is the first to lint and build with 24.22.3. Data/native cases are explicitly skipped or deselected in that tier; passing it does not run a FEM solve. From the repository root:
 
 ```sh
-python -m pip install -e '.[dev,service]'
-python -m pytest -m 'not data_bundle and not native_runtime' -q
 cd webapp
 npm ci
 npm run typecheck
 npm run lint
 npm run test:fast
 npm run build
+cd ..
+python -m pip install -e '.[dev,service]'
+EEG_REQUIRE_SCHEMA_PARITY=1 python -m pytest -m 'not data_bundle and not native_runtime' -q
 ```
 
-The `service` extra installs Pydantic, FastAPI and Uvicorn for the request schemas in `src/eeglayoutlab`. Without it the schema parity tests are skipped; CI sets `EEG_REQUIRE_SCHEMA_PARITY=1`, which makes them required. After changing a request schema, regenerate the files in `contracts/generated/` ([contracts](contracts/README.md#generated-request-types)).
+The `service` extra installs Pydantic, FastAPI and Uvicorn for the request schemas in `src/eeglayoutlab`. The schema and key parity tests compare with Node, the static parity imports vinext from `webapp/node_modules` and `tests/service/test_static.py` also serves the built interface, which is why the interface comes first. Without the extra, Node or `npm ci` these tests skip. `EEG_REQUIRE_SCHEMA_PARITY=1`, which CI sets, turns a missing extra or Node into an error and requires vinext for the range-request parity, but not the other two: without a build `test_the_real_export` still skips, and without `npm ci` the content types are not compared with vinext. CI therefore checks, before pytest, that `webapp/dist/client/index.html` and vinext's `static-file-cache.js` exist. After changing a request schema, regenerate the files in `contracts/generated/` ([contracts](contracts/README.md#generated-request-types)).
+
+`.github/workflows/checks.yml` runs these commands in two jobs, each on its own runner and with its own time limit: the interface checks (20 minutes; `test:fast` alone 8 minutes) and the Python tests (75 minutes), which install the web dependencies and build the interface first. Both run on `ubuntu-24.04` with Node.js 24.22.3 and 26.5.0 and on `macos-15` (arm64) with 24.22.3, all with Python 3.11. The labels fix the operating system versions and Node.js is pinned exactly, but GitHub still updates the image behind each label (about weekly) and `setup-python` takes the newest 3.11 patch: a run's log names its image version (step "Set up job") and its Python version (the Python setup step). Linux runs on every push and pull request. While the repository is private, macOS runs only on pull requests to `main`, pushes to `main` and by hand (`workflow_dispatch`); once it is public, on every run. Each job first checks that no `results`, `data/external` or `.runtime` is present. The workflow parses locally (PyYAML) and the commands pass on macOS with Node.js 26.5.0; it has not run on GitHub yet, so the Linux runs and the macOS runner are untested there.
 
 For full local checks after installing the matching data and native environment:
 

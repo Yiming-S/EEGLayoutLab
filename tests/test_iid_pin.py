@@ -3,6 +3,10 @@
 Each ``head_*`` helper repeats, operation for operation and in the same order,
 the code before noise_model existed (commit 61cd27d) on small synthetic data.
 Comparing operations instead of stored numbers keeps the pin BLAS independent.
+The Shannon information retention came later (291641c); its iid value follows
+from the same Cholesky factor and reference precision plus closed-form noise
+log-determinants, so ``head_information`` pins that arithmetic and checks it
+against the 63-dimensional Helmert log-determinant it stands for.
 """
 from pathlib import Path
 import dataclasses
@@ -42,10 +46,24 @@ def head_baseline(e, noise):
     return float(np.sum(e._cbb * estimate.T) / e._target_energy)
 
 
+def head_information(e, covariance, factor, reference_precision, noise):
+    """iid information retention: closed-form noise terms, cross-checked against log det(P K P.T)."""
+    candidate = max(0., .5 * (2. * float(np.sum(np.log(np.diag(factor)))) + float(np.log(reference_precision))
+        - (63 * float(np.log(noise)) + float(np.log(64)))))
+    total = cho_factor(e._cbb + noise * np.eye(63), lower=True, check_finite=False)[0]
+    reference = .5 * (2. * float(np.sum(np.log(np.diag(total)))) - 63. * float(np.log(noise)))
+    contrast = helmert_contrast(64)
+    direct = .5 * (np.linalg.slogdet(contrast @ covariance @ contrast.T)[1] - 63 * np.log(noise))
+    direct_reference = .5 * (np.linalg.slogdet(e._cbb + noise * np.eye(63))[1] - 63 * np.log(noise))
+    assert np.isclose(candidate / reference, direct / direct_reference, rtol=1e-9, atol=0)
+    return candidate / reference
+
+
 def head_state(e, selected, noise):
     covariance = e._covariance[np.ix_(selected, selected)]
     covariance = .5 * (covariance + covariance.T) + noise * np.eye(64)
-    inverse = cho_solve(cho_factor(covariance, lower=True, check_finite=False), np.eye(64), check_finite=False)
+    factor = cho_factor(covariance, lower=True, check_finite=False)
+    inverse = cho_solve(factor, np.eye(64), check_finite=False)
     inverse = .5 * (inverse + inverse.T)
     cross = e._cross[:, selected]
     weighted_cross = cross @ inverse
@@ -53,7 +71,8 @@ def head_state(e, selected, noise):
     projected_one = cross @ inverse_one
     reference_precision = float(inverse_one.sum())
     absolute = float((np.sum(weighted_cross * cross) - np.dot(projected_one, projected_one) / reference_precision) / e._target_energy)
-    return absolute, absolute / head_baseline(e, noise), inverse
+    information = head_information(e, covariance, factor[0], reference_precision, noise)
+    return absolute, absolute / head_baseline(e, noise), inverse, information
 
 
 def head_exchanges(e, indices, w, position, candidates, noise, chunk_size):
@@ -99,8 +118,8 @@ def test_iid_state_and_baseline_match_pre_noise_model_arithmetic(bank, snr_db):
     assert e._baseline(snr_db) == head_baseline(e, noise)
     for indices in bank["layouts"]:
         state = e.make_state(indices, snr_db=snr_db)
-        absolute, relative, inverse = head_state(e, indices, noise)
-        assert (state.field_absolute, state.field_relative) == (absolute, relative)
+        absolute, relative, inverse, information = head_state(e, indices, noise)
+        assert (state.field_absolute, state.field_relative, state.information_relative) == (absolute, relative, information)
         assert np.array_equal(state._inverse_covariance, inverse)
 
 
@@ -130,12 +149,13 @@ def test_iid_evaluate_report_matches_pre_noise_model_arithmetic(bank):
     rank = participation_effective_rank((hx * e._weights) @ hx.T)
     for snr, row in zip((0, 10, 20), e.evaluate(indices)["conditions"]):
         noise = head_noise(snr)
-        absolute, relative, _ = head_state(e, indices, noise)
+        absolute, relative, _, information = head_state(e, indices, noise)
         variance = e.reference_mean_contrast_signal_power_v2 * noise
         assert row == {"nominal_reference_snr_db": float(snr), "shared_physical_electrode_noise_variance_v2": variance,
             "shared_physical_electrode_noise_std_uv": float(np.sqrt(variance) * 1e6),
             "reference_field_explained_energy": head_baseline(e, noise), "candidate_field_explained_energy": absolute,
-            "field_retention_unclipped": relative, "reference_noise_whitened_area_weighted_effective_rank": participation_effective_rank(e._cbb),
+            "field_retention_unclipped": relative, "information_retention_unclipped": information,
+            "reference_noise_whitened_area_weighted_effective_rank": participation_effective_rank(e._cbb),
             "candidate_noise_whitened_area_weighted_effective_rank": rank, "baseline_identity_field_retention": 1.}
 
 
