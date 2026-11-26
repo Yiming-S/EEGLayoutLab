@@ -300,6 +300,74 @@ def main() -> int:
     if script.endswith('run_local_radius_compute.py'):
         _emit({'type': 'result', 'result': _radius_result(root, request, mode)})
         return 0
+    if script.endswith('eeg_data.py'):
+        action = request.get('action')
+        if action == 'summary':
+            rec_path = str(request['path'])
+            if mode == 'fail_second_recording' and 'rec2' in rec_path:
+                _emit({'type': 'error', 'message': 'corrupted EDF header in rec2'})
+                return 1
+            channels = ['Fp1', 'Fp2', 'F3', 'F4', 'C3', 'C4', 'P3', 'P4', 'O1', 'O2', 'Fz', 'Cz']
+            n = len(channels)
+            digest = hashlib.sha256(rec_path.encode('utf-8')).hexdigest()
+            cov = [[(1.5 if i == j else 0.25 / (abs(i - j) + 1.0)) for j in range(n)] for i in range(n)]
+            _emit({
+                'type': 'result',
+                'result': {
+                    'schema': 'eeg-covariance-summary/1',
+                    'label': request.get('label'),
+                    'channels': channels,
+                    'xyz_mm': [[float(i), float(i * 2), 20.0] for i in range(n)],
+                    'covariance': cov,
+                    'bad_channels': [],
+                    'skipped_channels': [],
+                    'epochs': {'total': 20, 'analysed': 19, 'used': 18, 'rejected': 1},
+                    'processing': {'band_hz': list(request['band_hz']), 'epoch_s': request['epoch_s']},
+                    'source': {
+                        'file': Path(rec_path).name,
+                        'bytes': 4096,
+                        'duration_s': 40,
+                        'sha256': digest,
+                        'recording_sha256': digest,
+                        'files': [{'role': 'entry', 'file': Path(rec_path).name, 'bytes': 4096, 'sha256': digest}],
+                    },
+                },
+            })
+            return 0
+        if action == 'prior':
+            files = list(request['files'])
+            channels = ['Fp1', 'Fp2', 'F3', 'F4', 'C3', 'C4', 'P3', 'P4', 'O1', 'O2', 'Fz', 'Cz']
+            n = len(channels)
+            indep = mode == 'prior_independent'
+            held_out = (
+                {
+                    'summaries': len(files),
+                    'prior_better_count': len(files) - 1,
+                    'selected_shrinkage': 0.25,
+                }
+                if len(files) >= 3
+                else None
+            )
+            cmat = [[(1.2 if i == j else 0.15) for j in range(n)] for i in range(n)]
+            amat = [[(1.0 if i == j else 0.10) for j in range(n)] for i in range(n)]
+            _emit({
+                'type': 'result',
+                'result': {
+                    'schema': 'eeg-data-prior/1',
+                    'id': 'deadbeef01234567',
+                    'regions': ['frontal', 'central', 'parietal', 'occipital', 'temporal_left', 'temporal_right', 'other'],
+                    'channels': channels,
+                    'band_hz': [1, 40],
+                    'request': {
+                        'region_gain': [1.25, 0.95, 1.1, 0.85, 1.05, 0.9, 1.0],
+                        'rho': 0.0 if indep else 0.35,
+                        'length_mm': None if indep else 20,
+                    },
+                    'fit': {'summaries': len(files), 'held_out': held_out},
+                    'channel_model': {'data_prior': cmat, 'area_prior': amat},
+                },
+            })
+            return 0
 
     sys.stderr.write(f'unexpected script {script}\n')
     return 2

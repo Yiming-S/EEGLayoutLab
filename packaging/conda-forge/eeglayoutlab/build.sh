@@ -2,11 +2,13 @@
 # Build for Linux and macOS, laid out as design 0002 decides.
 set -euxo pipefail
 
-# 1. The interface, exported as static pages to webapp/dist/client (next.config.ts: output 'export').
+# 1. The interface, exported as static pages to webapp/dist/client (next.config.ts: output 'export'),
+#    plus the bundled runtime npm package license inventory for recipe.yaml's license_file.
 export npm_config_cache="${NPM_CACHE:-${SRC_DIR}/.npm-cache}"
 pushd webapp
 npm ci --no-audit --no-fund --prefer-offline
 npm run build
+node scripts/third-party-licenses.mjs --out "${SRC_DIR}/THIRD_PARTY_WEB_LICENSES.txt"
 popd
 
 # 2. The eeglayoutlab package only. compact_eeg is installed once, in the root tree below, because the workers
@@ -32,5 +34,9 @@ cp -R scripts configs examples "${root}/"
 cp data/manifest.json data/packages.json data/SOURCES.md data/README.md "${root}/data/"
 cp -R webapp/public "${root}/webapp/"
 cp -R webapp/dist/client "${root}/webapp/dist/"
+cp "${SRC_DIR}/THIRD_PARTY_WEB_LICENSES.txt" "${root}/webapp/dist/client/THIRD_PARTY_WEB_LICENSES.txt"
+if command -v mkdocs >/dev/null 2>&1; then
+  mkdocs build --strict --site-dir "${root}/site"
+fi
 rm -rf "${root}/examples/outputs"
 find "${root}" \( -name __pycache__ -o -name '*.pyc' -o -name .DS_Store \) -prune -exec rm -rf {} +

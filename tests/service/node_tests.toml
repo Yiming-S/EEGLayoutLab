@@ -155,8 +155,8 @@ disposition = "N"
 disposition = "N"
 
 [sites."check-channel-subset.mjs::the channels command writes the report from summary files and directories"]
-disposition = "CLI"
-note = "spawns webapp/scripts/eeglayoutlab.mjs, which stays until the Python command line (phase 3, U5)"
+disposition = "P"
+target = "tests/cli/test_pareto_eeg_channels.py::test_the_channels_command_writes_the_report_from_summary_files_and_directories"
 
 # --- check-cli.mjs ----------------------------------------------------------------------------------------------------
 
@@ -1386,8 +1386,8 @@ disposition = "N"
 disposition = "N"
 
 [sites."check-pareto.mjs::the pareto command ranks result files of one condition"]
-disposition = "CLI"
-note = "spawns webapp/scripts/eeglayoutlab.mjs, which stays until the Python command line (phase 3, U5)"
+disposition = "P"
+target = "tests/cli/test_pareto_eeg_channels.py::test_the_pareto_command_ranks_result_files_of_one_condition"
 
 # --- check-performance-reading.mjs ------------------------------------------------------------------------------------
 

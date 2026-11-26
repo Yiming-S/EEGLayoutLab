@@ -344,11 +344,110 @@ def run_study(env: CliEnvironment, raw_input: Any) -> dict[str, Any]:
     return {'runs': runs, 'study': study_record}
 
 
-def execute(command: str, files: Sequence[str], options: dict[str, str]) -> int:
-    """Executes ``evaluate``, ``search`` or ``study`` and returns Node's exit code (0 or 1; raises for exit 2)."""
-    if importlib.util.find_spec('pydantic') is None:
+def execute(
+    command: str,
+    files: Sequence[str],
+    options: dict[str, str],
+    *,
+    recording_names: Optional[Sequence[str]] = None,
+) -> int:
+    """Executes ``evaluate``, ``search``, ``study``, ``prior`` or ``eeg-summary`` and returns Node's exit code."""
+    if command != 'eeg-summary' and importlib.util.find_spec('pydantic') is None:
         from .main import _service_hint
         raise ValueError(f'{command} needs pydantic; {_service_hint()}')
+
+    if command == 'prior':
+        from ..schemas.options import DATA_PRIOR_REGIONS, data_prior_from_file
+        from .science import summary_files
+
+        env = build_environment('prior', options)
+        inputs = summary_files(files)
+        if not inputs:
+            raise ValueError('no covariance summaries found')
+        sys.stderr.write(f'scientific root {env.root}\npython {env.python}\n{len(inputs)} summaries\n')
+        sys.stderr.flush()
+        prior_res = run_worker_sync(
+            env, 'scripts/eeg_data.py', {'action': 'prior', 'files': inputs},
+            threads=4, timeout_ms=3600000, label='prior',
+        )
+        data_prior_from_file(prior_res)
+        write_json(options['out'], prior_res)
+        req = prior_res['request']
+        held = prior_res['fit'].get('held_out')
+        lines = [
+            f"{region}\t{jsjson.number_to_string(float(req['region_gain'][k]))}"
+            for k, region in enumerate(DATA_PRIOR_REGIONS)
+        ]
+        noise_str = (
+            f"rho {jsjson.number_to_string(float(req['rho']))}, L {jsjson.number_to_string(float(req['length_mm']))} mm"
+            if js_truthy(req.get('rho'))
+            else 'independent'
+        )
+        lines.append(f'noise\t{noise_str}')
+        if js_truthy(held):
+            lines.append(
+                f"held-out\t{jsjson.number_to_string(float(held['prior_better_count']))}/"
+                f"{jsjson.number_to_string(float(held['summaries']))} better than the area prior, "
+                f"shrinkage {jsjson.number_to_string(float(held['selected_shrinkage']))}"
+            )
+        else:
+            lines.append('held-out\tnot run (fewer than 3 summaries)')
+        sys.stdout.write('\n'.join(lines) + '\n')
+        sys.stdout.flush()
+        sys.stderr.write(f"wrote {options['out']} ({len(prior_res['channels'])} channels, id {prior_res['id']})\n")
+        sys.stderr.flush()
+        return 0
+
+    if command == 'eeg-summary':
+        import re as _re
+
+        band: list[Any] = (
+            [1, 40]
+            if 'band' not in options
+            else [jsmath.js_number(x) for x in options['band'].split(',')]
+        )
+        epoch: Any = 2 if 'epoch' not in options else jsmath.js_number(options['epoch'])
+        out_dir = nodepath.resolve(options['out-dir'])
+        names = list(recording_names) if recording_names is not None else [
+            _re.sub(r'\.(edf|bdf|rec|vhdr|set)$', '', os.path.basename(f), flags=_re.IGNORECASE)
+            for f in files
+        ]
+        env = build_environment('eeg-summary', options)
+        sys.stderr.write(f'scientific root {env.root}\npython {env.python}\n')
+        sys.stderr.flush()
+        failed = 0
+        for k, file_path in enumerate(files):
+            name = names[k]
+            sys.stderr.write(f'{name}\n')
+            sys.stderr.flush()
+            try:
+                summary = run_worker_sync(
+                    env,
+                    'scripts/eeg_data.py',
+                    {
+                        'action': 'summary',
+                        'path': nodepath.resolve(file_path),
+                        'band_hz': band,
+                        'epoch_s': epoch,
+                        'label': options.get('label', None),
+                    },
+                    threads=1,
+                    timeout_ms=1800000,
+                    label='summary',
+                )
+                target = nodepath.join(out_dir, f'{name}.summary.json')
+                write_json(target, summary)
+                epochs = summary.get('epochs') or {}
+                sys.stderr.write(
+                    f"  wrote {target} ({len(summary.get('channels') or ())} channels, "
+                    f"{epochs.get('used')}/{epochs.get('analysed')} epochs)\n"
+                )
+                sys.stderr.flush()
+            except Exception as error:  # noqa: BLE001
+                failed += 1
+                sys.stderr.write(f'  failed: {_error_text(error)}\n')
+                sys.stderr.flush()
+        return 1 if failed else 0
 
     from ..schemas.options import data_prior_from_file
 

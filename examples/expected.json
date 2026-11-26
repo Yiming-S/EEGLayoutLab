@@ -11,33 +11,33 @@
     },
     "02-compact-search": {
       "search": {
-        "field_relative": 0.6606405398066936,
-        "sensitivity_tail": 0.17407850004660586,
-        "localization_relative": 0.27308783249023066,
-        "conditional_global": 0.17407850004660586,
-        "union_area_cm2": 53.907835870983895
+        "field_relative": 0.7277792809590371,
+        "sensitivity_tail": 0.20847333310098473,
+        "localization_relative": 0.31114609718703506,
+        "conditional_global": 0.20847333310098473,
+        "union_area_cm2": 50.86965091459134
       },
       "evaluation": {
-        "field_relative": 0.6606405398066753,
-        "sensitivity_tail": 0.17407850004660586,
-        "localization_relative": 0.28291287214767263,
-        "median_mm": 20.811363938857287,
-        "p90_mm": 47.78255399862194
+        "field_relative": 0.72777928095901,
+        "sensitivity_tail": 0.20847333310098473,
+        "localization_relative": 0.31006767977901767,
+        "median_mm": 19.772372024207613,
+        "p90_mm": 44.63467916680071
       }
     },
     "03-cross-head": {
       "completed_cases": 11,
       "field_relative": {
         "n": 11,
-        "median": 0.6647528417702305,
-        "p10": 0.6383967963957375,
-        "p90": 0.6689141690252831
+        "median": 0.7302896146825784,
+        "p10": 0.7051493900916097,
+        "p90": 0.7686464588691273
       },
       "localization_relative": {
         "n": 11,
-        "median": 0.30746349982141974,
-        "p10": 0.2064655475822717,
-        "p90": 0.34618352755485776
+        "median": 0.36868931292386364,
+        "p10": 0.3200298206683697,
+        "p90": 0.42930638312239344
       }
     }
   }

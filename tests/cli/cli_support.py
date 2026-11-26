@@ -23,9 +23,6 @@ def node_executable() -> Optional[str]:
     found = shutil.which('node')
     if found:
         return found
-    for fallback in ('/opt/homebrew/bin/node', '/usr/local/bin/node'):
-        if os.path.isfile(fallback) and os.access(fallback, os.X_OK):
-            return fallback
     if REQUIRED:
         raise RuntimeError('EEG_REQUIRE_SCHEMA_PARITY=1 but Node is not available')
     return None

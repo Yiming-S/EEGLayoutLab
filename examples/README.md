@@ -22,9 +22,9 @@ In a source checkout, results default to `examples/outputs/` (ignored by Git). I
 
 Example 1 is the reference itself, so its relative scores are 1. Its absolute localization error (median 10.75 mm, 90th percentile 20.80 mm) is the baseline that the other layouts are divided by.
 
-Example 2 keeps 66 % of the reference field reconstruction. It keeps 17 % of the amplitude for the worst 10 % of sources, and 27 % of localization in the search (28 % when evaluated). The search and the evaluation score the same coordinates. Field and amplitude agree to about 1e-14. Localization differs because the search draws its noise from a seed derived from the request, while the evaluation uses seed 42.
+Example 2 keeps 73 % of the reference field reconstruction. It keeps 21 % of the amplitude for the worst 10 % of sources, and 31 % of localization in the search (31 % when evaluated). The search and the evaluation score the same coordinates. Field and amplitude agree to about 3e-14. Localization differs because the search draws its noise from a seed derived from the request, while the evaluation uses seed 42.
 
-Example 3 gives the field retention of that layout across the eleven heads: median 0.665, with 10th to 90th percentile 0.638 to 0.669. The localization retention is median 0.307, with 10th to 90th percentile 0.206 to 0.346. These are empirical summaries of eleven cases, not confidence intervals.
+Example 3 gives the field retention of that layout across the eleven heads: median 0.730, with 10th to 90th percentile 0.705 to 0.769. The localization retention is median 0.369, with 10th to 90th percentile 0.320 to 0.429. These are empirical summaries of eleven cases, not confidence intervals.
 
 ## Comparing runs
 

@@ -3,23 +3,23 @@
 A rattler-build recipe (format v1) for the application installed from conda-forge (phase 3 of [design 0001](../../../docs/design/0001-local-first-architecture.md)). It installs the layout decided in [design 0002](../../../docs/design/0002-installed-scientific-root.md):
 
 ```text
-$PREFIX/lib/python3.11/site-packages/eeglayoutlab/   the service, the command line, the data commands
+$PREFIX/lib/python3.11/site-packages/eeglayoutlab/   the service, all 9 scientific CLI commands, examples & data CLI
 $PREFIX/bin/eeglayoutlab                             the entry point
 $PREFIX/share/eeglayoutlab/root/                     the scientific root R
   src/compact_eeg/  scripts/  configs/  examples/
-  data/{manifest.json,SOURCES.md,README.md}
+  data/{manifest.json,packages.json,SOURCES.md,README.md}
   webapp/public/  webapp/dist/client/                the interface, exported as static pages at build time
 ```
 
-`compact_eeg` exists only in R, never in `site-packages`. Node is needed only to build the interface; it is not a run dependency. Model data is not in the package: `eeglayoutlab data install` puts packages in the user data directory, and `eeglayoutlab data compose` links them into R.
+`compact_eeg` exists only in R, never in `site-packages`. Node (`>=22.18`) is needed only at package build time to export the static interface and generate `THIRD_PARTY_WEB_LICENSES.txt`; it is not a run dependency. Model data is not in the package: `eeglayoutlab data install` fetches and verifies packages from `data/packages.json` into the user data directory and automatically hard-links them into R in an installed environment.
 
-The recipe is not submitted. It builds the checkout it sits in (`source: path`); a submitted recipe takes the release tarball and its SHA-256.
+The recipe is not submitted yet. It builds the checkout it sits in (`source: path`); a submitted recipe takes the public release tarball and its SHA-256 after `cortech` is on conda-forge.
 
 | File | Purpose |
 | --- | --- |
-| `recipe.yaml` | Requirements, entry point and package tests |
-| `build.sh` | Builds the interface, installs `eeglayoutlab` only, copies R |
-| `run_test.py` | Package test: the R tree, no `compact_eeg` in `site-packages`, `PROJECT_ROOT == R`, the data commands without data |
+| `recipe.yaml` | Requirements, entry point, bundled web license file and package tests |
+| `build.sh` | Builds the interface, generates `THIRD_PARTY_WEB_LICENSES.txt`, installs `eeglayoutlab` only, copies R |
+| `run_test.py` | Package test: R tree, no `compact_eeg` in `site-packages`, `default_repository_root()`, worker interpreter, numerical-closure `environment:` rows, fixture `data build`/`install`/`verify`, and `design`/`export` without Node |
 
 ## Building and installing locally
 
@@ -31,45 +31,35 @@ rattler-build build -r packaging/conda-forge/eeglayoutlab --output-dir OUT -c fi
 conda create -p ENV --override-channels -c file://OUT -c file://CORTECH_CHANNEL -c conda-forge eeglayoutlab
 ```
 
-`EEGLAYOUTLAB_NPM_CACHE` points the build at an existing npm cache; empty, npm uses a cache in the work directory. `cortech 0.1` is not on conda-forge yet, so it comes from a local channel built from its own recipe.
+Once installed in `ENV`, no `--root` or `EEG_COMPUTE_PYTHON` is needed:
 
-## What was checked (2026-11-23, macOS arm64)
+```bash
+ENV/bin/eeglayoutlab data install --from /path/to/mirror        # installs & auto-composes base + scalp-node-table
+ENV/bin/eeglayoutlab examples run --skip-cross-head             # runs examples 1 & 2 into ./eeglayoutlab-examples
+ENV/bin/eeglayoutlab serve                                      # starts local web workspace on 127.0.0.1
+```
 
-All in scratch directories: the environment, the data directory and the example outputs. Nothing global was changed.
+`EEGLAYOUTLAB_NPM_CACHE` points the build at an existing npm cache; empty, npm uses a cache in the work directory. `cortech 0.1` is not on conda-forge yet, so it comes from a local channel built from [`packaging/conda-forge/cortech`](../cortech/README.md).
 
-| Check | Result |
-| --- | --- |
-| Build | rattler-build 0.81.0, nodejs 26.13.1 from conda-forge. `eeglayoutlab-0.2.0-pyh4616a5c_0.conda`, 62 MB. The package tests pass: imports, `pip check`, `run_test.py`, `eeglayoutlab --help`, `eeglayoutlab data --help` |
-| Environment | 90 packages, 2.3 GB, Python 3.11.18. The pins resolve as written. BLAS is `libopenblas 0.3.34 openmp` with `llvm-openmp 23.1.6` |
-| Tree | `src/compact_eeg`, `scripts`, `configs`, `examples` (without `outputs`), `webapp/public` and the three `data` files in R are byte-identical to the checkout. `site-packages/eeglayoutlab` is byte-identical to `src/eeglayoutlab`. `compact_eeg` is not importable from `site-packages`, and R holds no bytecode |
-| Commands | `eeglayoutlab --help`, `eeglayoutlab data list` |
-| Data | `data install --from-root` put `base-1.0.0` (406 MB, 21 files) and `scalp-node-table-1.0.0` (1.40 GB, 4 files) in a test data directory. `data compose --root R` placed 24 files as hard links and left `data/SOURCES.md`, already in R with the same bytes, as it was. A second compose placed nothing. The eleven head packages followed, with manifests built again by `data build` after the head rebuild; none of them records a home-directory path. They were installed in 8 s, and compose placed their 110 files (13.34 GB) as hard links. `data verify`: all 13 packages intact, in 6 s |
-| Examples | `EEG_COMPUTE_PYTHON=ENV/bin/python node examples/run-examples.mjs --root R` passes, example 3 on all eleven heads (11 of 11 cases). All 24 scores equal `expected.json` exactly (largest difference 0.0). The run took 38.0 s, with a peak of 1.01 GiB for the whole process tree and 0.88 GiB for one process. Examples 1 and 2 alone, before the heads were installed: 13.3 s, 0.99 GiB |
-| Service | `eeglayoutlab serve WORKSPACE --root R` serves the interface from `R/webapp/dist/client`: the page, its scripts and `models/ernie/source-roi.json` |
+## Design 0002 & Phase 3 implementation status
 
-**Not checked:**
-- **Linux.** The package is `noarch: python`, so the same file installs there, but it has not been built or installed on Linux.
-- **FEM and reception v2.** SimNIBS is not in this environment, so no FEM solve ran and reception v2 is unavailable (0002, consequences).
+All code items required by [design 0002](../../../docs/design/0002-installed-scientific-root.md) and Phase 3 Slices 2–9 & 11–13 are implemented and verified:
 
-## What design 0002 still needs in the code
+1. **Default scientific root (`Slice 2`).** `default_repository_root()` selects the checkout holding the package, else `<realpath(sys.prefix)>/share/eeglayoutlab/root` when it holds `src/compact_eeg`. `serve`, `data install`, `data compose`, `examples run` and all scientific CLI commands need no `--root` in the installed form.
+2. **Default worker interpreter (`Slice 2`, `U8`).** In the installed form when R is the installed root, workers run with `<realpath(sys.prefix)>/bin/python` without `EEG_COMPUTE_PYTHON`.
+3. **Read-only root refusal (`Slice 2`).** `serve` (including `--cache-only`), `data compose` and an auto-composing `data install` exit 2 when R or `results/v2` is not writable, instructing the user to create a writable user environment.
+4. **Deliveries (`Slice 2`).** Delivery exports read version metadata from `compact-eeg` and reference `configs/runtime/manifest-linux-64.json` when no managed SimNIBS runtime is present.
+5. **Environment identity rows (`Slice 3`, `U16`, `U17`).** Installed-form D, E, V2 and St identities include `environment:bin/python`, `environment:conda-meta/<name>.json` for the numerical closure only, and `METADATA` / `PKG-INFO` for `cortech`, `nibabel`, `numba`, `numpy`, `scipy` and `llvmlite`, verified against `<realpath(sys.prefix)>`.
+6. **Pure-Python scientific CLI & examples runner (`Slices 4–7 & 11–13`).** `design`, `export`, `evaluate`, `search`, `eeg-summary`, `prior`, `channels`, `pareto` and `examples run` all run in Python without Node.js; `examples run` writes to `./eeglayoutlab-examples` by default in an installed environment and refuses paths inside R (`U14`).
+7. **Data package index & auto-compose (`Slice 8`).** `R/data/packages.json` pins all 15 release packages; `eeglayoutlab data install` resolves dependencies, verifies manifest and `base` bundle digests, and automatically composes hard links into R in an installed environment.
+8. **Bundled web license inventory (`Slice 9`).** `webapp/scripts/third-party-licenses.mjs` generates `THIRD_PARTY_WEB_LICENSES.txt` during `build.sh` for inclusion via `recipe.yaml`'s `license_file`, excluding build-only dependencies.
 
-The recipe changes no code. Of 0002's table, these changes are done ([phase 3](../../../docs/design/0001-phase-3-plan.md), slice 2):
+## Verification history (macOS arm64)
 
-1. **The default root.** `default_repository_root()` takes the checkout that holds the package, else the real path of `<sys.prefix>/share/eeglayoutlab/root` when it holds `src/compact_eeg`. `serve`, `data compose` and the workers need no `--root` in the installed form.
-2. **The default interpreter.** In the installed form, when R is the installed root, the workers run with `<real path of sys.prefix>/bin/python` after a managed runtime and before `python3` (`runtime_config`). A checkout keeps `python || EEG_COMPUTE_PYTHON || managed || 'python3'`.
-3. **Refusing a read-only R.** `serve`, before it chooses or opens a workspace, and `data compose` exit 2 when R, or `results/v2` (or `results`) when it exists, is not writable; in the installed form the message says to create a user environment.
-4. **Deliveries.** The application version comes from the distribution `compact-eeg`; before, every delivery export from an installed environment answered 503. Without a managed runtime the runtime lock is `configs/runtime/manifest-linux-64.json`, whose versions the recipe pins on both platforms, not the macOS SimNIBS lock.
+- **2026-11-23 (initial recipe build):** Built `eeglayoutlab-0.2.0` (`62 MB`) with `rattler-build 0.81.0`, resolved 90 packages (`2.3 GB`, Python 3.11.18, `libopenblas 0.3.34`), composed `base`, `scalp-node-table` and all 11 rebuilt heads (zero home-directory paths), and matched all 24 scores of `expected.json`.
+- **2026-11-26 (post-0002 & Phase 3 Slices 2–9, 11–13 rehearsal):** Verified `third-party-licenses.mjs` (49 bundled client npm packages, zero copyleft/CC-BY packages), `recipe.yaml` YAML schema, `run_test.py` on an installed-layout prefix without `--root` or `EEG_COMPUTE_PYTHON` (verifying `default_repository_root()`, `<realpath(P)>/bin/python`, numerical-closure `environment:` rows, fixture `data install`/`verify`, and `design`/`export`), and end-to-end `data install --from` + `eeglayoutlab examples run` across all 3 examples (all 24 scores matching `expected.json` within `1e-6`, and run/study/SVG/montage outputs matching the Node runner byte-for-byte with worker timings masked).
 
-Still needed:
-
-1. **Environment rows** in `jobs/identity.py` and `jobs/integrity.py` (0002, rule "environment rows"; slice 3): `conda-meta` records of the numerical closure, the `METADATA` of cortech, nibabel, numba, numpy and scipy, llvmlite's `PKG-INFO`, and the interpreter, under `environment:` keys, with the real path of `sys.prefix` as their integrity base. Without them, the identity of the example records holds only `schema`, `digests`, `python` (the environment's interpreter path) and `threads`. On macOS it has no runtime fingerprint at all, so a numpy or scipy update in the environment keeps the keys and can return results computed with the old libraries.
-2. **`eeglayoutlab examples run`** in `cli/` (phase 3, U5; slice 7). The examples need Node and a checkout today: `examples/run-examples.mjs` calls `webapp/scripts/eeglayoutlab.mjs`, which is not in R. The checks above ran the checkout's runner against R.
-
-The checks of 2026-11-23 above predate slice 2. In the installed form `serve` and `data compose` no longer need `--root R`, and the service's workers no longer need `EEG_COMPUTE_PYTHON`. The examples check still needs both `--root R` and `EEG_COMPUTE_PYTHON=ENV/bin/python`: it runs the checkout's Node runner and Node CLI, which slice 2 leaves unchanged (U10), and these default to the checkout and to `python3` from `PATH`. `eeglayoutlab examples run` (slice 7) removes that need. The `--static` default resolves to `R/webapp/dist/client`.
-
-## Before a submission
-
-- `cortech` on conda-forge first, as its own feedstock.
-- A release tarball and its SHA-256 in `source`.
-- The interface's bundled npm packages: their licences go in `license_file`, generated at build time. `THIRD_PARTY_NOTICES.md` does not list them yet.
-- Python 3.12 and 3.13: the pin `<3.12` follows the Linux runtime lock. It is lifted when that lock moves (0001, decision 10).
+**Remaining before conda-forge submission:**
+- `cortech` submitted and merged on `conda-forge/staged-recipes` first (`U22`).
+- Public repository switch (`U28`), release tarball URL + SHA-256 in `source`, and Zenodo data release (`U18`, `U20`).
+- Linux verification on CI runners (`Slice 10` & `Slice 18`).

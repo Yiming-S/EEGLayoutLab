@@ -1,6 +1,6 @@
 # Command line
 
-`eeglayoutlab` runs the scientific services, coordinate tools and reproducible examples from Python without a browser or Node.js. Each request goes through the same steps as in the web application:
+`eeglayoutlab` runs all nine scientific commands, the reproducible examples and the data-package commands from Python without a browser or Node.js. Each computation request goes through the same steps as in the web application:
 
 - the HTTP API's normalizer and result validator;
 - the same Python worker, with the same thread limits;
@@ -14,9 +14,9 @@ In a source checkout, run it from `.venv/bin/eeglayoutlab` (or `eeglayoutlab` in
 .venv/bin/eeglayoutlab --help
 ```
 
-`--root DIR` selects another scientific root holding `configs/`, `data/` and `results/v2/`. The default is `EEG_REPOSITORY_ROOT`, else the checkout holding the package, else the installed root of the conda environment (`$PREFIX/share/eeglayoutlab/root`). `--python PATH` overrides the worker interpreter: following the service (decision U8), `search` runs and fingerprints the compute interpreter (`--python`, else `EEG_COMPUTE_PYTHON`, else `.runtime/simnibs-4.6.0/bin/python`, else the installed environment's `bin/python`, else `python3`), while `evaluate` and `study` use the native interpreter (`.runtime/simnibs-4.6.0/bin/python` when present, else `--python`, else `EEG_COMPUTE_PYTHON`, else the installed environment's `bin/python`, else `python3`).
+`--root DIR` selects another scientific root holding `configs/`, `data/` and `results/v2/`. The default is `EEG_REPOSITORY_ROOT`, else the checkout holding the package, else the installed root of the conda environment (`$PREFIX/share/eeglayoutlab/root`). `--python PATH` overrides the worker interpreter: following the service (decision U8), `search` runs and fingerprints the compute interpreter (`--python`, else `EEG_COMPUTE_PYTHON`, else `.runtime/simnibs-4.6.0/bin/python`, else the installed environment's `bin/python`, else `python3`), while `evaluate`, `study`, `eeg-summary` and `prior` use the native interpreter (`.runtime/simnibs-4.6.0/bin/python` when present, else `--python`, else `EEG_COMPUTE_PYTHON`, else the installed environment's `bin/python`, else `python3`). `webapp/scripts/eeglayoutlab.mjs` remains unchanged only as the legacy parity reference until phase 4.
 
-## Python commands
+## Commands
 
 | Command | Input | Output |
 | --- | --- | --- |
@@ -25,22 +25,15 @@ In a source checkout, run it from `.venv/bin/eeglayoutlab` (or `eeglayoutlab` in
 | `eeglayoutlab evaluate REQUEST.json... --out-dir DIR [--data-prior PRIOR.json] [--root DIR] [--python PATH]` | Requests in the `/api/design-evaluation` format, or `design-submission/1` with names | One `<name>.result.json` per request |
 | `eeglayoutlab evaluate --design DESIGN.json --radius 6 --seed 42 --out-dir DIR [...]` | A design and options: `--action evaluate\|perturb`, `--noise iid\|spatial_10\|spatial_20\|spatial_40\|brain_background`, `--conductivity skull_x0.5\|skull_x2`, `--head ID`, `--robustness standard/1`, `--data-prior PRIOR.json` | `request.result.json` |
 | `eeglayoutlab search REQUEST.json... --out-dir DIR [--data-prior PRIOR.json] [--root DIR] [--python PATH]` | Requests in the `/api/local-compute` format; `--data-prior PRIOR.json` adds the prior to each | One `<name>.result.json` per request |
+| `eeglayoutlab eeg-summary RECORDING... --out-dir DIR [--band 1,40] [--epoch 2] [--label TEXT] [--root DIR] [--python PATH]` | EDF/EDF+C, BDF, BrainVision `.vhdr` or EEGLAB `.set` recordings. The recording is read in place; only its summary is written | One `<name>.summary.json` (`eeg-covariance-summary/1`) per recording |
+| `eeglayoutlab prior SUMMARY.json\|DIR... --out PRIOR.json [--root DIR] [--python PATH]` | Covariance summaries of one band; a directory stands for the summaries in it | `eeg-data-prior/1`, with region gains, noise and the leave-one-out check printed |
+| `eeglayoutlab channels SUMMARY.json\|DIR... --out SUBSET.json [--test FILE,...\|DIR] [--prior PRIOR.json] [--counts 8,16,24,32] [--draws 200] [--seed 1] [--figure FIGURE.svg]` | Training summaries, optional held-out summaries and an optional prior | `eeg-channel-subset/1`, with the training/held-out errors printed per method and size; `--figure` also writes the error against subset size as an SVG figure |
+| `eeglayoutlab pareto RUN.result.json... --out PARETO.json [--objectives LIST]` | `evaluate` and `search` results of one evaluation condition. LIST is comma-separated from `field`, `sensitivity`, `localization`, `p90`, `area`, `dropout`, `impedance`, `replacement` (default `field,sensitivity,localization`) | `eeglayoutlab-cli-pareto/1`: rank, dominating count and values per file, and the files missing an objective |
 | `eeglayoutlab study STUDY.json --out-dir DIR [--root DIR] [--python PATH]` | A study in the robustness-study format (`noise_seeds`, `grid_displacements` or `heads`) | `study.json` with case summaries and the aggregation, plus `cases/NN.result.json` |
 | `eeglayoutlab examples run [--root DIR] [--out-dir DIR] [--python PATH] [--skip-cross-head] [--update-expected]` | Runs the reproducible examples in `examples/` and checks all 24 scores against `examples/expected.json` within `1e-6` | In a checkout `examples/outputs/` by default; in an installed environment `./eeglayoutlab-examples` unless `--out-dir` is given |
 | `eeglayoutlab data list\|verify\|install\|compose\|remove\|build` | Data packages from `data/packages.json` (see [data packages](data-packages.md)) | Verified read-only packages in the user data directory and composed links in the scientific root |
 
-The request formats are defined in [API formats](../contracts/api-formats.md) and the coordinate files in the [coordinate file interface](coordinate-file-interface.md). A batch continues after a failed request, writes `<name>.error.json` for it and exits with status 1. Invalid command arguments or input files exit with status 2 and print `error: <message>` on stderr.
-
-## Remaining Node commands (legacy CLI until phase 4)
-
-`webapp/scripts/eeglayoutlab.mjs` remains unchanged as the byte-parity reference (Node.js 22.18 or later) and still hosts four empirical-data and post-processing commands scheduled for Phase 3 Slices 11–12:
-
-| Command (`node webapp/scripts/eeglayoutlab.mjs ...`) | Input | Output |
-| --- | --- | --- |
-| `eeg-summary RECORDING... --out-dir DIR [--band 1,40] [--epoch 2] [--label TEXT]` | EDF/EDF+C, BDF, BrainVision `.vhdr` or EEGLAB `.set` recordings. The recording is read in place; only its summary is written | One `<name>.summary.json` (`eeg-covariance-summary/1`) per recording |
-| `prior SUMMARY.json\|DIR... --out PRIOR.json` | Covariance summaries of one band; a directory stands for the summaries in it | `eeg-data-prior/1`, with region gains, noise and the leave-one-out check printed |
-| `channels SUMMARY.json\|DIR... --out SUBSET.json [--test FILE,...\|DIR] [--prior PRIOR.json] [--counts 8,16,24,32] [--draws 200] [--seed 1] [--figure FIGURE.svg]` | Training summaries, optional held-out summaries and an optional prior | `eeg-channel-subset/1`, with the training/held-out errors printed per method and size; `--figure` also writes the error against subset size as an SVG figure |
-| `pareto RUN.result.json... --out PARETO.json [--objectives LIST]` | `evaluate` and `search` results of one evaluation condition. LIST is comma-separated from `field`, `sensitivity`, `localization`, `p90`, `area`, `dropout`, `impedance`, `replacement` (default `field,sensitivity,localization`) | `eeglayoutlab-cli-pareto/1`: rank, dominating count and values per file, and the files missing an objective |
+The request formats are defined in [API formats](../contracts/api-formats.md) and the coordinate files in the [coordinate file interface](coordinate-file-interface.md). A batch continues after a failed request, writes `<name>.error.json` for `evaluate` and `search`, and exits with status 1. Invalid command arguments or input files exit with status 2 and print `error: <message>` on stderr.
 
 ## Result files
 

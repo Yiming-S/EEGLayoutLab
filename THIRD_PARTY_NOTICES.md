@@ -14,7 +14,9 @@ The native computation environment uses **SimNIBS 4.6.0**, published by the SimN
 - [Upstream GPL version 3 license text](https://raw.githubusercontent.com/simnibs/simnibs/v4.6.0/LICENSE.txt)
 - [SimNIBS releases](https://github.com/simnibs/simnibs/releases/tag/v4.6.0)
 
-Preserve upstream copyright and license files with redistributed SimNIBS material. Distribution of runtime binaries and any corresponding-source obligations are governed by the upstream license.
+The table-mode and installed conda environments use **cortech 0.1** (`simnibs/cortech`), published by the SimNIBS developers under **GPL-3.0-only**, for surface triangle projection (`cortech.Surface.project_points`); see [`packaging/conda-forge/cortech/README.md`](packaging/conda-forge/cortech/README.md). Compiled builds link CGAL, GMP, MPFR, Eigen, and Boost headers, each governed by its upstream license.
+
+Preserve upstream copyright and license files with redistributed SimNIBS and cortech material. Distribution of runtime binaries and any corresponding-source obligations are governed by the upstream licenses.
 
 ## Ernie head model and derived data
 
@@ -36,12 +38,16 @@ The added `source-roi-cortex.bin` displays the original left/right **central cor
 
 The six research ROIs merge Desikan–Killiany labels from the `aparc_DK40` annotations distributed with SimNIBS. Existing registered-sphere label transfer to Ernie is reproduced and checked against the frozen source archive; these are project-defined ROI groupings of atlas parcels, not a new atlas or manual individual segmentation. Atlas material retains its upstream notices. See [Desikan et al. (2006)](https://doi.org/10.1016/j.neuroimage.2006.01.021), [FreeSurfer cortical parcellation documentation](https://www.freesurfer.net/fswiki/CorticalParcellation), and [SimNIBS surface ROI analysis](https://simnibs.github.io/simnibs/build/html/tutorial/analysis.html#roi-analysis-using-surfaces).
 
-## Other dependencies
+## IXI Dataset head models (optional cross-head packages)
+
+Optional cross-head validation packages (`head-ixi002`, `head-ixi012`, `head-ixi013`, `head-ixi015`, `head-ixi017`, `head-ixi019`, `head-ixi020`, `head-ixi035`, `head-ixi230`, `head-ixi231`) derive individual head segmentations, scalp surfaces, cortical source spaces, surface-admissibility masks, and scalp-node forward tables from MRI scans in the **IXI Dataset** (Information eXtraction from Images; Imperial College London, Hammersmith Hospital, Guy's Hospital, and Institute of Psychiatry), licensed under **Creative Commons Attribution-ShareAlike 3.0 Unported (CC BY-SA 3.0)**. No IXI data is tracked in the Git repository or included in the software package. Within each `head-ixi*` data package manifest, subject-derived arrays carry CC BY-SA 3.0 while `mapping.npz` (mapping Ernie scalp positions onto the individual head) carries Ernie's CC BY-NC 4.0 terms; see [`docs/data-packages.md`](docs/data-packages.md#licences).
+
+## Web interface assets and bundled npm packages
 
 The stylesheet [`webapp/styles/vendor/shadcn/tailwind.css`](webapp/styles/vendor/shadcn/tailwind.css) is copied without modification from **shadcn 4.18.0**, © 2023 shadcn, under the MIT License. Its [complete license](webapp/styles/vendor/shadcn/LICENSE.md) is retained beside the file. The application uses this local stylesheet; the component-generator CLI is not required at runtime.
 
 The interface fonts in [`webapp/public/fonts/geist/`](webapp/public/fonts/geist/) are the Latin and Latin Extended subsets of **Geist** and **Geist Mono** (variable weight 100–900; Geist 1.800, Geist Mono 1.701), © 2024 The Geist Project Authors, under the **SIL Open Font License 1.1**. The files are unmodified WOFF2 subsets as served by Google Fonts; the [license text](webapp/public/fonts/geist/OFL.txt) is retained beside them. They are served from the application itself, so builds do not download fonts.
 
-The web dependencies are recorded in [`webapp/package-lock.json`](webapp/package-lock.json). Python project dependencies are recorded in [`pyproject.toml`](pyproject.toml); the native runtime setup uses [`configs/runtime/manifest.json`](configs/runtime/manifest.json), the accompanying environment specifications, and upstream package metadata. Each dependency retains its own copyright and license.
+The web dependencies are pinned in [`webapp/package-lock.json`](webapp/package-lock.json). Runtime browser packages bundled into `webapp/dist/client` (under MIT, ISC, BSD-3-Clause, and Apache-2.0 licenses) have their exact version inventory and full upstream license texts generated at package build time by [`webapp/scripts/third-party-licenses.mjs`](webapp/scripts/third-party-licenses.mjs) into `THIRD_PARTY_WEB_LICENSES.txt` (shipped in conda packages via `license_file` and alongside `webapp/dist/client`). Build-only dependencies in `package-lock.json` (such as `@img/sharp-libvips-*` and `caniuse-lite`) are never bundled into `webapp/dist/client`.
 
-This file identifies the principal software and data sources used by the application. It is not a replacement for individual package license files or a complete license inventory for a future bundled binary distribution. Such a distribution must retain the notices for the exact dependency versions it contains.
+Python project dependencies are recorded in [`pyproject.toml`](pyproject.toml); the native runtime setup uses [`configs/runtime/manifest.json`](configs/runtime/manifest.json), the accompanying environment specifications, and upstream package metadata. Each dependency retains its own copyright and license.

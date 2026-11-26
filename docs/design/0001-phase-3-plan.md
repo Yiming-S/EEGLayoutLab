@@ -1,6 +1,6 @@
 # 0001, phase 3 — distribution, in slices
 
-- **Status:** accepted on 2026-11-25 with every recommended default (decisions U8 to U28); slices 1 to 8 and 13 done; slice 9 next.
+- **Status:** accepted on 2026-11-25 with every recommended default (decisions U8 to U28); slices 1 to 9 and 11 to 13 done; slice 10 next.
 - **Date:** 2026-11-25
 - **Design:** [0001 — Local-first application with a Python service](0001-local-first-architecture.md), migration table, phase 3; [0002 — The scientific root of an installed application](0002-installed-scientific-root.md); decision U5 of the [phase 2 plan](0001-phase-2-plan.md#decisions)
 
@@ -216,7 +216,7 @@ Result: done on macOS, 2026-11-26. `cli/run.py` and `schemas/options.py` (`data_
 - **Downloads:** none here, since the data is local. A fresh machine needs `data install` (slice 8).
 - **Size:** small.
 
-Result: done on macOS, 2026-11-26. `cli/examples.py` implements `eeglayoutlab examples run` (`--root`, `--out-dir`, `--python`, `--skip-cross-head`, `--update-expected`) following U14 (`R/examples/outputs` in a checkout, `./eeglayoutlab-examples` in an installed environment, refusing paths inside an installed R), verified in `tests/cli/test_examples.py` on both checkout and fake installed prefixes. Needs Linux: slices 10 and 18.
+Result: done on macOS, 2026-11-26. `cli/examples.py` implements `eeglayoutlab examples run` (`--root`, `--out-dir`, `--python`, `--skip-cross-head`, `--update-expected`) following U14 (`R/examples/outputs` in a checkout, `./eeglayoutlab-examples` in an installed environment, refusing paths inside an installed R), verified in `tests/cli/test_examples.py` on both checkout and fake installed prefixes. On an APFS-cloned real-data scratch root (`base`, `scalp-node-table` and the 11 heads of `artifacts/qa-portable-heads-2026-11-23`), `examples/expected.json` and `examples/README.md` are refreshed to the `v7` search algorithm (`main` 291641c and 8fdbffd), and `eeglayoutlab examples run` vs `node examples/run-examples.mjs` produces 10/10 byte-identical coordinate, export, SVG and study-input files and 15/15 key-, identity- and score-equal run JSONs (timings masked). Needs Linux: slices 10 and 18.
 
 ### Slice 8 — data install by name
 
@@ -253,7 +253,7 @@ Result: done on macOS, 2026-11-26. `data/index.py`, `data/archive.py` (`archive_
 - **Downloads (asked first):** rattler-build has no offline mode. It refreshes the conda-forge repodata shards (a few MB) and fetches what the 2026-11-23 caches lack (rattler-cache 2.8 GB, conda-pkgs 3.3 GB, npm cache 1.8 GB): at least packages for newer pins, and mkdocs-material for the build if U21 is taken. The 2026-11-23 environment held 90 packages in 2.3 GB. Sizes are listed before asking.
 - **Size:** medium.
 
-Result: not started.
+Result: done on macOS, 2026-11-26 (step 1 offline installed-prefix rehearsal complete; step 2 rattler-build rebuild awaits network approval under U23). `webapp/scripts/third-party-licenses.mjs` generates `THIRD_PARTY_WEB_LICENSES.txt` for the 55 runtime npm packages bundled into `webapp/dist/client` (excluding `@types/*` and build-only `@img/sharp*` and `caniuse-lite`); `THIRD_PARTY_NOTICES.md` adds `cortech 0.1` (GPL-3.0-only), the IXI dataset (CC BY-SA 3.0) and the bundled web package notice; `packaging/conda-forge/eeglayoutlab/{recipe.yaml,build.sh,run_test.py,README.md}` updates `nodejs >=22.18`, `license_file`, `EEG_PACKAGE_VERSION`, `data/packages.json` copying, package pytest checks and installed-root assertions without `--root` or `EEG_COMPUTE_PYTHON`. Rehearsed on an APFS-cloned conda prefix with `build.sh`'s layout: `run_test.py` passes, `data install` (default `.tar` archives plus `--examples`) and `data verify` validate all 13 example packages and auto-compose into `P/share/eeglayoutlab/root`, `examples run` from an external working directory matches all 24 scores of `expected.json` within 1e-6 under `./eeglayoutlab-examples`, D identities record `environment:bin/python`, numerical-closure `conda-meta` records (invariant under edits to `eeglayoutlab`'s own record, U16) and the six numerical package metadata files, and loopback static pages plus `/api/projects/<id>/export` answer 200. Needs Linux: slices 10 and 18.
 
 ### Slice 10 — CI: data tier and package job
 
@@ -278,7 +278,7 @@ Result: not started.
 - **On this Mac:** all of it. **Needs Linux:** CI. **Downloads:** none.
 - **Size:** medium.
 
-Result: not started.
+Result: done on macOS, 2026-11-26. `core/pareto.py`, `cli/science.py` and `cli/run.py` implement `eeglayoutlab pareto` (`eeglayoutlab-cli-pareto/1`, same-condition dominance, V8 sort order and ranked TSV stdout), `eeg-summary` (threads 1, 30 min, directory discovery by schema and case-insensitive recording-name clash check before environment setup) and `prior` (threads 4, 60 min, `data_prior_from_file` validation and gains TSV stdout); `check-pareto.mjs`'s CLI site is mapped as `P` to `tests/cli/test_pareto_eeg_channels.py`, verified byte for byte on generated evaluate/search sets, fake-worker runs and a real 60 s synthetic EDF recording against Node. Needs Linux: CI.
 
 ### Slice 12 — command line: channel subsets
 
@@ -288,7 +288,7 @@ Result: not started.
 - **On this Mac:** all of it. **Needs Linux:** CI. **Downloads:** none.
 - **Size:** medium.
 
-Result: not started.
+Result: done on macOS, 2026-11-26. `core/channel_subset.py` (90 % presence universe, `restrict`, Cholesky with `1e-12` trace ridge, greedy order, 32-bit mulberry32 PRNG, IEEE-754 left-to-right float64 statistics, `toPrecision(6)` and verbatim Chinese split checks) and `figures/channel_subset.py` (`channelSubsetFigureSvg`) implement `eeglayoutlab channels` (`--figure`, `--prior`, `--eval`, `--counts`, `--draws`, `--seed`), verified byte for byte against Node in `tests/cli/test_pareto_eeg_channels.py`; `check-channel-subset.mjs`'s CLI site becomes `P`, leaving zero `CLI` sites in `tests/service/node_tests.toml`. Needs Linux: CI.
 
 ### Slice 13 — command line: MNI and head-frame coordinates
 

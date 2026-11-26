@@ -1,15 +1,17 @@
-"""Scientific command-line subcommands: ``design``, ``export``, ``evaluate``, ``search`` and ``study``
-(``webapp/scripts/eeglayoutlab.mjs``, phase 3 slices 4-6 & 13; decisions U5, U8, U10, U11, U13).
+"""Scientific command-line subcommands: ``design``, ``export``, ``evaluate``, ``search``, ``eeg-summary``,
+``prior``, ``channels``, ``pareto`` and ``study`` (``webapp/scripts/eeglayoutlab.mjs``, phase 3 slices 4-6 & 11-13;
+decisions U5, U8, U10, U11, U13).
 
 No ``json`` stdlib import: all JSON parsing, formatting and hashing go through ``eeglayoutlab.schemas.jsjson`` so
 written files and keys are byte-identical to the Node reference CLI. Pydantic and job modules are imported only
-when ``evaluate``, ``search`` or ``study`` runs.
+when ``evaluate``, ``search``, ``study`` or ``prior`` runs.
 """
 from __future__ import annotations
 
 import os
 from pathlib import Path
 import re
+import stat as statmod
 import sys
 from typing import Any, Optional, Sequence
 
@@ -18,9 +20,12 @@ from ..core.bids import (
     bids_needs_mni_surface, export_bids_electrodes, export_mni_bids_electrodes,
     parse_bids_electrodes, parse_electrode_labels,
 )
+from ..core.channel_subset import SUMMARY_SCHEMA, channel_subsets
 from ..core.design_file import parse_design, validate_design
 from ..core.ernie_mni import verified_surface
 from ..core.montage import export_eeglab_sfp, export_mne_elc, parse_montage_file
+from ..core.pareto import pareto_cli_report
+from ..figures.channel_subset import channel_subset_figure_svg
 from ..figures.layout import figure_spacing, layout_figure_svg
 from ..jobs import nodepath
 from ..jobs.runtime import repository_root
@@ -28,11 +33,13 @@ from ..schemas import jsjson
 
 __all__ = [
     'RUN_SCHEMA', 'HELP', 'SCIENCE_COMMANDS', 'add_commands', 'parse_science_args',
-    'read_json', 'write_json', 'stem', 'design_from', 'export_files', 'run_science',
+    'read_json', 'write_json', 'stem', 'summary_files', 'design_from', 'export_files', 'run_science',
 ]
 
 RUN_SCHEMA = 'eeglayoutlab-cli-run/1'
-SCIENCE_COMMANDS = frozenset({'design', 'export', 'evaluate', 'search', 'study', 'help'})
+SCIENCE_COMMANDS = frozenset({
+    'design', 'export', 'evaluate', 'search', 'eeg-summary', 'prior', 'channels', 'pareto', 'study', 'help',
+})
 
 _ALLOWED_OPTIONS: dict[str, frozenset[str]] = {
     'design': frozenset({'name', 'regions', 'unit', 'out', 'root'}),
@@ -42,6 +49,10 @@ _ALLOWED_OPTIONS: dict[str, frozenset[str]] = {
         'robustness', 'data-prior', 'out-dir', 'root', 'python',
     }),
     'search': frozenset({'data-prior', 'out-dir', 'root', 'python'}),
+    'eeg-summary': frozenset({'band', 'epoch', 'label', 'out-dir', 'root', 'python'}),
+    'prior': frozenset({'out', 'root', 'python'}),
+    'channels': frozenset({'test', 'prior', 'counts', 'draws', 'seed', 'figure', 'out'}),
+    'pareto': frozenset({'objectives', 'out'}),
     'study': frozenset({'out-dir', 'root', 'python'}),
 }
 
@@ -79,6 +90,27 @@ HELP = """EEGLayoutLab command line
 
   eeglayoutlab search REQUEST.json... [--data-prior PRIOR.json] --out-dir DIR
       Search a layout for a region count and radius, as /api/local-compute does.
+
+  eeglayoutlab eeg-summary RECORDING... [--band 1,40] [--epoch 2] [--label TEXT] --out-dir DIR
+      Covariance summary of recorded EEG (EDF/EDF+C, BDF, BrainVision .vhdr, EEGLAB .set):
+      10-05 channels on Ernie, band-pass and notch, average reference, artifact epochs removed.
+      Only the summary leaves this step; the recording is read in place.
+
+  eeglayoutlab prior SUMMARY.json|DIR... --out PRIOR.json
+      Fit region source power and noise structure to summaries, with leave-one-out shrinkage
+      toward the area prior when there are three or more.
+
+  eeglayoutlab channels SUMMARY.json|DIR... [--test FILE,...|DIR] [--prior PRIOR.json]
+      [--counts 8,16,24,32] [--draws 200] [--seed 1] [--figure FIGURE.svg] --out SUBSET.json
+      Choose channel subsets that best reconstruct all recorded channels: greedy on the data,
+      greedy on the prior's model (with --prior), the 10-20 subset and random subsets,
+      scored on the training summaries and on held-out --test summaries. --figure also writes
+      the error against subset size as an SVG figure.
+
+  eeglayoutlab pareto RUN.result.json... [--objectives LIST] --out PARETO.json
+      Rank evaluate and search results by Pareto dominance. LIST is comma-separated from
+      field, sensitivity, localization, p90, area, dropout, impedance, replacement
+      (default field,sensitivity,localization). All inputs must share one evaluation condition.
 
   eeglayoutlab study STUDY.json --out-dir DIR
       Run every case of a robustness study (noise_seeds, grid_displacements or heads)
@@ -128,6 +160,36 @@ def add_commands(commands: Any) -> None:
     search.add_argument('--root', metavar='DIR')
     search.add_argument('--python', metavar='PATH')
     search.add_argument('--out-dir', metavar='DIR')
+
+    eeg_sum = commands.add_parser('eeg-summary', help='compute covariance summary from recorded EEG files')
+    eeg_sum.add_argument('files', nargs='*', metavar='RECORDING')
+    eeg_sum.add_argument('--band', metavar='LO,HI')
+    eeg_sum.add_argument('--epoch', metavar='SECONDS')
+    eeg_sum.add_argument('--label', metavar='TEXT')
+    eeg_sum.add_argument('--root', metavar='DIR')
+    eeg_sum.add_argument('--python', metavar='PATH')
+    eeg_sum.add_argument('--out-dir', metavar='DIR')
+
+    prior = commands.add_parser('prior', help='fit empirical data prior from covariance summaries')
+    prior.add_argument('files', nargs='*', metavar='SUMMARY.json|DIR')
+    prior.add_argument('--root', metavar='DIR')
+    prior.add_argument('--python', metavar='PATH')
+    prior.add_argument('--out', metavar='PRIOR.json')
+
+    channels = commands.add_parser('channels', help='select and evaluate channel subsets from covariance summaries')
+    channels.add_argument('files', nargs='*', metavar='SUMMARY.json|DIR')
+    channels.add_argument('--test', metavar='FILE,...|DIR')
+    channels.add_argument('--prior', metavar='PRIOR.json')
+    channels.add_argument('--counts', metavar='8,16,24,32')
+    channels.add_argument('--draws', metavar='N')
+    channels.add_argument('--seed', metavar='N')
+    channels.add_argument('--figure', metavar='FIGURE.svg')
+    channels.add_argument('--out', metavar='SUBSET.json')
+
+    pareto = commands.add_parser('pareto', help='rank evaluate and search results by Pareto dominance')
+    pareto.add_argument('files', nargs='*', metavar='RUN.result.json')
+    pareto.add_argument('--objectives', metavar='LIST')
+    pareto.add_argument('--out', metavar='PARETO.json')
 
     study = commands.add_parser('study', help='run all cases of a robustness study')
     study.add_argument('files', nargs='*', metavar='STUDY.json')
@@ -186,6 +248,26 @@ def write_json(path: str, value: Any) -> None:
 
 def stem(path: str) -> str:
     return re.sub(r'\.json$', '', os.path.basename(path), flags=re.IGNORECASE)
+
+
+def summary_files(paths: Sequence[str]) -> list[str]:
+    """``summaryFiles(paths)`` from ``webapp/scripts/eeglayoutlab.mjs``."""
+    resolved: list[str] = []
+    for path in paths:
+        st = os.stat(path)
+        if not statmod.S_ISDIR(st.st_mode):
+            resolved.append(nodepath.resolve(path))
+            continue
+        names = nodepath.js_sort([name for name in os.listdir(path) if name.endswith('.json')])
+        for name in names:
+            candidate = nodepath.resolve(path, name)
+            try:
+                val = read_json(candidate)
+                if isinstance(val, dict) and val.get('schema') == SUMMARY_SCHEMA:
+                    resolved.append(candidate)
+            except Exception:  # noqa: BLE001 - matches JS try/catch filter
+                pass
+    return resolved
 
 
 def _trim_start(text: str) -> str:
@@ -296,6 +378,111 @@ def export_files(
     raise ValueError('--format must be bids, mni, mne, eeglab or svg')
 
 
+def _csv_items(value: str) -> list[str]:
+    return [trimmed for item in value.split(',') if (trimmed := jsjson.js_trim(item))]
+
+
+def _run_channels(files: Sequence[str], options: dict[str, str]) -> int:
+    if not files or not options.get('out'):
+        raise ValueError('channels needs training summaries and --out')
+    training = [read_json(p) for p in summary_files(files)]
+    held = [read_json(p) for p in summary_files(_csv_items(options['test']))] if options.get('test') else []
+    prior_val = read_json(options['prior']) if options.get('prior') else None
+    counts_val = [jsmath.js_number(x) for x in _csv_items(options['counts'])] if options.get('counts') else None
+    draws_val = jsmath.js_number(options['draws']) if 'draws' in options else None
+    seed_val = jsmath.js_number(options['seed']) if 'seed' in options else None
+
+    report = channel_subsets(
+        training=training,
+        test=held,
+        prior=prior_val,
+        counts=counts_val,
+        draws=draws_val,
+        seed=seed_val,
+    )
+    write_json(options['out'], report)
+
+    if options.get('figure'):
+        held_out = len(report['test']) > 0
+        standard = report['standard_10_20']
+        fig_path = Path(options['figure'])
+        Path(nodepath.resolve(options['figure'])).parent.mkdir(parents=True, exist_ok=True)
+        b0 = jsjson.number_to_string(float(report['band_hz'][0]))
+        b1 = jsjson.number_to_string(float(report['band_hz'][1]))
+        svg = channel_subset_figure_svg(
+            report,
+            {
+                'title': 'Reconstruction error of channel subsets',
+                'subtitle': ' · '.join([
+                    'Mean held-out error' if held_out else 'Training error',
+                    f"{len(report['universe'])} shared channels",
+                    f'{b0}–{b1} Hz',
+                ]),
+                'xLabel': 'Channels in the subset',
+                'yLabel': 'Unexplained variance (lower is better)',
+                'names': {
+                    'data': 'Greedy on the data',
+                    'data_prior': 'Greedy on the data-prior model',
+                    'area_prior': 'Greedy on the area-prior model',
+                    'random': 'Random subsets, median and P10–P90',
+                    'standard': f"10-20 system ({standard['count']})" if standard else '',
+                },
+                'channels': lambda count: f'{count} channels',
+                'caption': [
+                    'Error is the unexplained variance fraction of the average-referenced shared channels. '
+                    'Each subset is recorded against one of its own channels; the reconstructor is fitted on '
+                    'the training summaries.',
+                    (
+                        "Curves are the mean held-out error; the band is the P10–P90 of the random subsets' "
+                        'mean held-out error over draws. The data-greedy curve includes the size of the 10-20 subset.'
+                        if held_out
+                        else 'Without held-out summaries the curves are training errors, optimistic for greedy '
+                        "selection on the data; the band is the P10–P90 of the random subsets' training error."
+                    ),
+                ],
+            },
+        )
+        fig_path.write_text(svg, encoding='utf-8')
+        sys.stderr.write(f"wrote {options['figure']}\n")
+
+    def cell(row: dict[str, Any]) -> str:
+        base = jsmath.to_fixed(float(row['train_error']), 3)
+        if row.get('test_error'):
+            return f"{base}/{jsmath.to_fixed(float(row['test_error']['mean']), 3)}"
+        return base
+
+    method_keys = list(report['methods'].keys())
+    method_vals = list(report['methods'].values())
+    methods_hdr = '\t'.join(method_keys)
+    sys.stdout.write(f'count\t{methods_hdr}\trandom median\n')
+    for k, count in enumerate(report['counts']):
+        m_cells = '\t'.join(cell(m['counts'][k]) for m in method_vals)
+        r_row = report['random']['counts'][k]
+        r_cell = jsmath.to_fixed(float(r_row['train_error']['median']), 3)
+        if r_row.get('test_error_mean'):
+            r_cell += f"/{jsmath.to_fixed(float(r_row['test_error_mean']['median']), 3)}"
+        sys.stdout.write(f'{count}\t{m_cells}\t{r_cell}\n')
+
+    standard = report['standard_10_20']
+    if standard:
+        extra = f"\tdata greedy {cell(standard['data_same_count'])}" if standard.get('data_same_count') else ''
+        sys.stdout.write(f"10-20 ({standard['count']})\t{cell(standard)}{extra}\n")
+    sys.stdout.flush()
+
+    left_parts = [
+        f'{cnt} {role} summaries lack a channel and were left out'
+        for cnt, role in ((len(report['training_skipped']), 'training'), (len(report['test_skipped']), 'held-out'))
+        if cnt
+    ]
+    left_str = f" ({'; '.join(left_parts)})" if left_parts else ''
+    sys.stderr.write(
+        f"wrote {options['out']}: {len(report['universe'])} channels, {len(report['training'])} training and "
+        f"{len(report['test'])} held-out summaries{left_str}; errors are training/held-out\n"
+    )
+    sys.stderr.flush()
+    return 0
+
+
 def _error_exit(message: str) -> int:
     sys.stderr.write(f'error: {message}\n')
     sys.stderr.flush()
@@ -303,8 +490,8 @@ def _error_exit(message: str) -> int:
 
 
 def run_science(argv: Sequence[str]) -> int:
-    """Runs a scientific command (``design``, ``export``, ``evaluate``, ``search``, ``study``, ``help``) with Node's
-    option grammar, output bytes and exit codes (0 ok, 1 batch/case failure, 2 usage/validation error)."""
+    """Runs any scientific command with Node's option grammar, output bytes and exit codes
+    (0 ok, 1 batch/case failure, 2 usage/validation error)."""
     if not argv or argv[0] in ('help', '--help', '-h'):
         sys.stdout.write(HELP)
         sys.stdout.flush()
@@ -324,8 +511,51 @@ def run_science(argv: Sequence[str]) -> int:
             sys.stderr.flush()
             return 0
 
+        if command == 'pareto':
+            if len(files) < 2 or not options.get('out'):
+                raise ValueError('pareto needs at least two result files and --out')
+            report = pareto_cli_report([(f, read_json(f)) for f in files], options.get('objectives'))
+            write_json(options['out'], report)
+            for row in report['rows']:
+                vals = '\t'.join(jsjson.number_to_string(float(row['values'][o])) for o in report['objectives'])
+                sys.stdout.write(f"{row['rank']}\t{row['name']}\t{vals}\n")
+            sys.stdout.flush()
+            front_count = sum(1 for row in report['rows'] if row['rank'] == 1)
+            sys.stderr.write(f"wrote {options['out']}: {front_count} of {len(report['rows'])} on the front\n")
+            sys.stderr.flush()
+            return 0
+
+        if command == 'channels':
+            return _run_channels(files, options)
+
+        if command == 'prior':
+            if not files or not options.get('out'):
+                raise ValueError('prior needs summary files and --out')
+            from . import run as cli_run
+            return cli_run.execute('prior', files, options)
+
         if not options.get('out-dir'):
             raise ValueError(f'{command} needs --out-dir')
+
+        if command == 'eeg-summary':
+            if not files:
+                raise ValueError('eeg-summary needs recording files')
+            if 'label' in options and len(files) > 1:
+                raise ValueError('--label applies to a single recording')
+            names = [re.sub(r'\.(edf|bdf|rec|vhdr|set)$', '', os.path.basename(f), flags=re.IGNORECASE) for f in files]
+            clash = next(
+                (
+                    name for k, name in enumerate(names)
+                    if next(i for i, other in enumerate(names) if other.lower() == name.lower()) != k
+                ),
+                None,
+            )
+            if clash is not None:
+                raise ValueError(
+                    f'two recordings would both write {clash}.summary.json; run them into different --out-dir folders'
+                )
+            from . import run as cli_run
+            return cli_run.execute('eeg-summary', files, options, recording_names=names)
 
         if command == 'export':
             if len(files) != 1 or not options.get('format'):
@@ -352,6 +582,9 @@ def run_science(argv: Sequence[str]) -> int:
 
         from . import run as cli_run
         return cli_run.execute(command, files, options)
+    except OSError as error:
+        from ..jobs.records import node_message
+        return _error_exit(node_message(error))
     except Exception as error:  # noqa: BLE001 - Node CLI catches every rejection as exit 2 + error: <msg>
         msg = getattr(error, 'message', None)
         text = msg if isinstance(msg, str) and msg else str(error)

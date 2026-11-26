@@ -1,6 +1,6 @@
 # Draft conda-forge recipe (rattler-build, recipe format v1) for EEGLayoutLab, laid out as design 0002 decides:
 # the eeglayoutlab package in site-packages and the scientific root tree in $PREFIX/share/eeglayoutlab/root.
-# Not submitted; see README.md for what was verified and what is still missing.
+# Not submitted; see README.md for what was verified and what awaits public submission steps.
 schema_version: 1
 
 context:
@@ -32,7 +32,7 @@ build:
 requirements:
   build:
     # The interface is exported as static pages at build time; Node is not a run dependency.
-    - nodejs >=22.13
+    - nodejs >=22.18
   host:
     - python ${{ python_min }}.*
     - pip
@@ -64,20 +64,32 @@ tests:
       imports:
         - eeglayoutlab
         - eeglayoutlab.cli.main
+        - eeglayoutlab.cli.science
         - eeglayoutlab.data
+        - eeglayoutlab.data.index
       python_version: ${{ python_min }}.*
       pip_check: true
   - files:
+      source:
+        - tests/test_iid_pin.py
+        - tests/test_data_packages.py
+        - tests/service/installed_support.py
       recipe:
         - run_test.py
     requirements:
       run:
         - python ${{ python_min }}.*
+        - pytest
+        - httpx
     script:
-      # The root tree, the absence of compact_eeg from site-packages, the data commands and one science import
-      - python run_test.py
+      # Installed root & interpreter defaults (design 0002), environment rows (slice 3), data build/install/verify,
+      # scientific CLI entry points without Node, and fast package tests.
+      - EEG_PACKAGE_VERSION=${{ version }} python run_test.py
       - eeglayoutlab --help
       - eeglayoutlab data --help
+      - eeglayoutlab design --help
+      - eeglayoutlab examples --help
+      - pytest tests/test_iid_pin.py -q
 
 about:
   homepage: https://github.com/Yiming-S/EEGLayoutLab
@@ -92,6 +104,7 @@ about:
   license_file:
     - LICENSE
     - THIRD_PARTY_NOTICES.md
+    - THIRD_PARTY_WEB_LICENSES.txt
 
 extra:
   recipe-maintainers:
