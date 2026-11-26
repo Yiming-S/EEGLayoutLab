@@ -69,17 +69,26 @@ jobs:
         run: npm run build
 
   python:
-    name: Python (${{ matrix.os }}, Node ${{ matrix.node }})
+    name: Python ${{ matrix.python-version }} (${{ matrix.os }}, Node ${{ matrix.node }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, macos-15]
+        python-version: ['3.11', '3.12', '3.13']
         node: ['24.22.3', '26.5.0']
         exclude:
           - os: macos-15
             node: '26.5.0'
+          - os: macos-15
+            python-version: '3.12'
+          - os: macos-15
+            python-version: '3.13'
+          - node: '24.22.3'
+            python-version: '3.12'
+          - node: '24.22.3'
+            python-version: '3.13'
           # As in the interface job.
           - os: ${{ (!github.event.repository.private || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.base_ref == 'main')) && 'none' || 'macos-15' }}
     steps:
@@ -93,7 +102,7 @@ jobs:
           cache-dependency-path: webapp/package-lock.json
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: pyproject.toml
       - name: Install locked web dependencies and build the interface

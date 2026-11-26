@@ -27,7 +27,7 @@ The interface supports English and Simplified Chinese. A local Python service, `
 
 ## Run locally
 
-Follow the [source installation guide](docs/source-installation.md) to install the matching model data and prepare the scientific runtime. The Python project uses **Python 3.11**; building the interface and running its scripts requires **Node.js 22.18.0 or newer** (checked with 26.5.0; with 24.22.3 the type check and fast tests only, until CI also lints and builds with it). The supplied managed scientific runtime targets **Apple Silicon macOS**. **Linux x86_64** has a smaller runtime without SimNIBS that computes from published scalp-node tables. On Windows, follow the Linux steps in WSL2 (not yet tested).
+Follow the [source installation guide](docs/source-installation.md) to install the matching model data and prepare the scientific runtime. The Python project supports **Python 3.11–3.13** (the managed scientific runtime uses 3.11); building the interface and running its scripts requires **Node.js 22.18.0 or newer** (checked with 26.5.0; with 24.22.3 the type check and fast tests only, until CI also lints and builds with it). The supplied managed scientific runtime targets **Apple Silicon macOS**. **Linux x86_64** has a smaller runtime without SimNIBS that computes from published scalp-node tables. On Windows, follow the Linux steps in WSL2 (not yet tested).
 
 Then, from the repository root (`EEGLayoutLab/`), install the `eeglayoutlab` command, build the interface once and start the application:
 
