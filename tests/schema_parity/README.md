@@ -33,7 +33,8 @@ the same parse result, the same acceptance and the same canonical bytes.
    missing and extra keys, and random combinations. The shared fixtures alone miss most rule errors. Build the
    variants for a list of allowed values from Node's list, and export the lists as `options` so that
    `test_option_lists_match_node` compares them with the Python schema. A normalizer that throws a
-   `TypeError`, `RangeError` or `ReferenceError` (a 500 in the host) stops generation.
+   `TypeError`, `RangeError` or `ReferenceError` (a 500 in the host) stops generation. `normalize` may return a
+   promise, which `generate.mjs` awaits (the project formats run Node's asynchronous store checks).
 4. Regenerate the OpenAPI document and the TypeScript types (see [contracts](../../contracts/README.md)).
 
 ## Running

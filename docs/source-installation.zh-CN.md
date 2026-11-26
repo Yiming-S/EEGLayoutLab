@@ -1,16 +1,16 @@
 # 源码安装说明
 
-本说明用于在本机运行和开发目前维护的网页版。界面在浏览器中打开，Node 服务和 Python／SimNIBS 计算运行在同一台电脑上。
+本说明用于在本机运行和开发目前维护的网页版。界面在浏览器中打开，本地 Python 服务（`eeglayoutlab serve`）及其 Python／SimNIBS 计算进程运行在同一台电脑上。
 
 [English source installation](source-installation.md)
 
-本指南先介绍 **Apple Silicon macOS** 的安装流程。**Linux x86_64** 有一套不含 SimNIBS 的计算环境，依靠已发布的头皮节点表计算，见文末[Linux x86_64](#linux-x86_64)。**Windows** 暂不支持原生安装，请使用 WSL2（尚未测试）。计划中的服务器网页版见[服务器部署准备说明（英文）](server-deployment.md)。
+本指南先介绍 **Apple Silicon macOS** 的安装流程。**Linux x86_64** 有一套不含 SimNIBS 的计算环境，依靠已发布的头皮节点表计算，见文末[Linux x86_64](#linux-x86_64)。**Windows** 暂不支持原生安装，请使用 WSL2（尚未测试）。服务器部署使用旧版 Node 服务，已冻结在标签 `node-host-freeze`，见[服务器部署准备说明（英文）](server-deployment.md)。
 
 ## 准备条件
 
 - Apple Silicon（M 系列芯片）Mac，macOS **14 或更新版本**。
-- Node.js **22.13.0 或更新版本**，以及 npm。
-- 用于运行安装工具的 Python **3.10 或更新版本**。安装工具会另行准备使用 **Python 3.11** 的计算环境，具体版本见[运行环境清单](../configs/runtime/manifest.json)。
+- Node.js **22.13.0 或更新版本**，以及 npm，用于构建界面。
+- 用于运行安装工具的 Python **3.10 或更新版本**，以及一个自备的 **Python 3.11**（例如来自 Homebrew 或 python.org），用于安装 `eeglayoutlab` 命令。安装工具会另行准备使用 **Python 3.11** 的计算环境，具体版本见[运行环境清单](../configs/runtime/manifest.json)；该命令不在这个环境中运行。
 - Apple Silicon 版本的 Conda，且终端中可以运行 `conda` 命令。
 - Git 和 Apple 命令行工具。
 - [GitHub 命令行工具](https://cli.github.com/)（`gh`），以及拥有此私有仓库访问权限的 GitHub 账号。
@@ -68,17 +68,20 @@ python3 scripts/bootstrap_runtime.py --execute
 
 等待安装和环境检查成功完成，再继续下一步。网页服务会自动使用该环境，无需手动激活 Conda 环境。
 
-### 4. 安装前端依赖并打开网页
+### 4. 安装 `eeglayoutlab` 命令、构建界面并启动应用
+
+在仓库根目录，把命令安装到自备的 Python 3.11 环境中，构建一次界面，然后为一个**工作区**启动本地服务。工作区是你自选的目录，保存任务列表、电极名称、稳健性研究和研究项目：
 
 ```sh
-cd webapp
-npm ci
-npm run dev
+python3.11 -m venv .venv
+.venv/bin/python -m pip install -e '.[service]'
+(cd webapp && npm ci && npm run build)
+.venv/bin/eeglayoutlab serve ~/eeglayoutlab-workspace
 ```
 
 ![终端安装各步骤成功输出检查点示意图：数据包校验、Python 运行环境就绪与本地服务启动](images/install-terminal-checkpoints.svg)
 
-在浏览器打开 [http://127.0.0.1:3000](http://127.0.0.1:3000)。使用期间保持终端运行；结束使用时，在终端按 **Control + C** 停止服务。首次打开页面后，确认右上角**任务 / 队列**显示 `0`（已连接本地后端）即可开始使用：
+服务会打印地址 `http://127.0.0.1:<端口>/open?token=…`，并在就绪后用浏览器打开它。请使用这个页面：该地址负责让浏览器登录本地服务，而且每次启动的端口都不同，所以书签或手动输入的地址无法打开应用。使用期间保持终端运行；结束使用时，在终端按 **Control + C** 停止服务。首次打开页面后，确认右上角**任务 / 队列**显示 `0`（已连接本地服务）即可开始使用：
 
 ![首次打开浏览器工作区界面标注图：顶栏五大板块、任务队列连接状态、语言与主题切换以及三个起点入口](images/workspace-first-launch.svg)
 
@@ -87,11 +90,13 @@ npm run dev
 在存放仓库的上一级文件夹中，运行：
 
 ```sh
-cd EEGLayoutLab/webapp
-npm run dev
+cd EEGLayoutLab
+.venv/bin/eeglayoutlab serve ~/eeglayoutlab-workspace
 ```
 
-然后在浏览器打开 [http://127.0.0.1:3000](http://127.0.0.1:3000)。不需要每次重新安装数据和依赖。
+命令会在浏览器中打开应用。不需要每次重新安装数据和依赖；更新源码后，重新构建一次界面（`cd webapp && npm run build`）。上一次运行留下的标签页无法连接新的服务，页面会提示重新运行命令，命令会打开新的页面；服务运行时再次运行命令，会打开正在运行的实例。命令的其他选项，以及界面开发用的 `npm run dev`，见 [CONTRIBUTING（英文）](../CONTRIBUTING.md#the-local-service)。
+
+旧版 Node 服务（`webapp/` 中的 `npm start`）仅作保留，服务器部署冻结在标签 `node-host-freeze`；当前界面不再打开它保存的研究项目。
 
 操作流程见 [安装与使用](getting-started.zh-CN.md#使用顺序)。
 

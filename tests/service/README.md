@@ -35,9 +35,11 @@ The first phase 2 exit criterion is that, on the same installation, Python reque
   input in list order, then the identity checks one after another. The two-break roots pin that order, and
   `InputIntegrity.digest_all` reproduces it. With the default pool of 4, failures in different stages can come
   out either way (about 1-3% of runs for an unreadable file against a directory).
-- `test_nodefs.py` compares `nodefs.realpath_sync` and `nodefs.realpath` with Node's `fs.realpathSync` and
-  `fs.promises.realpath` (`parity/fs.mjs`) on a tree of links, loops and misspelled paths. On macOS the two
-  differ: the first keeps the spelling it is given, the second returns the on-disk case and normalization.
+- `test_nodefs.py` compares `nodefs.realpath_sync`, `nodefs.realpath`, `nodefs.readdir` and `nodefs.read_file`
+  with Node's `fs.realpathSync`, `fs.promises.realpath`, `readdir` and `readFile` (`parity/fs.mjs`) on a tree of
+  links, loops and misspelled paths, failures by code and by message (`records.node_message`: the syscall, and the
+  path as the system received it, a lone surrogate as U+FFFD). On macOS the two real paths differ: the first keeps
+  the spelling it is given, the second returns the on-disk case and normalization.
 
 On macOS the identities have no `runtime` member; on Linux they carry the interpreter fingerprint, so CI covers
 that branch.
@@ -65,10 +67,20 @@ In `test_key_parity.py` they are:
   queue per configuration (hashing every input again for each case is slow), for the design and the radius
   identity;
 - every stored cache under `results/v2/*_jobs` re-derives `result_sha256` and round-trips byte for byte through
-  `jsjson`; every design and editor cache, and every batch `request.json` with an identity, re-derives its key.
+  `jsjson`; every design and editor cache, and every batch `request.json` with an identity, re-derives its key;
+- the electrode editor's context for every parent it offers and every stored editor request (see "Electrode
+  editor" below);
+- the context of every stored reception cache's request, its original download and its finish time; with the
+  `native_runtime` marker also v2's context on the real runtime, whose inspector both hosts run (see "Signal
+  reception" below).
 
 The library modules add theirs (next section). All of them read the root only; Node runs with a scratch queue
 directory that is never created. The stored-record check needs neither Node nor Pydantic.
+
+The live comparison (tier C) is `webapp/scripts/check-key-parity-live.mjs`: with the Python service and a legacy
+Node host serving one root, both cache-only, it compares the libraries, 18 fixed lookups (`hit`, `job.key`,
+`job.request`) and the lookup of every compatible cache row, and never submits a job (CONTRIBUTING, "Live and
+browser scripts").
 
 ## Service host
 
@@ -104,8 +116,12 @@ The modules:
 - `test_workspace.py`: the marker, the lock, `runtime.json`, the open page and instance reuse; a state directory
   that is a link, another user's, or holds links; and `eeglayoutlab serve` in a subprocess over a real socket: a
   second `serve` opens the running instance, SIGTERM or SIGINT removes the runtime file at once (so a second
-  `serve` during the shutdown starts anew), and a `BROWSER` command that does not return gets the open page while
-  the service answers.
+  `serve` during the shutdown starts anew; a stop right after the file is written leaves none), a `BROWSER`
+  command that does not return gets the open page while the service answers, and the flags of slice 4:
+  `--cache-only` reports maintenance, `--clear-interrupted` releases an unconfirmed spawn, a corrupt
+  `queue.json` makes `serve` exit 1 and is kept, Ctrl+C pressed twice during a radius job still stops its
+  worker and writes its records, a stop before the compute services exist dispatches nothing, and a failed last
+  write of the queue makes `serve` exit 1.
 
 Without FastAPI, Uvicorn or httpx the tests that need them skip, unless `EEG_REQUIRE_SCHEMA_PARITY=1`; the health
 and static parity also need Node, and the static parity `webapp/node_modules` (`npm ci`).
@@ -123,7 +139,7 @@ with one thread-pool worker and a queue directory that is only resolved, never c
   `/api/normalize/radius-search` route are in the schema parity tests.
 - `test_radius.py`: the worker-result validator (check-local-compute.mjs:61, and 33 cases against Node's
   `validateWorkerResult` message by message), `code_identity` (top-level `src/compact_eeg/*.py`, raw reads that
-  follow links: B8), `radius_identity` and `RadiusCache.read_cache`.
+  follow links: B8), `radius_identity` and `RadiusCache.read_cache`; its run path is in the next section.
 - `test_key_parity.py`: the radius identity. `parity/library.mjs` in its `identities` mode builds a fresh
   `LocalComputeQueue` per case and records `identityFor`. The `radius-*` roots of `key_parity_support.py` (managed
   runtimes, a linked root, and one break each: a code file linked out of the root, a directory, a dangling or
@@ -135,8 +151,8 @@ with one thread-pool worker and a queue directory that is only resolved, never c
   under each evaluation condition, annotations; a linked root, a linked code file, a bare root, roots that break
   the offline datasets) and holds the inline Node driver `LIBRARY_DRIVER`. The list compares as a set of record
   texts plus the `finished_at` order, the rest as text; every record directory is read with `get`. It ports
-  check-local-data-library.mjs (the lookup and submit halves of :83, :102 and :144 come with the queue in
-  slice 4).
+  check-local-data-library.mjs; the lookup and submit halves of :83, :102 and :144 run on `RadiusJobs` with a
+  spawn that fails the test, and the lookup endpoint of :121 is in `test_compute_routes.py`.
 - `test_bundle.py`: `experiment_bundle` and `describe_search` against Node's `experimentBundle`.
   `bundle_support.py` builds the roots and stand-in interpreters for the frozen-bank export subprocess (arguments,
   environment, stream kinds, output at and over 1 MiB, invalid UTF-8, exits, signals) and holds `BUNDLE_DRIVER`;
@@ -180,20 +196,538 @@ historical-area records, every cache row and every saved evaluation: the parent-
 every record (the frozen-bank coordinates exported with the installation's own interpreter; about 3 minutes), the
 catalogs, and the routes for every record and a sample of bundles.
 
+## Job engine, queue and radius jobs
+
+Slice 4 writes: the worker transport and the execution slot, the record writes, the radius run path, the workspace
+queue and the job routes. Everything that computes or writes runs on synthetic roots in `tmp_path` with stand-in
+workers; the Node references write only under their case roots and scratch directories.
+
+- `test_worker.py` (`jobs.worker`, `jobs.slot`): check-worker-lifecycle.mjs, whose fake children (`FakeChild`)
+  drive the worker through its `spawn` hook, and the transport half of check-local-compute.mjs:97, :106 and :111 on
+  `Runner`, a stand-in queue that holds the permit as `LocalComputeQueue` does. Then spawn errors, the stdin
+  encoding, callbacks that raise, the hard bound on a run whose output or group outlives its leader, and the
+  installation lock (its place beside the record trees, a holder in another process, the probe that takes nothing,
+  the descriptor open for writing, the descriptor closed when the check after its `flock` fails, the lock during a
+  run, links and directories out of the root, refused with `createBatch`'s message, and the root resolved with
+  `realpath(3)` as `create_batch` resolves it: a link spelling the root in another case or normalization, and a
+  dangling link).
+  `parity/worker.mjs` runs Node's own `startPythonWorker` on 169 scripted fake children (89 written out, among
+  them every cut of a 35-byte sample of valid and invalid UTF-8 through both decoders, and 80 seeded random UTF-8
+  splits) and on 23 real processes (exit codes, signals, the output bound, the timeout's SIGKILL, a surviving
+  descendant, stdin modes, spawn errors, a script without a `#!` line, PATH search, invalid UTF-8); every callback
+  and close is compared as JSON text. Usage:
+  `node tests/service/parity/worker.mjs <spec.json> <out.json>` (its header documents the spec).
+- `test_storage.py` (`jobs.records`, the write side): check-runtime-storage.mjs:35 and :56, the record-store half
+  of check-service-storage.mjs:12, and `publish_cache` (B16): a valid cache is never replaced, threads and
+  processes racing for one key publish once, errors leave the cache as it was, a crash leaves only a `*.tmp` that
+  readers ignore. `parity/records.mjs` runs Node's `RecordStore` and `atomicJson` with its `fs/promises` calls
+  recorded (replaced through `syncBuiltinESMExports` before `records.mjs` is imported), on 18 cases built once per
+  side; values, error messages, call traces and resulting trees (names, types, modes, link counts, link targets,
+  bytes) must be equal. Usage: `node tests/service/parity/records.mjs <spec.json> <out.json>`; its ops are
+  `createBatch`, `write`, `atomicJson`, `publish`, `read`, `keys`, `path` and `directory`, with `$number`
+  stand-ins and `cycle` for circular values.
+- `test_radius.py`, the run path (`RadiusJobs`): check-local-compute.mjs:72 (one child, the shell off, two BLAS
+  threads), :86, :97, :106 and :111, driven through `radius_support.FakeChild` as Node drives its fake children;
+  the permit and installation lock held until the records are written, another workspace computing, a paused slot
+  and a broken lock, a cancel during the spawn, a cancelled caller, a cache published first by another workspace,
+  `aclose`, the job map's bound, a real worker process, and the timeout case of the parity under a loop stalled for
+  less than its timer.
+  `parity/radius_run.mjs` runs Node's `LocalComputeQueue` with an injected `spawnProcess`, a pinned `Date` and
+  pinned job ids on 13 cases (completed, no layout, worker failure, spawn throw, invalid result, timeout, cancel,
+  stdin error, output limit, dispose and restart, store failure, normalized requests, code-root provenance); the
+  `request.json`, `job.json` and `cache.json` bytes, the job states and the child's spawn arguments must be equal.
+  Usage:
+  `node tests/service/parity/radius_run.mjs <spec.json> <out.json>`. With `EEG_KEY_PARITY_ROOT`,
+  check-lab-workflow.mjs:25 reads that installation's strict-area records (no lookup, no submit).
+- `test_queue.py` (`jobs.queue`, `jobs.kinds`): with the stub adapters of check-community-queue.mjs:11-38
+  (`queue_support.Stubs`), the scheduler tests of check-community-queue.mjs, the queue tests of
+  check-abuse-limits.mjs and check-queue-maintenance.mjs (without the maintenance flag), check-reconciliation.mjs as
+  startup recovery, check-cross-region-contract.mjs:124 and check-product-operations-integration.mjs:131. Then
+  crash consistency of `queue.json`, corrupt files kept byte for byte, a failed last write at `dispose` kept for
+  the service, the boot id and `clear_interrupted` (for an unconfirmed spawn and for a recorded worker pid; a clock
+  set forward is no reboot), process-group liveness, the installation lock held by another workspace before the task
+  is prepared or taken while it is prepared (the task stays queued, nothing is written), a record tree out of the
+  root (Node's message, after the key check; a restart is not blocked), a hit's stored `finished_at` that is not a
+  string, finalization from the completion callback, retention, `cache_only`, the statuses of
+  `task-client.ts`, and the local-compute adapter over `RadiusJobs`. `parity/queue_views.mjs` runs Node's
+  `CommunityQueue` with the same stubs on 9 scenarios; views, statistics and the maintenance status must be equal
+  once `owners`, `networks` and `online_visitors` are removed and identifiers numbered in order of appearance.
+  Usage: `node tests/service/parity/queue_views.mjs <spec.json> <out.json>`.
+- `test_compute_routes.py` (`server/routes/compute.py`, `community.py`, the lifespan): the application with its
+  lifespan over HTTP on a root whose worker is `compute_support.FAKE_WORKER`, a stand-in for
+  `scripts/run_local_radius_compute.py` that plays the plan step of each request (`compute_support.serving` starts
+  it on a workspace). Submit and poll, the stored receipt, joins and cancels, failure messages, the lookup endpoint
+  (check-local-data-library.mjs:121), the services sharing one store and one slot (check-service-storage.mjs:12),
+  two workspaces of one root computing one at a time (the waiting one writes nothing), `ComputeHost.stop_soon`
+  (serve's first signal) stopping the worker while the service still answers, and before the services exist
+  stopping them once built (a queued task stays queued), `--cache-only`, the 429 bound, a
+  restart through a second application, an unconfirmed spawn and its log hint, Node's body, JSON, CSRF and query
+  rules, and a corrupt queue file. `parity/compute_routes.mjs` serves Node's composed
+  `createLocalComputeService` (its scheduler's state in a scratch directory) on the same root with the same fake
+  worker; the 37 steps of `compute_support.STEPS` must give the same statuses, content types and bodies (ids,
+  times and the token masked, Node's `online_visitors` dropped) and the same record tree under
+  `R/results/v2/local_app_jobs`; on a root whose `results` is a link out of it, 4 steps give Node's refusal, and on
+  one whose `results` link spells the root in upper case, Node's result. Usage:
+  `node tests/service/parity/compute_routes.mjs <spec.json> <out.json>`.
+
+The Node references need Node; the run path, the queue's adapter tests and the routes also need Pydantic (and the
+routes FastAPI and httpx). Without them those tests skip, unless `EEG_REQUIRE_SCHEMA_PARITY=1`. The process tests
+(groups, signals, the lock) are written for macOS and Linux, and they wait on events with generous bounds so that
+they hold under load.
+
+## Coordinate evaluation and electrode names
+
+Slice 5 adds the coordinate evaluation's run path (`jobs.design`), the write side of the electrode-name annotations
+(`jobs.annotations`), the design adapter (`jobs.kinds.DesignAdapter`) and its routes. As in slice 4, everything that
+computes or writes runs on synthetic roots in `tmp_path`, and the Node references write only under their case roots
+and scratch directories.
+
+- `test_design.py` (`DesignJobs`):
+  - Ports: check-design-decision.mjs:201 and :330 and check-design-robustness.mjs:35 (all eight corruptions) on
+    the result validator. :265, :288 and :303 are driven through `radius_support.FakeChild` with that file's context
+    stub (`design_support.Fixture`).
+  - Then what Python adds:
+    - the permit and the installation lock held until the records are written;
+    - another workspace computing, a paused slot, a broken lock and a failed context;
+    - a pause or a failed write while the batch is created;
+    - a cancel during the spawn, the wall-clock limit and a cancelled caller;
+    - a valid cache published first by another workspace (B16), and `aclose`;
+    - the finish time a restart takes from `cache.json` (`stored_finish`) only after the record checks of Node's
+      reconciliation: the key and checksum, the result, and the identity and request the record names. The record
+      is read as the lookup reads it, so a second link (B16) or a link inside the root does not stop it (R6);
+    - the queue's prepared submit and the job map's bound;
+    - a subclass that overrides every member slice 6's editor overrides;
+    - a real worker process on a design root. `design_support.FAKE_WORKER` stands in for
+      `scripts/design_evaluation.py`.
+  - `parity/design_run.mjs` runs Node's `DesignEvaluationService` over a `LocalComputeQueue` of the design roots of
+    `key_parity_support.design_root`, so the scientific context is real on both sides. Spawn is injected, and
+    `Date` and the service's `randomUUID` are pinned. It runs the cases of `design_support.parity_cases`: 20 on
+    macOS, 19 on Linux (CI). The `managed` case runs on macOS only, since on Linux the identity probes the
+    interpreter's fingerprint and its fake interpreter cannot run; so CI does not compare the managed run path, and
+    the `scandir` message is compared there by `test_nodefs.py`. The `odd-bytes` case moves away a source input that
+    its manifest names with a lone surrogate. Unless the superuser runs them (it reads files of mode 000), the cases
+    also reach `EACCES`, and only then does the coverage test ask for it.
+  - For each case these must equal Node's: the steps' records, the clock and id counts, the spawn arguments,
+    environment, stdin and kills, and the `request.json`, `job.json` and `cache.json` trees. The one exception is
+    B16: Python keeps a valid `cache.json` published first, and the publish-once case asserts it.
+  - Usage: `node tests/service/parity/design_run.mjs <spec.json> <out.json>` (its header documents the steps).
+- `test_annotations.py` (`ElectrodeAnnotations`, `design_submission`):
+  - Ports of check-electrode-annotations.mjs:82, :100, :117, :135, :147 (below HTTP) and :212 (at the routes' body
+    reader). They run on that file's fixture: a stub design adapter with Node's prepare, the workspace queue and
+    `ElectrodeAnnotations.local` (W first, then Node's directory, owner `LOCAL_OWNER`). Owners are dropped (R1) and
+    so is the resource gate (R2). The per-owner part of :135 becomes the 32,768-byte file bound.
+  - Then the write side: an existing file is never rewritten, new files go to W only, and a directory that cannot
+    be written is 503. Also the identity's checks in Node's order and the envelope's checks.
+  - A temporary that disappears between the listing and its `lstat` is skipped by `list` and `create` (a known
+    difference: the library lists in a request thread); an `<id>.json` that disappears there is Node's 409 and 503.
+  - `test_twenty_variants_do_not_bound_a_receipt`: the per-owner bound of 20 is dropped (R1), so one user's receipt
+    takes Node's 100 per receipt; the :135 port asserts that the 101st is refused by the per-receipt bound.
+  - `parity/annotations.mjs` runs Node's `designSubmission` (2,879 envelopes) and `ElectrodeAnnotations` (1,840
+    identities, 179 of them passed to `create`, 132 created) on the same inputs and owners. Node reads back the 130
+    with a string key, and both hosts list their 125 distinct files; `test_parity_cases_reach_their_branches` pins
+    these counts.
+  - Values, ids, refusal messages and statuses, and file bytes must be equal. Each host must read the other's files
+    back: Node given the owner, Python with slice 3's reader.
+  - Usage: `node tests/service/parity/annotations.mjs <spec.json> <out.json>`.
+- `test_key_parity.py`, the envelope:
+  - Ports of check-electrode-annotations.mjs:73 and check-coordinate-review.mjs:122.
+  - `key_parity_support.EnvelopeCases` runs the production adapter (`kinds.design_evaluation_adapter` over a
+    `DesignJobs` of each root) over bare, named, sourced and refused submissions on the base and full synthetic
+    roots. The same driver runs Node's adapter (its `prepares` mode).
+  - The prepared request, key, identity, names, source declaration and worker input, or the refusal, must equal
+    Node's. Names and source declarations never change the request, the worker input or the key.
+- `test_compute_routes.py`, the design routes:
+  - The flow of check-design-evaluation-live.mjs on a design root whose worker is the stand-in
+    (`compute_support.design_compute_root`). It covers:
+    - an evaluation with names whose annotation lands in W and is referenced by its receipt;
+    - `?annotation_id` on job views, library records and bundles (the HTTP half of check-electrode-annotations.mjs:147),
+      and an R annotation Node wrote, which the library reads;
+    - a lookup miss that writes nothing, and the stored evaluation as one cached receipt;
+    - joins, cancels, a restart, `stop_soon` and `--cache-only`, and an identity that changed after the close;
+    - CSRF, 65,536 against 65,537 bytes, and a body sent one byte per ASGI message (`compute_support.chunked`).
+  - Node's 100 variants per receipt over HTTP; a restart that promotes an interrupted evaluation whose result was
+    stored, with that record's finish time, and keeps failed one whose record names another identity (Node's
+    reconciliation retains it); the health of a receipt whose annotation is gone or corrupted.
+  - `parity/compute_routes.mjs` runs the 63 steps of `compute_support.DESIGN_STEPS` on Node's composed service with
+    its session pinned to the local owner. The answers, the design record tree and the six annotation files must be
+    equal: Node writes them under R, the Python service under W. On a root whose configured mesh path has a NUL
+    byte, a lookup and a submit answer Node's 500 with the generic message.
+
+## Electrode editor
+
+Slice 6 adds the electrode editor: its request format (`schemas.electrode_editor`), its run path
+(`jobs.editor.EditorJobs`, a subclass of slice 5's `DesignJobs`, as Node's `ElectrodeEditorService` extends
+`DesignEvaluationService`), its adapter (`jobs.kinds.electrode_editor_adapter`) and its routes. As in slices 4 and 5,
+everything that computes or writes runs on synthetic roots in `tmp_path`, and the Node references write only under
+their case roots and scratch directories.
+
+- `test_editor_request.py`: `schemas.electrode_editor.normalize_editor_request` gives Node's canonical text or
+  Node's exact message for every variant of the `electrode-editor` corpus
+  (`tests/schema_parity/formats/electrode-editor.mjs`, 1,185 variants, among them the requests of
+  check-electrode-editor.mjs's protocol test), and the variants reach all 5 messages. Python values follow
+  JavaScript's (a bool is not a number, a tuple is an array), and the input is never changed. Acceptance and
+  canonical bytes through the registry and the `/api/normalize/electrode-editor` route are in the schema parity
+  tests.
+- `editor_support.py` builds editor roots (`editor_root`): a design root of `key_parity_support.design_root`, so the
+  design context the editor's builds on is the scientific one, with the radius code files, the editor's worker and
+  workflow, and a parent of each kind the library offers. These are strict-area layouts of a current report whose
+  identity names its region geometry, a historical strict-area layout, an early radius experiment, a saved
+  coordinate evaluation, and radius caches with or without region patches (an empty list, no layout), under a noise
+  model or a data prior, with another region geometry or surface admission, or under another code identity.
+  `FAKE_WORKER` stands in for `scripts/electrode_editor.py`; `R/editor-mode.txt` makes it fail, hold or answer for
+  another request.
+- `test_editor.py` (`EditorJobs`):
+  - Ports: check-electrode-editor.mjs:48 (the result validator, through `validate_editor_result` and the service's
+    `validate`) and :68 (shared capacity, cached results and the permit kept while cancelling, driven through
+    `radius_support.FakeChild` with that file's context stub; Python also checks the permit from the coordinate
+    evaluation's side).
+  - Then what Python adds:
+    - each refusal of the context, in Node's order of checks;
+    - the B17 identity (the design identity, `schema` overwritten in its first position, then `parent_digest`,
+      `editor_sha256` and `editor_implementation_sha256` appended), the key and the worker input
+      `{request, parent}`;
+    - a library given as a factory, or whose `get` answers asynchronously;
+    - a report rewritten with the same size and its times given back: the library keeps the layout it read, the
+      report's digest is computed again, so the strict-area parent is refused;
+    - `editor_jobs` for a runtime, the view's `parent_digest` (the context's, else the digest of the result's
+      parent, else the result request's), and the catalogs of slice 3;
+    - a real worker process: a preparation, an evaluation, a worker error, a stale result and a cancel.
+  - `parity/editor_run.mjs`, mode `runs`, runs Node's `ElectrodeEditorService` over a `LocalComputeQueue` of editor
+    roots, so the library, the design context and the digests are real on both sides. Spawn is injected, and `Date`
+    and the job identifiers are pinned, as in `design_run.mjs`. Its 12 cases cover:
+    - preparations and evaluations that complete, and every parent refusal;
+    - a worker failure, a spawn throw, and every `validateEditorResult` message (V8's `TypeError` among them);
+    - the editor's code, the parent or the report changed before the close. The `tamper` step rewrites a file with
+      as many bytes and gives back its times; Node sets times in milliseconds, so the report's are whole seconds;
+    - a timeout, a cancel, the output bound, publish once, and lookups that hit and miss.
+  - The views, refusals, spawn arguments and stdin, and the record tree under `R/results/v2/electrode_editor_jobs`
+    must equal Node's, except B16 in the publish-once case.
+  - Usage: `node tests/service/parity/editor_run.mjs <spec.json> <out.json>` (its header documents both modes).
+- `test_key_parity.py`, the editor context:
+  - The same driver, mode `contexts`, against `key_parity_support.EditorCases` on 325 cases. There are 11 editor
+    roots: the base root, a nominal table, a managed SimNIBS runtime, a linked root, a report without region
+    geometry, another surface admission, no editor script, no editor code, a code path that is a directory, a broken
+    bank and no library datasets. The base and SimNIBS roots take each interpreter configuration. Each case is a
+    preparation or an evaluation of a parent (every parent on the base root, seven elsewhere), an evaluation with a
+    stale digest, or, on the base root, a value the routes never pass.
+  - The identity, admission, parent and worker-input texts, the parent digest, the key and the context's member
+    order, or the refusal, must equal Node's. `test_editor_variants_reach_their_branches` pins what each variant
+    reaches.
+  - With `EEG_KEY_PARITY_ROOT`, the installation: a preparation of every parent the editor offers and of the
+    reference parent of the same-day reference keys, and every stored editor request. Python and Node must agree
+    on each, and an offered parent must be prepared or refused for its region geometry or surface admission, which
+    `parents()` does not check (as in Node). The test prints which offered parents are refused and which stored
+    keys and reference values still hold, since inputs move on.
+- `test_compute_routes.py`, the editor routes:
+  - On an editor root whose three workers are stand-ins (`compute_support.editor_compute_root`; the editor's plays
+    `editor-plan.json` per request: hold, fail, stale, change or reparent), it covers:
+    - the flow of check-electrode-editor-live.mjs: a lookup miss that writes nothing, a preparation, an evaluation
+      with the view's parent digest, the cached replay and `GET /api/electrode-editor/records`;
+    - a stored edit as one cached receipt, and the catalogs;
+    - the queue and the slot shared with the coordinate evaluation and the radius search;
+    - each parent refusal as a 400 with Node's message, with nothing queued;
+    - a restart that fails an interrupted edit and promotes one whose result was stored, with that record's
+      finish time;
+    - a stored edit whose code or parent changed after the close;
+    - `stop_soon`, `--cache-only`, the CSRF token, 32,768 against 32,769 bytes, and the library routes' library,
+      which the editor reads its parents through;
+    - an edit whose parent changes while it waits, refused at dispatch with Node's message
+      (`parent_change_steps`, also on Node's composed service).
+  - `parity/compute_routes.mjs` runs the 79 steps of `compute_support.editor_steps` on Node's composed service. The
+    answers and the record trees under `electrode_editor_jobs` and `design_evaluation_jobs` must be equal.
+
+## Signal reception
+
+Slice 7 adds the signal simulation, v1 and v2: its request format (`schemas.source_reception`), the runtime digest
+of v2's identity (`jobs.runtime_digest`, B15), the run path (`jobs.reception.ReceptionJobs`), its adapter
+(`jobs.kinds.source_reception_adapter`), its routes and the workspace's signal records (`/api/community/records`).
+As in slices 4 to 6, everything that computes or writes runs on synthetic roots in `tmp_path`, and the Node
+references write only under their case roots and scratch directories.
+
+- `test_source_request.py`: `schemas.source_reception.normalize_reception_request` gives Node's canonical text or
+  Node's exact message for every variant of the `source-reception` corpus
+  (`tests/schema_parity/formats/source-reception.mjs`, 2,686 variants, among them the requests of the mirrored Node
+  tests and the 30 source fixtures of `contracts/fixtures/requests.json`), and the variants reach all 6 messages and
+  every mode of both versions. A value without `mode` takes the v1 path (`normalizeSourceRequest`), any value of
+  `mode` the v2 one. Python values follow JavaScript's (a bool is not a number, `-0` is written `0`, a tuple is an
+  array), and the input is never changed.
+- `test_runtime_digest.py` (`RuntimeIdentityCache`, Node's `runtime/identity-cache.mjs`):
+  - Ports: the 13 sites of check-runtime-identity-cache.mjs, with that file's injected inspector
+    (`runtime_digest_support.Fixture`: a root with `package/numerical.py`, whose inspector hashes the file and
+    observes the folder and the file).
+  - Then what Python adds: Node's constants (read from `identity-cache.mjs`), `max_entries` as `Number.isInteger`
+    reads it, the watch's bounds and patterns, asynchronous and synchronous reads sharing the memo and the
+    inspection in flight, a caller that stops waiting, keys of other interpreters and roots that do not wait for
+    each other, `close` (also of an inspector a call spawns after it), the service environment read as Node reads
+    `process.env`, Node's five settings over the service's own values (the memo key is the merged environment's),
+    an inspector that closes its outputs and runs on (the deadline still ends it), and the error classes the queue
+    tells refusals from internal faults by.
+  - `parity/runtime_digest.mjs` runs Node's `createRuntimeIdentityCache` with its own inspector runner (`execFile`
+    of the root's script) on 48 case directories with a stub inspector (`runtime_digest_support.STUB`, driven by
+    `R/stub/mode.json`, which counts its runs in `<case>/inspections.log`): fixed outputs, failures, the timeout,
+    also of a stub that closes both outputs and runs on (the driver patches `require('timers').setTimeout` to
+    shorten the 15 s timer when `inspectTimeoutMs` is given), output at and over the 8 MiB bound on either stream,
+    missing and unreadable scripts, legacy output without `watch`, malformed results, stamps changed during the
+    inspection, launcher chains and PATH search, environments (`PYTHONPATH` among them, and service values of the
+    five settings), the entry budget and 12 simultaneous reads. Digests, inspector runs and errors must equal
+    Node's. Usage: `node tests/service/parity/runtime_digest.mjs <spec.json> <out.json>`.
+  - `native_runtime`: with `EEG_KEY_PARITY_ROOT`, the installation's real inspector (read only, with
+    `PYTHONDONTWRITEBYTECODE=1`, as Node runs it) gives Node's digest through both hosts, and a `PYTHONPATH` that
+    shadows one of the runtime's packages changes it on both in the same way. The digest is never computed in-process.
+- `reception_support.py`: `fixture(request, layout)` is check-source-reception.mjs's `result()` for any canonical
+  request (v1, or v2's three modes with or without the atlas definition), which the contract's validators accept;
+  `FAKE_WORKER` stands in for both workers (it writes that result to `--output`, fails or holds as
+  `R/stub/worker-mode.txt` says, and prints a catalog with `--catalog`). `Fixture` is the Node test's `fixture()`: a
+  context stub whose `bump()` changes the key, the radius queue sharing the slot, and fake children. A fake child
+  never exits by itself, so `Fixture.aclose` and the run-path driver close their services within 20 s
+  (`bounded_aclose`): a step that fails while a fake worker runs is reported, chained to the cleanup's timeout,
+  instead of hanging the run. `reception_root` adds the reception workflow files, scripts and two stub inspectors
+  to an editor root (`editor_support.editor_root`, so the library, the design context and the digests are the
+  scientific ones); `RECEPTION_VARIANTS` name what one root changes.
+- `test_source.py` (`ReceptionJobs`):
+  - Ports: check-source-reception.mjs:155 (the v1 result validator), :212, :242, :264, :277, :318 and :335 (driven
+    through `radius_support.FakeChild` with that file's context stub) and :366 (the noise guard of both versions);
+    check-cross-region-contract.mjs:94 (the v2 validator, all sixteen corruptions, and a source repeated in both
+    index lists, which only the distinctness check refuses) and check-source-upgrade.mjs:183.
+  - Then what Python adds: the validators' V8 `TypeError`s, the permit and the installation lock held until the
+    records are written, publish once (B16), the finish time at restart read only from a record that passes the
+    reconciliation's checks, `aclose` (also of a catalog run spawned after it), the queue's prepared submit, a
+    cancel during the spawn, a cancelled submit caller, the v2 worker under the native interpreter with one thread
+    and at least 600 s, the job map of 10, the memo of verified records (two, by file state), a real worker process,
+    real workers given a variable that is not UTF-8 as Node passes it (U+FFFD), the bounded cleanup of the test
+    drivers and the code identity files.
+  - `parity/reception_run.mjs`, mode `runs`, runs Node's `SourceReceptionService` over a `LocalComputeQueue` of
+    reception roots with an injected `spawnProcess`, a pinned `Date` and pinned job ids (as `design_run.mjs`). Its
+    19 cases cover v1 and v2 runs that complete, the context's refusals, a worker failure, a spawn throw, invalid
+    results (40 and 46 failing rounds with 16 distinct messages each, V8's `TypeError`s among them), result files too
+    large, not JSON or a directory, an identity changed before the close, a timeout, a cancel, publish once, saved
+    results, busy, the job map, dispose, a store failure, lookups and the catalog. The views, hits, saved results,
+    refusals, spawn arguments and environment (both hosts run with `reception_support.NOT_UTF8`, a variable that
+    is not UTF-8, which the workers must inherit as Node's `process.env` holds it), and both record trees must
+    equal Node's, except B16 in the publish-once case; a `restart` only disposes the service, as Node's driver
+    does; temporary names and V8's `JSON.parse` message are masked. Usage:
+    `node tests/service/parity/reception_run.mjs <spec.json> <out.json>` (its header documents both modes).
+- `test_key_parity.py`, the reception contexts:
+  - The same driver, mode `contexts`, on 830 cases over 13 reception roots (`key_parity_support.RECEPTION_ROOTS`:
+    the base root, a nominal table, a managed SimNIBS runtime, no library datasets, a broken bank or candidate
+    file, no v1 worker, a v2 script or the atlas definition missing, no workflow file, the legacy inspector, an
+    inspector that prints another schema and one that fails). Every parent on the base root, seven elsewhere, gets
+    a v1 request and v2's three modes, each with and without the atlas definition (`single-atlas` is the
+    interface's single-source request); the base root also takes the explicit interpreter configuration and values
+    the routes never pass. The configuration, the record and identity texts,
+    the key and the member order, or the refusal, must equal Node's; `test_reception_variants_reach_their_branches`
+    pins what each case reaches. The driver deletes `EEG_COMPUTE_PYTHON` (the Python side configures with
+    `env={}`), and `reception_support.run_node` exports a stray one to it, so a developer's export cannot change a
+    case.
+  - Ports: check-service-storage.mjs:50 (v2's injected native context and the legacy inspector) and the server
+    half of check-atlas-roi-contract.mjs:26 (the ROI code, the atlas and its definition enter the code identity of
+    exactly the requests with `region_definition`).
+  - With `EEG_KEY_PARITY_ROOT`: every stored reception cache's request through both hosts, its original download
+    and its finish time read back (`data_bundle`), and v2's context in each mode on the real runtime, where both
+    hosts' `numerical_runtime_sha256` and keys agree (`native_runtime`).
+- `test_queue.py`: check-community-queue.mjs:189 (the bounded signal catalog of a receipt and `records()`, the
+  newest completed signal receipt per key of the workspace) and :212 (`saved_result` hands the receipt's key and
+  request to the adapter and never prepares the request again), without their owners (R1).
+- `test_compute_routes.py`, the reception routes and the signal records:
+  - On a reception root whose two workers are stand-ins (`compute_support.reception_compute_root`; the worker
+    plays `reception-plan.json` by the request's seed: hold, fail, stale or change), with a stand-in design worker
+    and one stored v1 result, it covers the flow of check-source-reception-live.mjs (submit, poll, lookup hit,
+    records, saved download), a lookup miss that writes nothing, a stored result as one cached receipt, the queue
+    and the slot shared with the coordinate evaluation, a cancel of a finished receipt (its view, written off the
+    event loop), a code change during and after a run, saved results that
+    are gone or fail a check (Node's 400s, the 500 of an unreadable record, the 404s), restart promotion, the
+    catalog and its 500, `stop_soon`, `--cache-only`, CSRF, 4,096 against 4,097 bytes and a chunked body.
+  - `parity/compute_routes.mjs` runs the 99 steps of `compute_support.reception_steps` on Node's composed service
+    (its FILE steps write or remove a root file between requests). The answers (each result over 64 KiB compared by
+    the SHA-256 of its text, Node's records scope `current_browser` read as `workspace`) and the record trees under
+    `source_reception_jobs`, `source_reception_v2_jobs` and `design_evaluation_jobs` must be equal.
+
+## Robustness studies
+
+Slice 8 adds the robustness studies: their request format (`schemas.robustness_study`, with the option lists in
+`schemas.study_options`), the protocol and the aggregation (`jobs.studies`), the hardened workspace files
+(`server.workspace_files`), the study store and service (`server.workspace_studies`) and the routes
+(`server.routes.studies`). A study's cases are coordinate evaluations of the slice 4 queue; the study is stored in
+`W/studies/<id>/`, never under R or Q. Everything that computes or writes runs on synthetic roots and workspaces in
+`tmp_path`; the Node references write only under their case roots and scratch directories.
+
+- `test_study_request.py`: `jobs.studies.normalize_study_input` gives Node's normalized study or Node's exact message
+  (its own, and those of `normalizeDesignRequest`, `electrodeNames` and `validateCoordinateSource` it passes on) for
+  every variant of the `robustness-study` corpus (`tests/schema_parity/formats/robustness-study.mjs`, 1,169 variants,
+  429 accepted), and the variants reach every message, protocol and option. Python values follow JavaScript's, the
+  input is never changed, the schema's canonical input normalizes to the same study, and a deeply nested value is a
+  400, not a traceback. Acceptance and canonical bytes through the registry and `/api/normalize/robustness-study`
+  are in the schema parity tests; the status lists come from `webapp/contracts/robustness-study.ts`, checked against
+  the lists of `studies/store.mjs`.
+- `studies_support.py`: `run_driver(mode, cases, scratch, **spec)` runs `parity/studies.mjs`; `StudyFixture` is the
+  `fixture()` of check-robustness-studies.mjs for the workspace: a stand-in design-evaluation adapter
+  (`StubDesignAdapter`, identity `{protocol: 'unchanged-design-evaluation/1', version, head_id?}`, seeded
+  `cache.json` files, optional `hold` and `before_new_work` gates), a `WorkspaceQueue` that is never started, so a
+  submitted case stays `queued`, and the store under `W/studies` with its `before_write` hook. `restart()` builds the
+  service again on the same files. `python_identity`, `python_store` and `python_export` run the driver's modes in
+  Python.
+- `test_studies.py`:
+  - Ports: the 3 sites of check-robustness-aggregation.mjs and 31 sites of check-robustness-studies.mjs (the
+    protocol, identity, store and service sites; the per-browser ownership and the per-network caps stay dropped,
+    R1). Adapted to one local user: one study runs at a time per workspace, a cancel cancels the case's receipt
+    itself (nobody else shares it), and the count caps are gone. The resource refusal of new work is raised by the
+    stub adapter (the workspace queue has no resource gate, R2), and the maintenance refusal is the queue's
+    `cache_only`.
+  - Then what Python adds: the JavaScript numbers and members of the aggregation, the hardened files
+    (`WorkspaceFiles`: links, hard links, a file that changes while it is read, writes one at a time in call
+    order), a case cache that B16's publish still links (or left linked) as `cache.json.<uuid4>.tmp`, which is
+    archived while any other link fails the case, a cancel waiting behind a case's admission write, a running case
+    whose receipt was removed, error answers that show only safe messages, a `cancelling` record without
+    `cancel_requested`, a failed recovery that refuses every request, and the study times `Date.parse` reads.
+  - `parity/studies.mjs` runs Node's own `studies/` code (its header documents each mode):
+    - `aggregate`: `empiricalSummary`, `summarizeStudyCase` and `aggregateStudy` on 63 fixed and 1,500 random
+      inputs. The JSON written, the input after the call and the failures by error name must equal Node's.
+    - `store`: `StudyStore` on 12 cases of 322 steps (creates, updates, control updates, archives, reads, usage,
+      presentation, refusals, and files changed between steps: links, hard links, stray entries, modes, renames).
+      Values, refusals (status, message, code) and the resulting trees (names, types, modes, bytes) must be equal.
+    - `identity`: `RobustnessStudyService.create` with the real design-evaluation adapter over Node's
+      `DesignEvaluationService` on 126 cases (9 study inputs on each of 14 synthetic design roots of
+      `key_parity_support`, broken ones included): the answer, the `study.json` bytes (B18) and the receipt count.
+    - `export`: the check's fixture on 11 scenarios of 96 steps with a pinned clock and pinned identifiers. Every
+      answer, the `study.json` text, the snapshot names and the `eeg-robustness-study-export/1` envelope must be
+      byte-equal.
+    - `dates`: `Number.isFinite(Date.parse(text))` on 4,000 texts; Python reads the ISO format only and never
+      accepts a time Node rejects.
+- `test_study_routes.py` (`server.routes.studies`, the lifespan): the application with its lifespan over HTTP on a
+  design root whose design worker is the stand-in (`compute_support.design_compute_root`). A study is a draft until
+  started, its cases run one at a time as coordinate evaluations, and its export holds each case's original
+  `cache.json` text after the record is removed. Node's middleware order, statuses, messages, codes and headers
+  (`Retry-After` on a resource refusal); every study path is 404 `Study not found.` until the lifespan has
+  started. The token, a loopback origin and the session on every request; a restart that pauses a running study
+  until an explicit resume; `--cache-only`, which completes studies from stored results and defers new cases; and
+  shutdown in Node's dispose order (the studies stop first, their writes and pumps are awaited before the queue's
+  last write, also after `stop_soon`; the held write or pump is released by the shutdown itself, not by a timer).
+  - `parity/compute_routes.mjs` runs the 77 steps of `compute_support.STUDY_STEPS` on Node's composed service (its
+    session pinned to the local owner, a pinned SHA-256 network). The answers (ids, times, revisions, cache digests
+    and the token masked; the members of start and cancel answers that race with the pump dropped), the design
+    record tree and the study trees (Node's `Q/studies`, ours `W/studies`) must be equal.
+  - `fixtures/robustness/` holds the inputs of check-robustness-browser.mjs (`noise_seeds-input.json`, two seeds,
+    and `grid_displacements-input.json`, six seed/radius pairs, of one 2-region AL + AR layout) and
+    `case-requests.json`, the canonical request of each case, which the script looks up instead of importing Node's
+    `normalizeDesignRequest`. The file must be what `robustness_requests()` writes
+    (`PYTHONPATH=src:tests python -m tests.service.test_study_routes` writes it again), the study protocol must give
+    the same requests, and Node's `normalizeDesignRequest` the same text (`parity/robustness_requests.mjs`, usage:
+    `node tests/service/parity/robustness_requests.mjs <out.json>`).
+
+## Research projects, deliveries and legacy import
+
+Slice 9 adds the research projects: their request formats (`schemas.projects`), the store and service
+(`server.workspace_projects`), the deliveries (`server.delivery`), the routes (`server.routes.projects`) and the
+legacy import (`server.legacy_import`, `eeglayoutlab workspace import-legacy`). A project is stored in
+`W/projects/<id>/`, never under R or Q; the import only reads Q. Everything that computes or writes runs on synthetic
+roots, workspaces and queue directories in `tmp_path`; the Node references write only under their scratch
+directories.
+
+- `test_project_request.py`: the five normalizers (`project-create`, `project-patch`, `project-entry`,
+  `project-entry-patch`, `project-entry-delete`) give Node's value or Node's exact message and status (409 for
+  a layout entry whose `annotation_id` is not a string but converts to a digest, else 400) for every variant of
+  their corpora (`tests/schema_parity/formats/project-*.mjs`, 998 variants, 302 accepted), which run Node's own
+  `ProjectService` body and attachment checks and `ProjectStore` field checks (`project-validation.mjs`;
+  `generate.mjs` awaits a normalizer's promise). The variants reach every message, the input is never changed, and
+  Python values (`int`, tuples, `bool`, `UNDEFINED` members) are read as their JavaScript counterparts.
+- `projects_support.py`: `run_driver(mode, cases, scratch)` runs `parity/projects.mjs`; `python_store`,
+  `python_service` and `python_read` run the same cases on `workspace_projects` with the same clock, identifiers
+  and, for a new project's `owner_key_hash`, Node's key of the same create, so both write the same bytes.
+  `Fixtures` gives the results the cases attach: snapshots of each kind, library records and their bundles, editor
+  caches Node's checks accept, source receipts and saved results, and electrode-name annotations.
+- `test_projects.py`:
+  - Ports: the 12 sites of check-project-store.mjs but the read-only sharing (R5), the service halves of
+    check-project-api.mjs, check-project-workflow.mjs:96 (a layout summary's `simulation`) and the project halves of
+    check-coordinate-review.mjs:139 and :161. Adapted to one local user: no credential is stored or needed, the
+    restart reads a project without a key, and `share` and `revoke-share` are not endpoints.
+  - Then what Python adds: the list (most recently updated first), no pruning and no count caps, ISO-only times,
+    Node's `publicProject`, the middleware's methods, paths, content types and body bounds (65,536 and 65,537 bytes,
+    multi-byte text among them), and building the service without loading a library module.
+  - `parity/projects.mjs` runs Node's own `projects/` code (its header documents each mode), with `randomUUID`,
+    `randomBytes` and the clock pinned:
+    - `store`: `ProjectStore` on cases of lifecycle, refusals, bounds, files changed between steps (links, hard
+      links, stray entries, temporaries, modes, renames), concurrent calls, a 16 MiB snapshot and the save's own
+      path checks (`resave`). Values, refusals (status, message, code, whether the call threw) and the resulting
+      trees (names, types, modes, bytes) must be equal.
+    - `service`: Node's middleware on a flow of about 100 requests with stand-in records: every status, body and
+      header.
+    - `read`: 77 crafted metadata variants and 17 snapshot rows read as Node's `validateRecord` and snapshot read
+      read them; and 500 comparison links through Node's workflow check.
+    - A queue directory whose projects Node wrote reads back unchanged, and Python continues them with Node's bytes.
+      On a real installation (`data_bundle`), the projects of its Q read as Node reads them (it skips while Q has
+      none).
+- `test_delivery.py` (`server.delivery`):
+  - Ports: the 6 sites of check-research-delivery.mjs and the 4 of check-project-delivery.mjs (the owner's export;
+    viewer and revoked access are R5).
+  - `parity/delivery.mjs` runs Node's `delivery/` code: `build` (`buildResearchDelivery` on about 1,730 inputs,
+    boundary cases of the 32 MiB bound among them: the bundle's JSON text and the input after the call, or the
+    refusal), `validate` (`validateResearchDelivery` on 2,004 deliveries), `search` (1,549 comparison links through
+    `new URL(...).searchParams`), `versions` (`runtimeLockPath` and `deliveryVersions` on synthetic roots) and
+    `fixtures`.
+  - `fixtures/delivery/` holds the 5 deliveries that the 7 delivery builds of check-research-delivery-reader.mjs
+    (`reader.json`, `reader-named.json`, `reader-legacy.json`) and check-delivery-upload-contract.mjs
+    (`upload-source-reception-1.json`, `-2.json`) became. They must be the Python builds of those checks' original
+    inputs, and byte-equal to Node's builds of the same inputs; the upload check's 12 hash-valid mutations of a
+    fixture equal Node's builds of the mutated results.
+    `PYTHONPATH=src:tests python -m tests.service.test_delivery` writes them again.
+  - Then what Python adds: the wire text and the bound as `JSON.stringify` counts them, the documented time and link
+    readings, the default export time, and the build off the event loop.
+- `test_project_routes.py` (`server.routes.projects`, the lifespan): the application with its lifespan over HTTP on a
+  root with stored layouts, an electrode edit, signal results and electrode-name annotations
+  (`compute_support.project_compute_root`). A project holds every kind of result and exports their snapshot bytes;
+  two name variants of one evaluation keep their names in the snapshots and the delivery once the workspace's
+  annotations are gone (the project half of check-electrode-annotations.mjs:148); the export is an uncached
+  attachment within the delivery bound; the list, the key that is ignored, the token, a loopback origin and the
+  session on every request; sharing that is no endpoint; signal attachments that refuse foreign, running or client
+  results; 404 until the lifespan has started; a restart; and shutdown in Node's dispose order (the project store
+  closes after the studies stop, later writes get 503 and reads still answer, and an accepted write is awaited before
+  the queue's last write, also after `stop_soon`: check-product-operations-integration.mjs:113 without its log).
+  - `parity/compute_routes.mjs` runs the 70 steps of `compute_support.project_steps` on Node's composed service. The
+    answers (ids numbered, also inside `Content-Disposition`; the README digest, `source_files` and
+    `manifest_sha256` masked after each file's SHA-256 is checked against its content), the design and reception
+    trees and the project trees (Node's `Q/projects`, ours `W/projects`) must be equal, but for the deliberate
+    differences of `compute_support.project_differences` (the list, sharing).
+- `test_legacy_import.py` (`server.legacy_import` and the command):
+  - `legacy_support.build_q(base)` has Node's own stores write a synthetic Q: projects through `parity/projects.mjs`
+    (a project with every kind of entry, a name annotation, comparison settings and a detached snapshot; an empty
+    one; a hand-written one with Node's `viewer_key_hash` and `creator_network`), studies through
+    `parity/studies.mjs`, and `queue.json` through `parity/legacy_queue.mjs` `build` (Node's `CommunityQueue` with
+    stub adapters: three visitors and receipts of every kind and status). Every import of the module, the
+    command's too, compares `digest_tree` of the queue directory it reads before and after, whatever it returns or
+    raises (`q_is_never_written`); the main import runs on a Q without write permission.
+  - Node-written records are copied byte for byte, and read in Python as Node reads the originals: Node's project
+    and study reads on Q equal Node's and Python's on W, and Node's `records()` (`parity/legacy_queue.mjs`
+    `records`) for one owner of every receipt equals the workspace queue's. Python continues imported projects,
+    studies and records.
+  - Refusals with Node's messages: projects and studies Node refuses to read, a missing or altered study snapshot,
+    links (never followed), detached snapshots Node would refuse, the studies' total bound, a queue file Node's
+    constructor refuses, malformed receipts. Other kinds, unfinished receipts and older duplicates are counted and
+    not imported; receipts join the workspace queue in creation order under its retention.
+  - The workspace side: collisions keep W's copy, a re-run finds everything present and changes nothing, a re-run
+    after Node's own store changed and added projects in Q imports the new one and refuses the changed one, a served
+    workspace and nested directories are refused, `serve` refuses Q or a directory inside it as its workspace, a dry
+    run writes nothing and, through a linked workspace path, reports what the import does, a Node host still serving
+    Q is named, and a failed publish, a crash while staging and a failed queue write leave whole records and the old
+    queue, which a second run completes. The command's report and exit codes.
+  - On a real installation (`data_bundle`), a copy of its `queue.json` in `tmp_path` imports as Node lists it.
+
 ## Node test map
 
 Exit criterion 3 is that every Node test is ported or mapped. `node_tests.toml` has one entry per `test(` /
 `dataTest(` call site in the `webapp/scripts/check-*.mjs` files that import `node:test`, keyed by file and title,
-with its disposition: `P` with the Python `target`, `pending` with the `slice` and `module` that will port it,
-`C` with the format-parity `mirror`, `NA`, `D` with a reason R1-R7, `N`, `E` or `CLI` (the docstring of
-`test_node_test_map.py` defines them). `[scripts]` lists the opt-in live and Playwright scripts with the slice
-that retargets them.
+with its disposition: `P` with the Python `target`, `C` with the format-parity `mirror`, `D` with a reason R1-R7,
+`N`, `E` or `CLI` (the docstring of `test_node_test_map.py` defines them). While phase 2 ran, a site could also be
+`pending` (with the `slice` and `module` that would port it) or `NA` (stays in Node, adapted in slice 10).
+`[scripts]` lists the opt-in live and Playwright scripts with the slice that retargeted them and, in their notes,
+what they need and how they fared against `eeglayoutlab serve` in slice 10.
 
 `test_node_test_map.py` reads the scripts with a small JavaScript lexer and fails on an unmapped or stale site, a
 target or mirror that is not a test pytest collects (named without a parametrized `[id]`; a target in
-`tests/service/`), a mirrored format still without a Node generator after its slice, and a
-pending entry of a finished slice (`SLICES_DONE`). A slice changes its sites to `P` and raises `SLICES_DONE` when
-it is done. `python tests/service/test_node_test_map.py` prints the counts.
+`tests/service/`), a mirrored format still without a Node generator after its slice, and a pending or `NA` entry of
+a finished slice (`SLICES_DONE`). Every slice of phase 2 is done: `SLICES_DONE` is 10, its last slice, and
+`test_phase_2_left_nothing_pending` fails on any `pending` or `NA` entry. A Node test that is renamed, moved or
+removed changes its entry in the same commit. `python tests/service/test_node_test_map.py` prints the counts (676
+sites in 84 files: P 190, C 16, N 380, D 80, E 4, CLI 6).
 
 ## Guards
 

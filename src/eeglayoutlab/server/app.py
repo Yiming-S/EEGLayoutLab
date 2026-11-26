@@ -2,18 +2,39 @@
 
 ``create_app(config)`` builds the service of one process. Every request passes the access checks of
 ``server.access`` first (guard, session cookie, CSRF token for writes); then paths under ``/api/`` go to the JSON
-API and every other path to the static interface (``server.static``). The API serves the health routes of the four
-task kinds (``routes.health``), the read-only library and catalogs (``routes.library``), the workspace queue and
-radius search endpoints (``routes.queue``), and, for every request format, a diagnostic endpoint that returns the
-canonical request.
+API and every other path to the static interface (``server.static``). The API has, so far, the health routes of
+the four task kinds (``routes.health``), the read-only library and catalogs (``routes.library``), the job routes of
+every kind with the workspace queue behind them (``routes.compute``), the task menu's status
+(``routes.community``), the robustness studies (``routes.studies``, which, like Node's study middleware, claim every
+path under ``/api/robustness-studies`` before the other API routes and answer as that middleware does), the research
+projects and their deliveries (``routes.projects``, which claim every path under ``/api/projects`` next, as Node's
+project middleware does) and, for every request format, a diagnostic endpoint that returns the canonical request.
+
+The ASGI lifespan starts the job services (``routes.compute.ComputeHost``: the workspace queue in
+``W/.eeglayoutlab`` with its restart rules and recovery, the radius search, the execution slot, then the studies in
+``W/studies`` with their restart recovery and the projects in ``W/projects``) and stops them on shutdown in Node's
+order; a queue file that cannot be used fails the startup (``lifespan.startup.failed``) and stays as it was.
+
+The transport follows the route that serves the Node host's job submissions (``communityMiddleware`` in
+webapp/server/community-queue.mjs), so the interface sees the same answers:
+
+- a request body must be JSON: ``Content-Type`` must start with ``application/json`` (case-sensitive, as in
+  Node), else 415;
+- at most the route's limit as received (``BODY_LIMITS``), else 413;
+- the whole body is decoded as UTF-8 with replacement and parsed with JavaScript's rules (``schemas.jsjson``),
+  else 400;
+- JSON responses are written with ``JSON.stringify`` semantics and carry ``X-EEG-API-Version: 1``,
+  ``Cache-Control: no-store``, ``X-Content-Type-Options: nosniff`` and
+  ``Cross-Origin-Resource-Policy: same-origin``; errors are ``{"error": ..., "code": ...}``;
+- an unknown path or method under one of Node's API prefixes gets Node's 404 message (``node_fallback``), and
+  an unexpected exception a generic 500 (the library routes answer Node's own 500 instead: ``routes.library``).
 """
 from __future__ import annotations
 
-import contextlib
 from dataclasses import dataclass
 import logging
 import re
-from typing import TYPE_CHECKING, Any, AsyncIterator, Awaitable, Callable, Optional
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional
 
 from fastapi import FastAPI, Request, Response
 from pydantic import ValidationError
@@ -26,6 +47,7 @@ from ..schemas.registry import REQUEST_FORMATS, RequestFormat
 if TYPE_CHECKING:
     from ..jobs.runtime import RuntimeConfig
     from .access import Tokens
+    from .routes.compute import ComputeHost
     from .workspace import UserContext
 
 LOG = logging.getLogger('eeglayoutlab.server')
@@ -81,7 +103,11 @@ class ServiceConfig:
     """The root and interpreters (``jobs.runtime.runtime_config``); by default ``runtime_config(root)`` on first
     use, with ``EEG_COMPUTE_PYTHON`` as Node reads it."""
     cache_only: bool = False
-    """Serve ready cached results and lookups without starting new calculations (replaces maintenance mode)."""
+    """``eeglayoutlab serve --cache-only``: stored results are served and new computations refused (health reports
+    ``maintenance``)."""
+    clear_interrupted: bool = False
+    """``eeglayoutlab serve --clear-interrupted``: spawn intents and worker pids of an interrupted run no longer block
+    dispatch."""
 
 
 def json_response(status: int, value: Any) -> Response:
@@ -172,24 +198,15 @@ class RawPathRouting:
         await self.app(scope, receive, send)
 
 
-def _api(config: ServiceConfig) -> tuple[FastAPI, Any]:
+def _api(config: ServiceConfig, compute: 'ComputeHost') -> FastAPI:
     from .openapi import openapi_text
-    from .routes import health, library, queue
-
-    holder: list[Any] = []
-
-    @contextlib.asynccontextmanager
-    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-        try:
-            yield
-        finally:
-            if holder:
-                holder[0].close()
+    from .routes import community, health, library
+    from .routes import compute as compute_routes
 
     # The interactive documentation pages load scripts from a CDN, which a local-first service does not do.
     # A trailing slash is an unknown path (404), as in Node, not a redirect built from the Host header.
     app = FastAPI(title='EEGLayoutLab', version=API_VERSION, docs_url=None, redoc_url=None, openapi_url=None,
-                  redirect_slashes=False, lifespan=lifespan)
+                  redirect_slashes=False)
     app.add_middleware(RawPathRouting)
 
     @app.exception_handler(ApiError)
@@ -209,10 +226,14 @@ def _api(config: ServiceConfig) -> tuple[FastAPI, Any]:
     async def internal_error(_: Request, error: Exception) -> Response:
         return error_response(500, INTERNAL_MESSAGE)
 
-    library_routes = library.add_routes(app, config)
-    queue_routes = queue.add_routes(app, config, library_routes)
-    holder.append(queue_routes)
-    health.add_routes(app, config, queue_routes)
+    health.add_routes(app, config, compute)
+    library_routes = library.add_routes(app, config, radius=lambda: compute.radius)
+    # The job services read the root and interpreters the library reads, and the editor reads its parents through
+    # the library routes' library, as Node's editor and library routes share queue.library.
+    compute.runtime = library_routes.runtime
+    compute.library = library_routes.library
+    compute_routes.add_routes(app, config, compute)
+    community.add_routes(app, config, compute)
     for format in REQUEST_FORMATS.values():
         app.add_api_route(f'/api/normalize/{format.name}', normalize_endpoint(format), methods=['POST'],
                           include_in_schema=False)
@@ -224,7 +245,7 @@ def _api(config: ServiceConfig) -> tuple[FastAPI, Any]:
         return Response(openapi_text().encode('utf-8'), status_code=200,
                         media_type='application/json; charset=utf-8', headers=HEADERS)
 
-    return app, queue_routes
+    return app
 
 
 class Service:
@@ -232,29 +253,59 @@ class Service:
 
     def __init__(self, config: ServiceConfig):
         from .access import AccessControl
+        from .routes.compute import ComputeHost
+        from .routes.projects import ProjectRoutes
+        from .routes.studies import StudyRoutes
         from .static import DocsSite, StaticExport
 
         self.config = config
-        self.api, self.queue_routes = _api(config)
+        self.compute = ComputeHost(config)
+        self.api = _api(config, self.compute)
+        self.studies = StudyRoutes(self.compute)
+        self.projects = ProjectRoutes(self.compute)
         self.static = StaticExport(config.static_dir)
         self.docs = DocsSite(config.docs_dir)
         self.access = AccessControl(self._route, config.tokens, config.port)
 
-    def close(self) -> None:
-        self.queue_routes.close()
-
     async def _route(self, scope: Any, receive: Any, send: Any) -> None:
         path = raw_path(scope)
-        if path.startswith('/api/'):
+        if self.studies.claims(path):
+            await self.studies(scope, receive, send)
+        elif self.projects.claims(path):
+            await self.projects(scope, receive, send)
+        elif path.startswith('/api/'):
             await self.api(scope, receive, send)
         elif path == '/docs' or path.startswith('/docs/'):
             await self.docs(scope, receive, send)
         else:
             await self.static(scope, receive, send)
 
+    async def _lifespan(self, receive: Any, send: Any) -> None:
+        """The ASGI lifespan: the job services start before the first request and stop after the last one. A failed
+        start is reported (``startup.failed``) and its error raised again, as Starlette's router does: uvicorn then
+        exits without logging it twice, and a test client raises it."""
+        while True:
+            message = await receive()
+            if message['type'] == 'lifespan.startup':
+                try:
+                    await self.compute.start()
+                except Exception:  # noqa: BLE001 - the server exits; ComputeHost.failure says why
+                    await send({'type': 'lifespan.startup.failed', 'message': ''})
+                    raise
+                await send({'type': 'lifespan.startup.complete'})
+            elif message['type'] == 'lifespan.shutdown':
+                try:
+                    await self.compute.close()
+                except Exception as error:  # noqa: BLE001 - logged; the process exits anyway
+                    LOG.exception('the job services did not stop cleanly')
+                    await send({'type': 'lifespan.shutdown.failed', 'message': str(error)})
+                    return
+                await send({'type': 'lifespan.shutdown.complete'})
+                return
+
     async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
         if scope['type'] == 'lifespan':
-            await self.api(scope, receive, send)
+            await self._lifespan(receive, send)
             return
         if scope['type'] != 'http':
             raise RuntimeError(f'unsupported ASGI scope {scope["type"]!r}')

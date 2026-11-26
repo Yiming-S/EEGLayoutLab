@@ -8,7 +8,6 @@ import { exportEeglabSfp, exportMneElc, readMneElc } from '../lib/montage-files.
 import { parseBrowserMontageFile, parseMontageFile } from '../lib/head-frame-import.ts';
 import { ERNIE_LANDMARKS, assignBalancedRegions, landmarkSimilarity, registerHeadPoints, regionSizes, similarityFit } from '../lib/head-registration.ts';
 import { HEAD_REGISTRATION_LIMIT_MM, validateCoordinateSource } from '../contracts/coordinate-source.mjs';
-import { designSubmission as parseSubmission } from '../server/annotations/electrode-names.mjs';
 import { designSubmission } from '../lib/design-decision.ts';
 
 const buffer = path => { const bytes = readFileSync(new URL('../public' + path, import.meta.url)); return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength); };
@@ -79,9 +78,10 @@ void test('EEGLayoutLab .elc and .sfp exports read back unchanged; other montage
   assert.equal(source.conversion.input_unit, 'm');
   assert.match(source.coordinate_system_description, /not an individual anatomical registration/);
   assert.ok(errors(fromMetres.xyz_mm)[32] < 3);
-  // The server's submission adapter keeps the /3 source.
-  const submission = parseSubmission(JSON.parse(JSON.stringify(designSubmission(fromMetres, 'evaluate', 6, 42))));
-  assert.equal(submission.source_metadata.schema, 'electrode-coordinate-source/3');
+  // The submission sent to the service keeps the /3 source, which the shared contract accepts.
+  const submission = JSON.parse(JSON.stringify(designSubmission(fromMetres, 'evaluate', 6, 42)));
+  assert.equal(submission.schema, 'design-submission/1');
+  assert.equal(validateCoordinateSource(submission.source_metadata).schema, 'electrode-coordinate-source/3');
 });
 
 void test('browser imports use the elc declared unit regardless of the sfp unit selector', () => {

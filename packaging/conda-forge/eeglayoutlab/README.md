@@ -53,15 +53,19 @@ All in scratch directories: the environment, the data directory and the example 
 
 ## What design 0002 still needs in the code
 
-The recipe changes no code. These changes from 0002's table are still needed before the installed form works without options:
+The recipe changes no code. Of 0002's table, these changes are done ([phase 3](../../../docs/design/0001-phase-3-plan.md), slice 2):
 
-1. **The default root.** `jobs/runtime.py` `default_repository_root()` returns `None` outside a checkout, so `serve`, `data compose` and the workers need `--root R` or `EEG_REPOSITORY_ROOT`. Fall back to `<sys.prefix>/share/eeglayoutlab/root` when it holds `src/compact_eeg` (0002, rule `repository_root()`).
-2. **The default interpreter.** `runtime_config` picks `python || EEG_COMPUTE_PYTHON || managed || 'python3'`. In an environment that is not activated, `python3` from `PATH` is a different interpreter. The installed form must use `<sys.prefix>/bin/python` (0002, rule "worker interpreter"). The checks above set `EEG_COMPUTE_PYTHON` for this reason.
-3. **Environment rows** in `jobs/identity.py` and `jobs/integrity.py` (0002, rule "environment rows"): `conda-meta/*.json`, the `METADATA` of cortech, llvmlite, nibabel, numba, numpy and scipy, and the interpreter, under `environment:` keys, with the real path of `sys.prefix` as their integrity base. Without them, the identity of the example records holds only `schema`, `digests`, `python` (the environment's interpreter path) and `threads`. On macOS it has no runtime fingerprint at all, so a numpy or scipy update in the environment keeps the keys and can return results computed with the old libraries.
-4. **Refusing a read-only R** in `cli/main.py` (`serve`, `data compose`). A prefix the user cannot write is not supported (0002, decision 3); the commands should say so at start instead of failing on the first record they write.
-5. **`eeglayoutlab examples run`** in `cli/` (phase 3, U5). The examples need Node and a checkout today: `examples/run-examples.mjs` calls `webapp/scripts/eeglayoutlab.mjs`, which is not in R. The checks above ran the checkout's runner against R.
+1. **The default root.** `default_repository_root()` takes the checkout that holds the package, else the real path of `<sys.prefix>/share/eeglayoutlab/root` when it holds `src/compact_eeg`. `serve`, `data compose` and the workers need no `--root` in the installed form.
+2. **The default interpreter.** In the installed form, when R is the installed root, the workers run with `<real path of sys.prefix>/bin/python` after a managed runtime and before `python3` (`runtime_config`). A checkout keeps `python || EEG_COMPUTE_PYTHON || managed || 'python3'`.
+3. **Refusing a read-only R.** `serve`, before it chooses or opens a workspace, and `data compose` exit 2 when R, or `results/v2` (or `results`) when it exists, is not writable; in the installed form the message says to create a user environment.
+4. **Deliveries.** The application version comes from the distribution `compact-eeg`; before, every delivery export from an installed environment answered 503. Without a managed runtime the runtime lock is `configs/runtime/manifest-linux-64.json`, whose versions the recipe pins on both platforms, not the macOS SimNIBS lock.
 
-The `--static` default already resolves to `R/webapp/dist/client`, so no change is needed there.
+Still needed:
+
+1. **Environment rows** in `jobs/identity.py` and `jobs/integrity.py` (0002, rule "environment rows"; slice 3): `conda-meta` records of the numerical closure, the `METADATA` of cortech, nibabel, numba, numpy and scipy, llvmlite's `PKG-INFO`, and the interpreter, under `environment:` keys, with the real path of `sys.prefix` as their integrity base. Without them, the identity of the example records holds only `schema`, `digests`, `python` (the environment's interpreter path) and `threads`. On macOS it has no runtime fingerprint at all, so a numpy or scipy update in the environment keeps the keys and can return results computed with the old libraries.
+2. **`eeglayoutlab examples run`** in `cli/` (phase 3, U5; slice 7). The examples need Node and a checkout today: `examples/run-examples.mjs` calls `webapp/scripts/eeglayoutlab.mjs`, which is not in R. The checks above ran the checkout's runner against R.
+
+The checks of 2026-11-23 above predate slice 2. In the installed form `serve` and `data compose` no longer need `--root R`, and the service's workers no longer need `EEG_COMPUTE_PYTHON`. The examples check still needs both `--root R` and `EEG_COMPUTE_PYTHON=ENV/bin/python`: it runs the checkout's Node runner and Node CLI, which slice 2 leaves unchanged (U10), and these default to the checkout and to `python3` from `PATH`. `eeglayoutlab examples run` (slice 7) removes that need. The `--static` default resolves to `R/webapp/dist/client`.
 
 ## Before a submission
 

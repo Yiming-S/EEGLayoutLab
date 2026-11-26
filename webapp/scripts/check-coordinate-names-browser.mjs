@@ -1,4 +1,4 @@
-/** Actual name round trips on an isolated, paused server; only proven cache hits may be submitted. */
+/** Actual name round trips on an isolated cache-only service; only proven cache hits may be submitted. */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
@@ -7,10 +7,15 @@ import { isDeepStrictEqual } from 'node:util';
 import { chromium } from 'playwright';
 import { translateText } from '../lib/i18n/core.ts';
 import { parseDesign } from '../lib/design-decision.ts';
+import { assertCacheOnly, playwrightCookies, scriptServer } from './helpers/service-session.mjs';
 
-const root = resolve(import.meta.dirname, '../..');
-assert.ok(process.env.EEG_TEST_URL, 'Set EEG_TEST_URL to the isolated paused verification server.');
-const base = new URL(process.env.EEG_TEST_URL);
+// EEG_REPOSITORY_ROOT is the root the server serves (default this checkout). The server is the Python service
+// (eeglayoutlab serve --cache-only): with EEG_SERVICE_RUNTIME (its <workspace>/.eeglayoutlab/runtime.json), or
+// EEG_SERVICE_TOKEN and EEG_TEST_URL, the browser holds its session cookie. The check saves workspace projects, which
+// need no credential there, so a legacy Node host is not checked.
+const root = resolve(process.env.EEG_REPOSITORY_ROOT || resolve(import.meta.dirname, '../..'));
+const { service, ...server } = await scriptServer({ node: false });
+const base = new URL(server.base);
 assert.ok(base.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(base.hostname) && base.port && base.port !== '3000');
 assert.ok(base.pathname === '/' && !base.search && !base.hash && !base.username && !base.password);
 assert.equal(process.argv.length, 2);
@@ -26,6 +31,8 @@ assert.equal(baseline.design.name, 'Native FEM integration fixture'); assert.equ
 await mkdir(output, { recursive: true, mode: 0o700 });
 
 const observations = [], requests = [], secrets = [], saved = [], artifacts = [];
+// The session cookie and the CSRF token never reach the report.
+if (service) secrets.push(service.cookie.slice(service.cookie.indexOf('=') + 1), service.csrf);
 const diagnostics = { pageErrors: [], consoleErrors: [], httpFailures: [], requestFailures: [], blockedWrites: [] };
 const directoryPaths = new Set(['/api/local-compute/library', '/api/electrode-editor/records']);
 const requestOrder = new Map(), directorySuccesses = [], controlledAborts = [], projectTransitions = [];
@@ -36,6 +43,8 @@ const hash = value => createHash('sha256').update(JSON.stringify(value)).digest(
 const scrub = value => typeof value === 'string' ? secrets.reduce((text, secret) => text.replaceAll(secret, '[credential]'), value)
   : Array.isArray(value) ? value.map(scrub) : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).map(([key, item]) => [key, scrub(item)])) : value;
 const button = (target, source) => target.getByRole('button', { name: t(source), exact: true });
+// A FilePicker's button and file-name texts sit inside its field's label: the input is found by the label's text.
+const fileInput = source => page.locator('label', { hasText: t(source).trim() }).locator('input[type=file]');
 const namesFor = version => Array.from({ length: 64 }, (_, i) => i === 0 ? `${version}-Fp1, left` : i === 1 ? `${version}-Cz "midline"` : i === 2 ? `${version}-电极03` : `${version}-Channel${String(i + 1).padStart(2, '0')}`);
 const escape = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 async function check(name, work) {
@@ -52,8 +61,7 @@ async function api(path, options = {}) {
 async function paused() {
   const health = await api('/api/local-compute/health');
   if (health.token) secrets.push(health.token);
-  assert.equal(health.maintenance, true, 'Pause the isolated queue before this cache-only test.');
-  assert.equal(health.drained, true, 'The isolated queue must be drained.');
+  assertCacheOnly(health);
   return health;
 }
 async function projectTransition(name, work) {
@@ -96,7 +104,8 @@ async function shot(filename) { await page.screenshot({ path: join(output, filen
 try {
   browser = await chromium.launch({ executablePath, headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   context = await browser.newContext({ viewport: { width: 1440, height: 1100 }, serviceWorkers: 'block', acceptDownloads: true });
-  await context.addCookies([{ name: 'eeg-layout-language', value: 'en', url: base.origin }]);
+  await context.addCookies([{ name: 'eeg-layout-language', value: 'en', url: base.origin },
+    ...(service ? playwrightCookies(service) : [])]);
   await context.route('**/api/**', async route => {
     const request = route.request(), path = new URL(request.url()).pathname, method = request.method();
     if (['GET', 'HEAD'].includes(method)) return route.continue();
@@ -141,14 +150,14 @@ try {
     return { cached: true, key: cached.key, scientific_result_sha256: hash(cached.result), maintenance: true, drained: true };
   });
 
-  await check('Create a new project through its visible form without logging its credential', async () => {
+  await check('Create a new workspace project through its visible form', async () => {
     await navigate('/projects');
     await page.getByLabel(t('项目名称'), { exact: true }).fill('Coordinate name round-trip ' + Date.now());
     await page.getByLabel(t('负责人姓名'), { exact: true }).fill('Browser verification');
     const waiting = page.waitForResponse(response => new URL(response.url()).pathname === '/api/projects' && response.request().method() === 'POST');
     await projectTransition('Create project and refresh its record directory', async () => {
       await button(page, '创建项目').click(); const response = await waiting; assert.equal(response.status(), 201);
-      const value = await response.json(); assert.match(value.access_key, /^[a-f0-9]{64}$/); secrets.push(value.access_key); project = value.project;
+      const value = await response.json(); project = value.project;
       await page.getByRole('heading', { name: project.title, exact: true }).waitFor();
     });
     return { project_id: project.id };
@@ -162,7 +171,7 @@ try {
       await navigate('/coordinates');
       const imported = { ...baseline.design, electrode_names: names }, inputFilename = `names-${version}-input.json`;
       await writeFile(join(output, inputFilename), JSON.stringify(imported, null, 2) + '\n'); artifacts.push(inputFilename);
-      await page.getByLabel(t('导入CSV或JSON'), { exact: true }).setInputFiles({ name: inputFilename, mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(imported)) });
+      await fileInput('导入CSV或JSON').setInputFiles({ name: inputFilename, mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(imported)) });
       await assertPreview(names);
       armedNames = names;
       const waiting = page.waitForResponse(response => new URL(response.url()).pathname === '/api/design-evaluation/jobs' && response.request().method() === 'POST');
@@ -173,8 +182,11 @@ try {
       await button(page, '导出实际评价坐标').waitFor();
       const csv = parseDesign(await download('导出实际评价坐标', `names-${version}-evaluated.csv`));
       assert.deepEqual(csv.electrode_names, names); assert.deepEqual(csv.xyz_mm, cached.result.evaluated_xyz_mm); assert.deepEqual(csv.region_indices, baseline.design.region_indices);
-      const reopenHref = await page.getByRole('link', { name: t('打开保存的坐标评价'), exact: true }).getAttribute('href');
-      assert.equal(new URL(reopenHref, base).searchParams.get('annotation_a'), job.annotation_id);
+      // The layout's page (design 0004) opens the evaluated record with its names.
+      const reopenHref = await page.getByRole('link', { name: t('打开布局详情'), exact: true }).getAttribute('href');
+      const reopen = new URL(reopenHref, base);
+      assert.equal(reopen.pathname, '/layout'); assert.equal(reopen.searchParams.get('id'), cached.key);
+      assert.equal(reopen.searchParams.get('annotation_id'), job.annotation_id);
       const saving = page.waitForResponse(result => new URL(result.url()).pathname === `/api/projects/${project.id}/entries` && result.request().method() === 'POST');
       await button(page, '保存当前布局到项目').last().click(); const attached = await saving; assert.equal(attached.status(), 201);
       const value = await attached.json(); project = value.project;
@@ -183,17 +195,26 @@ try {
       await shot(`names-${version}-evaluated.png`);
       return { key: job.key, cached: true, annotation_id: job.annotation_id, entry_id: value.entry.id, evaluated_csv_names_preserved: true };
     });
-    await check(`${version}: reopen the exact saved annotation through its actual visible coordinate link`, async () => {
+    await check(`${version}: open the evaluated layout's page, then reopen the exact saved annotation`, async () => {
       const item = saved.at(-1);
       await page.waitForLoadState('networkidle');
+      // The visible link opens the layout's page, which reads the evaluated record; it shows no electrode names.
+      const layout = page.waitForResponse(response => new URL(response.url()).pathname === '/api/local-compute/library/' + cached.key);
+      await page.getByRole('link', { name: t('打开布局详情'), exact: true }).click();
+      assert.equal((await layout).status(), 200);
+      const opened = new URL(page.url());
+      assert.equal(opened.pathname, '/layout'); assert.equal(opened.searchParams.get('id'), cached.key);
+      assert.equal(opened.searchParams.get('annotation_id'), item.annotation_id);
+      await page.waitForLoadState('networkidle');
+      // The coordinate page reopens a saved evaluation with its names from its address (a, annotation_a).
       const loading = page.waitForResponse(response => new URL(response.url()).pathname === '/api/local-compute/library/' + cached.key && new URL(response.url()).searchParams.get('annotation_id') === item.annotation_id);
-      await page.getByRole('link', { name: t('打开保存的坐标评价'), exact: true }).click();
+      await navigate(`/coordinates?a=${cached.key}&annotation_a=${item.annotation_id}`);
       const response = await loading; assert.equal(response.status(), 200);
       const record = (await response.json()).record;
       assert.equal(record.electrode_annotation.id, item.annotation_id); assert.deepEqual(record.electrode_annotation.electrode_names, names);
       await assertPreview(names);
       await page.waitForLoadState('networkidle');
-      return { exact_annotation_reopened: true, annotation_id: item.annotation_id };
+      return { layout_page_opened: true, exact_annotation_reopened: true, annotation_id: item.annotation_id };
     });
   }
 
@@ -236,7 +257,7 @@ try {
   const report = scrub({ stage: 1, base: base.origin, output, finished_at: new Date().toISOString(),
     totals: { passed: observations.filter(value => value.pass).length, failed: observations.filter(value => !value.pass).length }, failure,
     project_id: project?.id, scientific_key: cached?.key, permitted_cached_submissions: permittedCachedJobs, observations, diagnostics, controlled_aborts: controlledAborts, directory_successes: directorySuccesses, project_transitions: projectTransitions, requests, artifacts,
-    scope: 'Actual Chrome, real cache and UI downloads. Queue maintenance and an exact golden-request cache hit are required before two explicit cached submissions. Names are metadata; no uncached computation, native FEM, service startup or fabricated HTTP payloads.' });
+    scope: 'Actual Chrome, real cache and UI downloads. A cache-only drained service and an exact golden-request cache hit are required before two explicit cached submissions. Names are metadata; no uncached computation, native FEM, service startup or fabricated HTTP payloads.' });
   await writeFile(join(output, 'report.json'), JSON.stringify(report, null, 2) + '\n', { mode: 0o600 });
   console.log(JSON.stringify({ output, totals: report.totals, failure }));
   await context?.close(); await browser?.close();

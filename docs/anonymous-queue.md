@@ -1,18 +1,24 @@
 # Anonymous visitors and the computation queue
 
-The web application runs without registration or sign-in. Scientific computation runs on the configured scientific checkout. A task receipt is owned by the browser that submitted it. Finished records are listed in the shared result library to every visitor; the operator can remove a record from it (see [Shared library visibility](#shared-library-visibility)). Public deployment remains pending.
+This page describes the queue of the legacy Node host (`npm start`), which hosted deployments keep at the tag `node-host-freeze` until phase 4 of [design 0001](design/0001-local-first-architecture.md). The application's host is now the local Python service, `eeglayoutlab serve`, for one user: its queue belongs to the workspace (`<workspace>/.eeglayoutlab/queue.json`) and has no visitors, browser cookies, rate limits or library visibility ([not carried over](design/0001-phase-2-plan.md#not-carried-over)); [CONTRIBUTING](../CONTRIBUTING.md#the-local-service) describes it.
+
+The Node host runs without registration or sign-in. Scientific computation runs on the configured scientific checkout. A task receipt is owned by the browser that submitted it. Finished records are listed in the shared result library to every visitor; the operator can remove a record from it (see [Shared library visibility](#shared-library-visibility)).
 
 ## In the interface
 
-The header displays online visitors, waiting tasks and running computations.
-Open it to see this browser's recent tasks, queue positions, cancellation
+The header's **Tasks / Queue** badge shows the waiting tasks and running
+computations. Open it to see the recent tasks, queue positions, cancellation
 controls and downloadable results. Refreshing a page does not delete a task.
 
-Online visitors means browsers that sent a visible-page heartbeat within 90
-seconds, not a verified number of people. Tabs in the same browser share one
-anonymous cookie; private windows and separate browsers count separately. The
-interface refreshes these counts every 15 seconds. Hidden pages do not renew
-online presence. An unavailable service displays an unavailable state, not zero.
+The interface reads these counts from `GET /api/community/status` every 15
+seconds, when the page becomes visible, and at once when a request of the page
+finds the session ended or no service. It shows no visitor count and sends no
+heartbeat, on either host: the Node host's `online_visitors` and its
+`POST /api/community/heartbeat` are no longer used, so that host's visitor count
+and visit log do not see the current interface. An unavailable service displays
+an unavailable state, not zero. A tab whose service has ended (`eeglayoutlab
+serve` takes a new port and new secrets on every start) shows how to open the
+application again.
 
 The server assigns an opaque, signed HttpOnly, SameSite=Strict cookie automatically. It lasts 30 days and each page visit renews it. Explicit HTTPS proxy configuration also sets Secure. There is no
 account, email or password. Clearing that cookie removes the browser's ability
@@ -49,7 +55,9 @@ npm run library:moderate -- --queue-directory /srv/eeg/queue list
 ```
 
 `EEG_LIBRARY_SCOPE=owner` is an optional stricter mode: a visitor's records are
-listed only to its owners until an owner publishes them from the record page,
+listed only to its owners until an owner publishes them (`POST
+/api/local-compute/library/<id>/visibility`; the current interface no longer has
+the record page's publication control, so its records stay unlisted to others),
 and with `EEG_LIBRARY_REVIEW=1` (the default in that mode) a publication is
 listed to others only after `approve <id>`; `list --pending` shows the waiting
 ones. Records made before owners were recorded have no owner and are listed to

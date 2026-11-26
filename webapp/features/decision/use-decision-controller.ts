@@ -5,7 +5,7 @@ import { useLanguage } from '@/components/language-provider';
 /* oxlint-disable next/no-html-link-for-pages -- preserve established vinext navigation */
 import { useEffect, useRef, useState } from 'react';
 
-import { followTask, submitTask, cancelTask, isTaskRunning, type TaskConnection } from '@/client/task-client';
+import { followTask, submitTask, cancelTask, isTaskRunning, type TaskConnection, apiFetch } from '@/client/task-client';
 
 import { canCompareRecord } from '@/lib/workspace-navigation';
 import { safeReturnHref } from '@/lib/ui-language';
@@ -118,7 +118,7 @@ export function useDecisionController(
         }
       }
     });
-    fetch('/api/local-compute/library', { signal: controller.signal })
+    apiFetch('/api/local-compute/library', { signal: controller.signal })
       .then(async (r) => {
         if (!r.ok) throw new Error('方案目录暂时无法读取，请稍后重试。');
         const data = (await r.json()) as LocalLibrary;
@@ -168,7 +168,7 @@ export function useDecisionController(
     const controller = new AbortController();
     Promise.all(
       ids.filter(Boolean).map(async (id) => {
-        const r = await fetch('/api/local-compute/library/' + id + (annotationRefs[id] ? '?annotation_id=' + annotationRefs[id] : ''), {
+        const r = await apiFetch('/api/local-compute/library/' + id + (annotationRefs[id] ? '?annotation_id=' + annotationRefs[id] : ''), {
           signal: controller.signal,
         });
         if (!r.ok) throw new Error('所选记录读取失败');
@@ -176,7 +176,7 @@ export function useDecisionController(
         if (value.record?.id !== id) throw new Error('返回记录身份不匹配');
         let saved, displayDesign;
         if (id === restoredRecord) {
-          const response = await fetch('/api/local-compute/library/' + id + '/bundle' + (annotationRefs[id] ? '?annotation_id=' + annotationRefs[id] : ''), { signal: controller.signal });
+          const response = await apiFetch('/api/local-compute/library/' + id + '/bundle' + (annotationRefs[id] ? '?annotation_id=' + annotationRefs[id] : ''), { signal: controller.signal });
           if (!response.ok) throw new Error('保存的坐标评价读取失败');
           const bundle = await response.json();
           if (isShowcaseDisplayCopy(bundle)) {
@@ -272,7 +272,7 @@ export function useDecisionController(
   useEffect(() => {
     if (mode !== 'coordinates') return;
     const controller = new AbortController();
-    fetch('/api/design-evaluation/health', { signal: controller.signal, cache: 'no-store' })
+    apiFetch('/api/design-evaluation/health', { signal: controller.signal, cache: 'no-store' })
       .then((response) => (response.ok ? response.json() : null))
       .then((health: { active_job?: DesignJob | null } | null) => {
         const active = health?.active_job, request = active?.request;

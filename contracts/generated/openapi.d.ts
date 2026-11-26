@@ -64,6 +64,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/normalize/project-create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validate a project-create request and return its canonical form
+         * @description Diagnostic endpoint. Reproduces body + ProjectStore.create (webapp/server/projects/service.mjs, store.mjs).
+         */
+        post: operations["normalize_project_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/normalize/project-entry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validate a project-entry request and return its canonical form
+         * @description Diagnostic endpoint. Reproduces body + attachment + ProjectStore.attach (webapp/server/projects/service.mjs, store.mjs).
+         */
+        post: operations["normalize_project_entry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/normalize/project-entry-delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validate a project-entry-delete request and return its canonical form
+         * @description Diagnostic endpoint. Reproduces body + ProjectStore.detach (webapp/server/projects/service.mjs, store.mjs).
+         */
+        post: operations["normalize_project_entry_delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/normalize/project-entry-patch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validate a project-entry-patch request and return its canonical form
+         * @description Diagnostic endpoint. Reproduces body + ProjectStore.patchEntry (webapp/server/projects/service.mjs, store.mjs).
+         */
+        post: operations["normalize_project_entry_patch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/normalize/project-patch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validate a project-patch request and return its canonical form
+         * @description Diagnostic endpoint. Reproduces body + ProjectStore.patch (webapp/server/projects/service.mjs, store.mjs).
+         */
+        post: operations["normalize_project_patch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/normalize/radius-search": {
         parameters: {
             query?: never;
@@ -78,6 +178,46 @@ export interface paths {
          * @description Diagnostic endpoint. Reproduces normalizeRequest (webapp/server/local-compute-server.mjs).
          */
         post: operations["normalize_radius_search"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/normalize/robustness-study": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validate a robustness-study request and return its canonical form
+         * @description Diagnostic endpoint. Reproduces normalizeStudyInput (webapp/server/studies/protocol.mjs).
+         */
+        post: operations["normalize_robustness_study"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/normalize/source-reception": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validate a source-reception request and return its canonical form
+         * @description Diagnostic endpoint. Reproduces normalizeReceptionRequest, with normalizeSourceRequest for requests without mode (webapp/contracts/source-reception.mjs).
+         */
+        post: operations["normalize_source_reception"];
         delete?: never;
         options?: never;
         head?: never;
@@ -246,6 +386,68 @@ export interface components {
             region_assignment: components["schemas"]["FileRegionAssignment"] | components["schemas"]["BalancedRegionAssignment"];
         };
         /**
+         * CrossHeadStudy
+         * @description One case per head package, each listed once, with one seed and one radius for every case.
+         */
+        CrossHeadStudy: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            protocol: "heads";
+            /**
+             * Title
+             * @default Robustness study
+             */
+            title?: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes?: string;
+            design: components["schemas"]["StudyDesign"];
+            /** Cases */
+            cases: components["schemas"]["HeadStudyCase"][];
+            /** Noise Model */
+            noise_model?: components["schemas"]["IidNoise"] | components["schemas"]["SpatialNoise"] | components["schemas"]["BrainBackgroundNoise"];
+        };
+        /**
+         * CrossRegionReception
+         * @description One fixed source in each of one to six regions, each listed once and in the order of the region list.
+         */
+        CrossRegionReception: {
+            /**
+             * Record Id
+             * @description The library record of the layout: a lowercase SHA-256 hex digest.
+             */
+            record_id: string;
+            /**
+             * Waveform
+             * @enum {string}
+             */
+            waveform: "burst" | "rhythm";
+            /**
+             * Artifact Scale
+             * @enum {number}
+             */
+            artifact_scale: 0 | 0.5 | 1 | 2 | 4;
+            /** Seed */
+            seed: number;
+            /**
+             * Mode
+             * @constant
+             */
+            mode: "cross_region";
+            /**
+             * Region Definition
+             * @description The source ROI atlas, kept in the identity when sent.
+             * @constant
+             */
+            region_definition?: "dk40-six-roi-v1";
+            /** Brain Regions */
+            brain_regions: ("frontal" | "central" | "parietal" | "occipital" | "temporal_left" | "temporal_right")[];
+        };
+        /**
          * DataPrior
          * @description The ``request`` value of an ``eeg-data-prior/1`` file; rejected, never rounded.
          */
@@ -313,6 +515,37 @@ export interface components {
             source_metadata?: components["schemas"]["CoordinateSourceV1"] | components["schemas"]["CoordinateSourceV2"] | components["schemas"]["CoordinateSourceV3"];
         };
         /**
+         * EditorRecordEntry
+         * @description A completed evaluation of the electrode editor.
+         */
+        EditorRecordEntry: {
+            /**
+             * Revision
+             * @description The project's current revision, which the change replaces.
+             */
+            revision: number;
+            /**
+             * Title
+             * @description Trimmed; defaults to the kind and the first 8 digits of the record.
+             */
+            title?: string;
+            /**
+             * Notes
+             * @description Trimmed; no control characters other than tab and line breaks.
+             */
+            notes?: string;
+            /**
+             * Kind
+             * @constant
+             */
+            kind: "editor";
+            /**
+             * Record Id
+             * @description The scientific record: a lowercase SHA-256 hex digest.
+             */
+            record_id: string;
+        };
+        /**
          * ElectrodeDesign
          * @description ``eeg-electrode-design/1`` in Ernie native millimetres. Other design fields are dropped.
          */
@@ -346,29 +579,12 @@ export interface components {
             /** Region Indices */
             region_indices: number[];
         };
-        ElectrodeEditorRequest: components["schemas"]["PrepareEditorRequest"] | components["schemas"]["EvaluateEditorRequest"];
         /**
-         * ElectrodeSlot
-         * @description One of the 64 fixed electrode slots of a parent layout.
+         * ElectrodeEditorEvaluation
+         * @description Score the edited layout: ``parent_digest`` is the SHA-256 of the parent record's ``JSON.stringify`` text,
+         *     and the slots keep the parent's electrode order.
          */
-        ElectrodeSlot: {
-            /** Bank Index */
-            bank_index: number;
-            /** Enabled */
-            enabled: boolean;
-        };
-        /** ErrorResponse */
-        ErrorResponse: {
-            /** @description Message for people; not stable. */
-            error: string;
-            /** @description Stable code, listed in contracts/api-formats.md. */
-            code: string;
-        };
-        /**
-         * EvaluateEditorRequest
-         * @description Evaluate an edited subset or within-patch relocation of a parent layout's 64 electrode slots.
-         */
-        EvaluateEditorRequest: {
+        ElectrodeEditorEvaluation: {
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -384,7 +600,39 @@ export interface components {
              */
             seed: 2026;
             /** Slots */
-            slots: components["schemas"]["ElectrodeSlot"][];
+            slots: components["schemas"]["ElectrodeEditorSlot"][];
+        };
+        /**
+         * ElectrodeEditorPreparation
+         * @description Load the parent layout's region data for editing.
+         */
+        ElectrodeEditorPreparation: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            action: "prepare";
+            /** Parent Id */
+            parent_id: string;
+        };
+        ElectrodeEditorRequest: components["schemas"]["ElectrodeEditorPreparation"] | components["schemas"]["ElectrodeEditorEvaluation"];
+        /**
+         * ElectrodeEditorSlot
+         * @description One of the parent's 64 electrodes: the bank index of its position, which the worker checks against the
+         *     slot's region, and whether it is active.
+         */
+        ElectrodeEditorSlot: {
+            /** Bank Index */
+            bank_index: number;
+            /** Enabled */
+            enabled: boolean;
+        };
+        /** ErrorResponse */
+        ErrorResponse: {
+            /** @description Message for people; not stable. */
+            error: string;
+            /** @description Stable code, listed in contracts/api-formats.md. */
+            code: string;
         };
         /**
          * FileRegionAssignment
@@ -396,6 +644,32 @@ export interface components {
              * @enum {string}
              */
             method: "file";
+        };
+        /**
+         * GridDisplacementStudy
+         * @description Distinct seed/radius pairs of perturbation trials on Ernie.
+         */
+        GridDisplacementStudy: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            protocol: "grid_displacements";
+            /**
+             * Title
+             * @default Robustness study
+             */
+            title?: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes?: string;
+            design: components["schemas"]["StudyDesign"];
+            /** Cases */
+            cases: components["schemas"]["StudyCase"][];
+            /** Noise Model */
+            noise_model?: components["schemas"]["IidNoise"] | components["schemas"]["SpatialNoise"] | components["schemas"]["BrainBackgroundNoise"];
         };
         /**
          * HeadRegistration
@@ -433,6 +707,21 @@ export interface components {
             iterations: number;
         };
         /**
+         * HeadStudyCase
+         * @description A case of a cross-head study: one head package of the design-evaluation catalog.
+         */
+        HeadStudyCase: {
+            /** Head Id */
+            head_id: string;
+            /** Seed */
+            seed: number;
+            /**
+             * Radius Mm
+             * @enum {integer}
+             */
+            radius_mm: 3 | 6 | 10;
+        };
+        /**
          * IidNoise
          * @description Accepted for the production model and dropped from canonical output.
          */
@@ -466,6 +755,37 @@ export interface components {
             max_surface_distance_mm: null;
         };
         /**
+         * LayoutRecordEntry
+         * @description A completed layout record of the library.
+         */
+        LayoutRecordEntry: {
+            /**
+             * Revision
+             * @description The project's current revision, which the change replaces.
+             */
+            revision: number;
+            /**
+             * Title
+             * @description Trimmed; defaults to the kind and the first 8 digits of the record.
+             */
+            title?: string;
+            /**
+             * Notes
+             * @description Trimmed; no control characters other than tab and line breaks.
+             */
+            notes?: string;
+            /**
+             * Kind
+             * @constant
+             */
+            kind: "layout";
+            /**
+             * Record Id
+             * @description The scientific record: a lowercase SHA-256 hex digest.
+             */
+            record_id: string;
+        };
+        /**
          * MniConversion
          * @description MNI template coordinates mapped onto Ernie's scalp with the SimNIBS nonlinear warp.
          */
@@ -490,6 +810,113 @@ export interface components {
             /** Max Surface Distance Mm */
             max_surface_distance_mm: number;
         };
+        /**
+         * MultiSourceReception
+         * @description Six generation sources within one region.
+         */
+        MultiSourceReception: {
+            /**
+             * Record Id
+             * @description The library record of the layout: a lowercase SHA-256 hex digest.
+             */
+            record_id: string;
+            /**
+             * Waveform
+             * @enum {string}
+             */
+            waveform: "burst" | "rhythm";
+            /**
+             * Artifact Scale
+             * @enum {number}
+             */
+            artifact_scale: 0 | 0.5 | 1 | 2 | 4;
+            /** Seed */
+            seed: number;
+            /**
+             * Mode
+             * @constant
+             */
+            mode: "multi_source";
+            /**
+             * Region Definition
+             * @description The source ROI atlas, kept in the identity when sent.
+             * @constant
+             */
+            region_definition?: "dk40-six-roi-v1";
+            /**
+             * Brain Region
+             * @enum {string}
+             */
+            brain_region: "frontal" | "central" | "parietal" | "occipital" | "temporal_left" | "temporal_right";
+        };
+        /**
+         * NamedEvaluationEntry
+         * @description A completed design evaluation with the electrode-name annotation it was submitted with.
+         */
+        NamedEvaluationEntry: {
+            /**
+             * Revision
+             * @description The project's current revision, which the change replaces.
+             */
+            revision: number;
+            /**
+             * Title
+             * @description Trimmed; defaults to the kind and the first 8 digits of the record.
+             */
+            title?: string;
+            /**
+             * Notes
+             * @description Trimmed; no control characters other than tab and line breaks.
+             */
+            notes?: string;
+            /**
+             * Kind
+             * @constant
+             */
+            kind: "layout";
+            /**
+             * Record Id
+             * @description The scientific record: a lowercase SHA-256 hex digest.
+             */
+            record_id: string;
+            /**
+             * Annotation Id
+             * @description The electrode-name annotation of the evaluation.
+             */
+            annotation_id: string;
+        };
+        /**
+         * NoiseSeedStudy
+         * @description Distinct seeds at one radius: the spread of nominal metrics over noise draws on Ernie, optionally under
+         *     one data-generating conductivity scenario.
+         */
+        NoiseSeedStudy: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            protocol: "noise_seeds";
+            /**
+             * Title
+             * @default Robustness study
+             */
+            title?: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes?: string;
+            design: components["schemas"]["StudyDesign"];
+            /** Cases */
+            cases: components["schemas"]["StudyCase"][];
+            /** Noise Model */
+            noise_model?: components["schemas"]["IidNoise"] | components["schemas"]["SpatialNoise"] | components["schemas"]["BrainBackgroundNoise"];
+            /**
+             * Conductivity Scenario
+             * @default null
+             */
+            conductivity_scenario?: ("skull_x0.5" | "skull_x2") | null;
+        };
         /** NormalizedRequest */
         NormalizedRequest: {
             /** @description The request as Node's normalizer returns it. */
@@ -498,17 +925,95 @@ export interface components {
             canonical_sha256: string;
         };
         /**
-         * PrepareEditorRequest
-         * @description Load the candidate bank indices inside each region patch of a saved 64-electrode layout.
+         * ProjectCreate
+         * @description A new project: its title, the researcher's name and optional notes.
          */
-        PrepareEditorRequest: {
+        ProjectCreate: {
             /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
+             * Title
+             * @description Trimmed; no control characters other than tab and line breaks.
              */
-            action: "prepare";
-            /** Parent Id */
-            parent_id: string;
+            title: string;
+            /**
+             * Owner Name
+             * @description The researcher named on the project; trimmed.
+             */
+            owner_name: string;
+            /**
+             * Notes
+             * @description Trimmed; no control characters other than tab and line breaks.
+             * @default
+             */
+            notes?: string;
+        };
+        /**
+         * ProjectEntryDelete
+         * @description The project's current revision, when the request has no ``If-Match`` header; other keys are ignored.
+         */
+        ProjectEntryDelete: {
+            /**
+             * Revision
+             * @description The project's current revision, which the change replaces.
+             */
+            revision: number;
+        };
+        ProjectEntryInput: components["schemas"]["LayoutRecordEntry"] | components["schemas"]["NamedEvaluationEntry"] | components["schemas"]["EditorRecordEntry"] | components["schemas"]["SignalReceiptEntry"];
+        /**
+         * ProjectEntryPatch
+         * @description Changes to an entry at the project's current revision: its title, its notes or both.
+         */
+        ProjectEntryPatch: {
+            /**
+             * Revision
+             * @description The project's current revision, which the change replaces.
+             */
+            revision: number;
+            /**
+             * Title
+             * @description Trimmed; no control characters other than tab and line breaks.
+             */
+            title?: string;
+            /**
+             * Notes
+             * @description Trimmed; no control characters other than tab and line breaks.
+             */
+            notes?: string;
+        };
+        /**
+         * ProjectPatch
+         * @description Changes to a project at its current revision: at least one of title, researcher name, notes and the
+         *     comparison settings.
+         */
+        ProjectPatch: {
+            /**
+             * Revision
+             * @description The project's current revision, which the change replaces.
+             */
+            revision: number;
+            /**
+             * Title
+             * @description Trimmed; no control characters other than tab and line breaks.
+             */
+            title?: string;
+            /**
+             * Owner Name
+             * @description The researcher named on the project; trimmed.
+             */
+            owner_name?: string;
+            /**
+             * Notes
+             * @description Trimmed; no control characters other than tab and line breaks.
+             */
+            notes?: string;
+            /**
+             * ProjectWorkflowInput
+             * @description Comparison settings, checked against the project's entries when saved: two different saved layouts and a /decision? link to their comparison.
+             */
+            workflow?: {
+                reference_entry_id?: string | null;
+                candidate_entry_id?: string | null;
+                comparison_href?: string | null;
+            };
         };
         /**
          * RadiusSearchRequest
@@ -552,6 +1057,103 @@ export interface components {
              */
             electrode_count?: 8 | 12 | 16 | 24 | 32 | 48;
         };
+        RobustnessStudyInput: components["schemas"]["NoiseSeedStudy"] | components["schemas"]["GridDisplacementStudy"] | components["schemas"]["CrossHeadStudy"];
+        /**
+         * SignalReceiptEntry
+         * @description A completed signal-reception task, by its receipt.
+         */
+        SignalReceiptEntry: {
+            /**
+             * Revision
+             * @description The project's current revision, which the change replaces.
+             */
+            revision: number;
+            /**
+             * Title
+             * @description Trimmed; defaults to the kind and the first 8 digits of the record.
+             */
+            title?: string;
+            /**
+             * Notes
+             * @description Trimmed; no control characters other than tab and line breaks.
+             */
+            notes?: string;
+            /**
+             * Kind
+             * @constant
+             */
+            kind: "source";
+            /**
+             * Receipt Id
+             * @description The receipt of a completed signal-reception task.
+             */
+            receipt_id: string;
+        };
+        /**
+         * SingleSourceReception
+         * @description One frozen generation source, by its index.
+         */
+        SingleSourceReception: {
+            /**
+             * Record Id
+             * @description The library record of the layout: a lowercase SHA-256 hex digest.
+             */
+            record_id: string;
+            /**
+             * Waveform
+             * @enum {string}
+             */
+            waveform: "burst" | "rhythm";
+            /**
+             * Artifact Scale
+             * @enum {number}
+             */
+            artifact_scale: 0 | 0.5 | 1 | 2 | 4;
+            /** Seed */
+            seed: number;
+            /**
+             * Mode
+             * @constant
+             */
+            mode: "single_source";
+            /**
+             * Region Definition
+             * @description The source ROI atlas, kept in the identity when sent.
+             * @constant
+             */
+            region_definition?: "dk40-six-roi-v1";
+            /** Source Index */
+            source_index: number;
+        };
+        SourceReceptionRequest: components["schemas"]["SourceReceptionV1"] | components["schemas"]["SingleSourceReception"] | components["schemas"]["MultiSourceReception"] | components["schemas"]["CrossRegionReception"];
+        /**
+         * SourceReceptionV1
+         * @description A v1 request (no ``mode``): the six generation sources nearest to the region's fixed coordinate anchor.
+         */
+        SourceReceptionV1: {
+            /**
+             * Record Id
+             * @description The library record of the layout: a lowercase SHA-256 hex digest.
+             */
+            record_id: string;
+            /**
+             * Brain Region
+             * @enum {string}
+             */
+            brain_region: "frontal" | "central" | "parietal" | "occipital" | "temporal_left" | "temporal_right";
+            /**
+             * Waveform
+             * @enum {string}
+             */
+            waveform: "burst" | "rhythm";
+            /**
+             * Artifact Scale
+             * @enum {number}
+             */
+            artifact_scale: 0 | 0.5 | 1 | 2 | 4;
+            /** Seed */
+            seed: number;
+        };
         /** SpatialNoise */
         SpatialNoise: {
             /**
@@ -569,6 +1171,58 @@ export interface components {
              * @enum {integer}
              */
             length_mm: 10 | 20 | 40;
+        };
+        /**
+         * StudyCase
+         * @description A case of a noise-seed or grid-displacement study.
+         */
+        StudyCase: {
+            /** Seed */
+            seed: number;
+            /**
+             * Radius Mm
+             * @enum {integer}
+             */
+            radius_mm: 3 | 6 | 10;
+        };
+        /**
+         * StudyDesign
+         * @description The design of every case (``eeg-electrode-design/1``), with presentation metadata that never enters a
+         *     request: 64 electrode names and the coordinate source of an imported layout. Other design fields are dropped.
+         */
+        StudyDesign: {
+            /**
+             * Schema
+             * @constant
+             */
+            schema: "eeg-electrode-design/1";
+            /**
+             * Coordinate System
+             * @constant
+             */
+            coordinate_system: "ernie_native_mm";
+            /**
+             * Unit
+             * @constant
+             */
+            unit: "mm";
+            /**
+             * Name
+             * @default 导入布局
+             */
+            name?: string;
+            /** Xyz Mm */
+            xyz_mm: [
+                number,
+                number,
+                number
+            ][];
+            /** Region Indices */
+            region_indices: number[];
+            /** Electrode Names */
+            electrode_names?: string[];
+            /** Source Metadata */
+            source_metadata?: components["schemas"]["CoordinateSourceV1"] | components["schemas"]["CoordinateSourceV2"] | components["schemas"]["CoordinateSourceV3"];
         };
     };
     responses: never;
@@ -732,6 +1386,261 @@ export interface operations {
             };
         };
     };
+    normalize_project_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectCreate"];
+            };
+        };
+        responses: {
+            /** @description The canonical request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NormalizedRequest"];
+                };
+            };
+            /** @description The body is not valid JSON or not a valid request. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The body is larger than 65,536 bytes. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The content type is not application/json. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    normalize_project_entry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectEntryInput"];
+            };
+        };
+        responses: {
+            /** @description The canonical request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NormalizedRequest"];
+                };
+            };
+            /** @description The body is not valid JSON or not a valid request. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The body is larger than 65,536 bytes. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The content type is not application/json. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    normalize_project_entry_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectEntryDelete"];
+            };
+        };
+        responses: {
+            /** @description The canonical request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NormalizedRequest"];
+                };
+            };
+            /** @description The body is not valid JSON or not a valid request. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The body is larger than 65,536 bytes. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The content type is not application/json. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    normalize_project_entry_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectEntryPatch"];
+            };
+        };
+        responses: {
+            /** @description The canonical request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NormalizedRequest"];
+                };
+            };
+            /** @description The body is not valid JSON or not a valid request. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The body is larger than 65,536 bytes. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The content type is not application/json. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    normalize_project_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectPatch"];
+            };
+        };
+        responses: {
+            /** @description The canonical request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NormalizedRequest"];
+                };
+            };
+            /** @description The body is not valid JSON or not a valid request. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The body is larger than 65,536 bytes. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The content type is not application/json. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     normalize_radius_search: {
         parameters: {
             query?: never;
@@ -742,6 +1651,108 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RadiusSearchRequest"];
+            };
+        };
+        responses: {
+            /** @description The canonical request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NormalizedRequest"];
+                };
+            };
+            /** @description The body is not valid JSON or not a valid request. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The body is larger than 65,536 bytes. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The content type is not application/json. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    normalize_robustness_study: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RobustnessStudyInput"];
+            };
+        };
+        responses: {
+            /** @description The canonical request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NormalizedRequest"];
+                };
+            };
+            /** @description The body is not valid JSON or not a valid request. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The body is larger than 65,536 bytes. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The content type is not application/json. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    normalize_source_reception: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceReceptionRequest"];
             };
         };
         responses: {

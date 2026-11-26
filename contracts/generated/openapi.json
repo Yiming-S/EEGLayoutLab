@@ -183,6 +183,301 @@
         }
       }
     },
+    "/api/normalize/project-create": {
+      "post": {
+        "operationId": "normalize_project_create",
+        "summary": "Validate a project-create request and return its canonical form",
+        "description": "Diagnostic endpoint. Reproduces body + ProjectStore.create (webapp/server/projects/service.mjs, store.mjs).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The canonical request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NormalizedRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not valid JSON or not a valid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The body is larger than 65,536 bytes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not application/json.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/normalize/project-entry": {
+      "post": {
+        "operationId": "normalize_project_entry",
+        "summary": "Validate a project-entry request and return its canonical form",
+        "description": "Diagnostic endpoint. Reproduces body + attachment + ProjectStore.attach (webapp/server/projects/service.mjs, store.mjs).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectEntryInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The canonical request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NormalizedRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not valid JSON or not a valid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The body is larger than 65,536 bytes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not application/json.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/normalize/project-entry-delete": {
+      "post": {
+        "operationId": "normalize_project_entry_delete",
+        "summary": "Validate a project-entry-delete request and return its canonical form",
+        "description": "Diagnostic endpoint. Reproduces body + ProjectStore.detach (webapp/server/projects/service.mjs, store.mjs).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectEntryDelete"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The canonical request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NormalizedRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not valid JSON or not a valid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The body is larger than 65,536 bytes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not application/json.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/normalize/project-entry-patch": {
+      "post": {
+        "operationId": "normalize_project_entry_patch",
+        "summary": "Validate a project-entry-patch request and return its canonical form",
+        "description": "Diagnostic endpoint. Reproduces body + ProjectStore.patchEntry (webapp/server/projects/service.mjs, store.mjs).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectEntryPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The canonical request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NormalizedRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not valid JSON or not a valid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The body is larger than 65,536 bytes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not application/json.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/normalize/project-patch": {
+      "post": {
+        "operationId": "normalize_project_patch",
+        "summary": "Validate a project-patch request and return its canonical form",
+        "description": "Diagnostic endpoint. Reproduces body + ProjectStore.patch (webapp/server/projects/service.mjs, store.mjs).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The canonical request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NormalizedRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not valid JSON or not a valid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The body is larger than 65,536 bytes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not application/json.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/normalize/radius-search": {
       "post": {
         "operationId": "normalize_radius_search",
@@ -194,6 +489,124 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/RadiusSearchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The canonical request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NormalizedRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not valid JSON or not a valid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The body is larger than 65,536 bytes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not application/json.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/normalize/robustness-study": {
+      "post": {
+        "operationId": "normalize_robustness_study",
+        "summary": "Validate a robustness-study request and return its canonical form",
+        "description": "Diagnostic endpoint. Reproduces normalizeStudyInput (webapp/server/studies/protocol.mjs).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RobustnessStudyInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The canonical request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NormalizedRequest"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is not valid JSON or not a valid request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The body is larger than 65,536 bytes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "The content type is not application/json.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/normalize/source-reception": {
+      "post": {
+        "operationId": "normalize_source_reception",
+        "summary": "Validate a source-reception request and return its canonical form",
+        "description": "Diagnostic endpoint. Reproduces normalizeReceptionRequest, with normalizeSourceRequest for requests without mode (webapp/contracts/source-reception.mjs).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceReceptionRequest"
               }
             }
           }
@@ -616,6 +1029,147 @@
         "title": "CoordinateSourceV3",
         "type": "object"
       },
+      "CrossHeadStudy": {
+        "additionalProperties": false,
+        "description": "One case per head package, each listed once, with one seed and one radius for every case.",
+        "properties": {
+          "protocol": {
+            "const": "heads",
+            "title": "Protocol",
+            "type": "string"
+          },
+          "title": {
+            "default": "Robustness study",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "notes": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Notes",
+            "type": "string"
+          },
+          "design": {
+            "$ref": "#/components/schemas/StudyDesign"
+          },
+          "cases": {
+            "items": {
+              "$ref": "#/components/schemas/HeadStudyCase"
+            },
+            "maxItems": 12,
+            "minItems": 1,
+            "title": "Cases",
+            "type": "array"
+          },
+          "noise_model": {
+            "discriminator": {
+              "mapping": {
+                "brain_background": "#/components/schemas/BrainBackgroundNoise",
+                "iid": "#/components/schemas/IidNoise",
+                "spatial": "#/components/schemas/SpatialNoise"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/IidNoise"
+              },
+              {
+                "$ref": "#/components/schemas/SpatialNoise"
+              },
+              {
+                "$ref": "#/components/schemas/BrainBackgroundNoise"
+              }
+            ],
+            "title": "Noise Model"
+          }
+        },
+        "required": [
+          "protocol",
+          "design",
+          "cases"
+        ],
+        "title": "CrossHeadStudy",
+        "type": "object"
+      },
+      "CrossRegionReception": {
+        "additionalProperties": false,
+        "description": "One fixed source in each of one to six regions, each listed once and in the order of the region list.",
+        "properties": {
+          "record_id": {
+            "description": "The library record of the layout: a lowercase SHA-256 hex digest.",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "waveform": {
+            "enum": [
+              "burst",
+              "rhythm"
+            ],
+            "title": "Waveform",
+            "type": "string"
+          },
+          "artifact_scale": {
+            "enum": [
+              0,
+              0.5,
+              1,
+              2,
+              4
+            ],
+            "title": "Artifact Scale",
+            "type": "number"
+          },
+          "seed": {
+            "maximum": 9999,
+            "minimum": 0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "mode": {
+            "const": "cross_region",
+            "title": "Mode",
+            "type": "string"
+          },
+          "region_definition": {
+            "const": "dk40-six-roi-v1",
+            "description": "The source ROI atlas, kept in the identity when sent.",
+            "title": "Region Definition",
+            "type": "string"
+          },
+          "brain_regions": {
+            "items": {
+              "enum": [
+                "frontal",
+                "central",
+                "parietal",
+                "occipital",
+                "temporal_left",
+                "temporal_right"
+              ],
+              "type": "string"
+            },
+            "maxItems": 6,
+            "minItems": 1,
+            "title": "Brain Regions",
+            "type": "array",
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "record_id",
+          "waveform",
+          "artifact_scale",
+          "seed",
+          "mode",
+          "brain_regions"
+        ],
+        "title": "CrossRegionReception",
+        "type": "object"
+      },
       "DataPrior": {
         "additionalProperties": false,
         "description": "The ``request`` value of an ``eeg-data-prior/1`` file; rejected, never rounded.",
@@ -853,6 +1407,50 @@
         "title": "DesignSubmission",
         "type": "object"
       },
+      "EditorRecordEntry": {
+        "additionalProperties": false,
+        "description": "A completed evaluation of the electrode editor.",
+        "properties": {
+          "revision": {
+            "description": "The project's current revision, which the change replaces.",
+            "maximum": 9007199254740991,
+            "minimum": 1,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "title": {
+            "description": "Trimmed; defaults to the kind and the first 8 digits of the record.",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "notes": {
+            "description": "Trimmed; no control characters other than tab and line breaks.",
+            "maxLength": 8000,
+            "title": "Notes",
+            "type": "string"
+          },
+          "kind": {
+            "const": "editor",
+            "title": "Kind",
+            "type": "string"
+          },
+          "record_id": {
+            "description": "The scientific record: a lowercase SHA-256 hex digest.",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Record Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision",
+          "kind",
+          "record_id"
+        ],
+        "title": "EditorRecordEntry",
+        "type": "object"
+      },
       "ElectrodeDesign": {
         "description": "``eeg-electrode-design/1`` in Ernie native millimetres. Other design fields are dropped.",
         "properties": {
@@ -924,66 +1522,9 @@
         "title": "ElectrodeDesign",
         "type": "object"
       },
-      "ElectrodeEditorRequest": {
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/PrepareEditorRequest"
-          },
-          {
-            "$ref": "#/components/schemas/EvaluateEditorRequest"
-          }
-        ],
-        "discriminator": {
-          "propertyName": "action",
-          "mapping": {
-            "prepare": "#/components/schemas/PrepareEditorRequest",
-            "evaluate": "#/components/schemas/EvaluateEditorRequest"
-          }
-        }
-      },
-      "ElectrodeSlot": {
+      "ElectrodeEditorEvaluation": {
         "additionalProperties": false,
-        "description": "One of the 64 fixed electrode slots of a parent layout.",
-        "properties": {
-          "bank_index": {
-            "maximum": 1000000,
-            "minimum": 0,
-            "title": "Bank Index",
-            "type": "integer"
-          },
-          "enabled": {
-            "title": "Enabled",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "bank_index",
-          "enabled"
-        ],
-        "title": "ElectrodeSlot",
-        "type": "object"
-      },
-      "ErrorResponse": {
-        "type": "object",
-        "title": "ErrorResponse",
-        "properties": {
-          "error": {
-            "type": "string",
-            "description": "Message for people; not stable."
-          },
-          "code": {
-            "type": "string",
-            "description": "Stable code, listed in contracts/api-formats.md."
-          }
-        },
-        "required": [
-          "error",
-          "code"
-        ]
-      },
-      "EvaluateEditorRequest": {
-        "additionalProperties": false,
-        "description": "Evaluate an edited subset or within-patch relocation of a parent layout's 64 electrode slots.",
+        "description": "Score the edited layout: ``parent_digest`` is the SHA-256 of the parent record's ``JSON.stringify`` text,\nand the slots keep the parent's electrode order.",
         "properties": {
           "action": {
             "const": "evaluate",
@@ -1006,10 +1547,22 @@
             "type": "integer"
           },
           "slots": {
+            "contains": {
+              "properties": {
+                "enabled": {
+                  "const": true
+                }
+              },
+              "required": [
+                "enabled"
+              ],
+              "type": "object"
+            },
             "items": {
-              "$ref": "#/components/schemas/ElectrodeSlot"
+              "$ref": "#/components/schemas/ElectrodeEditorSlot"
             },
             "maxItems": 64,
+            "minContains": 2,
             "minItems": 64,
             "title": "Slots",
             "type": "array"
@@ -1022,8 +1575,87 @@
           "seed",
           "slots"
         ],
-        "title": "EvaluateEditorRequest",
+        "title": "ElectrodeEditorEvaluation",
         "type": "object"
+      },
+      "ElectrodeEditorPreparation": {
+        "additionalProperties": false,
+        "description": "Load the parent layout's region data for editing.",
+        "properties": {
+          "action": {
+            "const": "prepare",
+            "title": "Action",
+            "type": "string"
+          },
+          "parent_id": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Parent Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "parent_id"
+        ],
+        "title": "ElectrodeEditorPreparation",
+        "type": "object"
+      },
+      "ElectrodeEditorRequest": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ElectrodeEditorPreparation"
+          },
+          {
+            "$ref": "#/components/schemas/ElectrodeEditorEvaluation"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "action",
+          "mapping": {
+            "prepare": "#/components/schemas/ElectrodeEditorPreparation",
+            "evaluate": "#/components/schemas/ElectrodeEditorEvaluation"
+          }
+        }
+      },
+      "ElectrodeEditorSlot": {
+        "additionalProperties": false,
+        "description": "One of the parent's 64 electrodes: the bank index of its position, which the worker checks against the\nslot's region, and whether it is active.",
+        "properties": {
+          "bank_index": {
+            "maximum": 1000000,
+            "minimum": 0,
+            "title": "Bank Index",
+            "type": "integer"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "bank_index",
+          "enabled"
+        ],
+        "title": "ElectrodeEditorSlot",
+        "type": "object"
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "title": "ErrorResponse",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Message for people; not stable."
+          },
+          "code": {
+            "type": "string",
+            "description": "Stable code, listed in contracts/api-formats.md."
+          }
+        },
+        "required": [
+          "error",
+          "code"
+        ]
       },
       "FileRegionAssignment": {
         "additionalProperties": false,
@@ -1039,6 +1671,71 @@
           "method"
         ],
         "title": "FileRegionAssignment",
+        "type": "object"
+      },
+      "GridDisplacementStudy": {
+        "additionalProperties": false,
+        "description": "Distinct seed/radius pairs of perturbation trials on Ernie.",
+        "properties": {
+          "protocol": {
+            "const": "grid_displacements",
+            "title": "Protocol",
+            "type": "string"
+          },
+          "title": {
+            "default": "Robustness study",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "notes": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Notes",
+            "type": "string"
+          },
+          "design": {
+            "$ref": "#/components/schemas/StudyDesign"
+          },
+          "cases": {
+            "items": {
+              "$ref": "#/components/schemas/StudyCase"
+            },
+            "maxItems": 12,
+            "minItems": 1,
+            "title": "Cases",
+            "type": "array"
+          },
+          "noise_model": {
+            "discriminator": {
+              "mapping": {
+                "brain_background": "#/components/schemas/BrainBackgroundNoise",
+                "iid": "#/components/schemas/IidNoise",
+                "spatial": "#/components/schemas/SpatialNoise"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/IidNoise"
+              },
+              {
+                "$ref": "#/components/schemas/SpatialNoise"
+              },
+              {
+                "$ref": "#/components/schemas/BrainBackgroundNoise"
+              }
+            ],
+            "title": "Noise Model"
+          }
+        },
+        "required": [
+          "protocol",
+          "design",
+          "cases"
+        ],
+        "title": "GridDisplacementStudy",
         "type": "object"
       },
       "HeadRegistration": {
@@ -1124,6 +1821,40 @@
         "title": "HeadRegistration",
         "type": "object"
       },
+      "HeadStudyCase": {
+        "additionalProperties": false,
+        "description": "A case of a cross-head study: one head package of the design-evaluation catalog.",
+        "properties": {
+          "head_id": {
+            "maxLength": 40,
+            "pattern": "^[a-z0-9]+(?:[_-][a-z0-9]+)*$",
+            "title": "Head Id",
+            "type": "string"
+          },
+          "seed": {
+            "maximum": 9999,
+            "minimum": 0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "radius_mm": {
+            "enum": [
+              3,
+              6,
+              10
+            ],
+            "title": "Radius Mm",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "head_id",
+          "seed",
+          "radius_mm"
+        ],
+        "title": "HeadStudyCase",
+        "type": "object"
+      },
       "IidNoise": {
         "additionalProperties": false,
         "description": "Accepted for the production model and dropped from canonical output.",
@@ -1176,6 +1907,50 @@
           "max_surface_distance_mm"
         ],
         "title": "LabelConversion",
+        "type": "object"
+      },
+      "LayoutRecordEntry": {
+        "additionalProperties": false,
+        "description": "A completed layout record of the library.",
+        "properties": {
+          "revision": {
+            "description": "The project's current revision, which the change replaces.",
+            "maximum": 9007199254740991,
+            "minimum": 1,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "title": {
+            "description": "Trimmed; defaults to the kind and the first 8 digits of the record.",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "notes": {
+            "description": "Trimmed; no control characters other than tab and line breaks.",
+            "maxLength": 8000,
+            "title": "Notes",
+            "type": "string"
+          },
+          "kind": {
+            "const": "layout",
+            "title": "Kind",
+            "type": "string"
+          },
+          "record_id": {
+            "description": "The scientific record: a lowercase SHA-256 hex digest.",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Record Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision",
+          "kind",
+          "record_id"
+        ],
+        "title": "LayoutRecordEntry",
         "type": "object"
       },
       "MniConversion": {
@@ -1234,6 +2009,208 @@
         "title": "MniConversion",
         "type": "object"
       },
+      "MultiSourceReception": {
+        "additionalProperties": false,
+        "description": "Six generation sources within one region.",
+        "properties": {
+          "record_id": {
+            "description": "The library record of the layout: a lowercase SHA-256 hex digest.",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "waveform": {
+            "enum": [
+              "burst",
+              "rhythm"
+            ],
+            "title": "Waveform",
+            "type": "string"
+          },
+          "artifact_scale": {
+            "enum": [
+              0,
+              0.5,
+              1,
+              2,
+              4
+            ],
+            "title": "Artifact Scale",
+            "type": "number"
+          },
+          "seed": {
+            "maximum": 9999,
+            "minimum": 0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "mode": {
+            "const": "multi_source",
+            "title": "Mode",
+            "type": "string"
+          },
+          "region_definition": {
+            "const": "dk40-six-roi-v1",
+            "description": "The source ROI atlas, kept in the identity when sent.",
+            "title": "Region Definition",
+            "type": "string"
+          },
+          "brain_region": {
+            "enum": [
+              "frontal",
+              "central",
+              "parietal",
+              "occipital",
+              "temporal_left",
+              "temporal_right"
+            ],
+            "title": "Brain Region",
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_id",
+          "waveform",
+          "artifact_scale",
+          "seed",
+          "mode",
+          "brain_region"
+        ],
+        "title": "MultiSourceReception",
+        "type": "object"
+      },
+      "NamedEvaluationEntry": {
+        "additionalProperties": false,
+        "description": "A completed design evaluation with the electrode-name annotation it was submitted with.",
+        "properties": {
+          "revision": {
+            "description": "The project's current revision, which the change replaces.",
+            "maximum": 9007199254740991,
+            "minimum": 1,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "title": {
+            "description": "Trimmed; defaults to the kind and the first 8 digits of the record.",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "notes": {
+            "description": "Trimmed; no control characters other than tab and line breaks.",
+            "maxLength": 8000,
+            "title": "Notes",
+            "type": "string"
+          },
+          "kind": {
+            "const": "layout",
+            "title": "Kind",
+            "type": "string"
+          },
+          "record_id": {
+            "description": "The scientific record: a lowercase SHA-256 hex digest.",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "annotation_id": {
+            "description": "The electrode-name annotation of the evaluation.",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Annotation Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision",
+          "kind",
+          "record_id",
+          "annotation_id"
+        ],
+        "title": "NamedEvaluationEntry",
+        "type": "object"
+      },
+      "NoiseSeedStudy": {
+        "additionalProperties": false,
+        "description": "Distinct seeds at one radius: the spread of nominal metrics over noise draws on Ernie, optionally under\none data-generating conductivity scenario.",
+        "properties": {
+          "protocol": {
+            "const": "noise_seeds",
+            "title": "Protocol",
+            "type": "string"
+          },
+          "title": {
+            "default": "Robustness study",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "notes": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Notes",
+            "type": "string"
+          },
+          "design": {
+            "$ref": "#/components/schemas/StudyDesign"
+          },
+          "cases": {
+            "items": {
+              "$ref": "#/components/schemas/StudyCase"
+            },
+            "maxItems": 12,
+            "minItems": 1,
+            "title": "Cases",
+            "type": "array"
+          },
+          "noise_model": {
+            "discriminator": {
+              "mapping": {
+                "brain_background": "#/components/schemas/BrainBackgroundNoise",
+                "iid": "#/components/schemas/IidNoise",
+                "spatial": "#/components/schemas/SpatialNoise"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/IidNoise"
+              },
+              {
+                "$ref": "#/components/schemas/SpatialNoise"
+              },
+              {
+                "$ref": "#/components/schemas/BrainBackgroundNoise"
+              }
+            ],
+            "title": "Noise Model"
+          },
+          "conductivity_scenario": {
+            "anyOf": [
+              {
+                "enum": [
+                  "skull_x0.5",
+                  "skull_x2"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Conductivity Scenario"
+          }
+        },
+        "required": [
+          "protocol",
+          "design",
+          "cases"
+        ],
+        "title": "NoiseSeedStudy",
+        "type": "object"
+      },
       "NormalizedRequest": {
         "type": "object",
         "title": "NormalizedRequest",
@@ -1252,26 +2229,166 @@
           "canonical_sha256"
         ]
       },
-      "PrepareEditorRequest": {
+      "ProjectCreate": {
         "additionalProperties": false,
-        "description": "Load the candidate bank indices inside each region patch of a saved 64-electrode layout.",
+        "description": "A new project: its title, the researcher's name and optional notes.",
         "properties": {
-          "action": {
-            "const": "prepare",
-            "title": "Action",
+          "title": {
+            "description": "Trimmed; no control characters other than tab and line breaks.",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
             "type": "string"
           },
-          "parent_id": {
-            "pattern": "^[a-f0-9]{64}$",
-            "title": "Parent Id",
+          "owner_name": {
+            "description": "The researcher named on the project; trimmed.",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Owner Name",
+            "type": "string"
+          },
+          "notes": {
+            "default": "",
+            "description": "Trimmed; no control characters other than tab and line breaks.",
+            "maxLength": 8000,
+            "title": "Notes",
             "type": "string"
           }
         },
         "required": [
-          "action",
-          "parent_id"
+          "title",
+          "owner_name"
         ],
-        "title": "PrepareEditorRequest",
+        "title": "ProjectCreate",
+        "type": "object"
+      },
+      "ProjectEntryDelete": {
+        "description": "The project's current revision, when the request has no ``If-Match`` header; other keys are ignored.",
+        "properties": {
+          "revision": {
+            "description": "The project's current revision, which the change replaces.",
+            "maximum": 9007199254740991,
+            "minimum": 1,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "revision"
+        ],
+        "title": "ProjectEntryDelete",
+        "type": "object"
+      },
+      "ProjectEntryInput": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/LayoutRecordEntry"
+          },
+          {
+            "$ref": "#/components/schemas/NamedEvaluationEntry"
+          },
+          {
+            "$ref": "#/components/schemas/EditorRecordEntry"
+          },
+          {
+            "$ref": "#/components/schemas/SignalReceiptEntry"
+          }
+        ]
+      },
+      "ProjectEntryPatch": {
+        "additionalProperties": false,
+        "description": "Changes to an entry at the project's current revision: its title, its notes or both.",
+        "properties": {
+          "revision": {
+            "description": "The project's current revision, which the change replaces.",
+            "maximum": 9007199254740991,
+            "minimum": 1,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "title": {
+            "description": "Trimmed; no control characters other than tab and line breaks.",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "notes": {
+            "description": "Trimmed; no control characters other than tab and line breaks.",
+            "maxLength": 8000,
+            "title": "Notes",
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision"
+        ],
+        "title": "ProjectEntryPatch",
+        "type": "object"
+      },
+      "ProjectPatch": {
+        "additionalProperties": false,
+        "description": "Changes to a project at its current revision: at least one of title, researcher name, notes and the\ncomparison settings.",
+        "properties": {
+          "revision": {
+            "description": "The project's current revision, which the change replaces.",
+            "maximum": 9007199254740991,
+            "minimum": 1,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "title": {
+            "description": "Trimmed; no control characters other than tab and line breaks.",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "owner_name": {
+            "description": "The researcher named on the project; trimmed.",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Owner Name",
+            "type": "string"
+          },
+          "notes": {
+            "description": "Trimmed; no control characters other than tab and line breaks.",
+            "maxLength": 8000,
+            "title": "Notes",
+            "type": "string"
+          },
+          "workflow": {
+            "additionalProperties": false,
+            "description": "Comparison settings, checked against the project's entries when saved: two different saved layouts and a /decision? link to their comparison.",
+            "properties": {
+              "reference_entry_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "candidate_entry_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "comparison_href": {
+                "maxLength": 4096,
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "title": "ProjectWorkflowInput",
+            "type": "object"
+          }
+        },
+        "required": [
+          "revision"
+        ],
+        "title": "ProjectPatch",
         "type": "object"
       },
       "RadiusSearchRequest": {
@@ -1375,6 +2492,209 @@
         "title": "RadiusSearchRequest",
         "type": "object"
       },
+      "RobustnessStudyInput": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/NoiseSeedStudy"
+          },
+          {
+            "$ref": "#/components/schemas/GridDisplacementStudy"
+          },
+          {
+            "$ref": "#/components/schemas/CrossHeadStudy"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "protocol",
+          "mapping": {
+            "noise_seeds": "#/components/schemas/NoiseSeedStudy",
+            "grid_displacements": "#/components/schemas/GridDisplacementStudy",
+            "heads": "#/components/schemas/CrossHeadStudy"
+          }
+        }
+      },
+      "SignalReceiptEntry": {
+        "additionalProperties": false,
+        "description": "A completed signal-reception task, by its receipt.",
+        "properties": {
+          "revision": {
+            "description": "The project's current revision, which the change replaces.",
+            "maximum": 9007199254740991,
+            "minimum": 1,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "title": {
+            "description": "Trimmed; defaults to the kind and the first 8 digits of the record.",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "notes": {
+            "description": "Trimmed; no control characters other than tab and line breaks.",
+            "maxLength": 8000,
+            "title": "Notes",
+            "type": "string"
+          },
+          "kind": {
+            "const": "source",
+            "title": "Kind",
+            "type": "string"
+          },
+          "receipt_id": {
+            "description": "The receipt of a completed signal-reception task.",
+            "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$",
+            "title": "Receipt Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision",
+          "kind",
+          "receipt_id"
+        ],
+        "title": "SignalReceiptEntry",
+        "type": "object"
+      },
+      "SingleSourceReception": {
+        "additionalProperties": false,
+        "description": "One frozen generation source, by its index.",
+        "properties": {
+          "record_id": {
+            "description": "The library record of the layout: a lowercase SHA-256 hex digest.",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "waveform": {
+            "enum": [
+              "burst",
+              "rhythm"
+            ],
+            "title": "Waveform",
+            "type": "string"
+          },
+          "artifact_scale": {
+            "enum": [
+              0,
+              0.5,
+              1,
+              2,
+              4
+            ],
+            "title": "Artifact Scale",
+            "type": "number"
+          },
+          "seed": {
+            "maximum": 9999,
+            "minimum": 0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "mode": {
+            "const": "single_source",
+            "title": "Mode",
+            "type": "string"
+          },
+          "region_definition": {
+            "const": "dk40-six-roi-v1",
+            "description": "The source ROI atlas, kept in the identity when sent.",
+            "title": "Region Definition",
+            "type": "string"
+          },
+          "source_index": {
+            "maximum": 255,
+            "minimum": 0,
+            "title": "Source Index",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "record_id",
+          "waveform",
+          "artifact_scale",
+          "seed",
+          "mode",
+          "source_index"
+        ],
+        "title": "SingleSourceReception",
+        "type": "object"
+      },
+      "SourceReceptionRequest": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/SourceReceptionV1"
+          },
+          {
+            "$ref": "#/components/schemas/SingleSourceReception"
+          },
+          {
+            "$ref": "#/components/schemas/MultiSourceReception"
+          },
+          {
+            "$ref": "#/components/schemas/CrossRegionReception"
+          }
+        ]
+      },
+      "SourceReceptionV1": {
+        "additionalProperties": false,
+        "description": "A v1 request (no ``mode``): the six generation sources nearest to the region's fixed coordinate anchor.",
+        "properties": {
+          "record_id": {
+            "description": "The library record of the layout: a lowercase SHA-256 hex digest.",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "brain_region": {
+            "enum": [
+              "frontal",
+              "central",
+              "parietal",
+              "occipital",
+              "temporal_left",
+              "temporal_right"
+            ],
+            "title": "Brain Region",
+            "type": "string"
+          },
+          "waveform": {
+            "enum": [
+              "burst",
+              "rhythm"
+            ],
+            "title": "Waveform",
+            "type": "string"
+          },
+          "artifact_scale": {
+            "enum": [
+              0,
+              0.5,
+              1,
+              2,
+              4
+            ],
+            "title": "Artifact Scale",
+            "type": "number"
+          },
+          "seed": {
+            "maximum": 9999,
+            "minimum": 0,
+            "title": "Seed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "record_id",
+          "brain_region",
+          "waveform",
+          "artifact_scale",
+          "seed"
+        ],
+        "title": "SourceReceptionV1",
+        "type": "object"
+      },
       "SpatialNoise": {
         "additionalProperties": false,
         "properties": {
@@ -1404,6 +2724,138 @@
           "length_mm"
         ],
         "title": "SpatialNoise",
+        "type": "object"
+      },
+      "StudyCase": {
+        "additionalProperties": false,
+        "description": "A case of a noise-seed or grid-displacement study.",
+        "properties": {
+          "seed": {
+            "maximum": 9999,
+            "minimum": 0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "radius_mm": {
+            "enum": [
+              3,
+              6,
+              10
+            ],
+            "title": "Radius Mm",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seed",
+          "radius_mm"
+        ],
+        "title": "StudyCase",
+        "type": "object"
+      },
+      "StudyDesign": {
+        "description": "The design of every case (``eeg-electrode-design/1``), with presentation metadata that never enters a\nrequest: 64 electrode names and the coordinate source of an imported layout. Other design fields are dropped.",
+        "properties": {
+          "schema": {
+            "const": "eeg-electrode-design/1",
+            "title": "Schema",
+            "type": "string"
+          },
+          "coordinate_system": {
+            "const": "ernie_native_mm",
+            "title": "Coordinate System",
+            "type": "string"
+          },
+          "unit": {
+            "const": "mm",
+            "title": "Unit",
+            "type": "string"
+          },
+          "name": {
+            "default": "导入布局",
+            "title": "Name",
+            "type": "string"
+          },
+          "xyz_mm": {
+            "items": {
+              "maxItems": 3,
+              "minItems": 3,
+              "prefixItems": [
+                {
+                  "maximum": 500,
+                  "minimum": -500,
+                  "type": "number"
+                },
+                {
+                  "maximum": 500,
+                  "minimum": -500,
+                  "type": "number"
+                },
+                {
+                  "maximum": 500,
+                  "minimum": -500,
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            "maxItems": 64,
+            "minItems": 64,
+            "title": "Xyz Mm",
+            "type": "array"
+          },
+          "region_indices": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 64,
+            "minItems": 64,
+            "title": "Region Indices",
+            "type": "array"
+          },
+          "electrode_names": {
+            "items": {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 64,
+            "minItems": 64,
+            "title": "Electrode Names",
+            "type": "array",
+            "uniqueItems": true
+          },
+          "source_metadata": {
+            "discriminator": {
+              "mapping": {
+                "electrode-coordinate-source/1": "#/components/schemas/CoordinateSourceV1",
+                "electrode-coordinate-source/2": "#/components/schemas/CoordinateSourceV2",
+                "electrode-coordinate-source/3": "#/components/schemas/CoordinateSourceV3"
+              },
+              "propertyName": "schema"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CoordinateSourceV1"
+              },
+              {
+                "$ref": "#/components/schemas/CoordinateSourceV2"
+              },
+              {
+                "$ref": "#/components/schemas/CoordinateSourceV3"
+              }
+            ],
+            "title": "Source Metadata"
+          }
+        },
+        "required": [
+          "schema",
+          "coordinate_system",
+          "unit",
+          "xyz_mm",
+          "region_indices"
+        ],
+        "title": "StudyDesign",
         "type": "object"
       }
     }

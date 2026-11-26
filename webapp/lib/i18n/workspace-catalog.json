@@ -1,8 +1,4 @@
 {
-  "community_online": {
-    "source": "在线访客",
-    "en": "Online visitors"
-  },
   "community_wait": {
     "source": "等待",
     "en": "Queued"
@@ -23,25 +19,9 @@
     "source": "服务状态暂不可用",
     "en": "Service status unavailable"
   },
-  "community_tasks": {
-    "source": "当前浏览器的任务",
-    "en": "Tasks in this browser"
-  },
-  "community_count": {
-    "source": "在线访客按最近90秒活跃的浏览器估算，同一浏览器多个标签页计为一个。",
-    "en": "Estimated browsers active in the last 90 seconds. Multiple tabs in one browser count once."
-  },
-  "community_privacy": {
-    "source": "无需登录。后台记录IP用于访问日志和限流，日志保留7天，不公开显示。",
-    "en": "No sign-in. IP addresses are logged privately for access monitoring and rate limits, and retained for 7 days."
-  },
   "community_paused": {
     "source": "队列暂停，等待服务检查",
     "en": "Queue paused; service inspection required"
-  },
-  "community_empty": {
-    "source": "当前浏览器暂无计算任务",
-    "en": "No computation tasks in this browser"
   },
   "community_position": {
     "source": "数字为等待队列中的位置，按提交顺序执行。",
@@ -599,10 +579,6 @@
     "source": "少毛发候选区：耳后、前额与眶周的模型近似范围，不包含完整扩展耳周。",
     "en": "Low-hair candidates: model-defined approximations behind the ears, on the forehead and around the eyes; the full extended ear region is excluded."
   },
-  "status": {
-    "source": "查看访客与计算队列",
-    "en": "View visitors and computation queue"
-  },
   "online": {
     "source": "在线",
     "en": "Online"
@@ -995,10 +971,6 @@
     "source": "电极数从少到多",
     "en": "Electrode count, low to high"
   },
-  "library.scope": {
-    "source": "信号实验只列出当前浏览器完成的任务，较早的任务可能已不在列表中。筛选记录不会读取完整波形或启动计算。",
-    "en": "Signal experiments list only tasks completed in this browser; older tasks may no longer be listed. Filtering neither loads full waveforms nor starts computation."
-  },
   "library.recordProtocol": {
     "source": "记录与协议",
     "en": "Record and protocol"
@@ -1054,10 +1026,6 @@
   "library.editorFetchError": {
     "source": "电极编辑记录未载入，请刷新记录。",
     "en": "Electrode editing records could not be loaded. Refresh the records."
-  },
-  "library.sourceFetchError": {
-    "source": "当前浏览器的信号记录未载入，请刷新记录。",
-    "en": "Signal records from this browser could not be loaded. Refresh the records."
   },
   "library.original": {
     "source": "查看原布局",
@@ -1167,85 +1135,13 @@
     "source": "未构造出布局",
     "en": "No layout constructed"
   },
-  "library.visibility.othersPublic": {
-    "source": "共享库 · 其他访客公开",
-    "en": "Shared library · published by another visitor"
-  },
-  "library.visibility.private": {
-    "source": "仅本浏览器可见",
-    "en": "Visible to this browser only"
-  },
-  "library.visibility.pending": {
-    "source": "已申请公开 · 等待审核",
-    "en": "Publication requested · awaiting review"
-  },
-  "library.visibility.public": {
-    "source": "已公开到共享库",
-    "en": "Published to the shared library"
-  },
-  "library.visibility.removed": {
-    "source": "已被管理员从共享库移除",
-    "en": "Removed from the shared library by the operator"
-  },
-  "library.visibility.confirm": {
-    "source": "公开后，所有访客都能在共享库看到这条记录：名称「{{0}}」、电极坐标、计算参数和指标。可随时撤回公开。确认公开？",
-    "en": "Once published, every visitor can see this record in the shared library: the name “{{0}}”, the electrode coordinates, the computation settings and the metrics. You can withdraw it at any time. Publish?"
-  },
-  "library.visibility.region": {
-    "source": "共享库可见范围",
-    "en": "Shared library visibility"
-  },
-  "library.visibility.privateNote": {
-    "source": "只有提交过这条记录的浏览器能在列表中看到它；持有记录链接的人仍可打开。",
-    "en": "Only browsers that submitted this record see it in their lists; anyone holding the record link can still open it."
-  },
-  "library.visibility.pendingNote": {
-    "source": "管理员审核通过后，其他访客才能在共享库看到它。",
-    "en": "Other visitors see it in the shared library after the operator approves it."
-  },
-  "library.visibility.otherOwner": {
-    "source": "提交过同一配置的另一个浏览器已公开这条记录。",
-    "en": "Another browser that submitted the same configuration has published this record."
-  },
   "library.visibility.reason": {
     "source": "移除原因：",
     "en": "Reason for removal: "
   },
-  "library.visibility.withdraw": {
-    "source": "撤回公开",
-    "en": "Withdraw publication"
-  },
-  "library.visibility.publish": {
-    "source": "公开到共享库",
-    "en": "Publish to the shared library"
-  },
-  "library.visibility.scopeReview": {
-    "source": "本浏览器提交的计算默认只有本浏览器能在列表中看到。公开到共享库的记录经管理员审核后对所有访客列出；官方实验记录始终列出。清除浏览器数据后列表将找不到自己的记录，需要长期保留请加入研究项目。",
-    "en": "Computations submitted from this browser are listed only to this browser by default. Records published to the shared library are listed to every visitor after the operator reviews them; official experiment records are always listed. After clearing browser data you will no longer find your records in the list; add them to a research project to keep them."
-  },
-  "library.visibility.scope": {
-    "source": "本浏览器提交的计算默认只有本浏览器能在列表中看到。公开到共享库的记录对所有访客列出；官方实验记录始终列出。清除浏览器数据后列表将找不到自己的记录，需要长期保留请加入研究项目。",
-    "en": "Computations submitted from this browser are listed only to this browser by default. Records published to the shared library are listed to every visitor; official experiment records are always listed. After clearing browser data you will no longer find your records in the list; add them to a research project to keep them."
-  },
-  "library.visibility.updateFailed": {
-    "source": "公开状态未能更新，请刷新后重试",
-    "en": "The publication state was not updated; refresh and try again."
-  },
   "library.visibility.badId": {
     "source": "记录编号无效",
     "en": "Invalid record identifier"
-  },
-  "library.visibility.choose": {
-    "source": "请选择是否公开这条记录",
-    "en": "Choose whether to publish this record"
-  },
-  "library.visibility.notOwner": {
-    "source": "只有提交过这条记录的浏览器才能更改公开状态",
-    "en": "Only a browser that submitted this record can change whether it is published"
-  },
-  "library.visibility.removedRepublish": {
-    "source": "管理员已将这条记录从共享库移除，不能再次公开",
-    "en": "The operator removed this record from the shared library; it cannot be published again"
   },
   "library.visibility.usePost": {
     "source": "请使用POST",
@@ -1943,10 +1839,6 @@
     "source": "新建研究",
     "en": "New study"
   },
-  "visitor_notice": {
-    "source": "访客与访问记录",
-    "en": "Visitors and access logs"
-  },
   "term_retention": {
     "source": "保留率是什么？",
     "en": "What is retention?"
@@ -2006,5 +1898,21 @@
   "picker_search_none_together": {
     "source": "没有布局同时符合全部查找词。",
     "en": "No layout matches all the search words together."
+  },
+  "library.workspaceScope": {
+    "source": "信号实验只列出此工作区完成的任务，较早的任务可能已不在列表中。筛选记录不会读取完整波形或启动计算。",
+    "en": "Signal experiments list only tasks completed in this workspace; older tasks may no longer be listed. Filtering neither loads full waveforms nor starts computation."
+  },
+  "library.otherWorkspaces": {
+    "source": "其他工作区的信号实验不在此列出；在信号仿真页重新选择相同场景即可直接读取已保存的结果。",
+    "en": "Signal experiments from other workspaces are not listed here; choosing the same scenario again on the signal simulation page reads its saved result directly."
+  },
+  "library.workspaceSourceFetchError": {
+    "source": "此工作区的信号记录未载入，请刷新记录。",
+    "en": "Signal records of this workspace could not be loaded. Refresh the records."
+  },
+  "community_empty_workspace": {
+    "source": "此工作区暂无计算任务",
+    "en": "No computation tasks in this workspace"
   }
 }

@@ -19,6 +19,7 @@ import { SiteHeader } from '@/components/site-header';
 import { buttonVariants } from '@/components/ui/button';
 import { parseAR, methodLink } from '@/lib/lab-workflow';
 import { retentionPercent as pct } from '@/lib/fixed64-results';
+import { apiFetch } from '@/client/task-client';
 import {
   allocationFor,
   arDecision,
@@ -77,7 +78,7 @@ export default function ResultsPage() {
   }, []);
   useEffect(() => {
     const controller = new AbortController();
-    fetch('/data/single_head_optimization.json', { signal: controller.signal })
+    apiFetch('/data/single_head_optimization.json', { signal: controller.signal })
       .then((r) => {
         if (!r.ok)
           throw new Error(`结果文件尚未就绪或无法读取（HTTP ${r.status}）`);

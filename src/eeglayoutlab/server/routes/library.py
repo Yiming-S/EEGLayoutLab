@@ -24,7 +24,10 @@ The annotation query is checked only for a record that exists and, for a bundle,
 Node. An identifier other than 64 lowercase hex digits is an unknown path (Node's 404 for the prefix).
 
 The library, its radius identity and the head digests are built on first use and kept for the process (Node builds
-them with the service), so a root that cannot be read answers 500 instead of stopping the service. The modules of
+them with the service), so a root that cannot be read answers 500 instead of stopping the service. Once the job
+services run (``routes.compute.ComputeHost``), the library reads the radius records through their ``RadiusJobs``, as
+Node's library reads them through its ``LocalComputeQueue``: one record store, code identity and input check, so a
+result the service has just published is listed at the next request. The modules of
 ``eeglayoutlab.jobs`` are imported then too: ``eeglayoutlab serve`` writes its runtime file before it builds the
 application, so building it stays short. The routes run in the worker threads; ``Library`` serializes its own calls.
 """
@@ -78,8 +81,9 @@ def annotation_query(query: bytes) -> Optional[str]:
 class LibraryRoutes:
     """The library of one service process and the answers of its routes."""
 
-    def __init__(self, config: 'ServiceConfig'):
+    def __init__(self, config: 'ServiceConfig', radius: Optional[Callable[[], Any]] = None):
         self.config = config
+        self._radius = radius
         self._lock = threading.Lock()
         self._runtime: Optional[RuntimeConfig] = config.runtime
         self._library: Optional[Library] = None
@@ -105,7 +109,8 @@ class LibraryRoutes:
         with self._lock:
             if self._library is None:
                 annotations = nodepath.join(self.config.user.workspace, *WORKSPACE_ANNOTATIONS)
-                self._library = Library(runtime.repository_root, runtime, annotations)
+                radius = self._radius() if self._radius is not None else None
+                self._library = Library(runtime.repository_root, runtime, annotations, radius=radius)
             return self._library
 
     def inputs(self) -> 'InputIntegrity':
@@ -190,8 +195,9 @@ class LibraryRoutes:
         return json_response(200, {'heads': heads(self.runtime().repository_root, self.inputs())})
 
 
-def add_routes(app: FastAPI, config: 'ServiceConfig') -> LibraryRoutes:
-    routes = LibraryRoutes(config)
+def add_routes(app: FastAPI, config: 'ServiceConfig', radius: Optional[Callable[[], Any]] = None) -> LibraryRoutes:
+    """The routes; ``radius`` gives the running ``RadiusJobs`` (or ``None``) when the library is first built."""
+    routes = LibraryRoutes(config, radius)
 
     # The identifier is read from the path parameters rather than declared as a parameter: FastAPI's validation of
     # a declared one costs some 40 ms when the application is built, before serve installs its signal handlers.

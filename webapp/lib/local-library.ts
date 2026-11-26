@@ -2,12 +2,6 @@ import type { ComputedLayout, ComputeRequest, ComputeResult, DataPrior } from '.
 import type { CoordinateSourceMetadata } from '../contracts/coordinate-source';
 import type { RobustnessSummary } from './design-robustness';
 
-/** One browser's view of a visitor-produced record (absent on official records and without a scheduler). */
-export type RecordVisibility = {
-  scope: 'shared' | 'owner'; review: boolean; owned: boolean;
-  state: 'private' | 'pending' | 'public' | 'removed'; published_by_me: boolean; reason?: string;
-};
-export type LibraryScope = { scope: 'shared' | 'owner'; review: boolean };
 export type SavedSummary = {
   id: string;
   dataset_id: 'cache' | 'strict_area' | 'offline_radius' | 'historical_area' | 'design_evaluation';
@@ -23,7 +17,6 @@ export type SavedSummary = {
   finished_at?: string;
   metrics: ComputeResult['metrics'];
   geometry: ComputeResult['geometry'];
-  visibility?: RecordVisibility;
   /** Saved coordinate evaluations outside the default protocol (absent for the default). */
   evaluation_condition?: EvaluationCondition;
   /** Saved coordinate evaluations that also ran the session-robustness protocol. */
@@ -40,7 +33,6 @@ export type LocalLibrary = {
   records: SavedSummary[];
   warnings: string[];
   electrode_annotations?: ElectrodeAnnotation[];
-  library_scope?: LibraryScope;
 };
 
 export function recordAnnotationId(href: string, recordId: string | null | undefined) {

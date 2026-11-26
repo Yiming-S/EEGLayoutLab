@@ -1,81 +1,27 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { buildResearchDelivery } from '../server/delivery/research-bundle.mjs';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import {
   openResearchDelivery,
   DELIVERY_INPUT_LIMIT,
 } from '../features/projects/research-delivery-reader.ts';
 const sha = (value) => createHash('sha256').update(value).digest('hex');
-const id = '18358bf4-143e-4431-8456-b99328462b37';
 const entryId = '18358bf4-143e-4431-8456-b99328462b38';
 const recordId = 'a'.repeat(64),
-  annotationId = 'b'.repeat(64),
-  date = '2026-11-14T12:00:00.000Z';
+  annotationId = 'b'.repeat(64);
+// One 64-electrode layout delivered with its pretty-printed snapshot (optionally with electrode names, or with legacy
+// metrics without median and P90), built by the Python service's builder; tests/service/test_delivery.py checks
+// that Node's builder makes the same bytes from the same inputs.
+const fixtures = resolve(
+  import.meta.dirname,
+  '../../tests/service/fixtures/delivery',
+);
 function fixture({ named = false, legacy = false } = {}) {
-  const snapshot = {
-    schema: 'research-project-snapshot/1',
-    kind: 'layout',
-    record_id: recordId,
-    payload: {
-      record: {
-        id: recordId,
-        layout: {
-          xyzMm: Array.from({ length: 64 }, (_, i) => [i, i / 3, -i]),
-          regionIndices: Array.from({ length: 64 }, (_, i) => i % 2),
-        },
-        metrics: {
-          field_relative: 0.975,
-          sensitivity_tail: null,
-          localization_relative: 1.001,
-          ...(legacy ? {} : { median_mm: 1.234, p90_mm: 3.456 }),
-        },
-      },
-    },
-    ...(named
-      ? {
-          electrode_annotation: {
-            schema: 'eeg-electrode-annotation/1',
-            id: annotationId,
-            record_id: recordId,
-            request_sha256: 'c'.repeat(64),
-            electrode_names: Array.from(
-              { length: 64 },
-              (_, i) => `名称, "${i}"`,
-            ),
-          },
-        }
-      : {}),
-  };
-  const snapshot_json = JSON.stringify(snapshot, null, 2) + '\n';
-  const entry = {
-    id: entryId,
-    kind: 'layout',
-    title: 'Original layout',
-    notes: '<script>never executed</script>',
-    record_id: recordId,
-    ...(named ? { annotation_id: annotationId } : {}),
-    created_at: date,
-    snapshot_bytes: Buffer.byteLength(snapshot_json),
-    snapshot_sha256: sha(snapshot_json),
-    summary: { protocol: 'design_evaluation' },
-  };
-  const project = {
-    schema: 'research-project/1',
-    id,
-    title: 'Delivery',
-    owner_name: 'Researcher',
-    notes: 'Saved evidence',
-    revision: 1,
-    created_at: date,
-    updated_at: date,
-    entries: [entry],
-  };
-  return buildResearchDelivery(
-    { project, entries: [{ entry, snapshot_json }] },
-    { application_version: '0.1.2' },
-    { now: () => date },
-  );
+  if (named && legacy) throw new Error('No named legacy delivery fixture.');
+  const name = named ? 'reader-named' : legacy ? 'reader-legacy' : 'reader';
+  return JSON.parse(readFileSync(resolve(fixtures, `${name}.json`), 'utf8'));
 }
 function rehash(value) {
   for (const file of value.files) {
@@ -303,6 +249,21 @@ void test('uploaded metric and summary display values retain their original scal
   ]) {
     const b = fixture();
     mutate(b);
+    rehash(b);
+    await assert.rejects(openResearchDelivery(JSON.stringify(b)));
+  }
+});
+void test('a layout summary saying whether signal simulation accepts the layout opens, and only as a boolean', async () => {
+  for (const simulation of [true, false]) {
+    const b = fixture();
+    b.records[0].summary = { ...b.records[0].summary, simulation };
+    rehash(b);
+    const opened = await openResearchDelivery(JSON.stringify(b));
+    assert.equal(opened.project.entries[0].summary.simulation, simulation);
+  }
+  for (const simulation of ['true', 1, null]) {
+    const b = fixture();
+    b.records[0].summary = { ...b.records[0].summary, simulation };
     rehash(b);
     await assert.rejects(openResearchDelivery(JSON.stringify(b)));
   }

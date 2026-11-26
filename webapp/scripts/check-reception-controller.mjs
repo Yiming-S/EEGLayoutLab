@@ -1,10 +1,7 @@
 import * as taskClient from '../client/task-client.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { CommunityQueue } from '../server/community-queue.mjs';
+import { randomUUID } from 'node:crypto';
 import { BRAIN_REGIONS, sourceKey, sourceBackLink } from '../lib/source-reception.ts';
 import { canonicalSourceRegions } from '../lib/source-regions.ts';
 import { parseAR } from '../lib/lab-workflow.ts';
@@ -55,43 +52,72 @@ async function controller(t, fetchSource, { active = null, initial = b } = {}) {
   return { harness, calls };
 }
 
-void test('refresh restores the selected queued task instead of the earlier health task, then displays its result', async t => {
-  const directory = await mkdtemp(join(tmpdir(), 'eeg-reception-controller-'));
-  const workers = new Map(), cache = new Map(), visitor = { id: 'same-browser', ip: '127.0.0.1' };
-  const scheduler = new CommunityQueue({ directory, pollMs: 3600000, adapters: {
-    'source-reception': {
-      prepare: async request => ({ request, key: sourceKey(request) }),
-      lookup: async p => cache.has(p.key) ? { hit: true, job: cache.get(p.key) } : { hit: false },
-      start: async request => {
-        const job = sourceJob(request, 'running'); workers.set(job.id, job); return { job };
-      },
-      get: id => workers.get(id), pid: () => undefined,
-      busy: () => [...workers.values()].some(j => j.status === 'running'), cancel() {},
+/**
+ * The workspace queue's answers as the service gives them (src/eeglayoutlab/jobs/queue.py, `view`): first in, first
+ * out with one task running; a queued task says '已加入计算队列' with its position; a lookup of a scene that is
+ * queued or running answers that task, and one of a computed scene its saved result.
+ */
+function scriptedQueue() {
+  const tasks = [], saved = new Map();
+  let sequence = 0;
+  const done = task => ['completed', 'no_layout'].includes(task.status);
+  const view = (task, result = true) => ({
+    id: task.id, key: task.key, kind: 'source-reception', request: task.request, status: task.status, stage: task.status,
+    created_at: task.created_at, finished_at: done(task) ? task.finished_at : null, cached: false, source: 'local_compute',
+    catalog: null, progress: task.progress,
+    queue_position: task.status === 'queued' ? tasks.filter(t => t.status === 'queued' && t.sequence <= task.sequence).length : 0,
+    message: task.status === 'queued' ? '已加入计算队列' : task.status,
+    ...(result ? { result: done(task) ? task.result : null } : {}),
+  });
+  const pending = task => ['queued', 'running'].includes(task.status);
+  return {
+    submit(request) {
+      const task = { id: randomUUID(), sequence: ++sequence, key: sourceKey(request), request, status: 'queued', progress: 0,
+        created_at: new Date(Date.UTC(2026, 10, 25, 8, 0, sequence)).toISOString() };
+      tasks.push(task);
+      return { job: view(task) };
     },
-  } });
-  t.after(async () => { scheduler.dispose(); await rm(directory, { recursive: true, force: true }); });
-  await scheduler.submit('source-reception', a, visitor);
-  const receiptB = (await scheduler.submit('source-reception', b, visitor)).job;
-  await scheduler.tick();
+    lookup(request) {
+      const key = sourceKey(request), task = tasks.find(t => t.key === key && pending(t));
+      if (task) return { hit: true, job: view(task) };
+      return saved.has(key) ? { hit: true, job: { ...view(saved.get(key)), cached: true, source: 'local_cache' } } : { hit: false };
+    },
+    tick() {
+      if (tasks.some(t => t.status === 'running')) return;
+      const next = tasks.find(t => t.status === 'queued');
+      if (next) next.status = 'running';
+    },
+    complete(request) {
+      const task = tasks.find(t => t.key === sourceKey(request) && t.status === 'running');
+      Object.assign(task, { status: 'completed', progress: 1, result: { request }, finished_at: new Date(Date.UTC(2026, 10, 25, 9)).toISOString() });
+      saved.set(task.key, task);
+      this.tick();
+    },
+    read: id => ({ job: view(tasks.find(t => t.id === id)) }),
+    active() {
+      const task = tasks.find(pending);
+      return task ? view(task, false) : null;
+    },
+  };
+}
+
+void test('refresh restores the selected queued task instead of the earlier health task, then displays its result', async t => {
+  const queue = scriptedQueue();
+  queue.submit(a);
+  const receiptB = queue.submit(b).job;
+  queue.tick();
   const { harness, calls } = await controller(t, async (url, options) => {
-    if (url.endsWith('/lookup')) return json(await scheduler.submit('source-reception', JSON.parse(options.body), visitor, true));
-    const id = url.split('/').at(-1);
-    return json({ job: await scheduler.view(scheduler.own(id, visitor)) });
-  }, { active: await scheduler.active('source-reception', visitor) });
+    if (url.endsWith('/lookup')) return json(queue.lookup(JSON.parse(options.body)));
+    return json(queue.read(decodeURIComponent(url.split('/').at(-1))));
+  }, { active: queue.active() });
   await harness.waitFor(s => s.active?.id === receiptB.id && s.job?.status === 'queued');
   assert.equal(harness.current.busy, true);
   assert.equal(harness.current.lookup.message, '已加入计算队列');
   assert.equal(harness.current.result, null);
   await harness.waitFor(() => calls.some(url => url.endsWith('/' + receiptB.id)));
-  const complete = async req => {
-    const job = workers.get(req.record_id[0]);
-    Object.assign(job, { status: 'completed', progress: 1, result: { request: req } });
-    cache.set(sourceKey(req), { ...job, cached: true });
-    await scheduler.tick();
-  };
-  await complete(a);
+  queue.complete(a);
   await harness.waitFor(s => s.job?.status === 'running');
-  await complete(b);
+  queue.complete(b);
   await harness.waitFor(s => s.result?.request.record_id === b.record_id);
   assert.equal(harness.current.job.id, receiptB.id);
   assert.equal(harness.current.busy, false);

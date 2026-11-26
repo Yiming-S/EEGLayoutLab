@@ -12,7 +12,7 @@ import { evaluationLabels, layoutHref, primaryRecord } from '@/lib/layout-page';
 import { SOURCE_REGIONS } from '@/lib/source-regions';
 import { matchesSearch, parseSearch, searchTarget, unmatchedWords } from '@/lib/library-search';
 import { buildRecordCatalog, catalogViewLink, groupConditionVariants, latestPerCondition, matchesCatalogFilters, parseCatalogView, locationName,
-  type CatalogEntry, type CatalogRow, type CatalogView, type ExperimentReceipt } from '@/lib/records-catalog';
+  type CatalogEntry, type CatalogRow, type CatalogView, type ExperimentReceipt, type ExperimentRecords } from '@/lib/records-catalog';
 
 const initialView = parseCatalogView(new URLSearchParams());
 
@@ -37,7 +37,7 @@ export function useLibraryController() {
     void Promise.allSettled([
       read<LocalLibrary>('/api/local-compute/library', '数据服务暂不可用，请稍后重新读取。'),
       read<{ records: EditorRecord[] }>('/api/electrode-editor/records', '电极编辑记录未载入，请刷新记录。'),
-      read<{ schema: string; records: ExperimentReceipt[] }>('/api/community/records', '当前浏览器的信号记录未载入，请刷新记录。'),
+      read<ExperimentRecords>('/api/community/records', '此工作区的信号记录未载入，请刷新记录。'),
     ]).then(([layouts, edits, signals]) => {
       if (controller.signal.aborted) return;
       if (layouts.status === 'fulfilled' && layouts.value.schema === 'local-data-library/1') { setData(layouts.value); setError(''); }

@@ -8,13 +8,16 @@ slice 3), and ports webapp/scripts/check-local-data-library.mjs.
   ``list(owner)`` of every owner against the owner-agnostic ``list()``). Failures compare by Node's code where the
   error has one, else by message.
 - The ports of check-local-data-library.mjs use the fixture of that file: a queue with an empty code identity (no
-  runtime member, no input check) and one stored ``no_layout`` record. The lookup and submit halves of those tests
-  need the queue of slice 4; here their read side (``RadiusCache.read_cache``, the key, the request format).
+  runtime member, no input check) and one stored ``no_layout`` record. Their read side uses ``RadiusCache``
+  (``read_cache``, the key, the request format); their lookup and submit halves (slice 4) the radius search,
+  ``RadiusJobs``, on the same root with a spawn that fails the test. The lookup endpoint of :121 is in
+  test_compute_routes.py.
 - With ``EEG_KEY_PARITY_ROOT`` (marked ``data_bundle``) the checks of the dataTests run on that installation, and
   the parity comparison as well. Nothing is written under any root.
 """
 from __future__ import annotations
 
+import asyncio
 import copy
 import os
 from pathlib import Path
@@ -31,7 +34,7 @@ from eeglayoutlab.jobs.integrity import InputIntegrity  # noqa: E402
 from eeglayoutlab.jobs.library import (  # noqa: E402
     DATASETS, INPUT_WARNING, Library, LibraryError, area_records, validate_saved_record,
 )
-from eeglayoutlab.jobs.radius import RadiusCache, normalize_request  # noqa: E402
+from eeglayoutlab.jobs.radius import RadiusCache, RadiusJob, RadiusJobs, normalize_request  # noqa: E402
 from eeglayoutlab.jobs.runtime import runtime_config  # noqa: E402
 from eeglayoutlab.schemas import jsjson  # noqa: E402
 from eeglayoutlab.schemas.layout_key import layout_key  # noqa: E402
@@ -59,6 +62,21 @@ def cached_fixture(tmp_path: Path):
     return library, radius, file, key
 
 
+def never_spawn(*args):
+    raise AssertionError('reading must never spawn Python')
+
+
+def jobs_fixture(tmp_path: Path) -> tuple[RadiusJobs, str]:
+    """``cachedFixture()``'s queue for the lookup and submit halves: ``RadiusJobs`` on the fixture's root, with the
+    same empty code identity and a spawn that fails the test."""
+    _, radius, _, key = cached_fixture(tmp_path)
+    return RadiusJobs(radius.root, 'python3', get_identity=lambda: {}, spawn=never_spawn), key
+
+
+def lock_file(jobs: RadiusJobs) -> Path:
+    return Path(jobs.root) / 'results/v2/.eeglayoutlab-execution.lock'
+
+
 def snapshot(root: Path) -> dict:
     """Every path under ``root`` with its type, size and modification time (links not followed)."""
     state = {}
@@ -72,7 +90,8 @@ def snapshot(root: Path) -> dict:
 # --- check-local-data-library.mjs ----------------------------------------------------------------------------------
 
 def test_existing_cache_has_history_after_restart(tmp_path):
-    """:83, without the lookup (slice 4): a stored record lists as compatible; it answers its own request only."""
+    """:83, the listing half (the lookup half below): a stored record lists as compatible; it answers its own
+    request only."""
     library, radius, _, key = cached_fixture(tmp_path)
     listed = library.list()
     row = next(row for row in listed['records'] if row['id'] == key)
@@ -88,6 +107,19 @@ def test_existing_cache_has_history_after_restart(tmp_path):
     assert radius.read_cache(key, other) is None
 
 
+def test_an_exact_lookup_of_a_stored_record_is_a_hit_and_does_not_spawn(tmp_path):
+    """:83, the lookup half: the stored request is a hit (a cached job of that record), another radius a miss;
+    nothing becomes active and the execution permit is never taken."""
+    jobs, key = jobs_fixture(tmp_path)
+    hit = asyncio.run(jobs.lookup(REQUEST))
+    assert hit['hit'] is True
+    assert (hit['job']['key'], hit['job']['status'], hit['job']['cached'], hit['job']['source']) == (
+        key, 'no_layout', True, 'local_cache')
+    assert hit['job']['finished_at'] == FINISHED and hit['job']['result'] == NO_LAYOUT
+    assert asyncio.run(jobs.lookup({**REQUEST, 'radius_mm': 20})) == {'hit': False}
+    assert jobs.active is None and not lock_file(jobs).exists()
+
+
 def test_historical_algorithm_data_stays_readable_but_cannot_resume(tmp_path):
     """:93: after a code change the record still opens, with its parameters, but is not a current result."""
     library, radius, _, key = cached_fixture(tmp_path)
@@ -95,18 +127,32 @@ def test_historical_algorithm_data_stays_readable_but_cannot_resume(tmp_path):
     record = library.get(key)
     assert record['compatible'] is False and record['request'] == REQUEST
     assert record['provenance']['file'] == f'results/v2/local_app_jobs/{key}/cache.json'
-    assert radius.identity_for(REQUEST)[1] != key  # the lookup of slice 4 misses
+    assert radius.identity_for(REQUEST)[1] != key  # so a lookup misses
 
 
 def test_cached_result_is_served_without_touching_the_store(tmp_path):
     """:102, read side: serving a stored result needs no queue state and changes nothing on disk (the busy queue
-    of the Node test is slice 4)."""
+    of the Node test is the submit half below)."""
     library, radius, file, key = cached_fixture(tmp_path)
     before = snapshot(tmp_path)
     assert radius.read_cache(key, REQUEST)['finished_at'] == FINISHED
     assert library.get(key)['compatible'] is True
     assert library.list()['records'][0]['id'] == key
     assert snapshot(tmp_path) == before
+
+
+def test_a_cached_result_is_served_while_unrelated_computation_runs(tmp_path):
+    """:102, the submit half: a submit of the stored request answers the record while a job of another key runs,
+    and leaves that job active and the permit untouched."""
+    jobs, key = jobs_fixture(tmp_path)
+    active = RadiusJob('fixture-active', 'another-key', {**REQUEST, 'radius_mm': 40}, 'running', 'running', 0, '',
+                       '2026-09-08T12:00:00.000Z')
+    jobs.active = active
+    response = asyncio.run(jobs.submit(REQUEST))
+    assert response['job']['cached'] is True and response['job']['key'] == key
+    assert jobs.active is active and not jobs.submitting
+    assert not jobs.execution_slot.busy and not lock_file(jobs).exists()
+    jobs.active = None
 
 
 def test_invalid_checksum_and_malformed_records_are_misses(tmp_path):
@@ -125,8 +171,8 @@ def test_invalid_checksum_and_malformed_records_are_misses(tmp_path):
 
 
 def test_lookup_bodies_hit_miss_or_are_refused_before_any_read(tmp_path):
-    """:121, without the endpoint (slice 4): the stored request reads its record, another radius reads nothing,
-    and a body with an extra field is refused by the request format, before any key or file."""
+    """:121, without the endpoint (test_compute_routes.py): the stored request reads its record, another radius
+    reads nothing, and a body with an extra field is refused by the request format, before any key or file."""
     _, radius, _, key = cached_fixture(tmp_path)
     for body, hit in ((REQUEST, True), ({**REQUEST, 'radius_mm': 20}, False)):
         request = normalize_request(body)
@@ -161,6 +207,22 @@ def test_failed_input_identity_blocks_cached_reuse(tmp_path):
     assert listed['records'][0]['compatible'] is False
     assert listed['warnings'][-1] == INPUT_WARNING
     assert library.get(key)['compatible'] is False
+
+
+def test_failed_input_identity_blocks_cached_reuse_instead_of_starting_work(tmp_path):
+    """:144, the submit half: when the forward inputs of the stored record changed, the submit is refused with that
+    error rather than starting a replacement computation."""
+    jobs, _ = jobs_fixture(tmp_path)
+
+    def changed(result):
+        raise IdentityError('changed input')
+
+    jobs.verify_inputs = changed
+    with pytest.raises(IdentityError, match='changed input'):
+        asyncio.run(jobs.submit(REQUEST))
+    assert jobs.active is None and not jobs.submitting and not lock_file(jobs).exists()
+    with pytest.raises(IdentityError, match='changed input'):
+        asyncio.run(jobs.lookup(REQUEST))
 
 
 def test_library_only_returns_allowlisted_opaque_ids(tmp_path):

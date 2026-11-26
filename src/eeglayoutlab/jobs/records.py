@@ -1,31 +1,44 @@
-"""Node's record store (``webapp/server/storage/records.mjs``) and the ``fs`` calls of the library and job engine.
+"""Node's record store (``webapp/server/storage/records.mjs``) and the ``fs`` calls of the library.
 
 The five record trees stay at ``R/results/v2/*_jobs`` (decision U1); a directory's name is the request key. Reads
-and writes follow Node's checks: ``path`` refuses a key that is not 64 lowercase hex digits and a suffix that
-leaves the key's directory (lexically), ``contained`` resolves the root and the target with ``realpath(3)``
-(``nodefs.realpath``) and requires the target inside the root, ``write`` checks the real parent directory and
-replaces the target atomically via ``atomic_json``, ``create_batch`` verifies every ancestor with ``realpath(3)``
-as it creates the batch directory, and ``keys`` lists the directories (not links to them) named like a key.
+follow Node's checks: ``path`` refuses a key that is not 64 lowercase hex digits and a suffix that leaves the key's
+directory (lexically), ``contained`` resolves the root and the target with ``realpath(3)`` (``nodefs.realpath``) and
+requires the target inside the root, and ``keys`` lists the directories (not links to them) named like a key.
+
+Writes are Node's, call for call (``records.mjs:14-83``): ``atomic_json`` writes ``JSON.stringify(value)`` as UTF-8
+to ``<path>.<uuid4>.tmp`` (``open(..., 'wx', 0o600)``), syncs it, renames it over ``path``, syncs the directory and
+removes the temporary in ``finally``; ``RecordStore.write`` first requires the real parent inside the real root;
+``create_batch`` creates ``<kind>/<key>/<id>`` one component at a time and resolves each one before going through
+it. Syncs are libuv's (on macOS ``F_FULLFSYNC``). ``publish_cache`` is the one deliberate difference (plan B16):
+``cache.json`` is published with ``link(2)``, so a valid one is never replaced. A temporary left by a crash is a
+file in a key's directory: ``keys`` lists directories and readers open ``cache.json`` by name, so it is never read.
 
 Node's ``readdir`` returns names sorted by their bytes (libuv's ``scandir`` sorts with ``strcmp``), not in the
 directory's order, so ``scandir`` here sorts the raw names before decoding them. The ``fs`` helpers raise
-``OSError`` carrying Node's ``code``, ``syscall`` and path, so ``node_message`` writes the message Node's error has
-(``EACCES: permission denied, open '<path>'``); the library shows such messages in its warnings.
+``OSError`` carrying Node's ``code``, ``syscall``, path and destination, so ``node_message`` writes the message
+Node's error has (``EACCES: permission denied, open '<path>'``, ``... rename '<from>' -> '<to>'``); the library shows
+such messages in its warnings and the run paths in their failure messages.
 """
 from __future__ import annotations
 
 import errno
 import os
 import re
-import stat as stat_module
-from typing import Any, Optional
+import sys
+from typing import Any, Callable, Optional
 import uuid
 
 from ..schemas import jsjson
 from . import nodefs, nodepath
+from .nodefs import _UV_TEXT, _uv_code, read_file, system_error as _annotate
 
-__all__ = ['RECORD_DIRECTORIES', 'KEY', 'UUID', 'RecordError', 'RecordStore', 'atomic_json', 'read_file', 'stat',
-           'realpath', 'scandir', 'error_code', 'node_message']
+try:
+    import fcntl
+except ImportError:  # not POSIX
+    fcntl = None  # type: ignore[assignment]
+
+__all__ = ['RECORD_DIRECTORIES', 'KEY', 'BATCH', 'RecordError', 'RecordStore', 'read_file', 'stat', 'realpath',
+           'scandir', 'error_code', 'node_message', 'json_bytes', 'atomic_json', 'atomic_bytes', 'fsync']
 
 RECORD_DIRECTORIES = {
     'radius': 'results/v2/local_app_jobs',
@@ -35,32 +48,19 @@ RECORD_DIRECTORIES = {
     'sourceV2': 'results/v2/source_reception_v2_jobs',
 }
 KEY = re.compile('[a-f0-9]{64}')
-UUID = re.compile('[a-f0-9-]{36}')
-_CHUNK = 1 << 20
+BATCH = re.compile('[a-f0-9-]{36}')
 
-# libuv's uv_strerror texts, which Node's fs errors carry (deps/uv/include/uv.h, UV_ERRNO_MAP).
-_UV_TEXT = {
-    'E2BIG': 'argument list too long', 'EACCES': 'permission denied', 'EAGAIN': 'resource temporarily unavailable',
-    'EBADF': 'bad file descriptor', 'EBUSY': 'resource busy or locked', 'EFBIG': 'file too large',
-    'EILSEQ': 'illegal byte sequence', 'EINVAL': 'invalid argument', 'EIO': 'i/o error',
-    'EISDIR': 'illegal operation on a directory', 'ELOOP': 'too many symbolic links encountered',
-    'EMFILE': 'too many open files', 'ENAMETOOLONG': 'name too long', 'ENFILE': 'file table overflow',
-    'ENODEV': 'no such device', 'ENOENT': 'no such file or directory', 'ENOMEM': 'not enough memory',
-    'ENOTDIR': 'not a directory', 'ENXIO': 'no such device or address',
-    'EOVERFLOW': 'value too large for defined data type', 'EPOLL': 'unknown error', 'EPERM': 'operation not permitted',
-    'ETIMEDOUT': 'connection timed out',
-}
+# link(2) on a file system without hard links (FAT, exFAT, some network file systems).
+_NO_HARD_LINKS = {getattr(errno, name) for name in ('EPERM', 'ENOTSUP', 'EOPNOTSUPP', 'ENOSYS') if hasattr(errno, name)}
+# Node's flag strings (lib/internal/fs/utils.js, stringToFlags); libuv opens every file with O_CLOEXEC, as os.open.
+_FLAGS = {'r': os.O_RDONLY, 'wx': os.O_TRUNC | os.O_CREAT | os.O_WRONLY | os.O_EXCL}
+# fcntl commands of libuv's uv_fs_fsync on macOS.
+_F_FULLFSYNC = getattr(fcntl, 'F_FULLFSYNC', 51)
+_F_BARRIERFSYNC = 85
 
 
 class RecordError(ValueError):
     """A record path or file Node refuses; the message is Node's, verbatim."""
-
-
-def _annotate(error: OSError, syscall: str, path: Optional[str]) -> OSError:
-    error.code = errno.errorcode.get(error.errno, 'UNKNOWN')  # type: ignore[attr-defined]
-    error.syscall = syscall  # type: ignore[attr-defined]
-    error.node_path = path  # type: ignore[attr-defined]
-    return error
 
 
 def error_code(error: BaseException) -> Optional[str]:
@@ -74,39 +74,17 @@ def error_code(error: BaseException) -> Optional[str]:
 
 
 def node_message(error: BaseException) -> str:
-    """``error.message`` as Node writes it: ``<code>: <text>, <syscall> '<path>'`` for a system error from these
-    helpers, else the exception's own message (Node's text for the errors this package raises; a ``SyntaxError``'s
-    message is Python's, not V8's)."""
+    """``error.message`` as Node writes it: ``<code>: <text>, <syscall>[ '<path>'][ -> '<dest>']`` for a system
+    error from these helpers, else the exception's own message (Node's text for the errors this package raises; a
+    ``SyntaxError``'s message is Python's, not V8's)."""
     syscall = getattr(error, 'syscall', None)
     if isinstance(error, OSError) and syscall:
-        code = error_code(error) or 'UNKNOWN'
-        text = _UV_TEXT.get(code, os.strerror(error.errno).lower() if error.errno else 'unknown error')
-        path = getattr(error, 'node_path', None)
-        return f"{code}: {text}, {syscall}" + (f" '{path}'" if path is not None else '')
+        code = error_code(error) or _uv_code(error.errno)
+        text = _UV_TEXT.get(code, code)
+        path, dest = getattr(error, 'node_path', None), getattr(error, 'node_dest', None)
+        return (f"{code}: {text}, {syscall}" + (f" '{path}'" if path is not None else '')
+                + (f" -> '{dest}'" if dest is not None else ''))
     return str(error)
-
-
-def read_file(path: str) -> bytes:
-    """``await readFile(path)``: ``open`` fails with the path in the message; a directory opens and fails on
-    ``read`` (``EISDIR``, without a path)."""
-    try:
-        fd = os.open(nodefs.encode(path), os.O_RDONLY | getattr(os, 'O_CLOEXEC', 0))
-    except OSError as error:
-        raise _annotate(error, 'open', path) from None
-    try:
-        if stat_module.S_ISDIR(os.fstat(fd).st_mode):
-            raise _annotate(OSError(errno.EISDIR, os.strerror(errno.EISDIR)), 'read', None)
-        chunks = []
-        while True:
-            try:
-                chunk = os.read(fd, _CHUNK)
-            except OSError as error:
-                raise _annotate(error, 'read', None) from None
-            if not chunk:
-                return b''.join(chunks)
-            chunks.append(chunk)
-    finally:
-        os.close(fd)
 
 
 def stat(path: str) -> os.stat_result:
@@ -136,53 +114,211 @@ def scandir(path: str) -> list[tuple[str, bool]]:
     return [(nodefs.decode(name), is_dir) for name, is_dir in sorted(found)]
 
 
-def _write_all(fd: int, data: bytes) -> None:
+# --- The fs/promises calls of the writers, with Node's errors -----------------------------------------------------
+
+def _mkdir(path: str) -> None:
+    """``await mkdir(path)`` (mode 0o777 less the umask)."""
+    try:
+        os.mkdir(nodefs.encode(path), 0o777)
+    except OSError as error:
+        raise _annotate(error, 'mkdir', path) from None
+
+
+def _open(path: str, flags: str, mode: Optional[int] = None) -> int:
+    """``await open(path, flags, mode)`` with Node's flag strings (``'r'``, ``'wx'``); Node's default mode is
+    0o666."""
+    try:
+        return os.open(nodefs.encode(path), _FLAGS[flags], 0o666 if mode is None else mode)
+    except OSError as error:
+        raise _annotate(error, 'open', path) from None
+
+
+def _write(fd: int, data: bytes) -> None:
+    """``filehandle.writeFile(data)``: writes until every byte is written."""
     view = memoryview(data)
-    written = 0
-    while written < len(view):
-        written += os.write(fd, view[written:])
+    while view:
+        try:
+            written = os.write(fd, view)
+        except OSError as error:
+            raise _annotate(error, 'write', None) from None
+        view = view[written:]
+
+
+def fsync(fd: int) -> None:
+    """``filehandle.sync()``: libuv's ``uv_fs_fsync``, which on macOS asks for ``F_FULLFSYNC`` (the drive's cache too),
+    then ``F_BARRIERFSYNC``, then ``fsync``; elsewhere ``fsync``."""
+    if sys.platform == 'darwin' and fcntl is not None:
+        for command in (_F_FULLFSYNC, _F_BARRIERFSYNC):
+            try:
+                fcntl.fcntl(fd, command)
+                return
+            except OSError:
+                pass
+    try:
+        os.fsync(fd)
+    except OSError as error:
+        raise _annotate(error, 'fsync', None) from None
+
+
+def _close(fd: int) -> None:
+    try:
+        os.close(fd)
+    except OSError as error:
+        raise _annotate(error, 'close', None) from None
+
+
+def _rename(path: str, dest: str) -> None:
+    """``await rename(path, dest)``: replaces ``dest`` (a link there is replaced, not followed)."""
+    try:
+        os.rename(nodefs.encode(path), nodefs.encode(dest))
+    except OSError as error:
+        raise _annotate(error, 'rename', path, dest) from None
+
+
+def _link(path: str, dest: str) -> None:
+    """``await link(path, dest)``: fails with ``EEXIST`` when ``dest`` exists (a dangling link included)."""
+    try:
+        os.link(nodefs.encode(path), nodefs.encode(dest))
+    except OSError as error:
+        raise _annotate(error, 'link', path, dest) from None
+
+
+def _unlink(path: str) -> None:
+    try:
+        os.unlink(nodefs.encode(path))
+    except OSError as error:
+        raise _annotate(error, 'unlink', path) from None
+
+
+def _temporary(path: str) -> str:
+    """``${path}.${randomUUID()}.tmp`` (a lowercase UUID v4), the name Node's project and study scanners accept."""
+    return f'{path}.{uuid.uuid4()}.tmp'
+
+
+def _write_new(temporary: str, data: bytes) -> None:
+    """``open(temporary, 'wx', 0o600)``, ``writeFile``, ``sync``, ``close`` (in ``finally``)."""
+    fd = _open(temporary, 'wx', 0o600)
+    try:
+        _write(fd, data)
+        fsync(fd)
+    finally:
+        _close(fd)
+
+
+def _sync_directory(directory: str) -> None:
+    fd = _open(directory, 'r')
+    try:
+        fsync(fd)
+    finally:
+        _close(fd)
+
+
+def _discard(temporary: str) -> None:
+    """``await unlink(temporary).catch(error => { if (error.code !== 'ENOENT') throw error; })``."""
+    try:
+        _unlink(temporary)
+    except OSError as error:
+        if error_code(error) != 'ENOENT':
+            raise
+
+
+# --- JSON.stringify's cycle check ------------------------------------------------------------------------------------
+
+def _members(value: Any):
+    """The children of a container in ``JSON.stringify``'s order, with V8's key for the messages: an object's keys
+    are names (array indices first, ascending), an array's are indices."""
+    if isinstance(value, dict):
+        names = [name for name in value if isinstance(name, str)]
+        indices = sorted((name for name in names if jsjson.is_array_index(name)), key=int)
+        for name in indices + [name for name in names if not jsjson.is_array_index(name)]:
+            yield name, value[name]
+    else:
+        yield from enumerate(value)
+
+
+def _circle(path: list, start: int, last: Any) -> str:
+    """V8's message (json-stringifier.cc, ``ConstructCircularStructureErrorMessage``): the object the circle starts
+    at, at most two steps after it, ``...``, the last step, and the key that closes the circle."""
+    def kind(value: Any) -> str:
+        return 'Object' if isinstance(value, dict) else 'Array'
+
+    def key(name: Any) -> str:
+        if isinstance(name, int):
+            return f'index {name}'
+        return f"property '{name}'" if name else '<anonymous>'
+
+    def step(index: int) -> str:
+        return f"\n    |     {key(path[index][0])} -> object with constructor '{kind(path[index][1])}'"
+
+    lines = ['Converting circular structure to JSON',
+             f"\n    --> starting at object with constructor '{kind(path[start][1])}'"]
+    index = start + 1
+    prefix_end = min(len(path), index + 2)
+    while index < prefix_end:
+        lines.append(step(index))
+        index += 1
+    if len(path) > index + 1:
+        lines.append('\n    |     ...')
+    index = max(index, len(path) - 1)
+    while index < len(path):
+        lines.append(step(index))
+        index += 1
+    lines.append(f'\n    --- {key(last)} closes the circle')
+    return ''.join(lines)
+
+
+def _check_acyclic(value: Any) -> None:
+    """Raises V8's ``TypeError`` when ``value`` contains itself; ``jsjson.stringify`` would never return. A value
+    reached twice on different paths is not a circle, as in V8."""
+    if not isinstance(value, (dict, list, tuple)):
+        return
+    path: list[tuple[Any, Any]] = [('', value)]
+    on_path = {id(value)}
+    pending = [_members(value)]
+    while pending:
+        entry = next(pending[-1], None)
+        if entry is None:
+            pending.pop()
+            on_path.discard(id(path.pop()[1]))
+            continue
+        name, child = entry
+        if not isinstance(child, (dict, list, tuple)):
+            continue
+        if id(child) in on_path:
+            start = next(i for i, (_, container) in enumerate(path) if container is child)
+            raise TypeError(_circle(path, start, name))
+        path.append((name, child))
+        on_path.add(id(child))
+        pending.append(_members(child))
+
+
+def json_bytes(value: Any) -> bytes:
+    """The bytes Node writes for ``value``: ``JSON.stringify(value)`` (``jsjson.stringify``) as UTF-8. A value that
+    contains itself raises V8's ``TypeError`` before anything is written."""
+    _check_acyclic(value)
+    return jsjson.stringify(value).encode('utf-8')
+
+
+def _replace(path: str, data: Callable[[], bytes]) -> None:
+    temporary = _temporary(path)
+    try:
+        _write_new(temporary, data())
+        _rename(temporary, path)
+        _sync_directory(nodepath.dirname(path))
+    finally:
+        _discard(temporary)
+
+
+def atomic_bytes(path: str, data: bytes) -> None:
+    """``atomicBytes(path, bytes)`` (studies/store.mjs): ``data`` replaces ``path`` atomically; a failed write never
+    replaces the last valid file, and the temporary is removed whatever happens."""
+    _replace(path, lambda: data)
 
 
 def atomic_json(path: str, value: Any) -> None:
-    """``atomicJson(path, value)``: serializes with ``jsjson.stringify`` first, writes to a new 0600 temporary
-    file, fsyncs, renames over ``path`` and fsyncs the parent directory; never replaces the last valid file on
-    failure."""
-    temporary = f'{path}.{uuid.uuid4()}.tmp'
-    raw_temp = nodefs.encode(temporary)
-    try:
-        payload = jsjson.stringify(value).encode('utf-8')
-        try:
-            fd = os.open(raw_temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | getattr(os, 'O_CLOEXEC', 0),
-                         0o600)
-        except OSError as error:
-            raise _annotate(error, 'open', temporary) from None
-        try:
-            _write_all(fd, payload)
-            os.fsync(fd)
-        finally:
-            os.close(fd)
-        try:
-            os.replace(raw_temp, nodefs.encode(path))
-        except OSError as error:
-            raise _annotate(error, 'rename', temporary) from None
-        parent = nodepath.dirname(path)
-        try:
-            dir_fd = os.open(nodefs.encode(parent), os.O_RDONLY | getattr(os, 'O_CLOEXEC', 0))
-        except OSError as error:
-            raise _annotate(error, 'open', parent) from None
-        try:
-            try:
-                os.fsync(dir_fd)
-            except OSError as error:
-                if error.errno not in (errno.EINVAL, errno.ENOTSUP):
-                    raise
-        finally:
-            os.close(dir_fd)
-    finally:
-        try:
-            os.unlink(raw_temp)
-        except FileNotFoundError:
-            pass
+    """``atomicJson(path, value)``: ``json_bytes(value)`` replaces ``path`` as ``atomic_bytes`` does (a value that
+    cannot be written fails before the temporary is created)."""
+    _replace(path, lambda: json_bytes(value))
 
 
 class RecordStore:
@@ -219,36 +355,6 @@ class RecordStore:
         """``JSON.parse(await readFile(await this.contained(path), 'utf8'))``."""
         return jsjson.parse(nodefs.decode(read_file(self.contained(path))))
 
-    def write(self, path: str, value: Any) -> None:
-        """``await store.write(path, value)``: checks the real parent directory is inside the real root, then
-        replaces ``path`` atomically via ``atomic_json``."""
-        root = realpath(self.root)
-        parent = realpath(nodepath.dirname(path))
-        if not parent.startswith(root + '/'):
-            raise RecordError('Record path leaves the repository.')
-        atomic_json(path, value)
-
-    def create_batch(self, kind: str, key: Any, id: Any) -> str:
-        """``await store.createBatch(kind, key, id)``: checks every ancestor with ``realpath(3)`` as it creates the
-        batch directory, refusing symlinks that leave the repository."""
-        if not (isinstance(id, str) and UUID.fullmatch(id)):
-            raise RecordError('Invalid batch identifier.')
-        path = self.path(kind, key, id)
-        root = realpath(self.root)
-        cursor = self.root
-        for part in nodepath.relative(self.root, path).split('/'):
-            cursor = nodepath.join(cursor, part)
-            try:
-                os.mkdir(nodefs.encode(cursor))
-            except FileExistsError:
-                pass
-            except OSError as error:
-                raise _annotate(error, 'mkdir', cursor) from None
-            actual = realpath(cursor)
-            if not actual.startswith(root + '/'):
-                raise RecordError('Record directory leaves the repository.')
-        return path
-
     def keys(self, kind: str) -> list[str]:
         """The keys of one record tree in Node's order; ``[]`` when the tree (or the root) is missing."""
         directory = self.directory(kind)
@@ -259,3 +365,89 @@ class RecordStore:
             if error.errno == errno.ENOENT:
                 return []
             raise
+
+    # --- Writes ---------------------------------------------------------------------------------------------------
+
+    def _parent_inside(self, path: str) -> None:
+        root = realpath(self.root)
+        parent = realpath(nodepath.dirname(path))
+        if not parent.startswith(root + '/'):
+            raise RecordError('Record path leaves the repository.')
+
+    def write(self, path: str, value: Any) -> None:
+        """``await write(path, value)``: the real parent directory must be inside the real root (``path`` itself
+        may be a link, which is replaced); then ``atomic_json``, which replaces an existing file."""
+        self._parent_inside(path)
+        atomic_json(path, value)
+
+    def create_batch(self, kind: str, key: Any, id: Any) -> str:
+        """``await createBatch(kind, key, id)``: ``<kind>/<key>/<id>`` under the root, every component created
+        (``EEXIST`` is fine) and then resolved inside the real root before the next one is created through it."""
+        if not (isinstance(id, str) and BATCH.fullmatch(id)):
+            raise RecordError('Invalid batch identifier.')
+        path = self.path(kind, key, id)
+        root = realpath(self.root)
+        cursor = self.root
+        for part in nodepath.relative(self.root, path).split('/'):
+            cursor = nodepath.join(cursor, part)
+            try:
+                _mkdir(cursor)
+            except OSError as error:
+                if error_code(error) != 'EEXIST':
+                    raise
+            actual = realpath(cursor)
+            if not actual.startswith(root + '/'):
+                raise RecordError('Record directory leaves the repository.')
+        return path
+
+    def stored_cache(self, kind: str, key: Any) -> Optional[Any]:
+        """``<kind>/<key>/cache.json`` when it passes the checks every kind's reader makes first (Node:
+        ``cache.key === key`` and ``cache.result_sha256 === sha256(JSON.stringify(cache.result))``), else ``None``.
+        As in Node's readers, a missing, unreadable-as-JSON or foreign file is not a hit, and only ``EACCES`` and
+        ``EPERM`` raise."""
+        try:
+            cache = self.read(self.path(kind, key, 'cache.json'))
+            if not isinstance(cache, dict) or cache.get('key') != key or 'result' not in cache:
+                return None
+            if cache.get('result_sha256') != jsjson.sha256_hex(cache['result']):
+                return None
+            return cache
+        except Exception as error:  # noqa: BLE001 - every other failure is a miss in Node's readers
+            if isinstance(error, OSError) and error.errno in (errno.EACCES, errno.EPERM):
+                raise
+            return None
+
+    def publish_cache(self, kind: str, key: Any, value: Any,
+                      valid: Optional[Callable[[], Optional[Any]]] = None) -> Optional[Any]:
+        """Publishes ``value`` as ``<kind>/<key>/cache.json`` once (plan B16), where Node's ``write`` replaces it.
+
+        The containment check and the temporary are ``write``'s; the temporary is then linked to ``cache.json``,
+        which fails if the name exists. Then the existing file is read with ``valid`` (default ``stored_cache``;
+        a kind passes its own reader, for the radius ``lambda: RadiusCache.read_cache(key, request)``): a valid
+        file is a hit, which stays, and only a file that is not (corrupt, foreign, a directory's name ...) is
+        replaced by renaming the temporary over it. On a file system without hard links the same check comes
+        before the rename. A rename over a file that is not valid can still race with another publisher; the
+        installation's execution lock (``R/results/v2/.eeglayoutlab-execution.lock``) keeps publishers apart.
+
+        Returns ``None`` when ``value`` is now the cache, else what ``valid`` returned for the cache already there.
+        Errors are Node's (``EACCES`` reading the existing file raises; ``cache.json`` is left as it was), and the
+        temporary is removed whatever happens.
+        """
+        path = self.path(kind, key, 'cache.json')
+        self._parent_inside(path)
+        temporary = _temporary(path)
+        try:
+            _write_new(temporary, json_bytes(value))
+            try:
+                _link(temporary, path)
+            except OSError as error:
+                if error.errno != errno.EEXIST and error.errno not in _NO_HARD_LINKS:
+                    raise
+                existing = valid() if valid is not None else self.stored_cache(kind, key)
+                if existing is not None:
+                    return existing
+                _rename(temporary, path)
+            _sync_directory(nodepath.dirname(path))
+            return None
+        finally:
+            _discard(temporary)

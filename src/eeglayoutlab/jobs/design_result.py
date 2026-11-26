@@ -17,7 +17,7 @@ import re
 from typing import Any, Optional
 
 from ..schemas import jsjson
-from .identity import UNDEFINED, JSTypeError, _member, _same, js_truthy
+from .identity import UNDEFINED, JSTypeError, _member, _same, js_truthy, to_number
 
 __all__ = ['DesignResultError', 'ROBUSTNESS_LEVELS', 'FORWARD_MODES', 'normalize_design_request', 'node_refusal',
            'same', 'validate_design_result', 'valid_robustness']
@@ -377,17 +377,10 @@ def _check_trial(i: int, t: Any, r: dict, request: dict) -> None:
 
 
 def _close(a: float, b: Any, tolerance: float) -> bool:
-    """``!(Math.abs(a - b) > tolerance)`` for a number ``a``: ``b`` converts with ``Number`` (``null`` is 0, other
-    non-numbers NaN, whose difference is never greater)."""
-    if b is None:
-        number = 0.0
-    elif jsjson.is_number(b):
-        number = jsjson.to_number(b)
-    elif isinstance(b, bool):
-        number = float(b)
-    else:
-        return True  # NaN: the comparison is false
-    return not abs(a - number) > tolerance
+    """``!(Math.abs(a - b) > tolerance)`` for a number ``a``: the subtraction converts ``b`` with ``ToNumber``
+    (``identity.to_number``: ``null`` is 0, a string or an array goes through StringToNumber, another object is
+    NaN, whose difference is never greater, or V8's ``TypeError`` with its own ``toString``)."""
+    return not abs(a - to_number(b)) > tolerance
 
 
 def _distinct(values: list) -> bool:

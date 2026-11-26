@@ -263,25 +263,16 @@ def stringify(value: Any) -> str:
     if not isinstance(value, (list, tuple, dict)):
         return _scalar(value)
     out: list[str] = []
-    # Open containers: [iterator of (prefix, child), closing bracket, nothing written yet, id(container)].
+    # Open containers: [iterator of (prefix, child), closing bracket, nothing written yet].
     stack: list[list[Any]] = []
-    open_ids: set[int] = set()
     child = value
     while True:
         if isinstance(child, dict):
-            cid = id(child)
-            if cid in open_ids:
-                raise TypeError('Converting circular structure to JSON')
-            open_ids.add(cid)
             out.append('{')
-            stack.append([_members(child), '}', True, cid])
+            stack.append([_members(child), '}', True])
         elif isinstance(child, (list, tuple)):
-            cid = id(child)
-            if cid in open_ids:
-                raise TypeError('Converting circular structure to JSON')
-            open_ids.add(cid)
             out.append('[')
-            stack.append([_items(child), ']', True, cid])
+            stack.append([_items(child), ']', True])
         else:
             out.append(_scalar(child))
         while stack:
@@ -289,7 +280,6 @@ def stringify(value: Any) -> str:
             entry = next(frame[0], None)
             if entry is None:
                 out.append(frame[1])
-                open_ids.discard(frame[3])
                 stack.pop()
                 continue
             if frame[2]:

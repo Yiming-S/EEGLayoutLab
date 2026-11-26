@@ -68,14 +68,15 @@ The report also names every JSON file that contains a path in a home directory (
 
 ## Using installed packages
 
-The service and the workers do not read the data directory. They read files at root-relative paths under the scientific root: `--root`, `EEG_REPOSITORY_ROOT`, or the checkout. The root also holds the code, the configuration and the runtime, so it is a checkout. `compose` puts the files of installed packages at their paths in that root:
+The service and the workers do not read the data directory. They read files at root-relative paths under the scientific root. The root also holds the code and the configuration: it is a checkout, or, in an application installed with conda, the tree the package installs at `$PREFIX/share/eeglayoutlab/root` ([design 0002](design/0002-installed-scientific-root.md)). `compose` puts the files of installed packages at their paths in that root:
 
 ```bash
-eeglayoutlab data compose                       # every installed package, into the checkout
+eeglayoutlab data compose                       # every installed package, into the default root
 eeglayoutlab data compose head-ixi002 --root R  # one head and the packages it needs, into R
 ```
 
-- **Root.** `--root`, else `EEG_REPOSITORY_ROOT`, else the checkout, as for the service. The root must contain `configs/`.
+- **Root.** `--root`, else `EEG_REPOSITORY_ROOT`, else the checkout that holds the package, else the installed root of the environment, as for the service. The root must contain `configs/`.
+- **Writable root.** The root, and `results/v2` (or `results`) when it exists, must be writable; records are written there too. Otherwise `compose`, like `serve`, exits 2 before it compares or writes anything. An installation the user cannot write is not supported: the message says to create a user environment, for example with Miniforge or micromamba in the home directory.
 - **Packages.** Every installed package, or the ones named plus the installed packages they need. A package that needs one that is not installed is reported.
 - **Hard links.** Each file is a hard link to the installed file when the data directory and the root are on one file system, so the data takes no extra space. Otherwise, or with `--copy`, the file is copied, checked against its size and SHA-256 and renamed into place.
 - **Read-only.** Installed files and their links are read-only. A program that rewrote one in place would fail instead of changing the installed package. One that writes a new file and renames it over the old one replaces only the link.

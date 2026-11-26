@@ -3,8 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { bidsNeedsMniSurface, exportBIDSElectrodes, exportMniBIDSElectrodes, parseBIDSElectrodes, parseElectrodeLabels, POSITION_PROVENANCE } from '../lib/bids-electrodes.ts';
 import { ERNIE_MNI_MAPPING, MAPPING_ID, ernieToMni, mniToErnie, surfaceFromBuffers, verifiedSurface } from '../lib/ernie-mni.ts';
-import { scientificDesign } from '../lib/design-decision.ts';
-import { normalizeDesignRequest } from '../server/design-evaluation-server.mjs';
+import { designSubmission, scientificDesign } from '../lib/design-decision.ts';
 import { validateCoordinateSource } from '../contracts/coordinate-source.mjs';
 import { exportEeglabSfp, exportMneElc } from '../lib/montage-files.ts';
 import { spawnSync } from 'node:child_process';
@@ -58,7 +57,12 @@ void test('10-05 labels reproduce the standard64 reference and resolve the old 1
   assert.deepEqual(csv.xyz_mm, design.xyz_mm);
   assert.deepEqual(csv.electrode_names, design.electrode_names);
   // Names are presentation metadata: the scientific request equals a plain coordinate import.
-  assert.deepEqual(normalizeDesignRequest({ action: 'evaluate', design: scientificDesign(design), radius_mm: 6, seed: 42 }).design.xyz_mm, design.xyz_mm);
+  const { electrode_names: _names, source_metadata: _source, ...plain } = design;
+  assert.deepEqual(scientificDesign(design), plain);
+  const submission = designSubmission(design, 'evaluate', 6, 42);
+  assert.equal(submission.schema, 'design-submission/1');
+  assert.deepEqual(submission.request, designSubmission(plain, 'evaluate', 6, 42));
+  assert.deepEqual(submission.request.design.xyz_mm, design.xyz_mm);
 });
 
 void test('label lists reject unknown, repeated or malformed entries', () => {

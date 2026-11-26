@@ -1,10 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
-import type { ProjectAccess } from '../../client/projects';
-import { ACTIVE_PROJECT_EVENT, readActiveProject } from './active-project';
+import { ACTIVE_PROJECT_EVENT, readActiveProject, type ActiveProject } from './active-project';
 
 export function useActiveProject() {
-  const [active, setActive] = useState<ProjectAccess | null>(null);
+  const [active, setActive] = useState<ActiveProject | null>(null);
   useEffect(() => {
     let disposed = false;
     const restore = () => {

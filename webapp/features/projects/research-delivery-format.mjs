@@ -70,6 +70,7 @@ const regions = (v, n) =>
 
 const finiteOrNull = (value) =>
   value === null || (typeof value === 'number' && Number.isFinite(value));
+/** An entry's summary as the project service writes it; a layout's also says whether signal simulation accepts it. */
 function summaryShape(value) {
   if (
     !fields(value, [
@@ -82,6 +83,7 @@ function summaryShape(value) {
       'brain_regions',
       'source_index',
       'seed',
+      'simulation',
     ])
   )
     return false;
@@ -91,6 +93,7 @@ function summaryShape(value) {
     if (key in value && (!Number.isSafeInteger(value[key]) || value[key] < 0))
       return false;
   return (
+    (!('simulation' in value) || typeof value.simulation === 'boolean') &&
     (!('parent_id' in value) || SHA.test(value.parent_id)) &&
     (!('brain_regions' in value) ||
       (Array.isArray(value.brain_regions) &&

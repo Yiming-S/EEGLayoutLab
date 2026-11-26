@@ -48,8 +48,8 @@
   <g transform="translate(58, 374)">
     <rect x="0" y="0" width="94" height="20" rx="4" fill="#14532D" />
     <text x="47" y="14" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10.5" font-weight="700" fill="#86EFAC">STEP 4 · RUN</text>
-    <text x="110" y="14" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12.5" fill="#FAF9F5">$ cd webapp &amp;&amp; npm ci &amp;&amp; npm run build &amp;&amp; npm start</text>
-    <text x="110" y="36" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" font-weight="600" fill="#4ADE80">EEG Layout Lab: http://127.0.0.1:3000 (PID 44538)</text>
-    <text x="536" y="36" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#A1A1AA">← Open this URL in your browser (keep Terminal running)</text>
+    <text x="110" y="14" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12.5" fill="#FAF9F5">$ .venv/bin/eeglayoutlab serve ~/eeglayoutlab-workspace</text>
+    <text x="110" y="36" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" font-weight="600" fill="#4ADE80">EEG Layout Lab: http://127.0.0.1:52817/open?token=…</text>
+    <text x="536" y="36" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#A1A1AA">← Opens in your browser (keep Terminal running)</text>
   </g>
 </svg>

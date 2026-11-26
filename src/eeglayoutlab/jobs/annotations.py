@@ -1,16 +1,29 @@
-"""Electrode-name annotations, read and write sides: Node's ``annotations/electrode-names.mjs``
-(``electrodeNames``, ``designSubmission``, ``validateElectrodeAnnotation`` and ``ElectrodeAnnotations``).
+"""Electrode-name annotations: Node's ``annotations/electrode-names.mjs`` (``electrodeNames``, ``designSubmission``,
+``validateElectrodeAnnotation`` and ``ElectrodeAnnotations``).
 
 An annotation is immutable, content-addressed presentation metadata for a saved design evaluation (its 64
 electrode names and, optionally, where the coordinates came from); it never enters a scientific key. A file is
 ``{id, schema, owner, record_id, request_sha256, xyz_sha256, regions_sha256, electrode_names, source_metadata?}``
-with ``id = sha256(JSON.stringify(<the file without id>))``, so the owner stored in the file is covered by the id.
+with ``id = sha256(JSON.stringify(<the file without id>))``, so the owner Node stored is covered by the id.
 
 The local service has one user (design 0001, decision 6): annotations are read without regard to their owner, from
 several directories in order: the workspace's ``W/annotations/electrode-names/`` first, then Node's
-``R/results/v2/design_evaluation_jobs/electrode_annotations/``. New annotations are written atomically to the first
-directory in ``self.directories`` (``W/annotations/electrode-names/`` when configured for a workspace) with mode
-``0600`` inside ``0700`` directories.
+``R/results/v2/design_evaluation_jobs/electrode_annotations/``. Each directory is checked as Node checks its own:
+below a base resolved with ``fs.realpathSync``, every component must be a directory, not a link, whose real path
+is itself; a missing component means no annotations there. Errors are ``AnnotationError`` with Node's status and
+message (the routes answer with them); any other failure while reading a file is ``Electrode name storage is
+unavailable.`` (409), as in Node.
+
+New annotations are written only to the workspace directory, under the local owner (``LOCAL_OWNER``), so their ids
+differ from Node's for the same names (the id covers the owner) and are stable across runs. ``create`` is Node's,
+call for call: the file is ``JSON.stringify({id, ...identity})`` as UTF-8, written to a ``.<uuid>.tmp`` opened
+``wx`` with mode 0600, synced, renamed to ``<id>.json`` and the directory synced; the directories are created one
+component at a time with mode 0700 and checked as above. A file that already has the id is read, never rewritten.
+One difference: a ``.<uuid>.tmp`` that disappears between the directory listing and its ``lstat`` is skipped, by
+``create``'s inspection and by ``list``, where Node fails (503 and 409). The library lists in a request thread while
+``create`` renames on the event loop; Node's single thread meets that only through an outside removal.
+``design_submission`` unwraps the ``design-submission/1`` envelope with Node's checks and messages, before the
+request is normalized.
 """
 from __future__ import annotations
 
@@ -24,18 +37,19 @@ import uuid
 
 from ..schemas import jsjson
 from ..server.workspace import LOCAL_OWNER
-from . import nodefs, nodepath
+from . import nodefs, nodepath, records
 from .identity import UNDEFINED, _js_string, js_truthy
 from .records import scandir
 
-__all__ = [
-    'ANNOTATION_LIMITS', 'WORKSPACE_ANNOTATIONS', 'NODE_ANNOTATIONS', 'AnnotationError', 'electrode_names',
-    'design_submission', 'validate_electrode_annotation', 'public_value', 'ElectrodeAnnotations',
-]
+__all__ = ['ANNOTATION_LIMITS', 'WORKSPACE_ANNOTATIONS', 'NODE_ANNOTATIONS', 'LOCAL_OWNER', 'SUBMISSION_SCHEMA',
+           'AnnotationError', 'CoordinateSourceError', 'electrode_names', 'design_submission',
+           'validate_electrode_annotation', 'public_value', 'ElectrodeAnnotations']
 
 ANNOTATION_LIMITS = {'files': 2000, 'bytes': 64 * 1024 * 1024, 'fileBytes': 32768, 'referencesPerOwner': 20,
                      'referencesPerTask': 100}
 SCHEMA = 'eeg-electrode-annotation/1'
+SUBMISSION_SCHEMA = 'design-submission/1'
+_SUBMISSION_KEYS = ('electrode_names', 'request', 'schema', 'source_metadata')
 WORKSPACE_ANNOTATIONS = ('annotations', 'electrode-names')
 NODE_ANNOTATIONS = ('results', 'v2', 'design_evaluation_jobs', 'electrode_annotations')
 _SHA = re.compile('[a-f0-9]{64}')
@@ -43,7 +57,6 @@ _FILE = re.compile('[a-f0-9]{64}\\.json')
 _TEMPORARY = re.compile('\\.[a-f0-9-]{36}\\.tmp')
 _STORED_KEYS = 'electrode_names,id,owner,record_id,regions_sha256,request_sha256,schema,xyz_sha256'
 _PUBLIC_KEYS = 'electrode_names,id,record_id,request_sha256,schema'
-_SUBMISSION_KEYS = frozenset({'electrode_names', 'request', 'schema', 'source_metadata'})
 
 NOT_FOUND = 'Electrode name annotation not found.'
 INTEGRITY = 'Electrode name annotation failed integrity checks.'
@@ -54,6 +67,7 @@ TOO_LARGE = 'Electrode name metadata is too large.'
 INVALID_IDENTITY = 'Invalid electrode annotation identity.'
 INVALID_SUBMISSION = 'Invalid design submission metadata.'
 NAMES = '需要64个不重复的电极名称，每个名称最多128个字符且不含控制字符。'
+SOURCE = '坐标来源说明格式无效'
 
 
 class AnnotationError(Exception):
@@ -65,6 +79,14 @@ class AnnotationError(Exception):
         super().__init__(message)
         self.message = message
         self.status = status
+
+
+class CoordinateSourceError(ValueError):
+    """``validateCoordinateSource``'s plain ``Error``: no status, so the routes answer 400 with its message."""
+
+    def __init__(self) -> None:
+        super().__init__(SOURCE)
+        self.message = SOURCE
 
 
 def _sha(value: Any) -> bool:
@@ -84,7 +106,7 @@ def _has_name_control(value: str) -> bool:
     return any(ord(char) < 32 or ord(char) == 127 for char in value)
 
 
-def electrode_names(value: Any) -> list[str]:
+def electrode_names(value: Any) -> list:
     """``electrodeNames(value)``: 64 distinct names, each non-blank, at most 128 UTF-16 units, no control
     characters. Raises ``AnnotationError`` (400)."""
     if (not isinstance(value, list) or len(value) != 64
@@ -100,30 +122,38 @@ def _sorted_keys(value: dict, skip: str = 'source_metadata') -> str:
 
 
 def _coordinate_source(value: Any) -> dict:
-    """``validateCoordinateSource(value)`` through the coordinate-source schema."""
+    """``validateCoordinateSource(value)`` through the phase 1 schema (the service extra): a copy in the input's key
+    order, or ``CoordinateSourceError``."""
     from ..schemas.coordinate_source import normalize_coordinate_source
-    return normalize_coordinate_source(value)
+    try:
+        return normalize_coordinate_source(value)
+    except ValueError:
+        raise CoordinateSourceError() from None
 
 
-def design_submission(raw: Any) -> dict[str, Any]:
-    """``designSubmission(raw)`` (webapp/server/annotations/electrode-names.mjs): unwraps ``design-submission/1``
-    into ``{request, electrode_names?, source_metadata?}`` or passes bare requests through as ``{request: raw}``."""
-    if not isinstance(raw, dict) or raw.get('schema') != 'design-submission/1':
+def _member(value: Any, name: str) -> Any:
+    """``value.name`` of a parsed JSON value (``UNDEFINED`` when absent)."""
+    return value.get(name, UNDEFINED) if isinstance(value, dict) else UNDEFINED
+
+
+def design_submission(raw: Any) -> dict:
+    """``designSubmission(raw)``: ``{'request': raw}`` unless ``raw.schema`` is ``design-submission/1``; then the
+    envelope's ``request`` (not normalized here), its names and, when present, its canonical source metadata.
+    Raises ``AnnotationError`` (400) for other keys, a falsy request or invalid names, and
+    ``CoordinateSourceError`` for invalid source metadata (``null`` included), in Node's order."""
+    if not _same_string(_member(raw, 'schema'), SUBMISSION_SCHEMA):
         return {'request': raw}
     if any(key not in _SUBMISSION_KEYS for key in raw) or not js_truthy(raw.get('request', UNDEFINED)):
         raise AnnotationError(INVALID_SUBMISSION)
-    out: dict[str, Any] = {
-        'request': raw['request'],
-        'electrode_names': electrode_names(raw.get('electrode_names', UNDEFINED)),
-    }
-    if 'source_metadata' in raw and raw['source_metadata'] is not UNDEFINED:
+    out = {'request': raw['request'], 'electrode_names': electrode_names(raw.get('electrode_names', UNDEFINED))}
+    if 'source_metadata' in raw:
         out['source_metadata'] = _coordinate_source(raw['source_metadata'])
     return out
 
 
 def validate_electrode_annotation(value: Any, record_id: Any) -> Any:
     """``validateElectrodeAnnotation(value, recordId)``: a public annotation (without owner) carried in a snapshot
-    or delivery. Raises ``AnnotationError`` (400), or the schema's ``ValueError`` for its source metadata."""
+    or delivery. Raises ``AnnotationError`` (400), or ``CoordinateSourceError`` for its source metadata."""
     if (not isinstance(value, dict) or _sorted_keys(value) != _PUBLIC_KEYS
             or value.get('schema') != SCHEMA or not _sha(value.get('id', UNDEFINED))
             or not _same_string(value.get('record_id', UNDEFINED), record_id)
@@ -153,150 +183,142 @@ def _plain_file(info: os.stat_result, limit: int) -> bool:
     return stat_module.S_ISREG(info.st_mode) and info.st_nlink == 1 and info.st_size <= limit
 
 
+def _entry(path: str, name: str) -> Optional[os.stat_result]:
+    """``lstat`` of a listed name; ``None`` for a temporary renamed or removed since the listing (a write that
+    finished meanwhile: Node's single thread never lists in the middle of its own write, here a request thread may)."""
+    try:
+        return nodefs.lstat(path)
+    except FileNotFoundError:
+        if _TEMPORARY.fullmatch(name):
+            return None
+        raise
+
+
 class ElectrodeAnnotations:
-    """Annotation files in several directories, read without regard to their owner and created in the first.
+    """Annotation files in several directories, read without regard to their owner, and written to the first one.
 
     ``directories`` are ``(base, parts)`` pairs in search order: the base is resolved with ``fs.realpathSync`` (a
     missing base holds no annotations), and each part below it must be a real directory (Node's ``directory()``).
-    ``local(workspace, root)`` gives the service's two: ``W/annotations/electrode-names`` and Node's
-    ``R/results/v2/design_evaluation_jobs/electrode_annotations``.
+    With ``writable``, ``create`` writes to the first directory, creating its parts. ``owner`` is the owner of new
+    annotations (Node's visitor id; the local user here). ``local(workspace, root)`` gives the service's two:
+    ``W/annotations/electrode-names``, where new annotations go, and Node's
+    ``R/results/v2/design_evaluation_jobs/electrode_annotations``, which is only read.
+
+    For the workspace queue (``jobs.queue.WorkspaceQueue(annotations=...)``) it provides ``identity(prepared)``,
+    ``read(id, key)`` and ``create(prepared)``, all synchronous.
     """
 
-    def __init__(self, directories: Iterable[tuple[Optional[str], Sequence[str]]], limits: Optional[dict] = None):
+    def __init__(self, directories: Iterable[tuple[Optional[str], Sequence[str]]], limits: Optional[dict] = None, *,
+                 owner: Any = LOCAL_OWNER, writable: bool = False):
         self.directories = tuple((base, tuple(parts)) for base, parts in directories if base)
-        self.limits = {**ANNOTATION_LIMITS, **(limits or {})}
+        self.limits = dict(limits or ANNOTATION_LIMITS)
+        self.owner = owner
+        self.writable = writable and bool(self.directories)
         self._verified: dict[str, tuple[tuple[int, int, int], dict]] = {}
 
     @classmethod
-    def local(cls, workspace_directory: Optional[str], root: str, *,
+    def local(cls, workspace_directory: Optional[str], root: str, *, owner: Any = LOCAL_OWNER,
               limits: Optional[dict] = None) -> 'ElectrodeAnnotations':
-        """The workspace's annotation directory (``W/annotations/electrode-names``, given in full) and Node's."""
+        """The workspace's annotation directory (``W/annotations/electrode-names``, given in full), writable, and
+        Node's. Below the workspace W, ``annotations`` and ``electrode-names`` are both checked (and created) as
+        Node checks the components below its root; another directory name is checked from its parent."""
         directories: list[tuple[Optional[str], Sequence[str]]] = []
         if workspace_directory:
             path = nodepath.resolve(workspace_directory)
-            suffix = '/' + '/'.join(WORKSPACE_ANNOTATIONS)
-            if path.endswith(suffix) and len(path) > len(suffix):
-                directories.append((path[:-len(suffix)], WORKSPACE_ANNOTATIONS))
+            names = tuple(path.split('/')[1:])
+            if names[-2:] == WORKSPACE_ANNOTATIONS and len(names) > 2:
+                directories.append(('/' + '/'.join(names[:-2]), WORKSPACE_ANNOTATIONS))
             else:
                 parent = nodepath.dirname(path)
                 directories.append((parent, (path[len(parent):].lstrip('/'),)))
-        if root:
-            directories.append((root, NODE_ANNOTATIONS))
-        return cls(directories, limits=limits)
+        directories.append((root, NODE_ANNOTATIONS))
+        return cls(directories, limits, owner=owner, writable=bool(workspace_directory))
 
-    def directory(self, base: str, parts: Sequence[str], *, create: bool = False) -> Optional[str]:
-        """``directory(create)``: the checked directory, or ``None`` when a component is missing and ``create`` is
-        false."""
+    def directory(self, base: str, parts: Sequence[str], create: bool = False) -> Optional[str]:
+        """``directory(create)``: the checked directory. A missing component means ``None``, or with ``create`` is
+        made with mode 0700 (``mkdirSync(current, {mode: 0o700})``); with ``create`` a missing base raises."""
         try:
             current = nodefs.realpath_sync(base)
         except OSError as error:
-            if error.errno in (errno.ENOENT, errno.ENOTDIR) and not create:
+            if not create and error.errno in (errno.ENOENT, errno.ENOTDIR):
                 return None
             raise
         for part in parts:
             current = nodepath.join(current, part)
-            encoded = nodefs.encode(current)
-            if not os.path.lexists(encoded):
+            if not os.path.exists(nodefs.encode(current)):
                 if not create:
                     return None
-                os.mkdir(encoded, 0o700)
+                os.mkdir(nodefs.encode(current), 0o700)
             info = nodefs.lstat(current)
             if (not stat_module.S_ISDIR(info.st_mode) or stat_module.S_ISLNK(info.st_mode)
                     or nodefs.realpath_sync(current) != current):
                 raise AnnotationError(UNAVAILABLE, 409)
         return current
 
-    def write_directory(self, *, create: bool = False) -> Optional[str]:
-        """The primary writable annotation directory (the first configured ``(base, parts)`` pair)."""
-        if not self.directories:
-            if create:
-                raise AnnotationError(UNAVAILABLE, 503)
-            return None
-        base, parts = self.directories[0]
-        assert base is not None
-        return self.directory(base, parts, create=create)
-
-    def identity(self, prepared: dict[str, Any], owner: str = LOCAL_OWNER) -> dict[str, Any]:
-        """``identity(prepared, owner)``: the content-addressed stored annotation dict with ``id`` first."""
-        names = electrode_names(prepared.get('electrode_names', UNDEFINED))
-        key = prepared.get('key', UNDEFINED)
-        if not _sha(key) or not isinstance(owner, str) or not owner or _utf16_length(owner) > 128:
+    def identity(self, prepared: Any) -> dict:
+        """``identity(prepared, owner)`` with this store's owner: ``{id, schema, owner, record_id, request_sha256,
+        xyz_sha256, regions_sha256, electrode_names[, source_metadata]}`` for what the design adapter prepares (the
+        canonical ``request``, its ``key``, the ``electrode_names`` and, when sent, the ``source_metadata``). Raises
+        ``AnnotationError`` (400) for invalid names, then for an invalid key or owner, and ``CoordinateSourceError``
+        for invalid source metadata."""
+        names = electrode_names(_member(prepared, 'electrode_names'))
+        owner = self.owner
+        if (not _sha(_member(prepared, 'key')) or not isinstance(owner, str) or not owner
+                or _utf16_length(owner) > 128):
             raise AnnotationError(INVALID_IDENTITY)
-        req = prepared['request']
-        design = req['design']
-        body: dict[str, Any] = {
-            'schema': SCHEMA,
-            'owner': owner,
-            'record_id': key,
-            'request_sha256': _hash(req),
-            'xyz_sha256': _hash(design['xyz_mm']),
-            'regions_sha256': _hash(design['region_indices']),
-            'electrode_names': names,
-        }
-        if 'source_metadata' in prepared and prepared['source_metadata'] is not UNDEFINED:
-            body['source_metadata'] = _coordinate_source(prepared['source_metadata'])
-        return {'id': _hash(body), **body}
+        request = prepared['request']
+        identity = {'schema': SCHEMA, 'owner': owner, 'record_id': prepared['key'], 'request_sha256': _hash(request),
+                    'xyz_sha256': _hash(request['design']['xyz_mm']),
+                    'regions_sha256': _hash(request['design']['region_indices']), 'electrode_names': names}
+        source = _member(prepared, 'source_metadata')
+        if source is not UNDEFINED:
+            identity['source_metadata'] = _coordinate_source(source)
+        return {'id': _hash(identity), **identity}
 
-    def create(self, prepared: dict[str, Any], owner: str = LOCAL_OWNER) -> dict[str, Any]:
-        """``create(prepared, owner)``: validates and atomically writes the annotation sidecar if absent, returning
-        its public value (without ``owner``)."""
-        value = self.identity(prepared, owner)
-        ann_id = value['id']
-        raw = jsjson.stringify(value).encode('utf-8')
-        if len(raw) > self.limits['fileBytes']:
+    def create(self, prepared: Any) -> dict:
+        """``create(prepared, owner)``: the public value of the annotation of ``prepared``, written once to the
+        first directory. A file with its id is read instead (never rewritten). Raises ``AnnotationError``: 413 for a
+        file over ``fileBytes``, 409 for a directory holding anything but annotations and temporaries (or that is
+        not a real directory), 507 at ``files`` files or beyond ``bytes`` in all, 503 when it cannot be written; and
+        what ``identity`` and ``read`` raise."""
+        value = self.identity(prepared)
+        id = value['id']
+        data = jsjson.stringify(value).encode('utf-8')
+        if len(data) > self.limits['fileBytes']:
             raise AnnotationError(TOO_LARGE, 413)
         try:
-            directory = self.write_directory(create=True)
-            if directory is None:
+            if not self.writable:
                 raise AnnotationError(UNAVAILABLE, 503)
-            path = nodepath.join(directory, f'{ann_id}.json')
-            if os.path.lexists(nodefs.encode(path)):
-                return self.read(ann_id, prepared['key'])
-            total_bytes = 0
-            count = 0
+            directory = self.directory(*self.directories[0], create=True)
+            path = nodepath.join(directory, f'{id}.json')
+            if os.path.exists(nodefs.encode(path)):
+                return self.read(id, prepared['key'])
+            count = total = 0
             for name, _ in scandir(directory):
                 if not _FILE.fullmatch(name) and not _TEMPORARY.fullmatch(name):
                     raise AnnotationError(INSPECTION, 409)
-                item = nodefs.lstat(nodepath.join(directory, name))
-                if stat_module.S_ISLNK(item.st_mode) or not _plain_file(item, self.limits['fileBytes']):
+                info = _entry(nodepath.join(directory, name), name)
+                if info is None:
+                    continue
+                if stat_module.S_ISLNK(info.st_mode) or not _plain_file(info, self.limits['fileBytes']):
                     raise AnnotationError(INSPECTION, 409)
                 count += 1
-                total_bytes += item.st_size
-            if count >= self.limits['files'] or total_bytes + len(raw) > self.limits['bytes']:
+                total += info.st_size
+            if count >= self.limits['files'] or total + len(data) > self.limits['bytes']:
                 raise AnnotationError(LIMIT, 507)
+            # Node's calls: open 'wx' 0o600, write, fsync, close; rename, fsync the directory; unlink a leftover.
             temporary = nodepath.join(directory, f'.{uuid.uuid4()}.tmp')
-            tmp_enc = nodefs.encode(temporary)
-            fd = os.open(tmp_enc, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | getattr(os, 'O_CLOEXEC', 0),
-                         0o600)
+            records._write_new(temporary, data)
             try:
-                try:
-                    view = memoryview(raw)
-                    written = 0
-                    while written < len(view):
-                        written += os.write(fd, view[written:])
-                    os.fsync(fd)
-                finally:
-                    os.close(fd)
-                os.replace(tmp_enc, nodefs.encode(path))
-                dir_fd = os.open(nodefs.encode(directory), os.O_RDONLY | getattr(os, 'O_CLOEXEC', 0))
-                try:
-                    try:
-                        os.fsync(dir_fd)
-                    except OSError as err:
-                        if err.errno not in (errno.EINVAL, errno.ENOTSUP):
-                            raise
-                finally:
-                    os.close(dir_fd)
+                records._rename(temporary, path)
+                records._sync_directory(directory)
             finally:
-                if os.path.lexists(tmp_enc):
-                    try:
-                        os.unlink(tmp_enc)
-                    except OSError:
-                        pass
+                if os.path.exists(nodefs.encode(temporary)):
+                    os.unlink(nodefs.encode(temporary))
             return public_value(value)
         except AnnotationError:
             raise
-        except Exception:  # noqa: BLE001 - Node reports storage write failures as 503
+        except Exception:  # noqa: BLE001 - Node reports every other failure this way
             raise AnnotationError(UNAVAILABLE, 503) from None
 
     def read(self, id: Any, record_id: Any) -> dict:
@@ -309,7 +331,7 @@ class ElectrodeAnnotations:
             for base, parts in self.directories:
                 directory = self.directory(base, parts)
                 path = directory and nodepath.join(directory, f'{id}.json')
-                if path and os.path.lexists(nodefs.encode(path)):
+                if path and os.path.exists(nodefs.encode(path)):
                     return self._read(path, id, record_id)
             raise AnnotationError(NOT_FOUND, 404)
         except AnnotationError:
@@ -381,8 +403,9 @@ class ElectrodeAnnotations:
                 for name in names:
                     path = nodepath.join(directory, name)
                     if _TEMPORARY.fullmatch(name):
-                        info = nodefs.lstat(path)
-                        if stat_module.S_ISLNK(info.st_mode) or not _plain_file(info, self.limits['fileBytes']):
+                        info = _entry(path, name)
+                        if info is not None and (stat_module.S_ISLNK(info.st_mode)
+                                                 or not _plain_file(info, self.limits['fileBytes'])):
                             raise AnnotationError(INSPECTION, 409)
                         continue
                     if not _FILE.fullmatch(name):

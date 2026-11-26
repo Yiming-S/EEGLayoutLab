@@ -18,35 +18,33 @@ EEGLayoutLab is developed on a non-profit basis and provided free of charge. Its
 - **Test the model's assumptions:** evaluate a layout under optional noise models, a mismatched skull conductivity or another head model ([model](docs/model-and-metrics.md#model-mismatch-and-other-heads)). Score it, beside standard64, after electrode dropout, unequal contact noise and cap re-placement ([model](docs/model-and-metrics.md#cross-session-robustness)).
 - **Use recorded EEG:** summarize EDF, BDF, BrainVision or EEGLAB recordings as channel covariances, fit a regional source prior and noise model to them with a leave-one-out check, and search or evaluate layouts under that prior. From the same summaries, choose channel subsets that best reconstruct the full recording, compared with 10-20 and random subsets, and plot their error against subset size ([model](docs/model-and-metrics.md#data-derived-source-prior), [command line](docs/command-line.md)).
 - **Simulate signals:** choose source locations, waveforms and interference conditions; inspect the resulting signals, switch channels and replay the saved experiment.
-- **Keep research projects:** save complete layout, editing and signal snapshots with notes and comparison settings; restore access in another browser and create revocable read-only shares.
+- **Keep research projects:** save complete layout, editing and signal snapshots with notes and comparison settings in your workspace, and reopen them from its project list.
 - **Repeat evaluations:** run studies of explicit localization-noise seeds, candidate-grid offsets or other heads, preserve every case outcome, and inspect case-level empirical summaries. The [study protocol](docs/robustness-studies.md) records how these batches reuse the original calculations.
-- **Export and review:** download coordinates, original scientific JSON, reports and project delivery packages with checksums and recorded model/runtime identities. Open a local delivery package to inspect its archived coordinates, scores and waveforms without project credentials.
+- **Export and review:** download coordinates, original scientific JSON, reports and project delivery packages with checksums and recorded model/runtime identities. Open a delivery package in the browser to inspect its archived coordinates, scores and waveforms without the project it came from.
 - **Read the method:** the documentation defines the model, metrics and validation scope. The [reference list](docs/references.md) gives the full citation of every work the method and interface draw on, grouped by topic, with what each supports and where it sets limits.
 
-The interface supports English and Simplified Chinese. Its Node service runs Python/SimNIBS workers, reuses exact completed results and keeps a persistent computation queue. Shared viewer resources, compressed model downloads and validated forward-field reuse reduce repeated loading and calculation.
+The interface supports English and Simplified Chinese. A local Python service, `eeglayoutlab serve`, runs it for one workspace: it runs the Python/SimNIBS workers, reuses exact completed results and keeps a persistent computation queue. Shared viewer resources and validated forward-field reuse reduce repeated loading and calculation.
 
 ## Run locally
 
-Follow the [source installation guide](docs/source-installation.md) to install the matching model data and prepare the scientific runtime. The Python project uses **Python 3.11**; the web application requires **Node.js 22.13.0 or newer**. The supplied managed scientific runtime targets **Apple Silicon macOS**. **Linux x86_64** has a smaller runtime without SimNIBS that computes from published scalp-node tables. On Windows, follow the Linux steps in WSL2 (not yet tested).
+Follow the [source installation guide](docs/source-installation.md) to install the matching model data and prepare the scientific runtime. The Python project uses **Python 3.11**; building the interface and running its scripts requires **Node.js 22.18.0 or newer** (checked with 26.5.0; with 24.22.3 the type check and fast tests only, until CI also lints and builds with it). The supplied managed scientific runtime targets **Apple Silicon macOS**. **Linux x86_64** has a smaller runtime without SimNIBS that computes from published scalp-node tables. On Windows, follow the Linux steps in WSL2 (not yet tested).
 
-![4-step local installation map showing which commands run in the repository root versus webapp/](docs/images/install-flow.svg)
-
-After preparing the data and runtime from the repository root (`EEGLayoutLab/`), switch into `webapp/` to build and start the application:
+Then, from the repository root (`EEGLayoutLab/`), install the `eeglayoutlab` command, build the interface once and start the application:
 
 ```sh
-cd webapp
-npm ci
-npm run build
-npm start
+python3.11 -m venv .venv                         # a Python 3.11 of your own, not the runtime under .runtime
+.venv/bin/python -m pip install -e '.[service]'  # installs the eeglayoutlab command
+(cd webapp && npm ci && npm run build)            # builds the interface that the service serves
+.venv/bin/eeglayoutlab serve ~/eeglayoutlab-workspace
 ```
 
-![Expected terminal output checkpoints for data verification, Python runtime bootstrap, and starting the local server](docs/images/install-terminal-checkpoints.svg)
-
-Open [http://127.0.0.1:3000](http://127.0.0.1:3000) and keep the terminal running. For development, use `npm run dev` instead of the build and start commands. When the page opens, confirm the **Tasks / Queue** badge in the top-right shows `0` (connected) and pick any starting card:
+`eeglayoutlab serve` runs the application for one **workspace**, a directory of your choice (the current directory if you name none) that keeps your task list, electrode names, robustness studies and research projects. Calculation results stay in the checkout's `results/v2`, shared by every workspace, and the computations use the scientific runtime under `.runtime`. The service listens on a free port of `127.0.0.1` and opens the application in your browser once it answers; keep the terminal running and press **Control + C** to stop it. Each start has a new address and session: a tab left from an earlier run asks you to run the command again, and running the command while the service runs opens the running instance. `--no-browser` prints the address instead, `--cache-only` serves stored results without computing, and [CONTRIBUTING](CONTRIBUTING.md#the-local-service) describes the other options. When the page opens, confirm the **Tasks / Queue** badge in the top-right shows `0` (connected) and pick any starting card:
 
 ![Annotated Workspace home screen on first launch showing the five top-bar areas, connected task queue badge, language and theme switcher, and starting options](docs/images/workspace-first-launch.svg)
 
-The Python service that will replace this Node host (`eeglayoutlab serve`) is being built slice by slice; keep using the Node host for real work until it is complete ([contributing](CONTRIBUTING.md)). The service also serves the documentation site under `/docs/` once it has been built with MkDocs ([building the documentation](CONTRIBUTING.md#building-the-documentation)); until then, documentation links open on GitHub.
+The service also serves the documentation site under `/docs/` once it has been built with MkDocs ([building the documentation](CONTRIBUTING.md#building-the-documentation)); until then, documentation links open on GitHub. For interface development, `npm run dev` in `webapp/` forwards its API requests to a running service ([CONTRIBUTING](CONTRIBUTING.md#interface-development)).
+
+The earlier Node host (`npm start` in `webapp/`) is kept as a legacy host until phase 4 of [design 0001](docs/design/0001-local-first-architecture.md); hosted deployments stay at the tag `node-host-freeze`, and the current interface no longer opens that host's research projects. The projects, robustness studies and signal records it saved can be copied into a workspace with `eeglayoutlab workspace import-legacy`, which leaves the Node host's files unchanged ([CONTRIBUTING](CONTRIBUTING.md#data-from-the-node-host)).
 
 ## Model data
 
@@ -57,7 +55,7 @@ A fresh source installation needs the code and the matching base data bundle. Th
 | [Base data bundle](https://github.com/Yiming-S/EEGLayoutLab/releases/download/v0.2.0/eeglayoutlab-data-v1.tar.gz) | 282.5 MiB | Model inputs and supplied records for the web application |
 | [Bundle SHA-256 checksum](https://github.com/Yiming-S/EEGLayoutLab/releases/download/v0.2.0/eeglayoutlab-data-v1.tar.gz.sha256) | Text | Verify the data archive before installation |
 
-The repository is private: sign in to a GitHub account with repository access to view or download release files. Follow the [source installation guide](docs/source-installation.md) to verify and install the data, prepare the scientific runtime, and start the browser interface.
+The repository is private: sign in to a GitHub account with repository access to view or download release files. Follow the [source installation guide](docs/source-installation.md) to verify and install the data and prepare the scientific runtime, then start the application as [above](#run-locally).
 
 ## How to use
 
@@ -75,9 +73,9 @@ The top bar has five areas: **Workspace**, **Layout**, **Analysis**, **Findings*
 
 The [command line](docs/command-line.md) runs the same evaluations, searches and robustness studies without the browser, with the same request checks and scientific identity. [`examples/`](examples/README.md) holds three reproducible examples with expected scores.
 
-Use **Research Projects** to keep selected layouts, edited copies, signal experiments, notes and comparison requirements together. Download the project's access file to restore it in another browser; use a separate read-only link for collaborators. Generating a new read-only link replaces the previous one. Saved project snapshots remain available independently of the computation queue. Project access protects the project's annotations and saved copies; the existing original layout library remains shared.
+Use **Research Projects** to keep selected layouts, edited copies, signal experiments, notes and comparison requirements together. The page lists the projects of the workspace; each one is kept in the workspace directory, under `projects/`, and needs no access key. Saved project snapshots remain available independently of the computation queue and of the original records.
 
-The project delivery download includes exact archived scientific JSON files, checksums, a readable report, saved comparison settings and recorded model/runtime identities. Large model payloads are referenced by their manifests. Project access credentials are downloaded separately and are excluded from scientific deliveries. Choose **Open a local delivery package** in Research Projects, or visit `/deliveries`, to read the saved package in a browser. The original project and task APIs are not required; application and display assets must remain accessible.
+The project delivery download includes exact archived scientific JSON files, checksums, a readable report, saved comparison settings and recorded model/runtime identities. Large model payloads are referenced by their manifests. Choose **Open a local delivery package** in Research Projects, or visit `/deliveries`, to read the saved package in a browser. The original project and task APIs are not required; application and display assets must remain accessible.
 
 Use the upper-right language control to switch between English and Simplified Chinese. **Minimum Required Retention** changes how existing scores are judged; it does not start a new calculation.
 
@@ -85,7 +83,7 @@ Layouts are designed and scored on the SimNIBS example subject Ernie; installed 
 
 ## Verification
 
-Local verification covers coordinate-name round trips, per-electrode review, project experiment associations, read-only sharing, local delivery viewing, scientific regression, repeated studies, task reconciliation and backup/restore. Unit tests, type checks, lint, production builds and real-browser workflows are run for each stage.
+Local verification covers coordinate-name round trips, per-electrode review, workspace projects and their experiment associations, local delivery viewing, scientific regression, repeated studies, task reconciliation and backup/restore. Unit tests, type checks, lint, production builds and real-browser workflows are run for each stage. The Python service was checked against the Node host it replaces: its request keys and records equal Node's on synthetic roots and, read only, on the author's installation, and every browser workflow was run against it. The phase 2 exit is still open: the live key comparison of both hosts has run on a copy of the installation only, one browser check fails because its fixture no longer exists (not a difference from Node), and no CI run was made ([phase 2 results](docs/design/0001-phase-2-plan.md#phase-2-results)). The fast checks of `.github/workflows/checks.yml` pass on macOS with Node.js 26.5.0 and are set up for Linux x86_64 and macOS arm64; they run on GitHub once pushed ([verification tiers](CONTRIBUTING.md#verification-tiers)).
 
 A fresh native FEM run reproduced the qualified `128 × 4352` forward field and projected coordinates exactly. Single-source and multi-source arrays, scientific outputs and non-timing numerical quality fields matched the saved baseline. The 95 recorded scientific source, configuration, model and input files remained unchanged. Eight batch cases were also recomputed independently through the original single-case entry point, with exact scientific values and provenance; the new case-level quantiles were checked independently with NumPy.
 
@@ -93,21 +91,22 @@ A fresh native FEM run reproduced the qualified `128 × 4352` forward field and 
 
 ## Deployment and operations
 
-The application includes explicit scientific and queue-directory configuration, HTTPS reverse-proxy access rules, request identifiers, bounded request logs, local status probes, disk and optional Node-memory admission checks, and maintenance/drain controls. Release manifests record source, data and runtime identities; backup and restore tools preserve scientific records and private project and study archives.
+The application runs locally for one user. The legacy Node host, which stays frozen for hosted deployments at the tag `node-host-freeze` until phase 4 of design 0001, includes explicit scientific and queue-directory configuration, HTTPS reverse-proxy access rules, request identifiers, bounded request logs, local status probes, disk and optional Node-memory admission checks, and maintenance/drain controls. Release manifests record source, data and runtime identities; backup and restore tools preserve the Node host's scientific records and private project and study archives.
 
 A read-only showcase of the interface (example results, the layout pages and 3D head, the comparison page and the guide; nothing is sent to a service) runs at [eeglayout.org](https://eeglayout.org) and can be built as static files; see [showcase](docs/showcase.md).
 
 Model data is also packaged as versioned packages (base bundle, scalp-node tables, head packages) that `eeglayoutlab data` installs and verifies; see [data packages](docs/data-packages.md).
 
-See [server configuration](docs/server-deployment.md) and [web operations](docs/web-operations.md) for installation requirements, environment examples, monitoring and recovery procedures. The [architecture](docs/architecture.md) documents feature, viewer, task, execution and storage modules.
+See [server configuration](docs/server-deployment.md) and [web operations](docs/web-operations.md) for the Node host's installation requirements, environment examples, monitoring and recovery procedures. The [architecture](docs/architecture.md) documents feature, viewer, task, execution and storage modules.
 
 ## Repository structure
 
 | Directory | Contents |
 | --- | --- |
 | [`contracts/`](contracts/) | Shared layout types, API format documentation and cross-language examples |
-| [`webapp/`](webapp/) | Feature workspaces, shared task client, modular viewer, HTTP host and workers |
+| [`webapp/`](webapp/) | Feature workspaces, shared task client, modular viewer, and the legacy Node host |
 | [`src/compact_eeg/`](src/compact_eeg/) | Scientific methods and computation workflows |
+| [`src/eeglayoutlab/`](src/eeglayoutlab/) | The `eeglayoutlab` command: the local service with its job queue and request schemas, and the data-package tools |
 | [`configs/`](configs/) | Scientific configuration, runtime locks and deployment environment template |
 | [`scripts/`](scripts/) | Setup, data management, and worker entry points |
 | [`tests/`](tests/) | Scientific and workflow regression tests |

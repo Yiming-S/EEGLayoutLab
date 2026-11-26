@@ -2,9 +2,21 @@
 import assert from 'node:assert/strict';
 import { exportDesign } from '../lib/design-decision.ts';
 import { validateDesignResult } from './design-evaluation-server.mjs';
-const base = 'http://localhost:3000';
-async function json(path, options) {
-  const response = await fetch(base + path, options);
+import { scriptServer } from './helpers/service-session.mjs';
+
+// The Python service (eeglayoutlab serve): with EEG_SERVICE_RUNTIME (its <workspace>/.eeglayoutlab/runtime.json), or
+// EEG_SERVICE_TOKEN and EEG_TEST_URL, the script signs in as its launched browser and sends the session cookie
+// (helpers/service-session.mjs). With EEG_TEST_URL alone, the legacy Node host there.
+const { base, service } = await scriptServer();
+// Node's host knows a browser by the visitor cookie it issues; without it every poll would be another visitor's.
+let visitorCookie = '';
+async function json(path, options = {}) {
+  const headers = new Headers(options.headers);
+  const cookie = [service?.cookie, visitorCookie].filter(Boolean).join('; ');
+  if (cookie) headers.set('Cookie', cookie);
+  const response = await fetch(base + path, { ...options, headers });
+  const issued = response.headers.get('set-cookie');
+  if (issued) visitorCookie = issued.split(';')[0];
   const body = await response.json();
   if (!response.ok) throw new Error(`${response.status}: ${body.error}`);
   return body;
@@ -37,7 +49,8 @@ async function run(request) {
   });
   const stop = Date.now() + 620000;
   let last = '';
-  while (['running', 'cancelling'].includes(job.status) && Date.now() < stop) {
+  // Both hosts queue a new evaluation first.
+  while (['queued', 'running', 'cancelling'].includes(job.status) && Date.now() < stop) {
     if (job.message !== last) {
       last = job.message;
       console.log(last);

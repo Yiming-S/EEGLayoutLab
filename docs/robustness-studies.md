@@ -12,7 +12,7 @@ Start from **Coordinates → Create a robustness study with these coordinates**,
 
 A study may also set one `noise_model` for all cases. `noise_seeds` studies may set one `conductivity_scenario`; `heads` studies may not.
 
-The server submits one case at a time through the existing shared queue. Each browser can run one study at a time. Other browsers retain their original queue ownership and cancellation behavior.
+The service submits one case at a time through the workspace's computation queue, and one study runs at a time in the workspace. (The legacy Node host runs one study per browser, and other browsers retain their own queue ownership and cancellation behavior.)
 
 ## Read the results
 
@@ -22,26 +22,26 @@ The nominal evaluation remains separate from displacement-trial summaries. For e
 
 ## Stop and recover
 
-Opening, refreshing or exporting a study does not submit work. After a service restart, further submissions pause until **Resume**. Each case submission counts toward the browser's per-minute submission limit (see [anonymous queue](anonymous-queue.md)), and cases already in the cache are submitted within seconds. A second study started in the same minute can therefore reach the limit. When the queue refuses a case for that limit or for capacity, the study pauses with `submission_deferred` and continues only after **Resume**. A child already accepted by the shared queue retains its original queue behavior. Recovery first checks an owned receipt or a complete exact cache for an interrupted submission. If neither confirms the outcome, the case is recorded as uncertain and is not resubmitted automatically.
+Opening, refreshing or exporting a study does not submit work. After a service restart, further submissions pause until **Resume**. When the queue refuses a case, because it is full or because the service serves stored results only (`eeglayoutlab serve --cache-only`), the study pauses with `submission_deferred` and continues only after **Resume**. On the legacy Node host, each case submission also counts toward the browser's per-minute submission limit (see [anonymous queue](anonymous-queue.md)), and cases already in the cache are submitted within seconds, so a second study started in the same minute can reach that limit and pause the same way. A child already accepted by the shared queue retains its original queue behavior. Recovery first checks an owned receipt or a complete exact cache for an interrupted submission. If neither confirms the outcome, the case is recorded as uncertain and is not resubmitted automatically.
 
-**Cancel** stops further case submissions and cancels this browser’s current child subscription. Already completed case archives remain available. Changes in scientific identity require a new study with the updated model.
+**Cancel** stops further case submissions and cancels the study's current case (on the legacy Node host, this browser’s subscription to it). Already completed case archives remain available. Changes in scientific identity require a new study with the updated model.
 
 In a `heads` study each case records its own `identity_sha256`, because different heads read different packages and tables; the study `identity_sha256` is the SHA-256 of the ordered list of case identities. `noise_seeds` and `grid_displacements` studies keep one shared identity for all cases. Before submitting a case, the server recomputes its identity and compares it with the saved value.
 
-Studies belong to the current browser session. Export the study JSON to retain the explicit case list, every case state, summary definitions and complete verified scientific cache copies. Export schema: `eeg-robustness-study-export/1`. The service backup includes the `studies/` tree together with its queue and session secret.
+Studies belong to the workspace and are kept in its `studies/` directory; the study page lists every study of the workspace. (On the legacy Node host they belong to the browser session, and its service backup includes the `studies/` tree together with its queue and session secret; `eeglayoutlab workspace import-legacy` copies them into a workspace.) Export the study JSON to retain the explicit case list, every case state, summary definitions and complete verified scientific cache copies. Export schema: `eeg-robustness-study-export/1`.
 
 ## Service interface
 
-All routes use the existing signed browser session. Writes require the normal same-origin access checks and computation-session token.
+All routes need the service's session cookie. Writes require the normal same-origin access checks and the computation-session token. (The legacy Node host scopes them to its signed browser session.)
 
 | Method | Route | Result |
 | --- | --- | --- |
-| GET | `/api/robustness-studies` | Current browser's study directory |
+| GET | `/api/robustness-studies` | The workspace's study directory |
 | POST | `/api/robustness-studies` | Save a draft from `protocol`, `design`, explicit `cases`, `title` and `notes` |
-| GET | `/api/robustness-studies/:id` | Read the owned study and case-level summaries |
+| GET | `/api/robustness-studies/:id` | Read the study and case-level summaries |
 | POST | `/api/robustness-studies/:id/start` | Explicitly start a draft; body `{}` |
 | POST | `/api/robustness-studies/:id/resume` | Reconcile and resume a paused study; body `{}` |
-| POST | `/api/robustness-studies/:id/cancel` | Cancel this browser's study subscription and remaining cases; body `{}` |
+| POST | `/api/robustness-studies/:id/cancel` | Cancel the study's current and remaining cases; body `{}` |
 | GET | `/api/robustness-studies/:id/export` | Export all case states, parsed caches, original `cache_json` strings and checksums |
 
 When cancellation has been requested but saving an already completed result is temporarily blocked, recovery saves that existing result and finishes cancellation. It does not submit remaining cases. The original cache text can be verified directly against `source_sha256`, including its original whitespace and number spelling.

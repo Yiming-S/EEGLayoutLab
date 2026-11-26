@@ -28,6 +28,7 @@ import { SiteHeader } from '@/components/site-header';
 import { parseAR, methodLink } from '@/lib/lab-workflow';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { apiFetch } from '@/client/task-client';
 import {
   atSnr,
   checkResults,
@@ -195,7 +196,7 @@ export default function ResultsPage() {
   useEffect(() => { if (ready) window.history.replaceState(null, '', here); }, [ready, here]);
   useEffect(() => {
     const abort = new AbortController();
-    fetch('/data/fixed64_results.json', { signal: abort.signal })
+    apiFetch('/data/fixed64_results.json', { signal: abort.signal })
       .then((response) => {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         return response.json();

@@ -25,13 +25,33 @@ async function operatorRead(base, path, headers = {}) {
     req.on('error', reject); req.end();
   });
 }
-async function directory(t) { const root = await mkdtemp(join(tmpdir(), 'eeg-operations-')); t.after(() => rm(root, { recursive: true, force: true })); return root; }
+// node:test runs t.after hooks first in, first out and skips the rest after a failure, so a directory was
+// removed while its log writer still appended (ENOTEMPTY) and the skipped close kept the file from exiting.
+// These cleanups run last in, first out, all of them: servers and log writers stop before rm.
+const cleanups = new WeakMap();
+function defer(t, step) {
+  let steps = cleanups.get(t);
+  if (!steps) {
+    cleanups.set(t, steps = []);
+    t.after(async () => {
+      const errors = [];
+      for (const each of steps.reverse()) { try { await each(); } catch (error) { errors.push(error); } }
+      if (errors.length) throw errors.length === 1 ? errors[0] : new AggregateError(errors, 'Test cleanup failed.');
+    });
+  }
+  steps.push(step);
+}
+async function directory(t) { const root = await mkdtemp(join(tmpdir(), 'eeg-operations-')); defer(t, () => rm(root, { recursive: true, force: true })); return root; }
 async function host(t, { logger, resourceGate = gate(), handler } = {}) {
   const root = await directory(t), scheduler = { tasks: [], maintenanceStatus: () => ({ maintenance: false, drained: false }), disposed: false, failure: null, blockedPids: [] };
   const monitor = new OperationsMonitor({ queue: { runtime: { queueDirectory: root }, token: 'PRIVATE_COMPUTE_TOKEN' }, scheduler, gate: resourceGate, logger });
   const server = createServer(monitor.middleware(handler ?? ((_req, res) => { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('{"ok":true}'); })));
+  // Registered before listen, so a failed listen still flushes the log writer before root is removed.
+  defer(t, async () => {
+    if (server.listening) { const closed = once(server, 'close'); server.close(); server.closeAllConnections(); await closed; }
+    monitor.close(); await monitor.flush();
+  });
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
-  t.after(async () => { const closed = once(server, 'close'); server.close(); server.closeAllConnections(); await closed; monitor.close(); await monitor.flush(); });
   const base = `http://127.0.0.1:${server.address().port}`;
   const read = async (path, options = {}) => { const response = await fetch(base + path, options); return { status: response.status, headers: response.headers, data: await response.json() }; };
   return { root, base, monitor, scheduler, read };

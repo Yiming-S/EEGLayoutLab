@@ -4,11 +4,17 @@ import { chromium } from 'playwright';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { translateText } from '../lib/i18n/core.ts';
+import { playwrightCookies, scriptServer } from './helpers/service-session.mjs';
 
-const base = process.env.EEG_TEST_URL || 'http://127.0.0.1:4317';
+// The Python service (eeglayoutlab serve, on a copy of the installation: this check computes): with
+// EEG_SERVICE_RUNTIME (its <workspace>/.eeglayoutlab/runtime.json), or EEG_SERVICE_TOKEN and EEG_TEST_URL, the browser
+// holds its session cookie. With EEG_TEST_URL alone, an isolated legacy Node host there. EEG_REPOSITORY_ROOT is the
+// root the server serves (default this checkout); the report is written below its artifacts.
+const { base, service } = await scriptServer();
 const origin = new URL(base);
+const sessionCookies = service ? playwrightCookies(service) : [];
 assert.ok(origin.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(origin.hostname) && origin.port !== '3000', 'Use an explicit isolated loopback server, never the working app.');
-const project = resolve(import.meta.dirname, '../..');
+const project = resolve(process.env.EEG_REPOSITORY_ROOT || resolve(import.meta.dirname, '../..'));
 const output = process.env.EEG_QA_OUTPUT || join(project, 'artifacts/web-refactor/2026-11-13/workflows-browser');
 assert.ok(isAbsolute(output) && relative(project, output).startsWith('artifacts/'), 'QA output must be an absolute project artifacts directory.');
 await mkdir(output, { recursive: true });
@@ -70,7 +76,7 @@ try {
   browser = await chromium.launch({ headless: true, executablePath: process.env.EEG_BROWSER_EXECUTABLE || undefined,
     args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   context = await browser.newContext({ viewport: { width: 1440, height: 1100 }, acceptDownloads: true });
-  await context.addCookies([{ name: 'eeg-layout-language', value: 'en', url: origin.origin }]);
+  await context.addCookies([{ name: 'eeg-layout-language', value: 'en', url: origin.origin }, ...sessionCookies]);
   page = await context.newPage(); observe(page);
   const records = (await read('/api/local-compute/library')).records;
   const radius = records.find(r => r.dataset_id === 'cache' && r.compatible && r.request?.region_count === 2 && r.request?.radius_mm === 35 && r.request?.mask_codes?.join(',') === 'AL,AR');
@@ -88,7 +94,14 @@ try {
     await page.getByRole('link', { name: t('布局'), exact: true }).click();
     await page.waitForURL(url => url.pathname === '/library' && url.searchParams.get('ar') === '43');
     await label('布局实验协议').selectOption('cache');
-    await page.getByRole('link', { name: t('查看布局'), exact: true }).first().click();
+    // The list is newest first, ten rows a page: find the fixture's own row (its id, or its coordinates' group).
+    const opens = page.getByRole('link', { name: t('查看布局'), exact: true })
+      .and(page.locator(`a[href*="id=${radius.id}&"], a[href*="key=${radius.layout_key}&"]`));
+    for (let turn = 0; !await opens.first().waitFor({ timeout: 5000 }).then(() => true, () => false); turn++) {
+      assert.ok(turn < 20 && await button('下一页').isEnabled(), 'The AL,AR 35 mm fixture is not in the layout list.');
+      await button('下一页').click();
+    }
+    await opens.first().click();
     await page.waitForURL(url => url.pathname === '/layout');
     await layoutId(radius.id);
     await range(page.getByRole('slider', { name: t('布局接受阈值AR'), exact: true }), 47);
@@ -105,7 +118,7 @@ try {
 
   await check('Chinese findings, layout list and draft controls retain their localized labels and AR', async () => {
     const zh = await browser.newContext({ viewport: { width: 1440, height: 1050 } });
-    await zh.addCookies([{ name: 'eeg-layout-language', value: 'zh-CN', url: origin.origin }]);
+    await zh.addCookies([{ name: 'eeg-layout-language', value: 'zh-CN', url: origin.origin }, ...sessionCookies]);
     const target = await zh.newPage(); observe(target);
     try {
       await target.goto(base + '/findings?ar=39&r=2&area=120', { waitUntil: 'networkidle' });

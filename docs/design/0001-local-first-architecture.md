@@ -1,6 +1,6 @@
 # 0001 — Local-first application with a Python service
 
-- **Status:** proposed; phase 0 complete ([results](#phase-0-results)); phases 1 and 2 in progress ([phase 2 plan](0001-phase-2-plan.md))
+- **Status:** proposed; phase 0 complete ([results](#phase-0-results)); phases 1 and 2: the interface runs on the Python service (slices 1 to 10 of the [phase 2 plan](0001-phase-2-plan.md)), and the phase 2 exit is still open ([phase 2 results](0001-phase-2-plan.md#phase-2-results))
 - **Date:** 2026-11-22
 - **Applies after:** 0.2.0
 - **Current architecture:** [architecture.md](../architecture.md)

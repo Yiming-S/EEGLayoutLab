@@ -13,17 +13,11 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from . import jsjson
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, model_validator
 
-try:
-    from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, model_validator
-    from .options import DATA_PRIOR_LENGTHS_MM, SPATIAL_NOISE_LENGTHS_MM, DataPrior, SpatialNoise
-    from .types import js_integer
-    _HAS_PYDANTIC = True
-except ModuleNotFoundError:  # Allows pure normalize_request/MASK_CODES in runtimes without [service] extras.
-    SPATIAL_NOISE_LENGTHS_MM = (10, 20, 40)
-    DATA_PRIOR_LENGTHS_MM = (5, 10, 15, 20, 30, 40)
-    _HAS_PYDANTIC = False
+from . import jsjson
+from .options import DATA_PRIOR_LENGTHS_MM, SPATIAL_NOISE_LENGTHS_MM, DataPrior, SpatialNoise
+from .types import js_integer
 
 __all__ = [
     'RadiusSearchRequest', 'normalize_request', 'canonical', 'MASK_CODES', 'REGION_COUNTS', 'RADII_MM', 'MODES',
@@ -217,51 +211,46 @@ def _absent_default(schema: dict[str, Any]) -> None:
     schema.pop('default', None)
 
 
-if _HAS_PYDANTIC:
-    class RadiusSearchRequest(BaseModel):
-        """Body of ``POST /api/local-compute/jobs`` and ``/lookup`` in its canonical form: a free mode has no
-        ``mask_codes``, and the independent noise model is left out. In preset mode ``mask_codes`` lists exactly
-        ``region_count`` sites, repeats allowed, in order."""
-        model_config = ConfigDict(extra='forbid')
-        region_count: Annotated[Literal[REGION_COUNTS], BeforeValidator(js_integer)]  # type: ignore[valid-type]
-        radius_mm: Annotated[Literal[RADII_MM], BeforeValidator(js_integer)]  # type: ignore[valid-type]
-        mode: Literal[MODES]  # type: ignore[valid-type]
-        mask_codes: Annotated[list[Literal[MASK_CODES]], Field(min_length=1, max_length=max(REGION_COUNTS))] = Field(  # type: ignore[valid-type]
-            default=None, json_schema_extra=_absent_default)
-        noise_model: SpatialNoise = Field(default=None, json_schema_extra=_absent_default)
-        data_prior: DataPrior = Field(default=None, json_schema_extra=_absent_default)
-        allocation_mode: Literal['adaptive'] = Field(default=None, json_schema_extra=_absent_default)
-        objective_mode: Literal['composite'] = Field(default=None, json_schema_extra=_absent_default)
-        electrode_count: Annotated[Literal[NONDEFAULT_ELECTRODE_COUNTS], BeforeValidator(js_integer)] = Field(  # type: ignore[valid-type]
-            default=None, json_schema_extra=_absent_default)
+class RadiusSearchRequest(BaseModel):
+    """Body of ``POST /api/local-compute/jobs`` and ``/lookup`` in its canonical form: a free mode has no
+    ``mask_codes``, and the independent noise model is left out. In preset mode ``mask_codes`` lists exactly
+    ``region_count`` sites, repeats allowed, in order."""
+    model_config = ConfigDict(extra='forbid')
+    region_count: Annotated[Literal[REGION_COUNTS], BeforeValidator(js_integer)]  # type: ignore[valid-type]
+    radius_mm: Annotated[Literal[RADII_MM], BeforeValidator(js_integer)]  # type: ignore[valid-type]
+    mode: Literal[MODES]  # type: ignore[valid-type]
+    mask_codes: Annotated[list[Literal[MASK_CODES]], Field(min_length=1, max_length=max(REGION_COUNTS))] = Field(  # type: ignore[valid-type]
+        default=None, json_schema_extra=_absent_default)
+    noise_model: SpatialNoise = Field(default=None, json_schema_extra=_absent_default)
+    data_prior: DataPrior = Field(default=None, json_schema_extra=_absent_default)
+    allocation_mode: Literal['adaptive'] = Field(default=None, json_schema_extra=_absent_default)
+    objective_mode: Literal['composite'] = Field(default=None, json_schema_extra=_absent_default)
+    electrode_count: Annotated[Literal[NONDEFAULT_ELECTRODE_COUNTS], BeforeValidator(js_integer)] = Field(  # type: ignore[valid-type]
+        default=None, json_schema_extra=_absent_default)
 
-        @model_validator(mode='before')
-        @classmethod
-        def _node_rules(cls, data: Any) -> Any:
-            # Node's rules decide; the fields then check the canonical value, which the schema describes.
-            return data if isinstance(data, cls) else normalize_request(data)
+    @model_validator(mode='before')
+    @classmethod
+    def _node_rules(cls, data: Any) -> Any:
+        # Node's rules decide; the fields then check the canonical value, which the schema describes.
+        return data if isinstance(data, cls) else normalize_request(data)
 
-        def canonical(self) -> dict[str, Any]:
-            out: dict[str, Any] = {'region_count': self.region_count, 'radius_mm': self.radius_mm, 'mode': self.mode}
-            if self.mask_codes is not None:
-                out['mask_codes'] = list(self.mask_codes)
-            if self.noise_model is not None:
-                out['noise_model'] = self.noise_model.canonical()
-            if self.data_prior is not None:
-                out['data_prior'] = self.data_prior.canonical()
-            if self.allocation_mode is not None:
-                out['allocation_mode'] = self.allocation_mode
-            if self.objective_mode is not None:
-                out['objective_mode'] = self.objective_mode
-            if self.electrode_count is not None:
-                out['electrode_count'] = self.electrode_count
-            return out
+    def canonical(self) -> dict[str, Any]:
+        out: dict[str, Any] = {'region_count': self.region_count, 'radius_mm': self.radius_mm, 'mode': self.mode}
+        if self.mask_codes is not None:
+            out['mask_codes'] = list(self.mask_codes)
+        if self.noise_model is not None:
+            out['noise_model'] = self.noise_model.canonical()
+        if self.data_prior is not None:
+            out['data_prior'] = self.data_prior.canonical()
+        if self.allocation_mode is not None:
+            out['allocation_mode'] = self.allocation_mode
+        if self.objective_mode is not None:
+            out['objective_mode'] = self.objective_mode
+        if self.electrode_count is not None:
+            out['electrode_count'] = self.electrode_count
+        return out
 
-    def canonical(value: RadiusSearchRequest) -> dict[str, Any]:
-        """The registry's canonical value of a validated request."""
-        return value.canonical()
-else:
-    RadiusSearchRequest = None  # type: ignore[assignment,misc]
 
-    def canonical(value: Any) -> dict[str, Any]:
-        return normalize_request(value)
+def canonical(value: RadiusSearchRequest) -> dict[str, Any]:
+    """The registry's canonical value of a validated request."""
+    return value.canonical()

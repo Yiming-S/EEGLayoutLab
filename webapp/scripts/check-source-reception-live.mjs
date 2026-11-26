@@ -4,10 +4,31 @@ import { readFile, readdir, mkdir, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { resolve, join } from 'node:path';
 import { validateSourceResult } from './source-reception-server.mjs';
-const root = resolve('..'),
-  base = 'http://localhost:3000';
+import { scriptServer } from './helpers/service-session.mjs';
+
+// The Python service (eeglayoutlab serve): with EEG_SERVICE_RUNTIME (its <workspace>/.eeglayoutlab/runtime.json), or
+// EEG_SERVICE_TOKEN and EEG_TEST_URL, the script signs in as its launched browser and sends the session cookie
+// (helpers/service-session.mjs). With EEG_TEST_URL alone, the legacy Node host there. EEG_REPOSITORY_ROOT is the
+// root the server serves (default this checkout); the report is written below it, so run the script on a copy of
+// the installation.
+const root = resolve(process.env.EEG_REPOSITORY_ROOT || '..');
+const { base, service } = await scriptServer();
+// Node's host knows a browser by the visitor cookie it issues; without it every poll would be another visitor's,
+// and its records list only that browser's receipts.
+let visitorCookie = '';
+const cookies = (...extra) =>
+  [service?.cookie, visitorCookie, ...extra].filter(Boolean).join('; ');
+const call = async (path, options = {}) => {
+  const headers = new Headers(options.headers);
+  const cookie = cookies();
+  if (cookie) headers.set('Cookie', cookie);
+  const r = await fetch(base + path, { ...options, headers });
+  const issued = r.headers.get('set-cookie');
+  if (issued) visitorCookie = issued.split(';')[0];
+  return r;
+};
 const json = async (path, options) => {
-  const r = await fetch(base + path, options);
+  const r = await call(path, options);
   const data = await r.json();
   assert.ok(r.ok, `${path}: ${r.status} ${data.error ?? ''}`);
   return data;
@@ -74,11 +95,10 @@ const options = {
 const start = performance.now(),
   submitted = await json('/api/source-reception/jobs', options);
 let job = submitted.job;
-for (
-  let attempt = 0;
-  ['running', 'cancelling'].includes(job.status) && attempt < 100;
-  attempt++
-) {
+// Both hosts queue a new experiment first; v1's worker stops itself after 120 s.
+while (['queued', 'running', 'cancelling'].includes(job.status)) {
+  if (performance.now() - start > 240000)
+    throw new Error('Integration test polling timed out');
   await new Promise((r) => setTimeout(r, 500));
   job = (await json('/api/source-reception/jobs/' + job.id)).job;
 }
@@ -93,23 +113,38 @@ const cacheRoundtripMs = performance.now() - lookupStart;
 assert.equal(stored.hit, true);
 assert.equal(stored.job.cached, true);
 assert.deepEqual(stored.job.result, job.result);
+// The records list names the receipt without its waveforms; its original download is the same result.
+const records = await json('/api/community/records');
+assert.equal(records.schema, 'browser-experiment-records/1');
+const listed = records.records.find((r) => r.id === job.id);
+assert.ok(listed, 'The completed experiment is a record of this browser or workspace');
+assert.equal(listed.catalog.parent_id, row.id);
+assert.ok(!JSON.stringify(records).includes('waveforms'));
+const saved = await json(`/api/community/records/${job.id}/result`);
+assert.deepEqual(saved.result, job.result);
 assert.deepEqual(await oldJobs(), beforeJobs);
 assert.deepEqual(await digests(), beforeHashes);
-const unauthed = await fetch(base + '/api/source-reception/jobs', {
+const unauthed = await call('/api/source-reception/jobs', {
   ...options,
   headers: { 'Content-Type': 'application/json' },
 });
+await unauthed.arrayBuffer();
 assert.equal(unauthed.status, 403);
 for (const route of [
   '/',
   '/design',
   '/library',
   '/reception?record=' + row.id + '&ar=90',
-])
-  assert.equal((await fetch(base + route)).status, 200);
+]) {
+  // The Python service serves its pages to the session only.
+  const page = await call(route);
+  await page.arrayBuffer();
+  assert.equal(page.status, 200, route);
+}
 const report = {
   status: 'passed',
   completed_utc: new Date().toISOString(),
+  host: service ? 'python' : 'node',
   layout_label: row.label,
   record_id: row.id,
   request,

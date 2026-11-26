@@ -114,7 +114,7 @@ export default function RobustnessWorkspace() {
         </header>
         <section
           className="lab-panel space-y-3.5"
-          aria-label={tx("本浏览器的稳健性研究")}
+          aria-label={tx("此工作区的稳健性研究")}
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-semibold">{tx("已保存研究")}</h2>

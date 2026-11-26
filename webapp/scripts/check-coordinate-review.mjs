@@ -25,7 +25,9 @@ const design = { schema: 'eeg-electrode-design/1', coordinate_system: 'ernie_nat
   xyz_mm: Array.from({ length: 64 }, (_, index) => [(index % 8) * 6 + 1.42e-14, Math.floor(index / 8) * 6, -112.31415926535898]),
   region_indices: Array.from({ length: 64 }, (_, index) => index % 2),
   electrode_names: Array.from({ length: 64 }, (_, index) => index === 0 ? ' Fp1, "left" ' : `电极${index + 1}`) };
-const request = normalizeDesignRequest({ action: 'evaluate', design, radius_mm: 6, seed: 42 });
+// The canonical evaluation request of `design` (names are presentation metadata and stay out of it).
+const request = { action: 'evaluate', design: { schema: design.schema, coordinate_system: design.coordinate_system, unit: design.unit,
+  name: design.name, xyz_mm: design.xyz_mm, region_indices: design.region_indices }, radius_mm: 6, seed: 42 };
 const fixtureFiles = () => exportBIDSElectrodes(design);
 
 void test('reading a cached native-FEM result is labelled as a read while preserving the original scientific origin', () => {
@@ -123,6 +125,7 @@ void test('source metadata remains bounded and cannot change scientific normaliz
   const root = await realpath(await mkdtemp(join(tmpdir(), 'eeg-coordinate-source-'))); t.after(() => rm(root, { recursive: true, force: true }));
   const parsed = parseBIDSElectrodes(fixtureFiles()), identity = { fixed_model: 'test' };
   const adapter = communityAdapters({ designTests: { normalize: normalizeDesignRequest, context: async request => ({ identity, key: hash({ request, identity }) }) } })['design-evaluation'];
+  assert.equal(JSON.stringify(normalizeDesignRequest(request)), JSON.stringify(request));
   const bare = await adapter.prepare(request), named = await adapter.prepare(designSubmission(design, 'evaluate', 6, 42)), sourced = await adapter.prepare(designSubmission(parsed, 'evaluate', 6, 42));
   assert.deepEqual(bare.request, named.request); assert.deepEqual(bare.request, sourced.request); assert.equal(bare.key, sourced.key);
   assert.equal(JSON.stringify(sourced.request).includes('source_metadata'), false);

@@ -12,15 +12,40 @@ the same way through tests/service/parity/library.mjs, on design roots with the 
 which Node follows: plan B8) and every canonical request of the radius-search corpus. ``codeIdentity`` covers the
 top-level ``src/compact_eeg/*.py`` only (check-project-structure.mjs:30).
 
+The design-submission envelope (slice 5) is compared through tests/service/parity/annotations.mjs: Node's production
+design-evaluation adapter (``designSubmission``, ``normalizeDesignRequest`` and the real context on the synthetic
+base and full roots) and the same steps in Python give the same request text, key, names, source metadata and
+worker input for bare requests and envelopes, so electrode names and source declarations never enter a key
+(check-electrode-annotations.mjs:73, check-coordinate-review.mjs:122).
+
+The electrode editor's context (slice 6: ``ElectrodeEditorService.context``, the key of every editor record) is
+compared through tests/service/parity/editor_run.mjs (mode ``contexts``) on editor roots (tests/service/
+editor_support.py ``editor_root``): a preparation and an evaluation of each kind of parent the library holds, on each
+interpreter configuration of the base root and on variants where the parent's report, the surface admission, the
+editor's code or the design inputs differ; the configuration, context members, identity, admission, parent record,
+parent digest, key and worker input, or the refusal by Node's message.
+
+Signal reception's contexts (slice 7: ``SourceReceptionService.context``, v1's and v2's identity and key) are
+compared through tests/service/parity/reception_run.mjs (mode ``contexts``) on reception roots (tests/service/
+reception_support.py ``reception_root``): a v1 request and v2's three modes, with and without the atlas definition,
+for each kind of parent, on the base root's interpreter configurations and on variants where the design inputs, the
+library, the reception code, the atlas definition or the stub runtime inspector differ; the configuration, context
+members, record, identity and key, or the refusal (Node's message, an error's code, an inspector's exit code). The
+storage test's injected native context (check-service-storage.mjs:50) and the atlas files of the v2 code identity
+(check-atlas-roi-contract.mjs:26, its server half) are ported here.
+
 With ``EEG_KEY_PARITY_ROOT=<checkout>`` the same comparisons also run on that real installation (marked
-``data_bundle``; the radius identity also for every stored radius request), and every stored design and editor
-cache and every batch ``request.json`` must re-derive its key. Nothing is written under that root.
+``data_bundle``; the radius identity also for every stored radius request, the editor's context for every parent the
+editor offers and every stored editor request, the reception context for every stored reception request), and every
+stored design and editor cache and every batch ``request.json`` must re-derive its key. With ``-m native_runtime``,
+v2's context there, its real runtime inspector included, is Node's. Nothing is written under that root.
 """
 from __future__ import annotations
 
 import os
 from pathlib import Path
 import re
+from typing import Any
 
 import pytest
 
@@ -29,12 +54,18 @@ from eeglayoutlab.jobs import nodepath
 from eeglayoutlab.jobs import runtime as py_runtime
 from eeglayoutlab.jobs.identity import request_key
 from eeglayoutlab.schemas import jsjson
+from eeglayoutlab.server.workspace import LOCAL_OWNER
 
 from .key_parity_support import (
-    BAD_UTF8_NAME, BANK, CONDA_META, CONFIGS, LINE_TERMINATOR_DIST_INFO, NATIVE, NATIVE_DIST_INFO, RADIUS_CODE_NAMES,
-    RADIUS_KEY_REQUESTS, RADIUS_ROOT_CONFIGS, RADIUS_ROOTS, REQUESTS, TABLE_DIR, Case, PythonCases, all_requests,
-    build_roots, canonical_requests, digest, needs_node, node_outcome, radius_cases, radius_corpus, radius_outcome,
-    radius_root, require, run_library_node, run_node, spec_case, synthetic_cases,
+    BAD_UTF8_NAME, BANK, CONDA_META, CONFIGS, EDITOR_ACCEPTED, EDITOR_PARENTS, EDITOR_ROOT_CONFIGS, EDITOR_SOME,
+    LINE_TERMINATOR_DIST_INFO, NATIVE, NATIVE_DIST_INFO, PRIOR, RADIUS_CODE_NAMES, RADIUS_KEY_REQUESTS,
+    RADIUS_ROOT_CONFIGS, RADIUS_ROOTS, RECEPTION_REQUESTS, RECEPTION_ROOT_CONFIGS, RECEPTION_ROOTS, RECEPTION_SOME,
+    REQUESTS, ROOTS, SPATIAL, TABLE_DIR, Case, EditorCases, EnvelopeCases, PythonCases, all_requests,
+    browser_submission, build_reception_roots, build_roots, canonical_requests, coordinate_sources, design_root,
+    digest, editor_case_ids, editor_context_cases, envelope_outcome, needs_node, node_outcome, radius_cases,
+    radius_corpus, radius_outcome, radius_root, reception_case_ids, reception_context_cases, reception_request,
+    require, run_annotations_node, run_editor_node, run_library_node, run_node, run_reception_node, spec_case,
+    synthetic_cases,
 )
 
 CASES = synthetic_cases()
@@ -446,212 +477,687 @@ def test_real_root_radius_key_parity(tmp_path):
     assert node['real/default/whole']['ok']
 
 
-# --- Slice 5: Design submission & coordinate source isolation ---------------------------------------------------
+# --- The design submission envelope (slice 5) ---------------------------------------------------------------------
 
-def test_production_adapter_normalization_excludes_electrode_names_from_request_worker_input_and_key(tmp_path):
-    """Ported from check-electrode-annotations.mjs:
-    'production adapter normalization excludes A/B names from request, worker input and scientific key'."""
-    from eeglayoutlab.jobs.annotations import ElectrodeAnnotations, design_submission
-    from eeglayoutlab.jobs.design import DesignEvaluationService, design_adapter
-    from eeglayoutlab.jobs.queue import WorkspaceQueue
-    from .key_parity_support import design_root
+def _grid(z: Any) -> list:
+    return [[(i % 8) * 6, (i // 8) * 6, z(i)] for i in range(64)]
 
-    root = design_root(tmp_path / 'root')
-    service = DesignEvaluationService(repository_root=root)
-    adapter = design_adapter(service)
-    ws_ann = str(tmp_path / 'workspace' / 'annotations' / 'electrode-names')
-    annotations = ElectrodeAnnotations.local(ws_ann, root)
-    scheduler = WorkspaceQueue(
-        str(tmp_path / 'workspace' / 'queue'),
-        {'design-evaluation': adapter},
-        root=root,
-        annotations=annotations,
-        poll_ms=None,
+
+SHARED_DESIGN = {'schema': 'eeg-electrode-design/1', 'coordinate_system': 'ernie_native_mm', 'unit': 'mm',
+                 'name': 'Shared layout', 'xyz_mm': _grid(lambda i: 1e-14), 'region_indices': [i % 2 for i in range(64)]}
+# check-coordinate-review.mjs:24-27: a name with a comma and quotes, the others CJK.
+REVIEW_DESIGN = {'schema': 'eeg-electrode-design/1', 'coordinate_system': 'ernie_native_mm', 'unit': 'mm',
+                 'name': 'Original scientific design name',
+                 'xyz_mm': [[(i % 8) * 6 + 1.42e-14, (i // 8) * 6, -112.31415926535898] for i in range(64)],
+                 'region_indices': [i % 2 for i in range(64)],
+                 'electrode_names': [' Fp1, "left" ' if i == 0 else f'电极{i + 1}' for i in range(64)]}
+ENVELOPE_OWNERS = ('a' * 64, LOCAL_OWNER)
+
+
+def _names(prefix: str) -> list[str]:
+    return [f'{prefix}{i + 1}' for i in range(64)]
+
+
+def _envelope_raws() -> dict[str, tuple[str, Any]]:
+    """Raw bodies by case id, each with its root: the scientific variants bare and named, the coordinate-review
+    design bare, named and with every source declaration, and envelopes the adapter refuses."""
+    a, b = {**SHARED_DESIGN, 'electrode_names': _names('A')}, {**SHARED_DESIGN, 'electrode_names': _names('B')}
+    raws: dict[str, tuple[str, Any]] = {}
+    variants = {'evaluate': ('base', {}), 'perturb': ('base', {'action': 'perturb'}),
+                'robustness': ('base', {'robustness': 'standard/1'}), 'noise': ('base', {'noise_model': SPATIAL}),
+                'prior': ('base', {'data_prior': PRIOR}), 'scenario': ('full', {'conductivity_scenario': 'skull_x2'}),
+                'head': ('full', {'head_id': 'ixi002'})}
+    for name, (root, options) in variants.items():
+        options = dict(options)
+        action = options.pop('action', 'evaluate')
+        raws[f'{name}/bare'] = (root, browser_submission(SHARED_DESIGN, action, **options))
+        raws[f'{name}/names-a'] = (root, browser_submission(a, action, **options))
+        raws[f'{name}/names-b'] = (root, browser_submission(b, action, **options))
+    raws['review/bare'] = ('base', browser_submission({k: v for k, v in REVIEW_DESIGN.items() if k != 'electrode_names'}))
+    raws['review/named'] = ('base', browser_submission(REVIEW_DESIGN))
+    for name, source in coordinate_sources().items():
+        raws[f'review/sourced-{name}'] = ('base', browser_submission({**REVIEW_DESIGN, 'source_metadata': source}))
+        unnamed = {k: v for k, v in REVIEW_DESIGN.items() if k != 'electrode_names'}
+        raws[f'review/source-only-{name}'] = ('base', browser_submission({**unnamed, 'source_metadata': source}))
+    v1 = coordinate_sources().get('v1', {})
+    for name, source in {'path': {**v1, 'electrodes_file': '/private/input.tsv'},
+                         'long-description': {**v1, 'coordinate_system_description': 'x' * 2049},
+                         'head-frame': {**v1, 'coordinate_system': 'head'}, 'null': None}.items():
+        envelope = browser_submission(REVIEW_DESIGN)
+        raws[f'refused/source-{name}'] = ('base', {**envelope, 'source_metadata': source})
+    named = browser_submission(a)
+    raws['refused/names-63'] = ('base', {**named, 'electrode_names': _names('A')[1:]})
+    raws['refused/extra-key'] = ('base', {**named, 'extra': 1})
+    raws['refused/request-null'] = ('base', {**named, 'request': None})
+    raws['refused/request-invalid'] = ('base', {**named, 'request': {**named['request'], 'seed': -1}})
+    raws['refused/scenario-on-base'] = ('base', browser_submission(a, conductivity_scenario='skull_x2'))
+    raws['refused/bare-invalid'] = ('base', {**named['request'], 'radius_mm': 4})
+    return raws
+
+
+ENVELOPE_RAWS = _envelope_raws()
+
+
+@pytest.fixture(scope='session')
+def envelope_synthetic(tmp_path_factory):
+    require('pydantic')
+    base = tmp_path_factory.mktemp('envelope-parity')
+    roots = {name: design_root(base / 'roots' / name, **ROOTS[name]) for name in ('base', 'full')}
+    cases = [{'id': case_id, 'root': roots[root], 'raw': raw} for case_id, (root, raw) in ENVELOPE_RAWS.items()]
+    # One service per root, as the driver keeps one adapter per root and interpreter.
+    adapters = EnvelopeCases()
+    python = {case['id']: adapters.run(case) for case in cases}
+    # Node's annotation identities of the same prepared values (the key and the canonical request from Python).
+    identities = []
+    for case_id, outcome in python.items():
+        if case_id.startswith('review/') and outcome['ok'] and outcome['electrode_names'] is not None:
+            prepared = _prepared(outcome)
+            identities += [{'id': f'{case_id}/{owner}', 'owner': owner, 'prepared': jsjson.stringify(prepared),
+                            'create': True} for owner in ENVELOPE_OWNERS]
+    (base / 'node-root').mkdir()
+    node = run_annotations_node({'root': str(base / 'node-root'), 'prepares': cases, 'identities': identities}, base)
+    return {'cases': cases, 'python': python, 'node': node, 'identities': identities}
+
+
+def _prepared(outcome: dict) -> dict:
+    """The adapter's prepared value from a compared outcome (without ``ctx``, which annotations do not read)."""
+    prepared = {'request': jsjson.parse(outcome['request']), 'key': outcome['key']}
+    for name in ('electrode_names', 'source_metadata'):
+        if outcome[name] is not None:
+            prepared[name] = jsjson.parse(outcome[name])
+    return prepared
+
+
+@needs_node
+@pytest.mark.parametrize('case_id', list(ENVELOPE_RAWS))
+def test_envelope_prepare_parity(case_id, envelope_synthetic):
+    """The production adapter's ``prepare`` of each body on the same root: request text, key, identity, names,
+    source metadata and worker input, or the same refusal (message and status)."""
+    assert envelope_synthetic['python'][case_id] == envelope_outcome(envelope_synthetic['node']['prepares'][case_id])
+
+
+@needs_node
+def test_envelope_names_never_enter_the_request_worker_input_or_key(envelope_synthetic):
+    """check-electrode-annotations.mjs:73 'production adapter normalization excludes A/B names from request, worker
+    input and scientific key', on synthetic roots with Node's real context: a bare request and two envelopes with
+    other names give one request text, one worker input and one key, in both hosts."""
+    groups = {case_id.split('/')[0] for case_id in ENVELOPE_RAWS if case_id.endswith('/names-a')}
+    assert groups == {'evaluate', 'perturb', 'robustness', 'noise', 'prior', 'scenario', 'head'}
+    node = {case_id: envelope_outcome(result) for case_id, result in envelope_synthetic['node']['prepares'].items()}
+    for host, outcomes in (('python', envelope_synthetic['python']), ('node', node)):
+        keys = set()
+        for group in groups:
+            bare, *named = (outcomes[f'{group}/{name}'] for name in ('bare', 'names-a', 'names-b'))
+            assert bare['ok'] and all(item['ok'] for item in named), (host, group)
+            for item in named:
+                assert (item['request'], item['key'], item['worker_input']) == (bare['request'], bare['key'],
+                                                                                bare['request']), (host, group)
+                assert item['keys'] == ['request', 'key', 'ctx', 'electrode_names'], (host, group)
+                assert 'electrode_names' not in item['request'] and 'A1' not in item['request'], (host, group)
+            assert bare['keys'] == ['request', 'key', 'ctx'] and bare['electrode_names'] is None, (host, group)
+            assert named[0]['electrode_names'] == jsjson.stringify(_names('A')), (host, group)
+            assert named[1]['electrode_names'] == jsjson.stringify(_names('B')), (host, group)
+            keys.add(bare['key'])
+        assert len(keys) == len(groups), host  # the scientific options do reach the key
+
+
+@needs_node
+def test_source_metadata_cannot_change_normalization_context_or_annotation_ids(envelope_synthetic, tmp_path):
+    """check-coordinate-review.mjs:122 'source metadata remains bounded and cannot change scientific normalization,
+    context identity or legacy annotation IDs': every source declaration leaves the request and key of the bare
+    request; the annotation of the named submission keeps its id (no source_metadata), the sourced one gets another
+    and reads back with its declaration; ids equal Node's for the same owner; invalid declarations are refused."""
+    from eeglayoutlab.jobs.annotations import (
+        SOURCE, WORKSPACE_ANNOTATIONS, ElectrodeAnnotations, validate_electrode_annotation,
     )
+
+    python, node = envelope_synthetic['python'], envelope_synthetic['node']
+    sources = coordinate_sources()
+    assert set(sources) == {'v1', 'v2Mni', 'v2Labels', 'v3Native', 'v3Mni', 'v3BidsHead', 'v3Labels', 'v3Elc', 'v3Sfp',
+                            'v3SfpNative'}
+    bare, named = python['review/bare'], python['review/named']
+    for name, source in sources.items():
+        for case_id in (f'review/sourced-{name}', f'review/source-only-{name}'):
+            sourced = python[case_id]
+            assert (sourced['request'], sourced['key']) == (bare['request'], bare['key']), case_id
+            assert 'source_metadata' not in sourced['request'] and 'coordinate_system_description' not in sourced['request']
+            assert sourced['source_metadata'] == jsjson.stringify(source)
+        assert python[f'review/source-only-{name}']['electrode_names'] == jsjson.stringify([f'E{i + 1}' for i in range(64)])
+    for name in ('path', 'long-description', 'head-frame', 'null'):
+        assert python[f'refused/source-{name}'] == {'ok': False, 'message': SOURCE, 'status': None, 'safe': False}
+
+    workspace = tmp_path / 'W'
+    workspace.mkdir()
+    for owner in ENVELOPE_OWNERS:
+        annotations = ElectrodeAnnotations([(str(workspace), WORKSPACE_ANNOTATIONS)], owner=owner, writable=True)
+        old = annotations.create(_prepared(named))
+        for name, source in sources.items():
+            current = annotations.create(_prepared(python[f'review/sourced-{name}']))
+            assert 'source_metadata' not in old and current['source_metadata'] == source and current['id'] != old['id']
+            assert validate_electrode_annotation(current, bare['key']) is current
+            reread = ElectrodeAnnotations([(str(workspace), WORKSPACE_ANNOTATIONS)]).read(current['id'], bare['key'])
+            assert reread == current
+            assert node['identities'][f'review/sourced-{name}/{owner}']['create']['value'] == jsjson.stringify(current)
+        assert annotations.create(_prepared(named))['id'] == old['id']
+        assert validate_electrode_annotation(old, bare['key']) is old
+        assert node['identities'][f'review/named/{owner}']['create']['value'] == jsjson.stringify(old)
+
+
+# --- The electrode editor's context (slice 6) ----------------------------------------------------------------------
+
+EDITOR_CASE_IDS = editor_case_ids()
+EDITOR_MESSAGES = {
+    'record': 'Choose a completed layout with saved region boundaries',
+    'noise': 'The electrode editor scores with independent noise; choose a layout searched under independent noise',
+    'digest': 'Parent changed; reload the layout before editing',
+    'geometry': 'Parent region geometry or surface-admission identity differs',
+}
+
+
+@pytest.fixture(scope='session')
+def editor_synthetic(tmp_path_factory):
+    require('pydantic')  # the library and the design context
+    from .editor_support import build_editor_roots
+
+    base = tmp_path_factory.mktemp('editor-parity')
+    roots = build_editor_roots(base / 'roots')
+    cases = editor_context_cases(roots)
+    node = run_editor_node(cases, base)
+    return roots, {case['id']: case for case in cases}, node, base
+
+
+@needs_node
+@pytest.mark.parametrize('case_id', EDITOR_CASE_IDS)
+def test_editor_context_parity(case_id, editor_synthetic):
+    _, cases, node, base = editor_synthetic
+    assert EditorCases(base).run(cases[case_id]) == node_outcome(node['by_id'][case_id])
+
+
+@needs_node
+def test_editor_variants_reach_their_branches(editor_synthetic):
+    # Parity alone would also pass if a fixture missed its branch; these pin what each variant exercises.
+    from eeglayoutlab.jobs.integrity import InputIntegrity
+
+    from .editor_support import EDITOR_CODE
+
+    roots, cases, node, _ = editor_synthetic
+    result = node['by_id']
+    ok = lambda case_id: result[case_id]['ok'] and result[case_id]  # noqa: E731
+    message = lambda case_id: node_outcome(result[case_id]).get('message')  # noqa: E731
+    code = lambda case_id: node_outcome(result[case_id]).get('code')  # noqa: E731
+
+    # Every kind of parent on the base root, in Node's order of checks.
+    for config in EDITOR_ROOT_CONFIGS['editor-base']:
+        for parent in EDITOR_ACCEPTED:
+            assert ok(f'editor-base/{config}/prepare-{parent}') and ok(f'editor-base/{config}/evaluate-{parent}')
+        for parent in ('historical', 'offline', 'design', 'strict-no-layout', 'cache-unpatched', 'cache-zero-patches',
+                       'cache-no-layout', 'missing'):
+            for kind in ('prepare', 'evaluate'):
+                assert message(f'editor-base/{config}/{kind}-{parent}') == EDITOR_MESSAGES['record'], parent
+        assert message(f'editor-base/{config}/evaluate-cache-spatial') == EDITOR_MESSAGES['noise']
+        for parent in ('cache-geometry', 'cache-admission'):
+            assert message(f'editor-base/{config}/evaluate-{parent}') == EDITOR_MESSAGES['geometry']
+        assert message(f'editor-base/{config}/stale-cache') == EDITOR_MESSAGES['digest']
+    assert set(EDITOR_PARENTS) == {*EDITOR_ACCEPTED, 'historical', 'offline', 'design', 'strict-no-layout',
+                                   'cache-unpatched', 'cache-zero-patches', 'cache-no-layout', 'missing',
+                                   'cache-spatial', 'cache-geometry', 'cache-admission'}
+
+    # B17: the design identity, ``schema`` overwritten in place, three members appended; the context's members.
+    prepared = ok('editor-base/default/prepare-cache')
+    evaluated = ok('editor-base/default/evaluate-cache')
+    assert prepared['keys'] == ['identity', 'admission', 'key', 'parent', 'parent_digest']
+    identity = jsjson.parse(prepared['identity'])
+    base = roots['editor-base']
+    request = cases['editor-base/default/prepare-cache']['request']
+    design = py_identity.design_context(base['root'], prepared['config']['nativePython'],
+                                        InputIntegrity(base['root']), request)
+    assert list(identity) == [*design.identity, 'parent_digest', 'editor_sha256', 'editor_implementation_sha256']
+    assert identity == {**design.identity, 'schema': 'electrode-editor-cache/1',
+                        'parent_digest': digest(prepared['parent']), 'editor_sha256': digest('editor worker'),
+                        'editor_implementation_sha256': {EDITOR_CODE: digest('editor code')}}
+    assert prepared['key'] == request_key(request, identity)
+    assert prepared['parent_digest'] == evaluated['parent_digest'] == digest(prepared['parent'])
+    assert evaluated['identity'] == prepared['identity'] and evaluated['key'] != prepared['key']
+    assert prepared['worker_input'] == f'{{"request":{jsjson.stringify(request)},"parent":{prepared["parent"]}}}'
+    # The strict-area parent's geometry is its report's, a radius cache's its provenance's.
+    assert 'geometry_sha256' not in jsjson.parse(ok('editor-base/default/prepare-strict')['parent'])['provenance']
+    assert jsjson.parse(prepared['parent'])['provenance']['geometry_sha256'] == digest('candidates')
+
+    # The interpreter enters the design identity; the library's compatibility enters the parent's digest.
+    keys = {config: ok(f'editor-base/{config}/prepare-strict')['key'] for config in EDITOR_ROOT_CONFIGS['editor-base']}
+    assert len(set(keys.values())) == 3 and keys['default'] == keys['env-empty']
+    assert ok('editor-simnibs/default/prepare-cache')['config']['nativePython'].endswith(f'/{NATIVE}/bin/python')
+    # A linked root keeps its spelling: the report's real path is not under it, so the library refuses the
+    # strict-area dataset (Node's 报告路径或身份无效) and the editor its layouts; the radius caches stay parents.
+    link = roots['editor-symlinked']['root']
+    linked = ok('editor-symlinked/default/prepare-cache')['config']['repositoryRoot']
+    assert linked == link != roots['editor-symlinked']['tree']
+    assert message('editor-symlinked/default/prepare-strict') == EDITOR_MESSAGES['record']
+    assert ok('editor-table/default/prepare-cache')['identity'] != prepared['identity']
+
+    # Variants: the report's geometry, the admission, the editor's code, the design inputs, no library.
+    assert message('editor-no-geometry/default/prepare-strict') == EDITOR_MESSAGES['geometry']
+    assert ok('editor-no-geometry/default/prepare-cache')
+    for parent in ('strict', 'cache', 'cache-other-code'):
+        assert message(f'editor-other-admission/default/prepare-{parent}') == EDITOR_MESSAGES['geometry']
+    for name, error in (('no-script', 'ENOENT'), ('no-code', 'ENOENT'), ('code-dir', 'EISDIR')):
+        assert code(f'editor-{name}/default/prepare-cache') == error, name
+        assert message(f'editor-{name}/default/prepare-missing') == EDITOR_MESSAGES['record'], name
+    broken = node_outcome(result['editor-broken-bank/default/prepare-cache'])
+    assert not broken['ok'] and broken.get('message') not in EDITOR_MESSAGES.values()
+    assert message('editor-broken-bank/default/prepare-missing') == EDITOR_MESSAGES['record']
+    assert message('editor-broken-bank/default/evaluate-cache-spatial') == EDITOR_MESSAGES['noise']
+    for parent in EDITOR_SOME:
+        assert message(f'editor-no-library/default/prepare-{parent}') == EDITOR_MESSAGES['record'], parent
+
+    # Values the routes never pass: read as V8 reads them.
+    assert message('editor-base/default/odd-null') == "Cannot read properties of null (reading 'parent_id')"
+    assert message('editor-base/default/odd-empty') == EDITOR_MESSAGES['record']
+    assert message('editor-base/default/odd-no-digest') == EDITOR_MESSAGES['digest']
+    assert ok('editor-base/default/odd-no-action')['identity'] == prepared['identity']
+    odd = ok('editor-base/default/odd-index-keys')
+    assert odd['worker_input'].startswith('{"request":{"1":["a",{"1":"a","2":"b"}],"2":"b","parent_id":')
+    assert len({ok(f'editor-base/default/{name}')['key'] for name in ('odd-no-action', 'odd-index-keys',
+                                                                       'prepare-cache')}) == 3
+
+
+# The reference of 2026-11-23 (Node, the installation's default configuration): a preparation of this parent.
+REFERENCE_PARENT = 'bb0d29ac477c29511e3d40985e5f6c9cc0d80c58a12716894fd677caa2752cf3'
+REFERENCE = {'key': '57dabe43c3cc58137d5a296d665f125495db66eab760f3019a6ed5755758ea12',
+             'parent_digest': '6485c7150479644ad536a5e3414c88c6a41811a502bcee20852697d04a978685',
+             'identity_sha256': 'add0ef2a4af4e2557fe319810a4713260c207a32b25e98f846bedfa93cd6d1d7'}
+
+
+@pytest.mark.data_bundle
+@real_root
+@needs_node
+def test_real_root_editor_context_parity(tmp_path):
+    """The editor's context on the installation (its default configuration, one queue and service as the server
+    has): a preparation of every parent the editor offers and of the reference parent, and every stored editor
+    request as stored. Python and Node agree on each. An offered parent is prepared or, once the region geometry or
+    surface admission moved on, refused for that alone (``parents()`` does not check them, as in Node); which
+    parents are refused, and which stored keys and reference values still hold today, is printed (inputs move on;
+    an evaluation whose parent changed is refused)."""
+    require('pydantic')
+    from eeglayoutlab.jobs.editor_records import parents
+    from eeglayoutlab.jobs.library import Library
+
+    config = py_runtime.runtime_config(REAL_ROOT, env={})
+    offered = [row['id'] for row in parents(Library(config.repository_root, config))]
+    stored = {}
+    directory = Path(REAL_ROOT) / 'results/v2/electrode_editor_jobs'
+    for entry in sorted(directory.iterdir()) if directory.is_dir() else ():
+        cache = entry / 'cache.json'
+        if KEY.fullmatch(entry.name) and cache.is_file():
+            stored[entry.name] = jsjson.parse(cache.read_bytes().decode('utf-8', errors='replace'))['result']['request']
+    cases = [{'id': f'real/prepare-{id}', 'root': REAL_ROOT, 'request': {'action': 'prepare', 'parent_id': id}}
+             for id in dict.fromkeys([REFERENCE_PARENT, *offered])]
+    cases += [{'id': f'real/stored-{key}', 'root': REAL_ROOT, 'request': request} for key, request in stored.items()]
+    node = run_editor_node(cases, tmp_path, reuse=True)['by_id']
+    python = EditorCases(tmp_path, reuse=True)
+    outcomes = {case['id']: python.run(case) for case in cases}
+    for case in cases:
+        assert outcomes[case['id']] == node_outcome(node[case['id']]), case['id']
+    refused = [id for id in offered if not outcomes[f'real/prepare-{id}']['ok']]
+    assert offered and all(outcomes[f'real/prepare-{id}'].get('message') == EDITOR_MESSAGES['geometry']
+                           for id in refused)
+    reference = outcomes[f'real/prepare-{REFERENCE_PARENT}']
+    today = ({'key': reference['key'], 'parent_digest': reference['parent_digest'],
+              'identity_sha256': digest(reference['identity'])} if reference['ok'] else reference)
+    print(f'\neditor reference {REFERENCE_PARENT[:12]}: ' + ', '.join(
+        f'{name} {"matches" if today.get(name) == value else "differs"}' for name, value in REFERENCE.items()))
+    for key in stored:
+        outcome = outcomes[f'real/stored-{key}']
+        refusal = outcome.get('message') or outcome.get('code')
+        state = ('key matches' if outcome['ok'] and outcome['key'] == key else
+                 f'key differs ({outcome["key"][:12]})' if outcome['ok'] else f'refused: {refusal}')
+        print(f'editor cache {key[:12]} {stored[key]["action"]}: {state}')
+    print(f'editor parents prepared: {len(offered) - len(refused)} of {len(offered)}; refused for their geometry or '
+          f'admission: {", ".join(id[:12] for id in refused) or "none"}')
+
+
+# --- Signal reception's contexts (slice 7) ---------------------------------------------------------------------------
+
+RECEPTION_CASE_IDS = reception_case_ids()
+
+
+@pytest.fixture(scope='session')
+def reception_synthetic(tmp_path_factory):
+    """Node's and Python's contexts over every reception case, each side with one service per root and
+    configuration (and so one runtime memo), in the same order."""
+    require('pydantic')  # the library, the design context and the request schema
+    from .reception_support import ReceptionCases
+
+    base = tmp_path_factory.mktemp('reception-parity')
+    roots = build_reception_roots(base / 'roots')
+    cases = reception_context_cases(roots)
+    node = run_reception_node(cases, base, reuse=True)
+    python = ReceptionCases(reuse=True)
     try:
-        xyz = [[float((i % 8) * 5), float((i // 8) * 5), 0.0] for i in range(64)]
-        regions = [i % 2 for i in range(64)]
-        source_v1 = {
-            'schema': 'electrode-coordinate-source/1',
-            'format': 'bids-electrodes/1',
-            'electrodes_file': 'sub-01_electrodes.tsv',
-            'coordsystem_file': 'sub-01_coordsystem.json',
-            'coordinate_system': 'ernie_native_mm',
-            'unit': 'mm',
-            'coordinate_system_description': 'Ernie native frame in millimetres.',
-            'region_index_base': 0,
-            'region_description': 'Explicit zero-based EEGLayoutLab regions.',
-        }
-        bare = {
-            'action': 'evaluate',
-            'design': {
-                'schema': 'eeg-electrode-design/1',
-                'coordinate_system': 'ernie_native_mm',
-                'unit': 'mm',
-                'name': 'Isolation check',
-                'xyz_mm': xyz,
-                'region_indices': regions,
-                'electrode_names': [f'Extra{i + 1}' for i in range(64)],
-                'source_metadata': source_v1,
-            },
-            'radius_mm': 3,
-            'seed': 2026,
-        }
-        names_a = [f'A{i + 1}' for i in range(64)]
-        names_b = [f'B{i + 1}' for i in range(64)]
-        env_a = {'schema': 'design-submission/1', 'request': bare, 'electrode_names': names_a}
-        env_b = {'schema': 'design-submission/1', 'request': bare, 'electrode_names': names_b}
-
-        sub_bare = design_submission(bare)
-        sub_a = design_submission(env_a)
-        sub_b = design_submission(env_b)
-        norm_bare = service.normalize(sub_bare['request'])
-        norm_a = service.normalize(sub_a['request'])
-        norm_b = service.normalize(sub_b['request'])
-
-        assert norm_bare == norm_a == norm_b
-        assert 'electrode_names' not in norm_bare['design']
-        assert 'source_metadata' not in norm_bare['design']
-
-        prep_bare = adapter['prepare'](bare)
-        prep_a = adapter['prepare'](env_a)
-        prep_b = adapter['prepare'](env_b)
-        assert prep_bare['key'] == prep_a['key'] == prep_b['key']
-        assert prep_bare['ctx']['identity'] == prep_a['ctx']['identity'] == prep_b['ctx']['identity']
-
-        class _JobStub:
-            def __init__(self, req, ctx):
-                self.request = req
-                self.ctx = ctx
-
-        wi_bare = service.worker_input(_JobStub(prep_bare['request'], prep_bare['ctx']))
-        wi_a = service.worker_input(_JobStub(prep_a['request'], prep_a['ctx']))
-        wi_b = service.worker_input(_JobStub(prep_b['request'], prep_b['ctx']))
-        assert wi_bare == wi_a == wi_b
-        assert 'electrode_names' not in jsjson.stringify(wi_a)
+        ours = {case['id']: python.run(case) for case in cases}
     finally:
-        scheduler.dispose()
-        service.dispose()
+        python.close()
+    return roots, {case['id']: case for case in cases}, node, ours
 
 
-def test_source_metadata_remains_bounded_and_cannot_change_scientific_key_or_legacy_annotation_ids(tmp_path):
-    """Ported from check-coordinate-review.mjs:
-    'source metadata remains bounded and cannot change scientific normalization, context identity or legacy annotation IDs'."""
-    import shutil
-    import subprocess
-    from eeglayoutlab.jobs.annotations import ElectrodeAnnotations, design_submission
-    from eeglayoutlab.jobs.design import DesignEvaluationService, design_adapter
-    from .key_parity_support import NODE_ENV, design_root
+@needs_node
+@pytest.mark.parametrize('case_id', RECEPTION_CASE_IDS)
+def test_reception_context_parity(case_id, reception_synthetic):
+    _, _, node, ours = reception_synthetic
+    assert ours[case_id] == node_outcome(node['by_id'][case_id])
 
-    root = design_root(tmp_path / 'root')
-    service = DesignEvaluationService(repository_root=root)
-    adapter = design_adapter(service)
-    (tmp_path / 'workspace').mkdir(parents=True, exist_ok=True)
-    ws_ann = str(tmp_path / 'workspace' / 'annotations' / 'electrode-names')
-    annotations = ElectrodeAnnotations.local(ws_ann, root)
+
+@needs_node
+def test_reception_variants_reach_their_branches(reception_synthetic):
+    # Parity alone would also pass if a fixture missed its branch; these pin what each variant exercises.
+    from eeglayoutlab.jobs.identity import RECEPTION_V2_WORKFLOW, RECEPTION_WORKFLOW
+    from eeglayoutlab.jobs.integrity import BANK_POINTER, InputIntegrity
+    from eeglayoutlab.jobs.reception import (BANK_MISMATCH, CANDIDATE_MISMATCH, LEGACY_MULTI, NOISE, V1_CACHE_SCHEMA,
+                                             V1_CODE, V1_LAYOUT, V2_CACHE_SCHEMA, V2_CODE, V2_LAYOUT)
+    from eeglayoutlab.jobs.runtime_digest import INVALID_DIGEST
+
+    from .reception_support import RECEPTION_FILES, RUNTIME_TEXT, RECEPTION_VARIANTS
+
+    roots, cases, node, _ = reception_synthetic
+    result = node['by_id']
+    ok = lambda case_id: result[case_id]['ok'] and result[case_id]  # noqa: E731
+    message = lambda case_id: node_outcome(result[case_id]).get('message')  # noqa: E731
+    code = lambda case_id: node_outcome(result[case_id]).get('code')  # noqa: E731
+    v2 = RECEPTION_REQUESTS[1:]
+    assert {options.get('reception') for options in RECEPTION_ROOTS.values()} == set(RECEPTION_VARIANTS)
+
+    # Which parents each version takes on the base root, in Node's order of checks: a completed library layout of
+    # a radius cache or the strict area for v1, also a saved coordinate evaluation for v2; independent noise only;
+    # v2's region-labelled multi-source protocol, or the atlas one, for a library layout.
+    accepted = ('strict', 'strict-2', 'strict-null-localization', 'cache', 'cache-unpatched', 'cache-geometry',
+                'cache-admission', 'cache-other-code')
+    unusable = ('historical', 'offline', 'strict-no-layout', 'cache-zero-patches', 'cache-no-layout', 'missing')
+    for config in RECEPTION_ROOT_CONFIGS['reception-base']:
+        for parent in accepted:
+            assert ok(f'reception-base/{config}/v1-{parent}'), parent
+            assert message(f'reception-base/{config}/multi-legacy-{parent}') == LEGACY_MULTI, parent
+        for parent in (*unusable, 'design'):
+            assert message(f'reception-base/{config}/v1-{parent}') == V1_LAYOUT, parent
+        for parent in unusable:
+            for request in v2:
+                assert message(f'reception-base/{config}/{request}-{parent}') == V2_LAYOUT, (parent, request)
+        for parent in ('cache-prior', 'cache-spatial'):
+            for request in RECEPTION_REQUESTS:
+                assert message(f'reception-base/{config}/{request}-{parent}') == NOISE, (parent, request)
+    for parent in (*accepted, 'design'):
+        for request in v2:
+            if request != 'multi-legacy' or parent == 'design':
+                assert ok(f'reception-base/default/{request}-{parent}'), (parent, request)
+                # v2 runs under the native interpreter: the explicit one is not there.
+                assert code(f'reception-base/explicit/{request}-{parent}') == 'ENOENT', (parent, request)
+    assert set(EDITOR_PARENTS) == {*accepted, *unusable, 'design', 'cache-prior', 'cache-spatial'}
+
+    # v1's identity: the record's id and layout, the reception inputs' digests, two threads; no interpreter.
+    base = roots['reception-base']['root']
+    first = ok('reception-base/default/v1-strict')
+    assert first['keys'] == ['record', 'identity', 'key']
+    identity, record = jsjson.parse(first['identity']), jsjson.parse(first['record'])
+    assert list(identity) == ['version', 'record_id', 'layout', 'digests', 'threads']
+    assert (identity['version'], identity['record_id'], identity['layout'], identity['threads']) == \
+        (V1_CACHE_SCHEMA, record['id'], record['layout'], 2)
+    assert list(identity['digests']) == list(dict.fromkeys([*RECEPTION_WORKFLOW, BANK_POINTER, BANK,
+                                                            'data/candidates.npz', 'data/report.json', *V1_CODE]))
+    assert identity['digests']['scripts/source_reception.py'] == digest('reception script')
+    assert first['key'] == request_key(cases['reception-base/default/v1-strict']['request'], identity)
+    assert ok('reception-base/explicit/v1-strict')['key'] == first['key']
+
+    # v2's: the design identity of {} under the native interpreter, the v2 code, the frozen layout and its
+    # provenance, the layout's scope, the runtime inspector's digest, one thread.
+    single = ok('reception-base/default/single-strict')
+    identity, record = jsjson.parse(single['identity']), jsjson.parse(single['record'])
+    assert list(identity) == ['version', 'forward', 'code', 'layout', 'record_provenance', 'layout_scope',
+                              'numerical_runtime_sha256', 'threads']
+    forward = py_identity.design_context(base, single['config']['nativePython'], InputIntegrity(base), {})
+    assert (identity['version'], identity['forward'], identity['layout'], identity['record_provenance'],
+            identity['numerical_runtime_sha256'], identity['threads']) == \
+        (V2_CACHE_SCHEMA, forward.identity, record['layout'], record['provenance'], digest(RUNTIME_TEXT), 1)
+    assert list(identity['code']) == list(dict.fromkeys([*RECEPTION_V2_WORKFLOW, *V2_CODE]))
+    assert identity['code']['scripts/inspect_reception_runtime.py'] == \
+        digest(RECEPTION_FILES['scripts/inspect_reception_runtime.py'])
+    assert single['key'] == request_key(cases['reception-base/default/single-strict']['request'], identity)
+    scopes = {parent: jsjson.parse(ok(f'reception-base/default/single-{parent}')['identity'])['layout_scope']
+              for parent in (*accepted, 'design')}
+    historical = {'cache-geometry', 'cache-admission', 'cache-other-code'}  # radius caches the library calls stale
+    assert {parent for parent, scope in scopes.items()
+            if scope == 'historical_frozen_coordinates_not_requalified'} == historical
+    assert {scope for parent, scope in scopes.items() if parent not in historical} == \
+        {'saved_coordinates_no_new_layout_optimization'}
+    assert jsjson.parse(ok('reception-base/default/single-design')['record'])['dataset_id'] == 'design_evaluation'
+    keys = [ok(f'reception-base/default/{request}-{parent}')['key'] for parent in (*accepted, 'design')
+            for request in RECEPTION_REQUESTS if ok(f'reception-base/default/{request}-{parent}')]
+    assert len(set(keys)) == len(keys)
+
+    # The variants.
+    table = jsjson.parse(ok('reception-table/default/single-strict')['identity'])
+    assert table['forward'] != identity['forward'] and table['code'] == identity['code']
+    assert ok('reception-simnibs/default/single-strict') is False
+    assert ok('reception-simnibs/default/v1-strict')
+    assert code('reception-simnibs/default/single-strict') == 'EACCES'  # its interpreter cannot be run
+    assert result['reception-simnibs/default/v1-strict']['config']['nativePython'].endswith(f'/{NATIVE}/bin/python')
+    for parent in RECEPTION_SOME:
+        assert message(f'reception-no-library/default/v1-{parent}') == V1_LAYOUT, parent
+        for request in v2:
+            assert message(f'reception-no-library/default/{request}-{parent}') == V2_LAYOUT, (parent, request)
+    assert message('reception-broken-bank/default/v1-strict') == BANK_MISMATCH
+    assert message('reception-broken-candidates/default/v1-strict') == CANDIDATE_MISMATCH
+    for name in ('broken-bank', 'broken-candidates'):  # the design context refuses first
+        assert message(f'reception-{name}/default/single-strict') not in (None, BANK_MISMATCH, CANDIDATE_MISMATCH)
+    for parent in ('strict', 'cache', 'design'):
+        for request in RECEPTION_REQUESTS:
+            if request == 'v1' and parent == 'design' or request == 'multi-legacy' and parent != 'design':
+                continue
+            case_id = f'{{name}}/default/{request}-{parent}'
+            definition = request in ('single-atlas', 'multi', 'cross')
+            assert code(case_id.format(name='reception-no-v1-script')) == 'ENOENT'  # in both identities
+            assert code(case_id.format(name='reception-no-workflow')) == 'ENOENT'
+            assert bool(ok(case_id.format(name='reception-no-v2-code'))) == (request == 'v1')
+            assert bool(ok(case_id.format(name='reception-no-atlas'))) == (not definition)
+            if request != 'v1':
+                legacy = jsjson.parse(ok(case_id.format(name='reception-legacy-inspector'))['identity'])
+                assert legacy['numerical_runtime_sha256'] == digest(RUNTIME_TEXT)
+                assert message(case_id.format(name='reception-bad-digest')) == INVALID_DIGEST
+                assert code(case_id.format(name='reception-inspector-fails')) == 2
+            else:
+                for name in ('legacy-inspector', 'bad-digest', 'inspector-fails'):
+                    assert ok(case_id.format(name=f'reception-{name}'))
+
+    # Values the routes never pass: read as V8 reads them.
+    assert message('reception-base/default/odd-null') == "Cannot read properties of null (reading 'mode')"
+    assert message('reception-base/default/odd-empty') == V1_LAYOUT
+    assert message('reception-base/default/odd-mode-only') == V2_LAYOUT
+    odd = ok('reception-base/default/odd-unnormalized')
+    assert odd['key'] == request_key(cases['reception-base/default/odd-unnormalized']['request'],
+                                     jsjson.parse(odd['identity']))
+
+
+@needs_node
+def test_all_new_ui_modes_use_the_atlas_version_scientific_context_hashes_both_membership_and_definition(
+        reception_synthetic, tmp_path):
+    """check-atlas-roi-contract.mjs:26, the server half: the ROI membership code, the atlas and its definition enter
+    the v2 code identity of every request with ``region_definition`` and of no other, so a change of either file
+    changes those keys alone."""
+    from eeglayoutlab.jobs.reception import ATLAS_CODE
+
+    from .reception_support import ReceptionCases, reception_root
+
+    _, cases, node, _ = reception_synthetic
+    checked = 0
+    for case_id, case in cases.items():
+        if not node['by_id'][case_id]['ok'] or not isinstance(case['request'], dict) or 'mode' not in case['request']:
+            continue
+        code = jsjson.parse(node['by_id'][case_id]['identity'])['code']
+        assert [name for name in ATLAS_CODE if name in code] == \
+            (list(ATLAS_CODE) if 'region_definition' in case['request'] else []), case_id
+        checked += 1
+    assert checked > 50
+    built = reception_root(tmp_path / 'atlas')
+    kinds = ('single', 'single-atlas', 'multi', 'cross', 'cross-legacy')
+    requests = {kind: reception_request(kind, built['ids']['strict']) for kind in kinds}
+
+    def keys() -> dict:
+        python = ReceptionCases()
+        return {kind: python.run({'id': kind, 'root': built['root'], 'request': request})['key']
+                for kind, request in requests.items()}
+    before = keys()
+    for name in ATLAS_CODE[1:]:  # the atlas, then its definition
+        path = Path(built['tree']) / name
+        path.write_bytes(path.read_bytes() + b' ')
+        after = keys()
+        assert all(after[kind] != before[kind] for kind in ('single-atlas', 'multi', 'cross')), name
+        assert all(after[kind] == before[kind] for kind in ('single', 'cross-legacy')), name
+        before = after
+
+
+def test_source_identity_uses_its_injected_native_context_without_a_design_service(tmp_path):
+    """check-service-storage.mjs:50: v2's ``forward`` comes from the injected native context (called once with
+    ``{}``), the code digests from the service's inputs and the runtime digest from the legacy inspector (here a
+    Python one under ``sys.executable``, Node's being a script for its own executable); the request is used as it
+    is."""
+    require('pydantic')
+    import asyncio
+    import sys
+
+    from eeglayoutlab.jobs.reception import ReceptionJobs
+    from eeglayoutlab.jobs.slot import ExecutionSlot
+
+    record = {'id': 'a' * 64, 'dataset_id': 'strict_area', 'status': 'completed', 'layout': {'id': 'layout'},
+              'provenance': {'file': 'frozen.json'}}
+    runtime_hash = 'b' * 64
+    forward = {'schema': 'design-evaluation-cache/1', 'digests': {'fixture': 'c' * 64}, 'python': sys.executable,
+               'threads': 1}
+    calls = []
+
+    class Library:
+        async def get(self, id):
+            return record
+
+    class Inputs:
+        def digest_all(self, names):
+            return {name: 'd' * 64 for name in names}
+
+    def native_context(request):
+        assert request == {}
+        calls.append(request)
+        return {'identity': forward}
+    (tmp_path / 'scripts').mkdir()
+    (tmp_path / 'scripts/inspect_reception_runtime.py').write_text(
+        "import json\nprint(json.dumps({'schema': 'reception-runtime-digest/1', 'sha256': '%s'}))\n" % runtime_hash,
+        encoding='utf-8')
+    source = ReceptionJobs(str(tmp_path), sys.executable, Library(), native_context=native_context, inputs=Inputs(),
+                           execution_slot=ExecutionSlot())
+    request = {'record_id': record['id'], 'mode': 'single_source'}
+
+    async def scenario():
+        try:
+            return await source.context(request)
+        finally:
+            await source.aclose()
+    context = asyncio.run(scenario())
+    assert len(calls) == 1
+    assert context['identity']['forward'] == forward
+    assert context['identity']['numerical_runtime_sha256'] == runtime_hash
+    assert context['key'] == jsjson.sha256_hex({'request': request, 'identity': context['identity']})
+
+
+def _stored_receptions() -> dict:
+    """The installation's reception caches by ``(kind, key)``, parsed."""
+    stored = {}
+    for kind in ('source_reception_jobs', 'source_reception_v2_jobs'):
+        directory = Path(REAL_ROOT) / 'results/v2' / kind
+        for entry in sorted(directory.iterdir()) if directory.is_dir() else ():
+            cache = entry / 'cache.json'
+            if KEY.fullmatch(entry.name) and cache.is_file():
+                stored[(kind, entry.name)] = jsjson.parse(cache.read_bytes().decode('utf-8', errors='replace'))
+    return stored
+
+
+@pytest.mark.data_bundle
+@real_root
+@needs_node
+def test_real_root_reception_caches_rederive_their_keys(tmp_path):
+    """Every stored reception cache of the installation, read only: its request's context today through Node and
+    Python (they agree; whether that key is still the directory's is printed, inputs move on), its original download
+    (``savedResult``) and the queue's startup finish time from the record as stored, and the time pure-Python
+    ``JSON.stringify`` takes for the result."""
+    require('pydantic')
+    import asyncio
+    import time
+
+    from eeglayoutlab.jobs.library import Library
+    from eeglayoutlab.jobs.reception import ReceptionJobs
+    from eeglayoutlab.jobs.slot import ExecutionSlot
+    from eeglayoutlab.schemas.source_reception import normalize_reception_request
+
+    from .reception_support import ReceptionCases
+
+    stored = _stored_receptions()
+    if not stored:
+        pytest.skip('the installation holds no reception cache')
+    requests = {key: normalize_reception_request(cache['result']['request']) for (_, key), cache in stored.items()}
+    cases = [{'id': key, 'root': REAL_ROOT, 'request': request} for key, request in requests.items()]
+    node = run_reception_node(cases, tmp_path, reuse=True)['by_id']
+    python = ReceptionCases(reuse=True)
     try:
-        xyz = [[float((i % 8) * 5), float((i // 8) * 5), 0.0] for i in range(64)]
-        bare = {
-            'action': 'evaluate',
-            'design': {
-                'schema': 'eeg-electrode-design/1',
-                'coordinate_system': 'ernie_native_mm',
-                'unit': 'mm',
-                'name': 'Source metadata check',
-                'xyz_mm': xyz,
-                'region_indices': [i % 2 for i in range(64)],
-            },
-            'radius_mm': 3,
-            'seed': 2026,
-        }
-        names = [f'Ch{i + 1}' for i in range(64)]
-        mapping = 'f3c1a9e07b2d4c6f8a1e0d9c7b5a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a'
-        source_v1 = {
-            'schema': 'electrode-coordinate-source/1',
-            'format': 'bids-electrodes/1',
-            'electrodes_file': 'sub-01_electrodes.tsv',
-            'coordsystem_file': 'sub-01_coordsystem.json',
-            'coordinate_system': 'ernie_native_mm',
-            'unit': 'mm',
-            'coordinate_system_description': 'Ernie native frame in millimetres.',
-            'region_index_base': 0,
-            'region_description': 'Explicit zero-based EEGLayoutLab regions.',
-        }
-        source_v3 = {
-            'schema': 'electrode-coordinate-source/3',
-            'format': 'bids-electrodes/1',
-            'electrodes_file': 'sub-01_electrodes.tsv',
-            'coordsystem_file': 'sub-01_coordsystem.json',
-            'coordinate_system': 'ernie_native_mm',
-            'unit': 'mm',
-            'coordinate_system_description': 'Ernie native frame in millimetres.',
-            'region_index_base': 0,
-            'region_description': 'Explicit zero-based EEGLayoutLab regions.',
-            'conversion': {
-                'method': 'ernie-mni-scalp/1',
-                'mapping_id': mapping,
-                'input_coordinate_system': 'MNI152NLin2009cAsym',
-                'input_unit': 'mm',
-                'max_surface_distance_mm': 3.27,
-            },
-            'region_assignment': {'method': 'balanced-spatial/1', 'region_count': 2},
-        }
-
-        prep_legacy = adapter['prepare']({'schema': 'design-submission/1', 'request': bare, 'electrode_names': names})
-        prep_v1 = adapter['prepare']({
-            'schema': 'design-submission/1', 'request': bare, 'electrode_names': names, 'source_metadata': source_v1,
-        })
-        prep_v3 = adapter['prepare']({
-            'schema': 'design-submission/1', 'request': bare, 'electrode_names': names, 'source_metadata': source_v3,
-        })
-
-        assert prep_legacy['request'] == prep_v1['request'] == prep_v3['request']
-        assert prep_legacy['key'] == prep_v1['key'] == prep_v3['key']
-        assert prep_legacy['ctx']['identity'] == prep_v1['ctx']['identity'] == prep_v3['ctx']['identity']
-
-        owner = 'a' * 64
-        rec_legacy = annotations.create(prep_legacy, owner)
-        rec_v1 = annotations.create(prep_v1, owner)
-        rec_v3 = annotations.create(prep_v3, owner)
-        assert rec_v1['id'] != rec_legacy['id']
-        assert rec_v3['id'] != rec_v1['id']
-
-        if shutil.which('node') is not None:
-            checkout = Path(__file__).resolve().parents[2]
-            ann_mod = str(checkout / 'webapp/server/annotations/electrode-names.mjs')
-            node_ws = str(tmp_path / 'node_ws' / 'annotations' / 'electrode-names')
-            (tmp_path / 'node_ws' / 'annotations' / 'electrode-names').mkdir(parents=True, exist_ok=True)
-            script = (
-                f"import {{ ElectrodeAnnotations }} from {jsjson.stringify(ann_mod)};\n"
-                f"const store = new ElectrodeAnnotations({jsjson.stringify(node_ws)});\n"
-                f"const owner = {jsjson.stringify(owner)};\n"
-                f"const legacy = store.identity({jsjson.stringify(prep_legacy)}, owner);\n"
-                f"const v1 = store.identity({jsjson.stringify(prep_v1)}, owner);\n"
-                f"const v3 = store.identity({jsjson.stringify(prep_v3)}, owner);\n"
-                "console.log(JSON.stringify({ legacy: legacy.id, v1: v1.id, v3: v3.id }));\n"
-            )
-            proc = subprocess.run(
-                ['node', '--input-type=module', '-e', script],
-                check=True, capture_output=True, text=True, env=NODE_ENV,
-            )
-            node_ids = jsjson.parse(proc.stdout.strip())
-            assert {'legacy': rec_legacy['id'], 'v1': rec_v1['id'], 'v3': rec_v3['id']} == node_ids
-
-        # Boundedness: oversized electrodes_file or invalid unit is rejected before touching scientific state.
-        with pytest.raises(ValueError):
-            design_submission({
-                'schema': 'design-submission/1',
-                'request': bare,
-                'electrode_names': names,
-                'source_metadata': {**source_v1, 'electrodes_file': 'x' * 201},
-            })
-        with pytest.raises(ValueError):
-            design_submission({
-                'schema': 'design-submission/1',
-                'request': bare,
-                'electrode_names': names,
-                'source_metadata': {**source_v1, 'unit': 'cm'},
-            })
+        outcomes = {case['id']: python.run(case) for case in cases}
     finally:
-        service.dispose()
+        python.close()
+    config = py_runtime.runtime_config(REAL_ROOT, env={})
+    service = ReceptionJobs(config.repository_root, config.native_python, Library(config.repository_root, config),
+                            compute_python=config.python, execution_slot=ExecutionSlot())
+    try:
+        for (kind, key), cache in stored.items():
+            outcome = outcomes[key]
+            assert outcome == node_outcome(node[key]), key
+            state = ('key matches' if outcome['ok'] and outcome['key'] == key else
+                     f'key differs ({outcome["key"][:12]})' if outcome['ok'] else
+                     f'refused: {outcome.get("message") or outcome.get("code")}')
+            saved = asyncio.run(service.saved_result(key, requests[key]))
+            assert saved == cache['result'], key
+            finished = asyncio.run(service.stored_finish(key, requests[key], cache.get('identity'), cache['result']))
+            assert finished == cache['finished_at'], key
+            started = time.perf_counter()
+            text = jsjson.stringify(cache['result'])
+            print(f'\n{kind} {key[:12]}: {state}; saved result and finish time read back; JSON.stringify of its '
+                  f'{len(text) / 1e6:.1f} MB result {time.perf_counter() - started:.2f} s')
+    finally:
+        asyncio.run(service.aclose())
 
+
+@pytest.mark.native_runtime
+@needs_node
+def test_real_runtime_reception_v2_context_parity(tmp_path):
+    """v2's context on the installation (``EEG_KEY_PARITY_ROOT``, read only; the native interpreter runs the real
+    runtime inspector with ``PYTHONDONTWRITEBYTECODE=1``) for the parent of a stored reception record, in each mode:
+    Node's and Python's outcome, ``numerical_runtime_sha256`` and key are equal."""
+    require('pydantic')
+    from eeglayoutlab.jobs.runtime import native_python_path
+
+    from .reception_support import ReceptionCases
+
+    if not REAL_ROOT or not os.path.exists(native_python_path(REAL_ROOT)):
+        pytest.skip('EEG_KEY_PARITY_ROOT with the native runtime is required to run the real inspector')
+    parents = [cache['result']['request']['record_id'] for cache in _stored_receptions().values()]
+    if not parents:
+        pytest.skip('the installation holds no reception record to take a parent from')
+    cases = [{'id': kind, 'root': REAL_ROOT, 'request': reception_request(kind, parents[0])}
+             for kind in RECEPTION_REQUESTS[1:]]
+    node = run_reception_node(cases, tmp_path, reuse=True)['by_id']
+    python = ReceptionCases(reuse=True)
+    try:
+        outcomes = {case['id']: python.run(case) for case in cases}
+    finally:
+        python.close()
+    digests = set()
+    for case in cases:
+        assert outcomes[case['id']] == node_outcome(node[case['id']]), case['id']
+        if outcomes[case['id']]['ok']:
+            digests.add(jsjson.parse(outcomes[case['id']]['identity'])['numerical_runtime_sha256'])
+    assert len(digests) == 1, outcomes
+    print(f'\nreception v2 on {parents[0][:12]}: numerical_runtime_sha256 {digests.pop()}; ' + ', '.join(
+        f'{case_id} {outcome["key"][:12] if outcome["ok"] else outcome.get("message") or outcome.get("code")}'
+        for case_id, outcome in outcomes.items()))

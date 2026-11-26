@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { ShowcaseComputeNotice } from '@/components/showcase-banner';
 import { SHOWCASE } from '@/lib/showcase';
 import { Switch } from '@/components/ui/switch';
-import { ApiError, apiJson, followTask, submitTask, cancelTask, type TaskConnection } from '@/client/task-client';
+import { ApiError, apiJson, followTask, submitTask, cancelTask, type TaskConnection, apiFetch } from '@/client/task-client';
 import { MANUAL_COMPUTE_DEFAULT } from '@/lib/lab-workflow';
 import { currentAR, displayJob, jobRunning, matchingResult, requestKey,
   type ComputeHealth, type ComputeJob, type ComputeRequest, type ComputeResult } from '@/lib/local-compute';
@@ -49,7 +49,7 @@ export function LocalComputePanel({ request, arPercent, onResult, onStatus, comp
     request.mask_codes?.some((code) => !health.supported_masks.includes(code));
 
   const refreshConnection = useCallback(() => {
-    return fetch('/api/local-compute/health', { cache: 'no-store' }).then(async (response) => {
+    return apiFetch('/api/local-compute/health', { cache: 'no-store' }).then(async (response) => {
       if (!response.ok) throw new Error('unavailable');
       const data = await response.json() as ComputeHealth;
       if (!mounted.current) return;

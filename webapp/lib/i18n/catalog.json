@@ -5911,5 +5911,21 @@
   "methodPower": {
     "source": "跨区域模式各源均分总偶极矩均方能量，合计RMS范数为10 nA·m；接收到的电位能量仍随位置、方向和源相关性变化。两套布局使用相同发生器，重建器仍由4096源先验固定计算。切换区域、波形或随机种子会形成不同缓存键；分区显示开关不参与计算。",
     "en": "Cross-region sources share a fixed total mean-square dipole moment, with an aggregate RMS norm of 10 nA·m. Received potential energy still depends on positions, orientations, and source correlations. Both layouts use identical generators, and decoders remain fixed from the 4,096-source prior. Region, waveform, and seed changes identify different cached experiments; the partition display toggle does not affect computation."
+  },
+  "session_reopen": {
+    "source": "本地服务会话已失效：服务已重新启动，或此页面来自较早的一次运行。请在终端重新运行 eeglayoutlab 命令，并使用它打开的页面。",
+    "en": "The local session has ended: the service was restarted, or this page is from an earlier run. Run the eeglayoutlab command again in a terminal and use the page it opens."
+  },
+  "session_expired_service": {
+    "source": "本地服务会话已失效，请重新运行 eeglayoutlab 打开",
+    "en": "The local session has ended. Run eeglayoutlab again to open the application."
+  },
+  "session_expired_short": {
+    "source": "会话已失效",
+    "en": "Session ended"
+  },
+  "service_unreachable": {
+    "source": "无法连接本地服务：服务已停止，或已在新的地址重新启动。请在终端重新运行 eeglayoutlab 命令，并使用它打开的页面。",
+    "en": "Cannot reach the local service: it has stopped, or it was restarted at a new address. Run the eeglayoutlab command again in a terminal and use the page it opens."
   }
 }

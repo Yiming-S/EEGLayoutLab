@@ -17,6 +17,12 @@ Node has two real-path functions, and the design identity uses both:
   ``InputIntegrity.digest`` resolves every input with it.
 
 ``os.path.realpath`` is neither: physical like ``realpath(3)`` but spelling-preserving like ``realpathSync``.
+
+A failed call raises the ``OSError`` Node rejects with (``system_error``): libuv's code, the syscall and the path
+Node's message names, so ``records.node_message`` writes Node's text (``ENOENT: no such file or directory,
+realpath '<path>'``; a directory read is ``EISDIR: illegal operation on a directory, read``). Node builds that text
+from the bytes the system was given, so a lone surrogate of the path is U+FFFD there. A path with a NUL byte is
+``InvalidArgValueError``, a ``TypeError`` as Node's is, so the routes and receipts treat it as Node's internal fault.
 """
 from __future__ import annotations
 
@@ -26,17 +32,75 @@ import os
 import re
 import stat as stat_module
 import sys
+from typing import Iterator, Optional
 
 from . import nodepath
 
-__all__ = ['InvalidArgValueError', 'check_path', 'inspect_string', 'encode', 'decode', 'read_file', 'open_check',
-           'readdir', 'stat', 'lstat', 'realpath', 'realpath_sync']
+__all__ = ['InvalidArgValueError', 'check_path', 'inspect_string', 'encode', 'decode', 'system_error', 'read_file',
+           'read_stream', 'open_check', 'readdir', 'stat', 'lstat', 'realpath', 'realpath_sync']
 
 _LONE_SURROGATE = re.compile('[\ud800-\udfff]')
+_CHUNK = 1 << 20
+
+# libuv's uv_strerror texts, which Node's fs errors carry (deps/uv/include/uv.h, UV_ERRNO_MAP; the system errors of
+# util.getSystemErrorMap()). An errno libuv does not map is "Unknown system error -<errno>" in fs.promises.
+_UV_TEXT = {
+    'E2BIG': 'argument list too long', 'EACCES': 'permission denied', 'EADDRINUSE': 'address already in use',
+    'EADDRNOTAVAIL': 'address not available', 'EAFNOSUPPORT': 'address family not supported',
+    'EAGAIN': 'resource temporarily unavailable', 'EALREADY': 'connection already in progress',
+    'EBADF': 'bad file descriptor', 'EBUSY': 'resource busy or locked', 'ECANCELED': 'operation canceled',
+    'ECONNABORTED': 'software caused connection abort', 'ECONNREFUSED': 'connection refused',
+    'ECONNRESET': 'connection reset by peer', 'EDESTADDRREQ': 'destination address required',
+    'EEXIST': 'file already exists', 'EFAULT': 'bad address in system call argument', 'EFBIG': 'file too large',
+    'EFTYPE': 'inappropriate file type or format', 'EHOSTDOWN': 'host is down',
+    'EHOSTUNREACH': 'host is unreachable', 'EILSEQ': 'illegal byte sequence', 'EINTR': 'interrupted system call',
+    'EINVAL': 'invalid argument', 'EIO': 'i/o error', 'EISCONN': 'socket is already connected',
+    'EISDIR': 'illegal operation on a directory', 'ELOOP': 'too many symbolic links encountered',
+    'EMFILE': 'too many open files', 'EMLINK': 'too many links', 'EMSGSIZE': 'message too long',
+    'ENAMETOOLONG': 'name too long', 'ENETDOWN': 'network is down', 'ENETUNREACH': 'network is unreachable',
+    'ENFILE': 'file table overflow', 'ENOBUFS': 'no buffer space available', 'ENODATA': 'no data available',
+    'ENODEV': 'no such device', 'ENOENT': 'no such file or directory', 'ENOEXEC': 'exec format error',
+    'ENOMEM': 'not enough memory', 'ENONET': 'machine is not on the network',
+    'ENOPROTOOPT': 'protocol not available', 'ENOSPC': 'no space left on device',
+    'ENOSYS': 'function not implemented', 'ENOTCONN': 'socket is not connected', 'ENOTDIR': 'not a directory',
+    'ENOTEMPTY': 'directory not empty', 'ENOTSOCK': 'socket operation on non-socket',
+    'ENOTSUP': 'operation not supported on socket', 'ENOTTY': 'inappropriate ioctl for device',
+    'ENXIO': 'no such device or address', 'EOVERFLOW': 'value too large for defined data type',
+    'EPERM': 'operation not permitted', 'EPIPE': 'broken pipe', 'EPROTO': 'protocol error',
+    'EPROTONOSUPPORT': 'protocol not supported', 'EPROTOTYPE': 'protocol wrong type for socket',
+    'ERANGE': 'result too large', 'EREMOTEIO': 'remote I/O error', 'EROFS': 'read-only file system',
+    'ESHUTDOWN': 'cannot send after transport endpoint shutdown',
+    'ESOCKTNOSUPPORT': 'socket type not supported', 'ESPIPE': 'invalid seek', 'ESRCH': 'no such process',
+    'ETIMEDOUT': 'connection timed out', 'ETXTBSY': 'text file is busy', 'EUNATCH': 'protocol driver not attached',
+    'EXDEV': 'cross-device link not permitted',
+}
+# This system's errno values of those names (EOPNOTSUPP, EWOULDBLOCK and other aliases are not libuv names).
+_UV_CODE = {getattr(errno, name): name for name in _UV_TEXT if hasattr(errno, name)}
 
 
-class InvalidArgValueError(ValueError):
-    """Node's ``ERR_INVALID_ARG_VALUE``: a path string with a NUL byte."""
+def _uv_code(number: Optional[int]) -> str:
+    if number in _UV_CODE:
+        return _UV_CODE[number]
+    return f'Unknown system error -{number}'
+
+
+def system_error(error: OSError, syscall: str, path: Optional[str], dest: Optional[str] = None) -> OSError:
+    """``error`` as Node's fs rejects: with libuv's ``code``, the ``syscall`` and the path (and destination) the
+    message names, which ``records.node_message`` writes (``ENOENT: no such file or directory, open '<path>'``),
+    each as the system received it (a lone surrogate as U+FFFD)."""
+    error.code = _uv_code(error.errno)  # type: ignore[attr-defined]
+    error.syscall = syscall  # type: ignore[attr-defined]
+    error.node_path = _received(path)  # type: ignore[attr-defined]
+    error.node_dest = _received(dest)  # type: ignore[attr-defined]
+    return error
+
+
+def _received(path: Optional[str]) -> Optional[str]:
+    return None if path is None else _LONE_SURROGATE.sub('\ufffd', path)
+
+
+class InvalidArgValueError(TypeError):
+    """Node's ``ERR_INVALID_ARG_VALUE``: a path string with a NUL byte. A ``TypeError``, as Node's is."""
 
     code = 'ERR_INVALID_ARG_VALUE'
 
@@ -130,28 +194,66 @@ def decode(raw: bytes) -> str:
 
 
 def read_file(path: str) -> bytes:
-    """``readFile(path)``: a directory raises ``EISDIR``, as Node's does."""
-    with open(encode(path), 'rb') as stream:
-        return stream.read()
+    """``readFile(path)``: ``open`` fails with the path in the message; a directory opens and fails on ``read``
+    (``EISDIR``, without a path)."""
+    return b''.join(read_stream(path))
+
+
+def read_stream(path: str) -> Iterator[bytes]:
+    """``createReadStream(path)`` read to the end, in chunks of 1 MiB, with ``readFile``'s errors."""
+    try:
+        fd = os.open(encode(path), os.O_RDONLY | getattr(os, 'O_CLOEXEC', 0))
+    except OSError as error:
+        raise system_error(error, 'open', path) from None
+    try:
+        if stat_module.S_ISDIR(os.fstat(fd).st_mode):
+            raise system_error(OSError(errno.EISDIR, os.strerror(errno.EISDIR)), 'read', None)
+        while True:
+            try:
+                chunk = os.read(fd, _CHUNK)
+            except OSError as error:
+                raise system_error(error, 'read', None) from None
+            if not chunk:
+                return
+            yield chunk
+    finally:
+        os.close(fd)
 
 
 def open_check(path: str) -> None:
     """The ``open`` of ``createReadStream(path)`` (``O_RDONLY``): an unreadable file raises ``EACCES``; a directory
     opens, and fails only when it is read."""
-    os.close(os.open(encode(path), os.O_RDONLY | getattr(os, 'O_CLOEXEC', 0)))
+    try:
+        fd = os.open(encode(path), os.O_RDONLY | getattr(os, 'O_CLOEXEC', 0))
+    except OSError as error:
+        raise system_error(error, 'open', path) from None
+    os.close(fd)
 
 
 def readdir(path: str) -> list[str]:
     """``readdir(path)``: the names in the directory's order, decoded as Node decodes them."""
-    return [decode(name) for name in os.listdir(encode(path))]
+    raw = encode(path)
+    try:
+        names = os.listdir(raw)
+    except OSError as error:
+        raise system_error(error, 'scandir', path) from None
+    return [decode(name) for name in names]
 
 
 def stat(path: str) -> os.stat_result:
-    return os.stat(encode(path))
+    raw = encode(path)
+    try:
+        return os.stat(raw)
+    except OSError as error:
+        raise system_error(error, 'stat', path) from None
 
 
 def lstat(path: str) -> os.stat_result:
-    return os.lstat(encode(path))
+    raw = encode(path)
+    try:
+        return os.lstat(raw)
+    except OSError as error:
+        raise system_error(error, 'lstat', path) from None
 
 
 # --- fs.promises.realpath: realpath(3) ---------------------------------------------------------------------------
@@ -187,12 +289,15 @@ def realpath(path: str) -> str:
     """
     raw = encode(path)
     if _REALPATH is None:  # no C library to call (not POSIX): the closest Python equivalent
-        return os.path.realpath(path, strict=True)
+        try:
+            return os.path.realpath(path, strict=True)
+        except OSError as error:
+            raise system_error(error, 'realpath', path) from None
     function, free = _REALPATH
     result = function(raw, None)
     if not result:
         number = ctypes.get_errno() or errno.EIO
-        raise OSError(number, os.strerror(number), path)
+        raise system_error(OSError(number, os.strerror(number), path), 'realpath', path)
     try:
         return decode(ctypes.string_at(result))
     finally:

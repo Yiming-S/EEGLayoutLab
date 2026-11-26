@@ -10,6 +10,7 @@ import { MASK_NAMES } from '@/lib/ui-language';
 import { REGION_COUNTS } from '@/lib/lab-workflow';
 import { cn } from '@/lib/utils';
 import { placementChoices, placementDesignLink, type PlacementChoice, type PlacementProtocol } from '@/lib/placement-options';
+import { apiFetch } from '@/client/task-client';
 
 export function LocationRadios({ label, value, onChange, options, compact = false, stacked = false }: {
   label: string; value: string; onChange: (value: string) => void;
@@ -54,7 +55,7 @@ export function PlacementDesignPresets({ ar }: { ar: number }) {
   const [error, setError] = useState(false);
   useEffect(() => {
     const controller = new AbortController();
-    fetch('/data/experiment_protocol_v2.json', { signal: controller.signal })
+    apiFetch('/data/experiment_protocol_v2.json', { signal: controller.signal })
       .then(async (response) => { if (!response.ok) throw new Error('protocol'); return response.json() as Promise<PlacementProtocol>; })
       .then(setProtocolData)
       .catch(() => { if (!controller.signal.aborted) setError(true); });

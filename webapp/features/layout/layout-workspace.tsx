@@ -123,7 +123,7 @@ export default function LayoutWorkspace() {
               </div>
               <ThresholdSlider className="min-w-[250px]" value={ar} onChange={value => select(shown.id, value)} ariaLabel="布局接受阈值AR" term="ar" hint="只更新判断，不重新计算。" />
             </div>
-            <div className="overflow-x-auto rounded-xl border border-border/75 bg-card">
+            <div className="relative overflow-x-auto rounded-xl border border-border/75 bg-card">
               <table className="w-full min-w-[720px] text-left text-sm">
                 <thead>
                   <tr className="border-b border-border/75 bg-muted/55 text-xs font-semibold tracking-wide text-ink-soft">

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/components/language-provider';
 import { RuntimeMessage } from '@/components/runtime-message';
-import { projectRequest, type ProjectAccess, type ResearchProject } from '@/client/projects';
+import { projectRequest, type ResearchProject } from '@/client/projects';
 import { prepareProjectDelivery } from './project-delivery-download';
 
 type Prepared = Awaited<ReturnType<typeof prepareProjectDelivery>>;
@@ -13,11 +13,11 @@ function download(content: string, filename: string, mediaType: string) {
   setTimeout(() => URL.revokeObjectURL(href), 1000);
 }
 
-export function ProjectDeliveryPanel({ project, access }: { project: ResearchProject; access: ProjectAccess }) {
+export function ProjectDeliveryPanel({ project }: { project: ResearchProject }) {
   const { tx } = useLanguage();
   const [prepared, setPrepared] = useState<Prepared | null>(null), [busy, setBusy] = useState(false), [error, setError] = useState('');
   const running = useRef<AbortController | null>(null);
-  useEffect(() => () => { running.current?.abort(); running.current = null; }, [project.id, project.revision, access.access_key]);
+  useEffect(() => () => { running.current?.abort(); running.current = null; }, [project.id, project.revision]);
   const save = (kind: 'package' | 'readme', value: Prepared) => {
     if (kind === 'readme') download(value.readme.content, `eeg-project-${project.id}-README.md`, value.readme.media_type);
     else download(value.text, value.filename, 'application/json');
@@ -26,8 +26,8 @@ export function ProjectDeliveryPanel({ project, access }: { project: ResearchPro
     if (prepared) { save(kind, prepared); return; }
     const controller = new AbortController(); running.current = controller; setBusy(true); setError('');
     void (async () => {
-      const bundle = await projectRequest(access, '/export', { signal: controller.signal, timeoutMs: 120000 });
-      const result = await prepareProjectDelivery(bundle, project, access.access_key, controller.signal);
+      const bundle = await projectRequest(project.id, '/export', { signal: controller.signal, timeoutMs: 120000 });
+      const result = await prepareProjectDelivery(bundle, project, controller.signal);
       if (controller.signal.aborted) return;
       setPrepared(result); save(kind, result);
     })().catch(caught => {
@@ -54,6 +54,5 @@ export function ProjectDeliveryPanel({ project, access }: { project: ResearchPro
       <div><dt className="text-muted-foreground">{tx('项目版本')}</dt><dd>{project.revision}</dd></div>
       <div className="sm:col-span-3"><dt className="text-muted-foreground">{tx('交付清单 SHA-256')}</dt><dd className="break-all font-mono text-xs">{prepared.bundle.manifest_sha256}</dd></div>
     </dl>}
-    <p className="text-xs text-muted-foreground">{tx('项目访问凭据单独保存和分享，不随交付包导出。')}</p>
   </section>;
 }

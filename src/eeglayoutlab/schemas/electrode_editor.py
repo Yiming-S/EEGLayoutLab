@@ -1,160 +1,162 @@
-"""Electrode-editor request format (``normalizeEditorRequest`` in webapp/server/electrode-editor-server.mjs).
+"""Electrode-editor request (``normalizeEditorRequest`` in webapp/server/electrode-editor-server.mjs).
 
-The body of ``POST /api/electrode-editor/jobs`` and ``/lookup``, and the ``request`` of every stored editor
-record. Supports two actions:
-- ``prepare``: ``{action: 'prepare', parent_id}``
-- ``evaluate``: ``{action: 'evaluate', parent_id, parent_digest, seed: 2026, slots}`` (64 stable slots, at least
-  2 enabled, bank indices in ``[0, 1_000_000]``).
+The body of ``POST /api/electrode-editor/jobs`` and the ``request`` of every editor cache record. A preparation
+names a parent layout of the library; an evaluation also carries the parent's digest, the fixed seed 2026 and the
+64 stable slots of the parent's electrodes, each a bank index and whether that electrode is active, at least two
+of them active.
+
+``normalize_editor_request`` is a line-by-line port: it checks in Node's order and raises ``ValueError`` with
+Node's message, which the Node host returns from the editor's job endpoint. ``ElectrodeEditorRequest`` describes the
+canonical form for the OpenAPI document and accepts exactly what ``normalize_editor_request`` accepts. The canonical
+form keeps Node's key order; Node rejects every other field, so nothing is dropped.
 """
 from __future__ import annotations
 
 import re
 from typing import Annotated, Any, Literal, Union
 
-from . import jsjson
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, StrictBool
 
-try:
-    from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, TypeAdapter, model_validator
-    from .types import integer, js_integer
-    _HAS_PYDANTIC = True
-except ModuleNotFoundError:  # Allows pure normalize_editor_request in runtimes without [service] extras.
-    _HAS_PYDANTIC = False
+from . import jsjson
+from .types import integer
 
 __all__ = [
-    'ElectrodeSlot', 'PrepareEditorRequest', 'EvaluateEditorRequest', 'ElectrodeEditorRequest',
-    'normalize_editor_request', 'canonical', 'EDITOR_SEED', 'MAX_BANK_INDEX',
+    'ElectrodeEditorRequest', 'ElectrodeEditorPreparation', 'ElectrodeEditorEvaluation', 'ElectrodeEditorSlot',
+    'normalize_editor_request', 'canonical', 'ACTIONS', 'SLOT_COUNT', 'MAX_BANK_INDEX', 'SEED', 'MIN_ACTIVE',
 ]
 
-EDITOR_SEED = 2026
-MAX_BANK_INDEX = 1000000
-_HEX64 = re.compile(r'[a-f0-9]{64}')
+ACTIONS = ('prepare', 'evaluate')
+SLOT_COUNT = 64
+MAX_BANK_INDEX = 1_000_000
+SEED = 2026
+MIN_ACTIVE = 2
+_ID = re.compile('[a-f0-9]{64}')
 
+# Node's messages, verbatim.
 INVALID_REQUEST = 'Invalid editor request'
-INVALID_PREPARE = 'Invalid preparation fields'
-INVALID_PROTOCOL = 'Invalid editor protocol'
-INVALID_SLOTS = 'Invalid stable electrode slots'
-MIN_ACTIVE = 'At least two active electrodes are required'
+PREPARATION_FIELDS = 'Invalid preparation fields'
+PROTOCOL = 'Invalid editor protocol'
+SLOTS = 'Invalid stable electrode slots'
+TOO_FEW_ACTIVE = 'At least two active electrodes are required'
 
+
+# --- Node's rules ----------------------------------------------------------------
 
 def _id(value: Any) -> bool:
-    """``typeof value === 'string' && /^[a-f0-9]{64}$/.test(value)``."""
-    return isinstance(value, str) and bool(_HEX64.fullmatch(value))
+    """``typeof value === 'string' && /^[a-f0-9]{64}$/.test(value)``: ``$`` is the end of the text, no newline."""
+    return isinstance(value, str) and _ID.fullmatch(value) is not None
 
 
-def _sorted_keys(value: dict[str, Any]) -> str:
-    """``Object.keys(value).sort().join(',')`` in UTF-16 code-unit order."""
+def _is_array(value: Any) -> bool:
+    return isinstance(value, (list, tuple))
+
+
+def _sorted_keys(value: dict) -> str:
+    """``Object.keys(value).sort().join(',')``: UTF-16 code-unit order."""
     return ','.join(sorted((str(key) for key in value),
                            key=lambda key: key.encode('utf-16-be', errors='surrogatepass')))
 
 
-def _valid_slot(slot: Any) -> bool:
+def _bad_slot(slot: Any) -> bool:
+    """A slot that is not ``{bank_index, enabled}`` with an integer index in [0, 1000000] and a boolean. ``!s`` and
+    ``Object.keys`` of a number, a string or an array also fail the key test, so only an object can pass."""
     if not isinstance(slot, dict) or _sorted_keys(slot) != 'bank_index,enabled':
-        return False
-    bank = slot.get('bank_index')
-    enabled = slot.get('enabled')
-    if not jsjson.is_integer(bank) or type(enabled) is not bool:
-        return False
-    idx = int(jsjson.to_number(bank))
-    return 0 <= idx <= MAX_BANK_INDEX
+        return True
+    index = slot.get('bank_index')
+    return (not jsjson.is_integer(index) or not 0 <= jsjson.to_number(index) <= MAX_BANK_INDEX
+            or not isinstance(slot.get('enabled'), bool))
 
 
 def normalize_editor_request(raw: Any) -> dict[str, Any]:
-    """``normalizeEditorRequest(raw)`` (webapp/server/electrode-editor-server.mjs): checks in Node's exact order
-    and raises ``ValueError`` with Node's verbatim message."""
-    if not isinstance(raw, dict) or raw.get('action') not in ('prepare', 'evaluate') or not _id(raw.get('parent_id')):
+    """``normalizeEditorRequest(raw)``: the canonical request; raises ``ValueError`` with Node's message where Node
+    throws, checking in Node's order. ``raw`` is a ``jsjson.parse`` value or plain Python data (tuples count as
+    arrays, ``bool`` is not a number); it is not changed."""
+    # A value that is not an object has no action: `!raw`, or `raw.action` is undefined.
+    if (not isinstance(raw, dict) or not (isinstance(raw.get('action'), str) and raw['action'] in ACTIONS)
+            or not _id(raw.get('parent_id'))):
         raise ValueError(INVALID_REQUEST)
     if raw['action'] == 'prepare':
         if _sorted_keys(raw) != 'action,parent_id':
-            raise ValueError(INVALID_PREPARE)
+            raise ValueError(PREPARATION_FIELDS)
         return {'action': 'prepare', 'parent_id': raw['parent_id']}
     seed = raw.get('seed')
-    if (_sorted_keys(raw) != 'action,parent_digest,parent_id,seed,slots'
-            or not _id(raw.get('parent_digest'))
-            or not (jsjson.is_number(seed) and jsjson.to_number(seed) == EDITOR_SEED)):
-        raise ValueError(INVALID_PROTOCOL)
+    if (_sorted_keys(raw) != 'action,parent_digest,parent_id,seed,slots' or not _id(raw.get('parent_digest'))
+            or not (jsjson.is_number(seed) and jsjson.to_number(seed) == SEED)):
+        raise ValueError(PROTOCOL)
     slots = raw.get('slots')
-    if not isinstance(slots, (list, tuple)) or len(slots) != 64 or any(not _valid_slot(s) for s in slots):
-        raise ValueError(INVALID_SLOTS)
-    if sum(1 for s in slots if s['enabled']) < 2:
-        raise ValueError(MIN_ACTIVE)
-    return {
-        'action': 'evaluate',
-        'parent_id': raw['parent_id'],
-        'parent_digest': raw['parent_digest'],
-        'seed': EDITOR_SEED,
-        'slots': [{'bank_index': int(jsjson.to_number(s['bank_index'])), 'enabled': s['enabled']} for s in slots],
-    }
+    if not _is_array(slots) or len(slots) != SLOT_COUNT or any(_bad_slot(slot) for slot in slots):
+        raise ValueError(SLOTS)
+    if sum(1 for slot in slots if slot['enabled']) < MIN_ACTIVE:
+        raise ValueError(TOO_FEW_ACTIVE)
+    return {'action': 'evaluate', 'parent_id': raw['parent_id'], 'parent_digest': raw['parent_digest'], 'seed': SEED,
+            'slots': [{'bank_index': int(jsjson.to_number(slot['bank_index'])), 'enabled': slot['enabled']}
+                      for slot in slots]}
 
 
-if _HAS_PYDANTIC:
-    def _hex_id(value: str) -> str:
-        if not _HEX64.fullmatch(value):
-            raise ValueError('must be 64 lowercase hexadecimal digits')
+# --- Schema --------------------------------------------------------------------
+
+Identifier = Annotated[str, Field(strict=True, pattern='^[a-f0-9]{64}$')]
+"""A lowercase SHA-256 hex digest: a library record id or a parent digest."""
+
+_EXACT = ConfigDict(extra='forbid')
+
+
+class ElectrodeEditorSlot(BaseModel):
+    """One of the parent's 64 electrodes: the bank index of its position, which the worker checks against the
+    slot's region, and whether it is active."""
+    model_config = _EXACT
+    bank_index: integer(ge=0, le=MAX_BANK_INDEX)
+    enabled: StrictBool
+
+    def canonical(self) -> dict[str, Any]:
+        return {'bank_index': self.bank_index, 'enabled': self.enabled}
+
+
+def _at_least_two_active(schema: dict[str, Any]) -> None:
+    # JSON Schema 2020-12 (OpenAPI 3.1): at least two items with enabled true.
+    schema.update(contains={'type': 'object', 'properties': {'enabled': {'const': True}}, 'required': ['enabled']},
+                  minContains=MIN_ACTIVE)
+
+
+class ElectrodeEditorPreparation(BaseModel):
+    """Load the parent layout's region data for editing."""
+    model_config = _EXACT
+    action: Literal['prepare']
+    parent_id: Identifier
+
+    def canonical(self) -> dict[str, Any]:
+        return {'action': 'prepare', 'parent_id': self.parent_id}
+
+
+class ElectrodeEditorEvaluation(BaseModel):
+    """Score the edited layout: ``parent_digest`` is the SHA-256 of the parent record's ``JSON.stringify`` text,
+    and the slots keep the parent's electrode order."""
+    model_config = _EXACT
+    action: Literal['evaluate']
+    parent_id: Identifier
+    parent_digest: Identifier
+    seed: Literal[SEED]  # type: ignore[valid-type]
+    slots: Annotated[list[ElectrodeEditorSlot], Field(min_length=SLOT_COUNT, max_length=SLOT_COUNT,
+                                                       json_schema_extra=_at_least_two_active)]
+
+    def canonical(self) -> dict[str, Any]:
+        return {'action': 'evaluate', 'parent_id': self.parent_id, 'parent_digest': self.parent_digest,
+                'seed': SEED, 'slots': [slot.canonical() for slot in self.slots]}
+
+
+def _node_rules(value: Any) -> Any:
+    # Node's rules decide and give the message; the tagged union then checks the canonical value it describes.
+    if isinstance(value, (ElectrodeEditorPreparation, ElectrodeEditorEvaluation)):
         return value
+    return normalize_editor_request(value)
 
-    HexId = Annotated[str, Field(strict=True, json_schema_extra={'pattern': '^[0-9a-f]{64}$'}), AfterValidator(_hex_id)]
 
-    class ElectrodeSlot(BaseModel):
-        """One of the 64 fixed electrode slots of a parent layout."""
-        model_config = ConfigDict(extra='forbid')
-        bank_index: integer(ge=0, le=MAX_BANK_INDEX)
-        enabled: Annotated[bool, Field(strict=True)]
+ElectrodeEditorRequest = Annotated[
+    Union[ElectrodeEditorPreparation, ElectrodeEditorEvaluation], Field(discriminator='action'),
+    BeforeValidator(_node_rules),
+]
 
-    class PrepareEditorRequest(BaseModel):
-        """Load the candidate bank indices inside each region patch of a saved 64-electrode layout."""
-        model_config = ConfigDict(extra='forbid')
-        action: Literal['prepare']
-        parent_id: HexId
 
-        @model_validator(mode='before')
-        @classmethod
-        def _node_rules(cls, data: Any) -> Any:
-            return data if isinstance(data, cls) else normalize_editor_request(data)
-
-        def canonical(self) -> dict[str, Any]:
-            return {'action': 'prepare', 'parent_id': self.parent_id}
-
-    class EvaluateEditorRequest(BaseModel):
-        """Evaluate an edited subset or within-patch relocation of a parent layout's 64 electrode slots."""
-        model_config = ConfigDict(extra='forbid')
-        action: Literal['evaluate']
-        parent_id: HexId
-        parent_digest: HexId
-        seed: Annotated[Literal[2026], BeforeValidator(js_integer)]
-        slots: Annotated[list[ElectrodeSlot], Field(min_length=64, max_length=64)]
-
-        @model_validator(mode='before')
-        @classmethod
-        def _node_rules(cls, data: Any) -> Any:
-            return data if isinstance(data, cls) else normalize_editor_request(data)
-
-        def canonical(self) -> dict[str, Any]:
-            return {
-                'action': 'evaluate',
-                'parent_id': self.parent_id,
-                'parent_digest': self.parent_digest,
-                'seed': EDITOR_SEED,
-                'slots': [{'bank_index': slot.bank_index, 'enabled': slot.enabled} for slot in self.slots],
-            }
-
-    def _before_editor_union(value: Any) -> Any:
-        if isinstance(value, (PrepareEditorRequest, EvaluateEditorRequest)):
-            return value
-        return normalize_editor_request(value)
-
-    ElectrodeEditorRequest = Annotated[
-        Union[PrepareEditorRequest, EvaluateEditorRequest],
-        Field(discriminator='action'),
-        BeforeValidator(_before_editor_union),
-    ]
-
-    _ADAPTER: TypeAdapter = TypeAdapter(ElectrodeEditorRequest)
-
-    def canonical(value: PrepareEditorRequest | EvaluateEditorRequest) -> dict[str, Any]:
-        """The registry's canonical value of a validated editor request."""
-        return value.canonical()
-else:
-    ElectrodeSlot = PrepareEditorRequest = EvaluateEditorRequest = ElectrodeEditorRequest = None  # type: ignore[assignment,misc]
-
-    def canonical(value: Any) -> dict[str, Any]:
-        return normalize_editor_request(value)
+def canonical(value: ElectrodeEditorPreparation | ElectrodeEditorEvaluation) -> dict[str, Any]:
+    """The registry's canonical value of a validated request."""
+    return value.canonical()

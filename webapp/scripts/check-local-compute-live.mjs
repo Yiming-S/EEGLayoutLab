@@ -2,24 +2,32 @@
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { validateWorkerResult } from './local-compute-server.mjs';
+import { validateWorkerResult } from '../server/local-compute-server.mjs';
+import { scriptServer } from './helpers/service-session.mjs';
 
-const base = 'http://localhost:3000';
-const health = await fetch(`${base}/api/local-compute/health`).then((r) => r.json());
+// The Python service (eeglayoutlab serve): with EEG_SERVICE_RUNTIME (its <workspace>/.eeglayoutlab/runtime.json), or
+// EEG_SERVICE_TOKEN and EEG_TEST_URL, the script signs in as its launched browser and sends the session cookie
+// (helpers/service-session.mjs). With EEG_TEST_URL alone, the legacy Node host there. EEG_REPOSITORY_ROOT is the
+// root the server serves (default this checkout).
+const { base, service } = await scriptServer();
+const call = (path, options = {}) => fetch(base + path,
+  { ...options, headers: { ...options.headers, ...(service ? { Cookie: service.cookie } : {}) } });
+const health = await call('/api/local-compute/health').then((r) => r.json());
 assert.equal(health.available, true);
 const headers = { 'Content-Type': 'application/json', 'X-EEG-Compute-Token': health.token };
 const observations = [];
 const delay = (ms) => new Promise((done) => setTimeout(done, ms));
 async function submit(request) {
-  const response = await fetch(`${base}/api/local-compute/jobs`, { method: 'POST', headers, body: JSON.stringify(request) });
-  return { code: response.status, ...await response.json() };
+  const response = await call('/api/local-compute/jobs', { method: 'POST', headers, body: JSON.stringify(request) });
+  // The HTTP status last: an error body has its own `code` (the stable error code) on both hosts.
+  return { ...await response.json(), code: response.status };
 }
 async function settled(job) {
   const start = Date.now();
   while (['queued', 'running', 'cancelling'].includes(job.status)) {
     if (Date.now() - start > 180000) throw new Error('Integration test exceeded server deadline');
     await delay(300);
-    const response = await fetch(`${base}/api/local-compute/jobs/${job.id}`);
+    const response = await call(`/api/local-compute/jobs/${job.id}`);
     assert.equal(response.status, 200);
     job = (await response.json()).job;
   }
@@ -53,10 +61,10 @@ for (const request of [
 }
 const bad = await submit({ region_count: 2, radius_mm: 35, mode: 'preset', mask_codes: ['PL_superior', 'PR'] });
 assert.equal(bad.code, 400);
-const unauthorized = await fetch(`${base}/api/local-compute/jobs`, { method: 'POST',
+const unauthorized = await call('/api/local-compute/jobs', { method: 'POST',
   headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ region_count: 2, radius_mm: 35, mode: 'whole_surface' }) });
 assert.equal(unauthorized.status, 403);
-const crossOrigin = await fetch(`${base}/api/local-compute/health`, { headers: { Origin: 'https://example.org' } });
+const crossOrigin = await call('/api/local-compute/health', { headers: { Origin: 'https://example.org' } });
 assert.equal(crossOrigin.status, 403);
 const report = { status: 'passed', scope: 'real localhost HTTP -> Python -> durable result/cache; no browser QA',
   observations, invalid_configuration_rejected: true, missing_token_rejected: true, cross_origin_rejected: true,

@@ -12,7 +12,8 @@ from typing import Any, Callable, Mapping
 
 from pydantic import TypeAdapter
 
-from . import coordinate_source, electrode_editor, options, radius_search, submission
+from . import (coordinate_source, electrode_editor, options, projects, radius_search, robustness_study,
+               source_reception, study_options, submission)
 
 
 @dataclass(frozen=True)
@@ -74,6 +75,42 @@ REQUEST_FORMATS: dict[str, RequestFormat] = {
             node='normalizeEditorRequest (webapp/server/electrode-editor-server.mjs)',
         ),
         RequestFormat(
+            name='project-create',
+            schema_name='ProjectCreate',
+            body=projects.ProjectCreateBody,
+            canonical=projects.canonical,
+            node='body + ProjectStore.create (webapp/server/projects/service.mjs, store.mjs)',
+        ),
+        RequestFormat(
+            name='project-entry',
+            schema_name='ProjectEntryInput',
+            body=projects.ProjectEntryInput,
+            canonical=projects.canonical,
+            node='body + attachment + ProjectStore.attach (webapp/server/projects/service.mjs, store.mjs)',
+            options={'entry_kinds': projects.ENTRY_KINDS},
+        ),
+        RequestFormat(
+            name='project-entry-delete',
+            schema_name='ProjectEntryDelete',
+            body=projects.ProjectEntryDeleteBody,
+            canonical=projects.canonical,
+            node='body + ProjectStore.detach (webapp/server/projects/service.mjs, store.mjs)',
+        ),
+        RequestFormat(
+            name='project-entry-patch',
+            schema_name='ProjectEntryPatch',
+            body=projects.ProjectEntryPatchBody,
+            canonical=projects.canonical,
+            node='body + ProjectStore.patchEntry (webapp/server/projects/service.mjs, store.mjs)',
+        ),
+        RequestFormat(
+            name='project-patch',
+            schema_name='ProjectPatch',
+            body=projects.ProjectPatchBody,
+            canonical=projects.canonical,
+            node='body + ProjectStore.patch (webapp/server/projects/service.mjs, store.mjs)',
+        ),
+        RequestFormat(
             name='radius-search',
             schema_name='RadiusSearchRequest',
             body=radius_search.RadiusSearchRequest,
@@ -85,6 +122,29 @@ REQUEST_FORMATS: dict[str, RequestFormat] = {
                 'data_prior_lengths_mm': options.DATA_PRIOR_LENGTHS_MM,
                 'electrode_counts': radius_search.ELECTRODE_COUNTS,
             },
+        ),
+        RequestFormat(
+            name='robustness-study',
+            schema_name='RobustnessStudyInput',
+            body=robustness_study.RobustnessStudyInput,
+            canonical=robustness_study.canonical,
+            node='normalizeStudyInput (webapp/server/studies/protocol.mjs)',
+            options={
+                'protocols': study_options.STUDY_PROTOCOLS,
+                'study_statuses': study_options.STUDY_STATUSES,
+                'case_statuses': study_options.CASE_STATUSES,
+                'nominal_metrics': study_options.NOMINAL_METRICS,
+                'trial_metrics': study_options.TRIAL_METRICS,
+            },
+        ),
+        RequestFormat(
+            name='source-reception',
+            schema_name='SourceReceptionRequest',
+            body=source_reception.SourceReceptionRequest,
+            canonical=source_reception.canonical,
+            node='normalizeReceptionRequest, with normalizeSourceRequest for requests without mode '
+                 '(webapp/contracts/source-reception.mjs)',
+            options={'source_regions': source_reception.SOURCE_REGIONS},
         ),
     )
 }

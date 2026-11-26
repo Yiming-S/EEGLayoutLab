@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useLanguage } from '@/components/language-provider';
 
-import { ApiError, followTask, submitTask, cancelTask, readTask, type TaskConnection } from '@/client/task-client';
+import { ApiError, followTask, submitTask, cancelTask, readTask, type TaskConnection, apiFetch } from '@/client/task-client';
 
 import { parseAR } from '@/lib/lab-workflow';
 import type { SavedSummary } from '@/lib/local-library';
@@ -60,7 +60,7 @@ export function useElectrodesController() {
     busy = pending || (running(job) && connection !== 'blocked');
   const dirty = !!domain && slotKey(slots) !== savedDraftKey;
   const refreshRecords = useCallback(async () => {
-    const r = await fetch('/api/electrode-editor/records', {
+    const r = await apiFetch('/api/electrode-editor/records', {
       cache: 'no-store',
     });
     if (!r.ok) throw new Error('Editor records are unavailable');
@@ -76,7 +76,7 @@ export function useElectrodesController() {
         setParentId(q.get('parent') ?? '');
       }
     });
-    fetch('/api/electrode-editor/parents', { cache: 'no-store' })
+    apiFetch('/api/electrode-editor/parents', { cache: 'no-store' })
       .then((r) => {
         if (!r.ok) throw new Error('Local library is unavailable');
         return r.json() as Promise<{ records: SavedSummary[] }>;
@@ -211,7 +211,7 @@ export function useElectrodesController() {
           return;
         }
         try {
-          const response = await fetch('/api/electrode-editor/records', { cache: 'no-store' });
+          const response = await apiFetch('/api/electrode-editor/records', { cache: 'no-store' });
           if (!response.ok) throw new Error('Editor records are unavailable');
           const body = await response.json() as { records: EditorRecord[] };
           const saved = body.records.find(record => record.key === savedKey);

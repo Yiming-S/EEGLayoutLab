@@ -8,8 +8,8 @@ import { decisionCriteriaSummary, parseDecisionThresholds } from '@/lib/design-d
 import { comparableProjectEntries, emptyWorkflow, projectWorkflowFor } from './project-workflow';
 import { projectExperimentAssociations } from './project-experiment-associations';
 
-export function ProjectWorkflowEditor({ project, owner, busy, save, showCandidateSignals }: {
-  project: ResearchProject; owner: boolean; busy: boolean; save: (workflow: ProjectWorkflow) => void;
+export function ProjectWorkflowEditor({ project, busy, save, showCandidateSignals }: {
+  project: ResearchProject; busy: boolean; save: (workflow: ProjectWorkflow) => void;
   showCandidateSignals?: () => void;
 }) {
   const { tx } = useLanguage(), workflow = project.workflow ?? emptyWorkflow;
@@ -29,7 +29,7 @@ export function ProjectWorkflowEditor({ project, owner, busy, save, showCandidat
       <li className="rounded-lg border p-3"><strong>4 · {tx('比较方案')}</strong><p className="mt-2 text-muted-foreground">{tx(comparison ? '对比方案与要求已保存。' : '选择项目中的参考布局与候选布局。')}</p>{comparison && <a className="mt-2 inline-block text-primary underline" href={comparison}>{tx('打开保存的方案对比')}</a>}</li>
       <li className="rounded-lg border p-3"><strong>5 · {tx('导出与交接')}</strong><p className="mt-2 text-muted-foreground">{tx('保留原始结果、实验说明和比较条件。')}</p><a className="mt-2 inline-block text-primary underline" href="#project-delivery">{tx('查看项目交付')}</a></li>
     </ol>
-    {owner ? <form className="space-y-3 border-t pt-4" onSubmit={event => {
+    <form className="space-y-3 border-t pt-4" onSubmit={event => {
       event.preventDefault(); setError('');
       try { save(projectWorkflowFor(project, reference || null, candidate || null)); }
       catch (caught) { setError(caught instanceof Error ? caught.message : '项目操作失败'); }
@@ -41,7 +41,7 @@ export function ProjectWorkflowEditor({ project, owner, busy, save, showCandidat
       <Button type="submit" variant="outline" disabled={busy}>{tx('保存研究任务选择')}</Button>
       {error && <p role="alert" className="text-sm text-danger">{tx(error)}</p>}
       <p className="text-xs text-muted-foreground">{tx('保存选择不会启动计算。需要调整比较要求时，打开方案对比页并将设置保存回项目。')}</p>
-    </form> : <p className="text-sm text-muted-foreground">{tx('只读访问保留项目的方案选择，不能修改设置。')}</p>}
+    </form>
     {criteria && <p className="rounded-lg bg-muted p-3 text-sm">{tx(criteria)}</p>}
     <p className="text-xs text-muted-foreground">{tx('项目副本可以独立查看。工具页的新计算使用服务器当前可用的原始记录与科学环境。')}</p>
   </section>;

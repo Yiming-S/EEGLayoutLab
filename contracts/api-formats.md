@@ -17,9 +17,14 @@ change stored protocol identifiers.
 
 ## Requests
 
-All write requests are JSON objects. The existing local HTTP boundary validates
-origin, session token, and anonymous task ownership. These controls are separate
-from the request data formats below.
+All write requests are JSON objects. The Python service (`eeglayoutlab serve`)
+requires its session cookie on every request and, on writes, a same-origin
+request and `X-EEG-Compute-Token`, the token from health. A request without the
+cookie, such as one from a tab of an earlier run, gets `401` with code
+`authentication_required`; the interface then asks to run the `eeglayoutlab`
+command again. The legacy Node host validates origin, the token and anonymous
+task ownership instead. These controls are separate from the request data
+formats below.
 
 | Service | Required fields | Rules |
 | --- | --- | --- |
@@ -29,6 +34,12 @@ from the request data formats below.
 | `/api/design-evaluation` | `action`, `design`, `radius_mm`, `seed` | Action: `evaluate` or `perturb`. Perturbation radius: 3, 6, 10 mm. Seed: integer 0–9999. |
 | `/api/electrode-editor`, preparation | `action`, `parent_id` | Action: `prepare`. Parent is a lowercase 64-character hexadecimal identifier. |
 | `/api/electrode-editor`, evaluation | `action`, `parent_id`, `parent_digest`, `seed`, `slots` | Action: `evaluate`. Parent identity and digest are lowercase 64-character hexadecimal identifiers. Seed: 2026. |
+| `/api/robustness-studies` | `protocol`, `design`, `cases` | Protocol: `noise_seeds`, `grid_displacements` or `heads`. 1–12 cases of `seed` and `radius_mm`, plus `head_id` in a cross-head study. Optional `title`, `notes`, `noise_model`, `conductivity_scenario`. |
+| `/api/projects`, create | `title`, `owner_name` | Optional `notes`. Title at most 200, name at most 120, notes at most 8000 UTF-16 units, without control characters other than tab and line breaks; title and name not blank. Texts are trimmed. No other fields. |
+| `/api/projects/<id>`, change | `revision` and at least one of `title`, `owner_name`, `notes`, `workflow` | `revision` is the project's current revision, a positive safe integer. `workflow`: `reference_entry_id`, `candidate_entry_id` (saved layouts of the project, or `null`) and `comparison_href` (`null` or a `/decision?` link of at most 4096 units naming both layouts' records with `a` and `b`, and optionally `ar`, `thresholdMode`, `sensitivity`, `localization`, `p90`). |
+| `/api/projects/<id>/entries`, attach | `revision`, `kind`, `record_id` or `receipt_id` | Kind: `layout`, `editor` (with `record_id`, a lowercase 64-character hexadecimal identifier) or `source` (with `receipt_id`, a completed signal task). Optional `annotation_id` (a layout's electrode-name annotation), `title`, `notes`. |
+| `/api/projects/<id>/entries/<entry>`, change | `revision` and at least one of `title`, `notes` | Same text rules as the project. |
+| `/api/projects/<id>/entries/<entry>`, detach | `revision` | Sent as the body, or as the `If-Match` header. |
 
 The radius request permits `mask_codes`. Preset mode requires exactly
 `region_count` entries drawn from `PL`, `PR`, `AL`, `AR`, `FL`, `FM`, `FR`, `OL`,
@@ -164,7 +175,9 @@ Source requests reject unknown fields, mixed source selectors, arbitrary
 coordinates and direction overrides. The optional atlas definition stays in the
 request identity. Existing source normalization and result validation are shared
 by the service through `webapp/server/contracts/source-reception.mjs`; old module
-exports remain available.
+exports remain available. The HTTP rules of both versions are the
+`source-reception` format of `eeglayoutlab.schemas`, which also gives Node's
+rejection messages.
 
 The design object uses `schema: eeg-electrode-design/1`,
 `coordinate_system: ernie_native_mm`, and `unit: mm`. It contains 64 distinct
@@ -176,12 +189,27 @@ The HTTP normalizer copies the listed design fields and sets `name` to the first
 metadata is not forwarded. Unknown fields in the top-level request are rejected.
 Coordinates must already refer to the Ernie native model space.
 
+A robustness study evaluates one design in explicit cases, each normalized as a
+design-evaluation request (`evaluate`, or `perturb` for `grid_displacements`)
+with the study's noise model and conductivity scenario. Noise-seed studies hold
+the radius fixed and grid-displacement studies vary it, each with unique
+seed/radius pairs; a cross-head study names each head package once, shares one
+seed and one radius and takes no conductivity scenario. The title (default
+`Robustness study`) is trimmed, not blank and at most 200 UTF-16 units; notes
+are at most 2000. The design's `electrode_names` and `source_metadata` are kept
+as the study's annotation, outside every request (a source without names gets
+`E1`–`E64`). The HTTP rules are the `robustness-study` format of
+`eeglayoutlab.schemas`, whose canonical value is the normalized study;
+`eeglayoutlab.jobs.studies.normalize_study_input` also gives Node's rejection
+messages.
+
 Editor requests keep 64 stable slots. Each slot contains only `bank_index` and
 boolean `enabled`; the HTTP index bound is integer 0–1,000,000. At least two
 slots must be enabled. The Python workflow additionally validates membership in
 the parent region, distinct active positions and minimum spacing against the
-verified parent data. The editor has no standalone Python envelope normalizer;
-its slot/domain regressions remain in `tests/test_electrode_editor.py`.
+verified parent data. The HTTP rules are the `electrode-editor` format of
+`eeglayoutlab.schemas`, which also gives Node's rejection messages; the
+workflow's slot/domain regressions remain in `tests/test_electrode_editor.py`.
 
 ## Results and task state
 
@@ -199,8 +227,12 @@ states include `queued`, `running`, `cancelling`, `completed`, `failed`,
 connection state is tracked separately from these backend states. The extraction
 does not merge the result formats or rewrite historical records.
 
-## Shared library visibility
+## Shared library visibility (legacy Node host)
 
+The Python service lists every record of the library for its one local user and
+returns no `visibility` or `library_scope`; its
+`/api/local-compute/library/<id>/visibility` is `404`, and the interface has no
+visibility control. On the legacy Node host,
 `GET /api/local-compute/library`, `GET /api/electrode-editor/records`,
 `GET /api/electrode-editor/parents` and `GET /api/source-reception/layouts`
 list one browser's view. Each visitor-produced record (`cache`,

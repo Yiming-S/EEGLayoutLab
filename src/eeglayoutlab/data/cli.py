@@ -5,8 +5,9 @@
   anything differs.
 - ``install MANIFEST [--from-root R]``: installs the package of a manifest (a path, or an https:// or file://
   address) from the archive beside it, or by copying its files from a scientific root.
-- ``compose [NAME ...] [--root R]``: places the files of installed packages in a scientific root (the checkout by
-  default), as hard links or checked copies.
+- ``compose [NAME ...] [--root R]``: places the files of installed packages in a scientific root (by default the
+  checkout that holds this package, else the installed root of the environment, design 0002), as hard links or
+  checked copies. A root that is not writable is refused (exit 2), as ``serve`` refuses it.
 - ``remove NAME``: removes an installed package.
 - ``build --root R --out DIR [--archive NAME ...]``: the author side; writes a manifest for every complete package
   of ``R``, the archives asked for, ``catalog.json`` and ``report.md`` (sizes against the Zenodo record limits).
@@ -29,6 +30,9 @@ from .store import Store, code_version, data_dir, read_source
 # https://about.zenodo.org/policies/): 50 GB and 100 files; larger quotas are granted case by case.
 ZENODO_RECORD_BYTES = 50 * 10**9
 ZENODO_RECORD_FILES = 100
+# The default root, in both forms (jobs.runtime.repository_root).
+ROOT_HELP = ('scientific root (default: EEG_REPOSITORY_ROOT, else the checkout that holds this package, else the '
+             'installed root of this environment)')
 
 
 def add_commands(commands: Any) -> None:
@@ -50,7 +54,7 @@ def add_commands(commands: Any) -> None:
                                  'path conflicts.')
     compose.add_argument('names', nargs='*', metavar='NAME',
                          help='packages (default: every installed package); the packages they need are added')
-    compose.add_argument('--root', metavar='R', help='scientific root (default: EEG_REPOSITORY_ROOT, else this checkout)')
+    compose.add_argument('--root', metavar='R', help=ROOT_HELP)
     compose.add_argument('--copy', action='store_true', help='copy the files instead of hard-linking them')
     compose.add_argument('--dry-run', action='store_true', help='report what would be done and write nothing')
     remove = actions.add_parser('remove', help='remove an installed package')
@@ -177,14 +181,19 @@ def _install(store: Store, args: argparse.Namespace) -> int:
 
 def _compose(store: Store, args: argparse.Namespace) -> int:
     from ..jobs import nodepath
-    from ..jobs.runtime import repository_root
+    from ..jobs.runtime import repository_root, unwritable_root
     try:
         root = pathlib.Path(repository_root(nodepath.resolve(args.root) if args.root else None))
     except ValueError as error:
         _say(f'eeglayoutlab data: {error}')
         return 2
     if not (root / 'configs').is_dir():
-        raise PackageError(f'{root} has no configs/ directory; compose into a checkout of EEGLayoutLab')
+        raise PackageError(f'{root} has no configs/ directory; compose into a checkout of EEGLayoutLab or the '
+                           'installed root of an environment (share/eeglayoutlab/root)')
+    problem = unwritable_root(str(root))
+    if problem is not None:
+        _say(f'eeglayoutlab data: {problem}')
+        return 2
     work = composing.plan(store, root, args.names or None, on_hash=lambda path: _say(f'compare {path}'))
     if not work.packages:
         print(f'No packages are installed in {store.root}.')

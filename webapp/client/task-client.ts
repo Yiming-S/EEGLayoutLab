@@ -31,6 +31,55 @@ function validateTask(data: unknown, expectedId?: string) {
 }
 export type ApiOptions = RequestInit & { token?: string; errorMessage?: string; timeoutMs?: number };
 
+/**
+ * The service answers 401 `authentication_required` to a request without its session cookie: every run of
+ * `eeglayoutlab serve` has new secrets, so a tab opened from an earlier run (or an address typed by hand) has none.
+ * Only the command's own link signs a browser in again.
+ */
+export const SESSION_REOPEN_MESSAGE = '本地服务会话已失效：服务已重新启动，或此页面来自较早的一次运行。请在终端重新运行 eeglayoutlab 命令，并使用它打开的页面。';
+/**
+ * A request that reached no server. `eeglayoutlab serve` takes a new free port on every start, so once the service
+ * has stopped, or restarted on another port, a tab of the earlier run reaches nothing at all.
+ */
+export const SERVICE_UNREACHABLE_MESSAGE = '无法连接本地服务：服务已停止，或已在新的地址重新启动。请在终端重新运行 eeglayoutlab 命令，并使用它打开的页面。';
+export const sessionExpired = (status: number, data: unknown) =>
+  status === 401 && (data as { code?: unknown } | null)?.code === 'authentication_required';
+/**
+ * Fired on `window` when a request finds the session ended (401) or no server (a network error), so that the task
+ * menu reads its status again at once and shows how to reopen, whatever the page's own message says. Only requests
+ * announce it (apiFetch, and apiJson through it), never the task menu's own status read, which answers it.
+ */
+export const SERVICE_CONNECTION_EVENT = 'eeg:service-connection';
+const announceConnection = () => {
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(SERVICE_CONNECTION_EVENT));
+};
+/** The error of a refused request: the reopen message for an expired session, else the service's message. */
+export function apiFailure(status: number, data: unknown, fallback: string) {
+  const message = (data as { error?: unknown } | null)?.error;
+  return new ApiError(sessionExpired(status, data) ? SESSION_REOPEN_MESSAGE : typeof message === 'string' && message ? message : fallback,
+    status, data as Record<string, unknown> | null);
+}
+/** The error of a request that reached no server: retryable (status 0), with the reopen advice. */
+export const serviceUnreachable = () => new ApiError(SERVICE_UNREACHABLE_MESSAGE, 0, { code: 'service_unreachable' });
+export const isServiceUnreachable = (error: unknown) =>
+  error instanceof ApiError && error.status === 0 && error.data?.code === 'service_unreachable';
+
+/**
+ * `fetch` for the interface's reads that judge the answer themselves: the answer, or the network error, is passed on
+ * unchanged, but a 401 or a network error also fires SERVICE_CONNECTION_EVENT. Interface code calls this or apiJson,
+ * never `fetch` itself (check-task-client.mjs).
+ */
+export async function apiFetch(input: string, init?: RequestInit): Promise<Response> {
+  let response: Response;
+  try { response = await fetch(input, init); }
+  catch (error) {
+    if (error instanceof TypeError && !init?.signal?.aborted) announceConnection();
+    throw error;
+  }
+  if (response.status === 401) announceConnection();
+  return response;
+}
+
 /** No mutation is retried: an unknown POST outcome must be recovered by lookup. */
 export async function apiJson<T>(url: string, options: ApiOptions = {}): Promise<T> {
   const { token, errorMessage = '任务连接中断', timeoutMs = 15000, signal, ...init } = options;
@@ -42,7 +91,13 @@ export async function apiJson<T>(url: string, options: ApiOptions = {}): Promise
   try {
     const headers = new Headers(init.headers);
     if (token) headers.set('X-EEG-Compute-Token', token);
-    const response = await fetch(url, { cache: 'no-store', ...init, headers, signal: controller.signal });
+    let response: Response;
+    try { response = await apiFetch(url, { cache: 'no-store', ...init, headers, signal: controller.signal }); }
+    catch (error) {
+      // A network error (TypeError) without an abort reached no server; a timeout keeps the caller's message.
+      if (error instanceof TypeError && !controller.signal.aborted) throw serviceUnreachable();
+      throw error;
+    }
     const apiVersion = response.headers?.get('X-EEG-API-Version');
     if (apiVersion && apiVersion !== '1')
       throw new ApiError('The application was updated. Reload this page to reconnect.', 426);
@@ -51,7 +106,7 @@ export async function apiJson<T>(url: string, options: ApiOptions = {}): Promise
     catch { throw new ApiError(errorMessage, response.ok ? 502 : response.status); }
     if (signal?.aborted) throw abortError();
     if (controller.signal.aborted) throw new ApiError(errorMessage);
-    if (!response.ok) throw new ApiError(data?.error || errorMessage, response.status, data as Record<string, unknown>);
+    if (!response.ok) throw apiFailure(response.status, data, errorMessage);
     return data;
   } catch (error) {
     if (signal?.aborted) throw abortError();

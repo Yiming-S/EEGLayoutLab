@@ -20,10 +20,19 @@ The request formats are being moved to one definition in the Python package
 `eeglayoutlab.schemas` ([design 0001](../docs/design/0001-local-first-architecture.md),
 decision 4). Every format in `eeglayoutlab.schemas.registry` reproduces the Node
 normalizer exactly; the tests in [`tests/schema_parity`](../tests/schema_parity/README.md)
-compare them on generated variants and, for design evaluation and the radius search,
-also on the shared fixtures. The radius search (`radius-search`) also reproduces
-Node's rejection messages (`eeglayoutlab.schemas.radius_search.normalize_request`).
-The Node host remains in service until phase 4.
+compare them on generated variants and, for design evaluation, the radius search and
+the signal simulation, also on the shared fixtures. The radius search (`radius-search`), the electrode
+editor (`electrode-editor`), the signal simulation (`source-reception`, v1 and v2
+told apart by whether `mode` is present), the robustness study (`robustness-study`) and the
+five research-project bodies (`project-create`, `project-patch`, `project-entry`,
+`project-entry-patch` and `project-entry-delete`) also reproduce Node's rejection messages
+(`eeglayoutlab.schemas.radius_search.normalize_request`,
+`eeglayoutlab.schemas.electrode_editor.normalize_editor_request`,
+`eeglayoutlab.schemas.source_reception.normalize_reception_request`,
+`eeglayoutlab.jobs.studies.normalize_study_input` and the `normalize_*` functions of
+`eeglayoutlab.schemas.projects`, which also give Node's status: 409 for a layout entry
+whose `annotation_id` is not a string but converts to a digest, else 400).
+The legacy Node host, whose normalizers are the reference, stays in the repository until phase 4.
 
 [`generated/openapi.json`](generated/openapi.json) is written from those schemas, and
 [`generated/openapi.d.ts`](generated/openapi.d.ts) from that document. Do not edit

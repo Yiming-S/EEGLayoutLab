@@ -1,12 +1,4 @@
 {
-  "workflow_000": {
-    "source": "生成新的只读链接",
-    "en": "Generate a new read-only link"
-  },
-  "workflow_001": {
-    "source": "新链接生成后，之前的只读链接将失效。查看项目和下载文件不会更换链接。",
-    "en": "Generating a new link invalidates previous read-only links. Viewing the project or downloading files does not replace a link."
-  },
   "workflow_002": {
     "source": "查看已有面积约束布局",
     "en": "View a saved area-constrained layout"
@@ -969,8 +961,8 @@
     "en": "Repeat the original evaluation with explicit seeds and displacement parameters. Keep each request, result and failure reason."
   },
   "workflow_231": {
-    "source": "本浏览器的稳健性研究",
-    "en": "Robustness studies in this browser"
+    "source": "此工作区的稳健性研究",
+    "en": "Robustness studies in this workspace"
   },
   "workflow_232": {
     "source": "已保存研究",

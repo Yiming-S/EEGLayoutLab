@@ -696,3 +696,325 @@ def radius_outcome(case: dict) -> dict:
         return outcome
     return {'id': case['id'], 'ok': True, 'config': outcome['config'], 'identity': jsjson.stringify(identity),
             'key': key}
+
+
+# --- The design submission envelope and electrode names (phase 2 slice 5) ----------------------------------------
+
+ANNOTATIONS_DRIVER = ROOT / 'tests/service/parity/annotations.mjs'
+
+
+def run_annotations_node(spec: dict, scratch: Path) -> dict:
+    """Runs ``parity/annotations.mjs`` once over ``spec`` (its header documents the members); the queue directory is
+    only resolved, never created."""
+    queue = scratch / 'node-queue'
+    spec_path, out_path = scratch / 'annotations-spec.json', scratch / 'annotations-node.json'
+    spec_path.write_text(jsjson.stringify({'queueDirectory': str(queue), **spec}), encoding='utf-8')
+    subprocess.run(['node', str(ANNOTATIONS_DRIVER), str(spec_path), str(out_path)], check=True, cwd=ROOT, env=NODE_ENV)
+    assert not queue.exists()
+    return json.loads(out_path.read_text(encoding='utf-8'))
+
+
+def coordinate_sources() -> dict[str, Any]:
+    """The valid coordinate sources of the phase 1 corpus (``SOURCES`` of tests/schema_parity/formats/
+    coordinate-source.mjs), by name."""
+    if CORPUS is None:
+        return {}
+    return {variant['name'][len('valid-'):]: jsjson.parse(variant['text'])
+            for variant in CORPUS['formats']['coordinate-source']['variants']
+            if variant['accepted'] and variant['name'].startswith('valid-')}
+
+
+def browser_submission(design: dict, action: str = 'evaluate', radius_mm: Any = 6, seed: Any = 42, **options: Any) -> Any:
+    """``designSubmission`` of webapp/lib/design-decision.ts (what the interface sends): the scientific design in the
+    request; names (E1..E64 when only a source is given) and the source in a ``design-submission/1`` envelope."""
+    scientific = {key: value for key, value in design.items() if key not in ('electrode_names', 'source_metadata')}
+    request = {'action': action, 'design': scientific, 'radius_mm': radius_mm, 'seed': seed, **options}
+    if not design.get('electrode_names') and not design.get('source_metadata'):
+        return request
+    return {'schema': 'design-submission/1', 'request': request,
+            'electrode_names': design.get('electrode_names') or [f'E{i + 1}' for i in range(64)],
+            **({'source_metadata': design['source_metadata']} if design.get('source_metadata') else {})}
+
+
+def failure(error: BaseException) -> dict:
+    """A Python failure in the driver's form, compared by message, status and ``annotationSafe``."""
+    status = getattr(error, 'status', None)
+    return {'ok': False, 'message': str(error), 'status': status if isinstance(status, int) else None,
+            'safe': bool(getattr(error, 'annotation_safe', False))}
+
+
+def node_failure(result: dict) -> dict:
+    """A driver failure in the compared form (``name`` and ``code`` are Node's own)."""
+    return {'ok': False, 'message': result['message'], 'status': result['status'], 'safe': result['safe']}
+
+
+class EnvelopeCases:
+    """The production design-evaluation adapter's ``prepare`` (community-adapters.mjs:18-21) over driver cases, as the
+    service wires it: ``jobs.kinds.design_evaluation_adapter`` over a ``jobs.design.DesignJobs`` of the case's root
+    and native interpreter (``design_submission``, the service's ``normalize`` and scientific ``context``).
+    ``worker_input`` is that service's ``worker_input`` of a job holding the prepared request, as the driver records
+    Node's ``workerInput({request})``."""
+
+    def __init__(self) -> None:
+        self._services: dict[tuple[str, str], Any] = {}
+
+    def run(self, case: dict) -> dict:
+        import asyncio
+
+        from eeglayoutlab.jobs.design import DesignJob, DesignJobs
+        from eeglayoutlab.jobs.kinds import design_evaluation_adapter
+
+        try:
+            config = runtime_config(case['root'], case.get('python'), env={})
+            service = self._services.setdefault((config.repository_root, config.native_python), DesignJobs(
+                config.repository_root, config.native_python, inputs=InputIntegrity(config.repository_root)))
+            prepared = asyncio.run(design_evaluation_adapter(service).prepare(case['raw']))
+        except Exception as error:  # noqa: BLE001 - every failure is compared with Node's
+            return failure(error)
+        job = DesignJob('envelope', prepared['key'], 'running', 0, '', request=prepared['request'], ctx=prepared['ctx'])
+        return {'ok': True, 'keys': list(prepared), 'request': jsjson.stringify(prepared['request']),
+                'key': prepared['key'], 'identity': jsjson.stringify(prepared['ctx']['identity']),
+                'electrode_names': jsjson.stringify(prepared['electrode_names']) if 'electrode_names' in prepared else None,
+                'source_metadata': jsjson.stringify(prepared['source_metadata']) if 'source_metadata' in prepared else None,
+                'worker_input': jsjson.stringify(service.worker_input(job))}
+
+
+def envelope_outcome(result: dict) -> dict:
+    """A driver prepare in the compared form."""
+    return result if result['ok'] else node_failure(result)
+
+
+# --- The electrode editor's context (phase 2 slice 6) ------------------------------------------------------------
+
+EDITOR_DRIVER = ROOT / 'tests/service/parity/editor_run.mjs'
+# The parents of an editor root (tests/service/editor_support.py ``editor_root``) by name: strict-area conditions of
+# the current report (n of ``area_report``), the other library records, the radius caches, and an id of no record.
+EDITOR_STRICT = {'strict': 0, 'strict-2': 1, 'strict-null-localization': 3, 'strict-no-layout': 29}
+EDITOR_CACHES = ('cache', 'cache-prior', 'cache-spatial', 'cache-unpatched', 'cache-zero-patches', 'cache-no-layout',
+                 'cache-geometry', 'cache-admission', 'cache-other-code')
+EDITOR_PARENTS = (*EDITOR_STRICT, 'historical', 'offline', 'design', *EDITOR_CACHES, 'missing')
+# What the editor starts from on the base root: completed layouts with region patches, searched under independent
+# noise, whose region geometry and surface admission are the design context's (compatible or not).
+EDITOR_ACCEPTED = ('strict', 'strict-2', 'strict-null-localization', 'cache', 'cache-prior', 'cache-other-code')
+EDITOR_ROOTS: dict[str, dict] = {
+    'editor-base': {},
+    'editor-table': {'table': True},
+    'editor-simnibs': {'runtime': 'simnibs'},
+    'editor-symlinked': {'runtime': 'simnibs', 'symlinked': True},
+    'editor-no-geometry': {'editor': 'no_geometry'},
+    'editor-other-admission': {'editor': 'other_admission'},
+    'editor-no-script': {'editor': 'no_script'},
+    'editor-no-code': {'editor': 'no_code'},
+    'editor-code-dir': {'editor': 'code_dir'},
+    'editor-broken-bank': {'broken': 'bank_sha'},
+    'editor-no-library': {'editor': 'no_library'},
+}
+EDITOR_ROOT_CONFIGS: dict[str, tuple[str, ...]] = {
+    'editor-base': ('default', 'explicit', 'env', 'env-empty'),
+    'editor-simnibs': ('default', 'explicit', 'env'),
+}
+# Every parent on the base root's configurations, these elsewhere.
+EDITOR_SOME = ('strict', 'strict-2', 'cache', 'cache-other-code', 'cache-spatial', 'design', 'missing')
+# Values the routes never pass (the context takes the request as it is): its members are read as in V8.
+EDITOR_ODD_REQUESTS = ('null', 'empty', 'no-action', 'no-digest', 'index-keys')
+
+
+def editor_case_ids() -> list[str]:
+    """The ids of ``editor_context_cases``, without building a root: ``<root>/<config>/<request>-<parent>``."""
+    ids = []
+    for root in EDITOR_ROOTS:
+        for config in EDITOR_ROOT_CONFIGS.get(root, ('default',)):
+            for parent in (EDITOR_PARENTS if root == 'editor-base' else EDITOR_SOME):
+                ids += [f'{root}/{config}/prepare-{parent}', f'{root}/{config}/evaluate-{parent}']
+            ids.append(f'{root}/{config}/stale-cache')
+    ids += [f'editor-base/default/odd-{name}' for name in EDITOR_ODD_REQUESTS]
+    return ids
+
+
+def _editor_request(kind: str, parent_id: str, parent_digest: Optional[str]) -> dict:
+    if kind == 'prepare':
+        return {'action': 'prepare', 'parent_id': parent_id}
+    return {'action': 'evaluate', 'parent_id': parent_id, 'parent_digest': parent_digest or 'd' * 64, 'seed': 2026,
+            'slots': [{'bank_index': i, 'enabled': i != 7} for i in range(64)]}
+
+
+def editor_context_cases(roots: dict[str, dict]) -> list[dict]:
+    """The driver's ``contexts`` cases ``{id, root, python?, env?, request}`` over built editor roots (``roots``:
+    ``editor_support.build_editor_roots``): a preparation and an evaluation of each parent, the evaluation with the
+    digest of the parent as Python's library gives it on that configuration (a stale one where there is no record),
+    an evaluation with a stale digest, and odd values on the base root."""
+    from .editor_support import parent_digests  # Pydantic: the library imports the radius-search schema
+
+    cases = []
+    for name in EDITOR_ROOTS:
+        built = roots[name]
+        for config in EDITOR_ROOT_CONFIGS.get(name, ('default',)):
+            options = CONFIGS[config]
+            digests = parent_digests(built['root'], built['ids'], options.get('python'), options.get('env'))
+            for parent in (EDITOR_PARENTS if name == 'editor-base' else EDITOR_SOME):
+                for kind in ('prepare', 'evaluate'):
+                    cases.append({'id': f'{name}/{config}/{kind}-{parent}', 'root': built['root'], **options,
+                                  'request': _editor_request(kind, built['ids'][parent], digests[parent])})
+            cases.append({'id': f'{name}/{config}/stale-cache', 'root': built['root'], **options,
+                          'request': _editor_request('evaluate', built['ids']['cache'], None)})
+    base, cache = roots['editor-base']['root'], roots['editor-base']['ids']['cache']
+    odd = {'null': None, 'empty': {}, 'no-action': {'parent_id': cache},
+           'no-digest': {'action': 'evaluate', 'parent_id': cache},
+           'index-keys': {'parent_id': cache, '2': 'b', 'action': 'prepare', '1': ['a', {'2': 'b', '1': 'a'}]}}
+    assert tuple(odd) == EDITOR_ODD_REQUESTS
+    cases += [{'id': f'editor-base/default/odd-{name}', 'root': base, 'request': request}
+              for name, request in odd.items()]
+    return cases
+
+
+def run_editor_node(cases: list[dict], scratch: Path, reuse: bool = False) -> dict:
+    """Runs ``parity/editor_run.mjs`` in mode ``contexts`` once over ``cases``; returns the results by id. The queue
+    directory is only resolved, never created."""
+    queue = scratch / 'node-queue'
+    spec_path, out_path = scratch / 'editor-contexts-spec.json', scratch / 'editor-contexts-node.json'
+    spec_path.write_text(jsjson.stringify({'mode': 'contexts', 'queueDirectory': str(queue), 'reuse': reuse,
+                                           'cases': cases}), encoding='utf-8')
+    subprocess.run(['node', str(EDITOR_DRIVER), str(spec_path), str(out_path)], check=True, cwd=ROOT, env=NODE_ENV,
+                   timeout=1200)
+    assert not queue.exists()
+    output = json.loads(out_path.read_text(encoding='utf-8'))
+    output['by_id'] = {case['id']: case for case in output['cases']}
+    return output
+
+
+class EditorCases:
+    """``EditorJobs.context`` (``eeglayoutlab.jobs.editor``) over driver cases: the root's ``LocalComputeQueue``
+    configuration, a library of the root and the editor service of the native interpreter, fresh per case or, with
+    ``reuse``, one per root and configuration (as the driver shares Node's). The service's permit never takes the
+    installation lock: its lock file would be ``scratch``'s."""
+
+    def __init__(self, scratch: Path, reuse: bool = False):
+        self.scratch = scratch
+        self.reuse = reuse
+        self._services: dict[str, Any] = {}
+
+    def _service(self, case: dict) -> tuple[Any, dict]:
+        from eeglayoutlab.jobs.editor import EditorJobs
+        from eeglayoutlab.jobs.library import Library
+        from eeglayoutlab.jobs.slot import ExecutionSlot, InstallationLock
+
+        id = jsjson.stringify([case['root'], case.get('python'), case.get('env')])
+        config = runtime_config(case['root'], case.get('python'), env=case.get('env', {}))
+        described = {'repositoryRoot': config.repository_root, 'python': config.python,
+                     'nativePython': config.native_python}
+        if self.reuse and id in self._services:
+            return self._services[id], described
+        slot = ExecutionSlot(InstallationLock(config.repository_root, str(self.scratch / 'execution.lock')))
+        service = EditorJobs(config.repository_root, config.native_python, Library(config.repository_root, config),
+                             execution_slot=slot)
+        if self.reuse:
+            self._services[id] = service
+        return service, described
+
+    def run(self, case: dict) -> dict:
+        import asyncio
+
+        from eeglayoutlab.jobs.design import DesignJob
+        from eeglayoutlab.jobs.editor import EditorContextError
+
+        outcome: dict[str, Any] = {'id': case['id'], 'ok': False}
+        try:
+            service, outcome['config'] = self._service(case)
+            context = asyncio.run(service.context(case['request']))
+        except EditorContextError as error:  # Node's plain Error
+            outcome['message'] = str(error)
+            return outcome
+        except Exception as error:  # noqa: BLE001 - every failure is compared with Node's
+            outcome.update(_error(error))
+            return outcome
+        job = DesignJob('editor', context['key'], 'running', 0, '', request=case['request'], ctx=context)
+        return {'id': case['id'], 'ok': True, 'config': outcome['config'], 'keys': list(context),
+                'identity': jsjson.stringify(context['identity']), 'admission': jsjson.stringify(context['admission']),
+                'parent': jsjson.stringify(context['parent']), 'parent_digest': context['parent_digest'],
+                'key': context['key'], 'worker_input': jsjson.stringify(service.worker_input(job))}
+
+
+# --- Signal reception's contexts (phase 2 slice 7) ---------------------------------------------------------------
+
+# Reception roots (tests/service/reception_support.py ``reception_root``) by name: editor roots with the reception
+# files, a design-root or library variant, or one of reception_root's own variants (``reception``).
+RECEPTION_ROOTS: dict[str, dict] = {
+    'reception-base': {},
+    'reception-table': {'table': True},
+    'reception-simnibs': {'runtime': 'simnibs'},
+    'reception-no-library': {'editor': 'no_library'},
+    'reception-broken-bank': {'broken': 'bank_sha'},
+    'reception-broken-candidates': {'broken': 'candidate_sha'},
+    'reception-no-v1-script': {'reception': 'no_v1_script'},
+    'reception-no-v2-code': {'reception': 'no_v2_code'},
+    'reception-no-atlas': {'reception': 'no_atlas'},
+    'reception-no-workflow': {'reception': 'no_workflow'},
+    'reception-legacy-inspector': {'reception': 'legacy_inspector'},
+    'reception-bad-digest': {'reception': 'bad_digest'},
+    'reception-inspector-fails': {'reception': 'inspector_fails'},
+}
+RECEPTION_ROOT_CONFIGS: dict[str, tuple[str, ...]] = {'reception-base': ('default', 'explicit')}
+# Every parent on the base root, these elsewhere; each with a v1 request and v2's three modes, with and without the
+# atlas definition (``single-atlas`` is the interface's single-source request; ``multi-legacy`` on a radius cache is
+# v2's legacy refusal).
+RECEPTION_SOME = ('strict', 'cache', 'cache-other-code', 'cache-spatial', 'historical', 'design', 'missing')
+RECEPTION_REQUESTS = ('v1', 'single', 'single-atlas', 'multi', 'multi-legacy', 'cross', 'cross-legacy')
+# Values the routes never pass (the context takes the request as it is): its members are read as in V8.
+RECEPTION_ODD_REQUESTS = ('null', 'empty', 'unnormalized', 'mode-only')
+
+
+def reception_case_ids() -> list[str]:
+    """The ids of ``reception_context_cases``, without building a root: ``<root>/<config>/<request>-<parent>``."""
+    ids = []
+    for root in RECEPTION_ROOTS:
+        for config in RECEPTION_ROOT_CONFIGS.get(root, ('default',)):
+            for parent in (EDITOR_PARENTS if root == 'reception-base' else RECEPTION_SOME):
+                ids += [f'{root}/{config}/{request}-{parent}' for request in RECEPTION_REQUESTS]
+    return ids + [f'reception-base/default/odd-{name}' for name in RECEPTION_ODD_REQUESTS]
+
+
+def reception_request(kind: str, record_id: str) -> dict:
+    """The canonical request of ``kind`` (``RECEPTION_REQUESTS``) for a parent."""
+    from eeglayoutlab.schemas.source_reception import REGION_DEFINITION, normalize_reception_request
+
+    from .reception_support import cross, multi, single, v1
+
+    raw = {'v1': lambda: v1(record_id), 'single': lambda: single(record_id),
+           'single-atlas': lambda: single(record_id, region_definition=REGION_DEFINITION),
+           'multi': lambda: multi(record_id), 'multi-legacy': lambda: multi(record_id, definition=False),
+           'cross': lambda: cross(record_id, ['occipital', 'frontal']),
+           'cross-legacy': lambda: cross(record_id, ['central'], definition=False)}[kind]()
+    return normalize_reception_request(raw)
+
+
+def build_reception_roots(base: Path) -> dict[str, dict]:
+    """Every root of ``RECEPTION_ROOTS`` under ``base``, by name (``reception_root``'s ``{root, tree, ids}``)."""
+    from .reception_support import reception_root
+
+    return {name: reception_root(base / name, **options) for name, options in RECEPTION_ROOTS.items()}
+
+
+def reception_context_cases(roots: dict[str, dict]) -> list[dict]:
+    """The driver's ``contexts`` cases ``{id, root, python?, request}`` over built reception roots."""
+    cases = []
+    for name in RECEPTION_ROOTS:
+        built = roots[name]
+        for config in RECEPTION_ROOT_CONFIGS.get(name, ('default',)):
+            for parent in (EDITOR_PARENTS if name == 'reception-base' else RECEPTION_SOME):
+                cases += [{'id': f'{name}/{config}/{request}-{parent}', 'root': built['root'], **CONFIGS[config],
+                           'request': reception_request(request, built['ids'][parent])}
+                          for request in RECEPTION_REQUESTS]
+    base, cache = roots['reception-base']['root'], roots['reception-base']['ids']['cache']
+    odd = {'null': None, 'empty': {}, 'unnormalized': {'record_id': cache, 'mode': 'single_source'},
+           'mode-only': {'mode': 'single_source'}}
+    assert tuple(odd) == RECEPTION_ODD_REQUESTS
+    cases += [{'id': f'reception-base/default/odd-{name}', 'root': base, 'request': request}
+              for name, request in odd.items()]
+    return cases
+
+
+def run_reception_node(cases: list[dict], scratch: Path, reuse: bool = False) -> dict:
+    """Runs ``parity/reception_run.mjs`` in mode ``contexts`` once over ``cases``; returns the results by id."""
+    from .reception_support import run_node as run_reception_driver
+
+    return run_reception_driver({'mode': 'contexts', 'reuse': reuse, 'cases': cases}, scratch, 'reception-contexts')

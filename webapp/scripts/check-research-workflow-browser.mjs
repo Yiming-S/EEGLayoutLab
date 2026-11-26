@@ -12,14 +12,20 @@ import { chromium } from 'playwright';
 import { translateText } from '../lib/i18n/core.ts';
 import { runProjectAssociationChecks } from './helpers/project-association-browser.mjs';
 import { runLocalDeliveryChecks } from './helpers/local-delivery-browser.mjs';
+import { playwrightCookies, scriptServer } from './helpers/service-session.mjs';
 
-const projectRoot = resolve(import.meta.dirname, '../..');
-assert.ok(process.env.EEG_TEST_URL, 'Set EEG_TEST_URL to an isolated verification server.');
-const origin = new URL(process.env.EEG_TEST_URL);
-assert.ok(origin.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(origin.hostname) && origin.port && origin.port !== '3000', 'Use an explicit non-3000 loopback server.');
-assert.ok(origin.pathname === '/' && !origin.search && !origin.hash && !origin.username && !origin.password, 'EEG_TEST_URL must contain only the verification server origin.');
+// EEG_REPOSITORY_ROOT is the root the server serves (default this checkout); the evidence and the fixtures the stages
+// read are below its artifacts. The server is the Python service (eeglayoutlab serve --cache-only): with
+// EEG_SERVICE_RUNTIME (its <workspace>/.eeglayoutlab/runtime.json), or EEG_SERVICE_TOKEN and EEG_TEST_URL, every
+// browser context holds its session cookie. Stages 2 and 3 save workspace projects, which need no credential there,
+// and take EEG_SIGNAL_FIXTURE, EEG_SECOND_LAYOUT_ID and EEG_EDITOR_RECORD_KEY as their helpers say; stage 1 also runs
+// against a legacy Node host at EEG_TEST_URL alone.
+const projectRoot = resolve(process.env.EEG_REPOSITORY_ROOT || resolve(import.meta.dirname, '../..'));
 assert.ok(process.argv.slice(2).length <= 1 && process.argv.slice(2).every(value => ['--stage2', '--stage3'].includes(value)), 'Use no arguments for Stage 1, --stage2 for associations or --stage3 for local deliveries.');
 const stage = process.argv.includes('--stage3') ? 3 : process.argv.includes('--stage2') ? 2 : 1;
+const { base, service } = await scriptServer({ node: stage === 1 });
+const origin = new URL(base);
+assert.ok(origin.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(origin.hostname) && origin.port && origin.port !== '3000', 'Use an explicit non-3000 loopback server.');
 const artifactRoot = join(projectRoot, 'artifacts/research-workflow/2026-11-14');
 const output = process.env.EEG_QA_OUTPUT || join(artifactRoot, `stage${stage}-browser`);
 const outputPath = relative(artifactRoot, output);
@@ -33,7 +39,11 @@ const observations = [], requests = [], artifacts = [], lookupControls = [];
 const diagnostics = { pageErrors: [], consoleErrors: [], httpFailures: [], requestFailures: [], blockedWrites: [], blockedReaderApis: [], routeErrors: [] };
 const contexts = [], gates = new Set();
 const secrets = [], controlledAborts = [], directorySuccesses = [];
-const directoryPaths = new Set(['/api/local-compute/library', '/api/electrode-editor/records']);
+// The session cookie and the CSRF token never reach the report.
+if (service) secrets.push(service.cookie.slice(service.cookie.indexOf('=') + 1), service.csrf);
+const sessionCookies = service ? playwrightCookies(service) : [];
+// The project record directory loads these three together and aborts them on a project change.
+const directoryPaths = new Set(['/api/local-compute/library', '/api/electrode-editor/records', '/api/community/records']);
 const scrub = value => typeof value === 'string' ? secrets.reduce((text, secret) => text.replaceAll(secret, '[credential]'), value)
   : Array.isArray(value) ? value.map(scrub) : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).map(([key, item]) => [key, scrub(item)])) : value;
 let browser, page, failure, fixtures, browserVersion;
@@ -77,7 +87,7 @@ async function newContext(locale) {
   contexts.push(context);
   const state = { gate: null, projectTransition: null, localReader: false };
   const requestOrder = new Map();
-  await context.addCookies([{ name: 'eeg-layout-language', value: locale, url: origin.origin }]);
+  await context.addCookies([{ name: 'eeg-layout-language', value: locale, url: origin.origin }, ...sessionCookies]);
   await context.route('**/api/**', async route => {
     const request = route.request(), path = new URL(request.url()).pathname, method = request.method();
     if (state.localReader) { diagnostics.blockedReaderApis.push({ locale, method, path }); await route.abort('blockedbyclient'); return; }
@@ -167,6 +177,7 @@ try {
     });
   } else {
   const fixtureContext = await browser.newContext(); contexts.push(fixtureContext);
+  await fixtureContext.addCookies(sessionCookies);
   const records = (await read(fixtureContext, '/api/local-compute/library')).records;
   const area = records.find(record => record.dataset_id === 'strict_area' && record.status === 'completed' && record.mode === 'whole_scalp_free' && record.area_cap_cm2 === 120 && record.region_count === 2)
     ?? records.find(record => record.dataset_id === 'strict_area' && record.status === 'completed');

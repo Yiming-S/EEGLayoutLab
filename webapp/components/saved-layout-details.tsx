@@ -7,26 +7,26 @@ import { RuntimeMessage } from '@/components/runtime-message';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { PerformanceSummary } from '@/components/performance-summary';
 import { LayoutExportMenu } from '@/components/layout-export-menu';
-import { RecordVisibilityControl } from '@/components/record-visibility-control';
 import { localizedRecordTitle } from '@/lib/i18n/records';
 import { comparisonLink } from '@/lib/lab-workflow';
 import { metricDistance, protocolName } from '@/lib/ui-language';
 import { savedLayoutActions } from '@/lib/results-library';
 import { cn } from '@/lib/utils';
 import type { SavedRecord, SavedSummary } from '@/lib/local-library';
+import { apiFetch } from '@/client/task-client';
 
 const Head = lazy(() => import('@/components/cluster-head-viewer').then((m) => ({ default: m.ClusterHeadViewer })));
 // The search history and its charts load only when the visitor opens them.
 const ExperimentHistory = lazy(() => import('@/components/experiment-history').then((m) => ({ default: m.ExperimentHistory })));
 
-export function SavedLayoutDetails({ summary, ar, returnHref, compact = false, onVisibilityChange }: { summary: SavedSummary; ar: number; returnHref: string; compact?: boolean; onVisibilityChange?: () => void }) {
+export function SavedLayoutDetails({ summary, ar, returnHref, compact = false }: { summary: SavedSummary; ar: number; returnHref: string; compact?: boolean }) {
   const { tx } = useLanguage();
   const [result, setResult] = useState<SavedRecord | null>(null);
   const [error, setError] = useState({ id: '', message: '' });
   const [retry, setRetry] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
-    fetch('/api/local-compute/library/' + summary.id, { signal: controller.signal, cache: 'no-store' }).then(async (response) => {
+    apiFetch('/api/local-compute/library/' + summary.id, { signal: controller.signal, cache: 'no-store' }).then(async (response) => {
       if (!response.ok) throw new Error('方案读取失败或完整性校验未通过');
       const value = await response.json() as { record: SavedRecord };
       if (value.record.id !== summary.id || value.record.dataset_id !== summary.dataset_id) throw new Error('返回方案与选择不符');
@@ -37,10 +37,10 @@ export function SavedLayoutDetails({ summary, ar, returnHref, compact = false, o
   const shown = result?.id === summary.id ? result : null;
   if (error.id === summary.id) return <div role="alert" className="lab-panel"><RuntimeMessage message={error.message} /><Button className="mt-3" variant="outline" onClick={() => setRetry((value) => value + 1)}>{tx('重新读取')}</Button></div>;
   if (!shown) return <p className="lab-panel">{tx('读取所选方案的坐标与指标…')}</p>;
-  return <SavedLayoutContent key={shown.id} record={shown} ar={ar} returnHref={returnHref} compact={compact} onVisibilityChange={onVisibilityChange} />;
+  return <SavedLayoutContent key={shown.id} record={shown} ar={ar} returnHref={returnHref} compact={compact} />;
 }
 
-export function SavedLayoutContent({ record, ar, returnHref, compact = false, onVisibilityChange }: { record: SavedRecord; ar: number; returnHref: string; compact?: boolean; onVisibilityChange?: () => void }) {
+export function SavedLayoutContent({ record, ar, returnHref, compact = false }: { record: SavedRecord; ar: number; returnHref: string; compact?: boolean }) {
   const { tx, locale, date } = useLanguage();
   const [historyOpen, setHistoryOpen] = useState(false);
   const actions = savedLayoutActions(record, ar, returnHref);
@@ -82,7 +82,6 @@ export function SavedLayoutContent({ record, ar, returnHref, compact = false, on
         </div>
       </dl>
       {record.dataset_id === 'cache' && !record.compatible && <p className="rounded-lg border border-warning/30 bg-warning-surface/75 px-3 py-2 text-xs text-warning">{tx('旧版本记录 · 仅供查阅')}</p>}
-      {!compact && <RecordVisibilityControl id={record.id} name={localizedRecordTitle(record, locale)} visibility={record.visibility} onChange={onVisibilityChange} />}
       {nextSteps.length > 0 && (
         <section aria-label={tx('下一步操作')} className="space-y-2 border-t border-border/70 pt-3.5">
           <div className="flex flex-wrap gap-2">

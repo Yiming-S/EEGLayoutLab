@@ -6,12 +6,12 @@ import { validateEditorResult } from '../server/electrode-editor-server.mjs';
 import { validateDesignResult } from '../server/design-evaluation-server.mjs';
 import { validateSourceResult } from '../server/source-reception-server.mjs';
 import { validateReceptionResult } from '../server/reception-v2-support.mjs';
-import { openServiceSession } from './helpers/service-session.mjs';
+import { scriptServer } from './helpers/service-session.mjs';
 
-// Opt-in: the Python service admits only requests with its session cookie; sign in as its launched browser.
-const service = process.env.EEG_SERVICE_RUNTIME || process.env.EEG_SERVICE_TOKEN
-  ? await openServiceSession({ base: process.env.EEG_TEST_URL }) : null;
-const base = service?.base || process.env.EEG_TEST_URL || 'http://127.0.0.1:3000';
+// Opt-in. The Python service (eeglayoutlab serve) admits only requests with its session cookie: with
+// EEG_SERVICE_RUNTIME (its <workspace>/.eeglayoutlab/runtime.json), or EEG_SERVICE_TOKEN and EEG_TEST_URL, the check
+// signs in as its launched browser. With EEG_TEST_URL alone, the legacy Node host there.
+const { base, service } = await scriptServer();
 const url = new URL(base);
 if (url.protocol !== 'http:' || !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)) {
   throw new Error('The integration target must be an explicit local HTTP server.');
@@ -19,7 +19,8 @@ if (url.protocol !== 'http:' || !['localhost', '127.0.0.1', '[::1]'].includes(ur
 let browserCookie = '';
 const sessionHeaders = service ? { Cookie: service.cookie } : {};
 const cookies = () => [service?.cookie, browserCookie].filter(Boolean).join('; ');
-// The server admits 20 submissions a minute per visitor. A fully cached run exceeds that, so wait out the window.
+// A legacy Node host admits 20 submissions a minute per visitor (the Python service has no such limit). A fully
+// cached run exceeds that, so wait out the window.
 const admitted = async (send) => {
   for (let attempt = 0; ; attempt++) {
     const response = await send();
