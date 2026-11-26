@@ -1,5 +1,5 @@
-"""``eeglayoutlab serve [WORKSPACE] [--root R] [--port N] [--static DIR] [--docs DIR] [--no-browser]``, and ``eeglayoutlab data``
-(data packages, ``eeglayoutlab.data.cli``).
+"""``eeglayoutlab serve [WORKSPACE] [--root R] [--port N] [--static DIR] [--docs DIR] [--no-browser] [--cache-only]``,
+and ``eeglayoutlab data`` (data packages, ``eeglayoutlab.data.cli``).
 
 Starts the local service for one workspace (design 0001, decision 6):
 
@@ -73,6 +73,8 @@ def _parser() -> argparse.ArgumentParser:
     serve.add_argument('--static', metavar='DIR', help='static interface (default: R/webapp/dist/client)')
     serve.add_argument('--docs', metavar='DIR', help='built documentation site served under /docs/ (default: R/site)')
     serve.add_argument('--no-browser', action='store_true', help='print the address instead of opening a browser')
+    serve.add_argument('--cache-only', action='store_true',
+                       help='serve cached results and lookups without starting new calculations')
     data_cli.add_commands(commands)
     return parser
 
@@ -170,7 +172,8 @@ def _bind(port: int) -> socket.socket:
     return sock
 
 
-def _run(workspace: Workspace, root: str, static: str, port: int, browser: bool, docs: Optional[str] = None) -> int:
+def _run(workspace: Workspace, root: str, static: str, port: int, browser: bool, docs: Optional[str] = None,
+         cache_only: bool = False) -> int:
     import uvicorn
 
     from ..server.access import Tokens
@@ -198,7 +201,7 @@ def _run(workspace: Workspace, root: str, static: str, port: int, browser: bool,
         except OSError as error:
             return _fail(f'cannot write {workspace.runtime_path}: {error.strerror}')
         config = ServiceConfig(root=root, port=bound, tokens=tokens, user=workspace.user_context(root),
-                               static_dir=static, docs_dir=docs)
+                               static_dir=static, docs_dir=docs, cache_only=cache_only)
         server = Server(uvicorn.Config(
             create_app(config), host='127.0.0.1', port=bound, timeout_keep_alive=5, timeout_graceful_shutdown=5,
             access_log=False, log_level='warning', proxy_headers=False, server_header=False, ws='none',
@@ -262,7 +265,7 @@ def serve(args: argparse.Namespace) -> int:
     except WorkspaceError as error:
         return _fail(str(error))
     try:
-        return _run(workspace, root, static, args.port, not args.no_browser, docs)
+        return _run(workspace, root, static, args.port, not args.no_browser, docs, args.cache_only)
     finally:
         workspace.close()
 

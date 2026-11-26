@@ -8,7 +8,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { parseDesign, exportDesign, designCSV } from '../lib/design-decision.ts';
 import { layoutExportAvailability, layoutExportFile, layoutSummaryMarkdown, fetchReproducibilityBundle } from '../lib/layout-exports.ts';
-import catalog from '../lib/i18n/export-refresh-catalog.json' with { type: 'json' };
+import catalog from '../lib/i18n/exports-catalog.json' with { type: 'json' };
 
 const fixture = () => ({
   id: 'a'.repeat(64), dataset_id: 'cache', label: 'Saved test layout', region_count: 2,
@@ -121,7 +121,7 @@ void test('failed bundle reads are retryable, and unsafe record IDs never issue 
 void test('new export translations are bilingual and do not duplicate existing catalog sources', () => {
   const directory = path.resolve(import.meta.dirname, '../lib/i18n');
   const sources = new Set();
-  for (const filename of fs.readdirSync(directory).filter((n) => n.endsWith('catalog.json') && n !== 'export-refresh-catalog.json')) {
+  for (const filename of fs.readdirSync(directory).filter((n) => n.endsWith('catalog.json') && n !== 'exports-catalog.json')) {
     for (const entry of Object.values(JSON.parse(fs.readFileSync(path.join(directory, filename), 'utf8')))) sources.add(entry.source);
   }
   for (const [key, value] of Object.entries(catalog)) {

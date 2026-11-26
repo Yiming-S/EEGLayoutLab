@@ -1,8 +1,8 @@
-"""The radius search's identity and stored results (``eeglayoutlab.jobs.radius``, phase 2 slice 3).
+"""The radius search's identity, stored results, and execution service (``eeglayoutlab.jobs.radius``, slices 3–4).
 
-Ports check-local-compute.mjs's result validation test and checks ``validate_worker_result`` against Node's
-``validateWorkerResult`` message by message; ``code_identity``, ``radius_identity`` and ``RadiusCache`` are checked
-here on their own (their parity with Node's ``identityFor`` on synthetic and linked roots is in test_library.py).
+Ports check-local-compute.mjs's result validation and RadiusService tests, check-local-data-library.mjs's HTTP lookup
+test, and check-lab-workflow.mjs's 30 strict-area records check; checks ``validate_worker_result`` against Node's
+``validateWorkerResult`` message by message.
 """
 from __future__ import annotations
 
@@ -14,13 +14,9 @@ import subprocess
 
 import pytest
 
-from schema_parity_support import require
-
-require('pydantic')
-
 from eeglayoutlab.jobs.identity import DATA_PRIOR_FILES, request_key  # noqa: E402
 from eeglayoutlab.jobs.radius import (  # noqa: E402
-    CODE_FILES, RADIUS_IDENTITY_VERSION, RadiusCache, RadiusResultError, code_identity, radius_identity,
+    CODE_FILES, RADIUS_IDENTITY_VERSION, RadiusCache, RadiusResultError, RadiusService, code_identity, radius_identity,
     validate_worker_result,
 )
 from eeglayoutlab.jobs.records import error_code  # noqa: E402
@@ -102,7 +98,8 @@ def test_adaptive_cross_region_allocation_mode_normalizes_and_enforces_floor():
     with pytest.raises(ValueError, match='电极总数只支持'):
         normalize_request({**REQUEST, 'electrode_count': 20})
     with pytest.raises(ValueError, match='至少为每区4导'):
-        normalize_request({'region_count': 4, 'radius_mm': 30, 'mode': 'whole_surface', 'allocation_mode': 'adaptive', 'electrode_count': 12})
+        normalize_request({'region_count': 4, 'radius_mm': 30, 'mode': 'whole_surface',
+                           'allocation_mode': 'adaptive', 'electrode_count': 12})
     with pytest.raises(ValueError, match='每区至少2导'):
         normalize_request({'region_count': 6, 'radius_mm': 30, 'mode': 'whole_surface', 'electrode_count': 8})
     k16_res = result_for(k16_req)
@@ -110,7 +107,8 @@ def test_adaptive_cross_region_allocation_mode_normalizes_and_enforces_floor():
     k16_res['layout']['regionIndices'] = [0 if i < 6 else 1 for i in range(16)]
     validate_worker_result(k16_res, k16_req)
     with pytest.raises(RadiusResultError, match='^无效16点坐标$'):
-        validate_worker_result({**k16_res, 'layout': {**k16_res['layout'], 'xyzMm': k16_res['layout']['xyzMm'][:15]}}, k16_req)
+        validate_worker_result({**k16_res, 'layout': {**k16_res['layout'], 'xyzMm': k16_res['layout']['xyzMm'][:15]}},
+                               k16_req)
 
 
 def _variant(change) -> dict:
@@ -279,3 +277,173 @@ def test_read_cache_returns_the_canonical_request_or_a_miss(tmp_path):
         path.chmod(0)
         with pytest.raises(PermissionError):
             cache.read_cache(key)
+
+
+# --- RadiusService, HTTP lookup, and strict-area bundle checks (slice 4) ----------------------------------------
+
+REAL_ROOT = os.environ.get('EEG_KEY_PARITY_ROOT')
+real_root = pytest.mark.skipif(not REAL_ROOT, reason='set EEG_KEY_PARITY_ROOT to a checkout with results/v2')
+
+
+@pytest.mark.data_bundle
+@real_root
+def test_all_30_actual_strict_area_records_have_one_entry_per_domain_area_r_and_preserved_metrics():
+    """check-lab-workflow.mjs::all 30 actual strict-area records have exactly one entry per domain-area-R and
+    preserved metrics."""
+    from eeglayoutlab.jobs.library import Library
+    from eeglayoutlab.jobs.runtime import runtime_config
+
+    assert REAL_ROOT is not None
+    data = Library(REAL_ROOT, runtime_config(REAL_ROOT)).list()
+    strict_rows = [row for row in data['records'] if row['dataset_id'] == 'strict_area']
+    assert len(strict_rows) == 30
+    ids: set[str] = set()
+    for domain in ('whole_scalp_free', 'low_hair_free'):
+        for area in (60, 120, 180):
+            rows = sorted(
+                (r for r in strict_rows if r['mode'] == domain and r['area_cap_cm2'] == area),
+                key=lambda r: r['region_count'],
+            )
+            assert [r['region_count'] for r in rows] == [1, 2, 3, 4, 6]
+            for row in rows:
+                ids.add(row['id'])
+                assert row['geometry']['union_connected_component_count'] == row['region_count']
+                metrics = row['metrics']
+                assert metrics['conditional_global'] == min(
+                    metrics['field_relative'], metrics['sensitivity_tail'], metrics['localization_relative'],
+                )
+                assert row['request'] is None
+    assert len(ids) == 30
+
+
+def test_queue_has_one_child_deduplicates_identical_in_flight_requests_and_records_progress(tmp_path):
+    """check-local-compute.mjs::queue has one child, deduplicates identical in-flight requests and records progress."""
+    from .test_worker import FakeChild
+
+    root = _code_root(tmp_path)
+    spawned: list[tuple[str, list[str], dict]] = []
+    children: list[FakeChild] = []
+
+    def spawn(exe: str, args: list[str], opts: dict) -> FakeChild:
+        spawned.append((exe, args, opts))
+        child = FakeChild(pid=9100 + len(children))
+        children.append(child)
+        return child
+
+    service = RadiusService(str(root), python='python3', spawn_process=spawn, verify_inputs=lambda _: None)
+    first = service.submit(REQUEST)
+    assert len(children) == 1
+    _, _, opts = spawned[0]
+    assert opts['shell'] is False
+    assert opts['env']['OPENBLAS_NUM_THREADS'] == '2'
+    assert opts['env']['OMP_NUM_THREADS'] == '2'
+
+    # Identical in-flight request deduplicates without spawning another child.
+    dedup = service.submit({**REQUEST})
+    assert dedup['job']['id'] == first['job']['id']
+    assert len(children) == 1
+
+    # Different request while busy reports busy with active_job.
+    busy = service.submit({**REQUEST, 'radius_mm': 40})
+    assert busy['busy'] is True
+    assert busy['active_job']['id'] == first['job']['id']
+
+    children[0].emit_stdout(
+        jsjson.stringify({'type': 'progress', 'stage': 'searching', 'progress': 0.65, 'message': '正在搜索候选'}) + '\n'
+    )
+    mid = service.get(first['job']['id'])
+    assert mid['progress'] == 0.65 and mid['stage'] == 'searching' and mid['message'] == '正在搜索候选'
+
+    children[0].emit_stdout(jsjson.stringify({'type': 'result', 'result': result_for(REQUEST)}) + '\n')
+    children[0].close(0, None)
+    done = service.get(first['job']['id'])
+    assert done['status'] == 'completed' and done['progress'] == 1
+    assert done['cached'] is False and done['source'] == 'local_compute'
+
+
+def test_disk_cache_survives_queue_restart_and_source_identity_invalidates_it(tmp_path):
+    """check-local-compute.mjs::disk cache survives queue restart and source identity invalidates it."""
+    from .test_worker import FakeChild
+
+    root = _code_root(tmp_path)
+    children: list[FakeChild] = []
+
+    def spawn(*_) -> FakeChild:
+        c = FakeChild(pid=9200 + len(children))
+        children.append(c)
+        return c
+
+    first_service = RadiusService(str(root), python='python3', spawn_process=spawn, verify_inputs=lambda _: None)
+    job = first_service.submit(REQUEST)['job']
+    children[0].emit_stdout(jsjson.stringify({'type': 'result', 'result': result_for(REQUEST)}) + '\n')
+    children[0].close(0, None)
+    original_key = job['key']
+    cache_file = root / f'results/v2/local_app_jobs/{original_key}/cache.json'
+    original_bytes = cache_file.read_bytes()
+
+    # Restart with unchanged code identity: lookup and submit hit disk cache without spawning.
+    restarted = RadiusService(str(root), python='python3',
+                              spawn_process=lambda *_: pytest.fail('must not spawn on cache hit'),
+                              verify_inputs=lambda _: None)
+    looked = restarted.lookup(REQUEST)
+    assert looked['hit'] is True and looked['job']['cached'] is True and looked['job']['source'] == 'local_cache'
+    replayed = restarted.submit(REQUEST)['job']
+    assert replayed['cached'] is True and replayed['key'] == original_key
+    assert cache_file.read_bytes() == original_bytes
+
+    # Changing scientific source invalidates cache identity while keeping old cache untouched.
+    (root / 'src/compact_eeg/a.py').write_text('updated_science = 2\n', encoding='utf-8')
+    after_edit = RadiusService(str(root), python='python3', spawn_process=spawn, verify_inputs=lambda _: None)
+    assert after_edit.lookup(REQUEST) == {'hit': False}
+    new_job = after_edit.submit(REQUEST)['job']
+    assert new_job['key'] != original_key
+    assert len(children) == 2
+    children[1].close(1, None)
+    assert cache_file.read_bytes() == original_bytes
+
+
+def test_lookup_http_endpoint_returns_a_miss_without_a_task_and_rejects_extra_query_fields(tmp_path):
+    """check-local-data-library.mjs::lookup HTTP endpoint returns a miss without a task, and rejects extra query
+    fields."""
+    from .key_parity_support import require as req_pkg
+    req_pkg('fastapi')
+    req_pkg('httpx')
+    from .service_support import loopback_client, make_app
+
+    root = _code_root(tmp_path)
+    (root / 'scripts').mkdir(parents=True, exist_ok=True)
+    (root / 'scripts/run_local_radius_compute.py').write_text('worker', encoding='utf-8')
+    workspace = tmp_path / 'workspace'
+    workspace.mkdir()
+
+    app = make_app(root, workspace=workspace)
+    try:
+        client = loopback_client(app, csrf=True)
+        miss = client.post('/api/local-compute/lookup', json=REQUEST)
+        assert miss.status_code == 200 and miss.json() == {'hit': False}
+        assert client.get('/api/community/status').json()['jobs'] == []
+        assert not (root / 'results/v2/local_app_jobs').exists()
+
+        bad_body = client.post('/api/local-compute/lookup', json={**REQUEST, 'AR': 0.9})
+        assert bad_body.status_code == 400 and bad_body.json()['error'] == '配置含未支持字段'
+
+        uid = '11111111-2222-3333-4444-555555555555'
+        bad_query = client.get(f'/api/local-compute/jobs/{uid}?extra=1')
+        assert bad_query.status_code == 400 and bad_query.json()['error'] == 'Unsupported task query.'
+        bad_ann = client.get(f'/api/local-compute/jobs/{uid}?annotation_id=not-hex')
+        assert bad_ann.status_code == 400 and bad_ann.json()['error'] == 'Invalid electrode name annotation.'
+
+        # Populate a valid cache and verify lookup hits with cached=True and source='local_cache'.
+        q = app.queue_routes.queue()
+        radius = app.queue_routes._radius
+        assert radius is not None
+        _, key = radius.identity_for(REQUEST)
+        write_cache(root, key, REQUEST, radius_result(REQUEST, status='no_layout'), '2026-10-01T00:00:00Z')
+        hit = client.post('/api/local-compute/lookup', json=REQUEST)
+        assert hit.status_code == 200
+        payload = hit.json()
+        assert payload['hit'] is True
+        assert payload['job']['cached'] is True and payload['job']['source'] == 'local_cache'
+        assert len(q.tasks) == 1
+    finally:
+        app.close()

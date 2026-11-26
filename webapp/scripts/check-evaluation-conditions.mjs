@@ -43,9 +43,11 @@ void test('study protocols offer the conditions of the requests they send', () =
 void test('a page offers only the conditions it manages, and builds no condition form of its own', async () => {
   assert.equal(conditionChoices('evaluate', { noiseModelId: 'iid' }).scenarioOffered, false);
   assert.equal(conditionChoices('evaluate', { noiseModelId: 'iid' }).dataPriorOffered, false);
-  for (const file of ['features/design/design-workspace.tsx', 'features/decision/decision-workspace.tsx', 'features/robustness/robustness-workspace.tsx']) {
+  for (const file of ['features/design/design-workspace.tsx', 'features/decision/position-evaluation-section.tsx', 'features/robustness/robustness-workspace.tsx']) {
     const source = await readFile(file, 'utf8');
     assert.match(source, /<EvaluationConditions /, file);
     assert.doesNotMatch(source, /NOISE_MODEL_PRESETS\.map|CONDUCTIVITY_SCENARIOS\.map|<DataPriorPicker /, file);
   }
+  const decisionWorkspace = await readFile('features/decision/decision-workspace.tsx', 'utf8');
+  assert.doesNotMatch(decisionWorkspace, /NOISE_MODEL_PRESETS\.map|CONDUCTIVITY_SCENARIOS\.map|<DataPriorPicker /, 'features/decision/decision-workspace.tsx');
 });

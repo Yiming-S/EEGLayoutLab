@@ -2,7 +2,7 @@ import type { SavedRecord } from './local-library';
 import { designCSV, exportDesign, type ElectrodeDesign } from './design-decision.ts';
 import { assessment } from './lab-workflow.ts';
 import type { Locale } from './i18n/core.ts';
-import catalog from './i18n/export-refresh-catalog.json' with { type: 'json' };
+import catalog from './i18n/exports-catalog.json' with { type: 'json' };
 import { isShowcaseDisplayCopy, verifyShowcaseDisplayCopy } from './showcase-display-copy.ts';
 
 export type LayoutExportKind = 'coordinates_csv' | 'design_json' | 'result_json' | 'report_md' | 'bundle_json';

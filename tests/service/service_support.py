@@ -73,15 +73,17 @@ def static_export(path: Path) -> Path:
 
 
 def service_config(root: Path, static: Optional[Path] = None, workspace: Optional[Path] = None,
-                   port: int = PORT, docs: Optional[Path] = None) -> ServiceConfig:
+                   port: int = PORT, docs: Optional[Path] = None, cache_only: bool = False) -> ServiceConfig:
     user = UserContext.local(str(workspace or root), str(root))
     return ServiceConfig(root=str(root), port=port, tokens=TOKENS, user=user,
                          static_dir=str(static) if static is not None else None,
-                         docs_dir=str(docs) if docs is not None else None)
+                         docs_dir=str(docs) if docs is not None else None,
+                         cache_only=cache_only)
 
 
-def make_app(root: Path, static: Optional[Path] = None, port: int = PORT, docs: Optional[Path] = None) -> Service:
-    return create_app(service_config(root, static, port=port, docs=docs))
+def make_app(root: Path, static: Optional[Path] = None, port: int = PORT, docs: Optional[Path] = None,
+             workspace: Optional[Path] = None, cache_only: bool = False) -> Service:
+    return create_app(service_config(root, static, workspace=workspace, port=port, docs=docs, cache_only=cache_only))
 
 
 def docs_site(path: Path) -> Path:

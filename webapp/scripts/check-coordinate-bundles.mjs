@@ -9,7 +9,7 @@ import { assertIndependentNoiseParent, designReceptionRecord } from '../server/r
 import { normalizeDesignRequest } from '../server/design-evaluation-server.mjs';
 import { computeMiddleware } from '../server/local-compute-server.mjs';
 import { translateText } from '../lib/i18n/core.ts';
-import catalog from '../lib/i18n/export-refresh-catalog.json' with { type: 'json' };
+import catalog from '../lib/i18n/exports-catalog.json' with { type: 'json' };
 
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 

@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { createHash } from 'node:crypto';
 import { SOURCE_REGIONS, SOURCE_ROI_DEFINITION } from '../lib/source-regions.ts';
 import { translateText } from '../lib/i18n/core.ts';
-import copy from '../lib/i18n/source-regions-catalog.json' with { type: 'json' };
+import copy from '../lib/i18n/catalog.json' with { type: 'json' };
 
 import { applySourceRoiGroups } from '../viewer/assets.ts';
 import { releaseGroup } from '../viewer/resources.ts';

@@ -9,12 +9,12 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 type Task = ExperimentReceipt & { queue_position: number; message: string; progress?: number; cached?: boolean };
-type Status = { online_visitors: number; queued_tasks: number; running_tasks: number; available: boolean; recovery_blocked: boolean; jobs: Task[] };
+type Status = { online_visitors?: number; queued_tasks: number; running_tasks: number; available: boolean; recovery_blocked: boolean; jobs: Task[] };
 const labels: Record<string, string> = {
   'local-compute': '区域设计', 'design-evaluation': '坐标评价', 'electrode-editor': '电极编辑', 'source-reception': '信号仿真',
   queued: '排队中', running: '计算中', cancelling: '正在停止', completed: '已完成', no_layout: '未构造出布局', failed: '未完成', cancelled: '已取消', timeout: '已超时',
 };
-/** The tasks this browser submitted, refreshed every 15 s; shared by the header indicator and the workspace home. */
+/** The tasks in this workspace or browser session, refreshed every 15 s; shared by the header indicator and the workspace home. */
 export function useTaskStatus() {
   const [status, setStatus] = useState<Status | null>(null);
   const [failure, setFailure] = useState('');
@@ -24,12 +24,10 @@ export function useTaskStatus() {
       if (inflight) return;
       inflight = true;
       try {
-        const h = await fetch('/api/local-compute/health', { signal: AbortSignal.timeout(8000), cache: 'no-store' });
-        if (!h.ok) throw new Error('offline');
-        const { token } = await h.json();
-        const response = await fetch('/api/community/heartbeat', { method: 'POST',
-          headers: { 'x-eeg-compute-token': token, 'x-eeg-visible': document.visibilityState === 'visible' ? '1' : '0' },
-          signal: AbortSignal.timeout(8000), cache: 'no-store' });
+        const response = await fetch('/api/community/status', {
+          signal: AbortSignal.timeout(8000),
+          cache: 'no-store',
+        });
         if (!response.ok) throw new Error('offline');
         const data = await response.json() as Status;
         if (!stopped) setStatus(data);
@@ -64,12 +62,13 @@ export function useTaskStatus() {
   return { status, failure, act };
 }
 
-/** The visitor count and access-log notice matter on a shared server; folded so they do not lead the task list. */
+/** The visitor count and access-log notice matter on a shared server; omitted when visitor counts are absent. */
 export function VisitorNotice({ status, className }: { status: Status | null; className?: string }) {
   const { tx } = useLanguage();
+  if (status && typeof status.online_visitors !== 'number') return null;
   return <details className={cn('text-xs text-muted-foreground', className)}>
     <summary className="cursor-pointer hover:text-foreground">{tx('访客与访问记录')}</summary>
-    {status && <p className="mt-2">{tx('在线访客')}：{status.online_visitors}</p>}
+    {typeof status?.online_visitors === 'number' && <p className="mt-2">{tx('在线访客')}：{status.online_visitors}</p>}
     <p className="mt-2">{tx('在线访客按最近90秒活跃的浏览器估算，同一浏览器多个标签页计为一个。')}</p>
     <p className="mt-2">{tx('无需登录。后台记录IP用于访问日志和限流，日志保留7天，不公开显示。')}</p>
   </details>;

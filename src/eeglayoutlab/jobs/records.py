@@ -1,9 +1,11 @@
-"""The read side of Node's record store (``webapp/server/storage/records.mjs:29-83``) and the ``fs`` calls of the library.
+"""Node's record store (``webapp/server/storage/records.mjs``) and the ``fs`` calls of the library and job engine.
 
 The five record trees stay at ``R/results/v2/*_jobs`` (decision U1); a directory's name is the request key. Reads
-follow Node's checks: ``path`` refuses a key that is not 64 lowercase hex digits and a suffix that leaves the key's
-directory (lexically), ``contained`` resolves the root and the target with ``realpath(3)`` (``nodefs.realpath``) and
-requires the target inside the root, and ``keys`` lists the directories (not links to them) named like a key.
+and writes follow Node's checks: ``path`` refuses a key that is not 64 lowercase hex digits and a suffix that
+leaves the key's directory (lexically), ``contained`` resolves the root and the target with ``realpath(3)``
+(``nodefs.realpath``) and requires the target inside the root, ``write`` checks the real parent directory and
+replaces the target atomically via ``atomic_json``, ``create_batch`` verifies every ancestor with ``realpath(3)``
+as it creates the batch directory, and ``keys`` lists the directories (not links to them) named like a key.
 
 Node's ``readdir`` returns names sorted by their bytes (libuv's ``scandir`` sorts with ``strcmp``), not in the
 directory's order, so ``scandir`` here sorts the raw names before decoding them. The ``fs`` helpers raise
@@ -17,12 +19,13 @@ import os
 import re
 import stat as stat_module
 from typing import Any, Optional
+import uuid
 
 from ..schemas import jsjson
 from . import nodefs, nodepath
 
-__all__ = ['RECORD_DIRECTORIES', 'KEY', 'RecordError', 'RecordStore', 'read_file', 'stat', 'realpath', 'scandir',
-           'error_code', 'node_message']
+__all__ = ['RECORD_DIRECTORIES', 'KEY', 'UUID', 'RecordError', 'RecordStore', 'atomic_json', 'read_file', 'stat',
+           'realpath', 'scandir', 'error_code', 'node_message']
 
 RECORD_DIRECTORIES = {
     'radius': 'results/v2/local_app_jobs',
@@ -32,6 +35,7 @@ RECORD_DIRECTORIES = {
     'sourceV2': 'results/v2/source_reception_v2_jobs',
 }
 KEY = re.compile('[a-f0-9]{64}')
+UUID = re.compile('[a-f0-9-]{36}')
 _CHUNK = 1 << 20
 
 # libuv's uv_strerror texts, which Node's fs errors carry (deps/uv/include/uv.h, UV_ERRNO_MAP).
@@ -43,7 +47,7 @@ _UV_TEXT = {
     'EMFILE': 'too many open files', 'ENAMETOOLONG': 'name too long', 'ENFILE': 'file table overflow',
     'ENODEV': 'no such device', 'ENOENT': 'no such file or directory', 'ENOMEM': 'not enough memory',
     'ENOTDIR': 'not a directory', 'ENXIO': 'no such device or address',
-    'EOVERFLOW': 'value too large for defined data type', 'EPERM': 'operation not permitted',
+    'EOVERFLOW': 'value too large for defined data type', 'EPOLL': 'unknown error', 'EPERM': 'operation not permitted',
     'ETIMEDOUT': 'connection timed out',
 }
 
@@ -132,8 +136,57 @@ def scandir(path: str) -> list[tuple[str, bool]]:
     return [(nodefs.decode(name), is_dir) for name, is_dir in sorted(found)]
 
 
+def _write_all(fd: int, data: bytes) -> None:
+    view = memoryview(data)
+    written = 0
+    while written < len(view):
+        written += os.write(fd, view[written:])
+
+
+def atomic_json(path: str, value: Any) -> None:
+    """``atomicJson(path, value)``: serializes with ``jsjson.stringify`` first, writes to a new 0600 temporary
+    file, fsyncs, renames over ``path`` and fsyncs the parent directory; never replaces the last valid file on
+    failure."""
+    temporary = f'{path}.{uuid.uuid4()}.tmp'
+    raw_temp = nodefs.encode(temporary)
+    try:
+        payload = jsjson.stringify(value).encode('utf-8')
+        try:
+            fd = os.open(raw_temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | getattr(os, 'O_CLOEXEC', 0),
+                         0o600)
+        except OSError as error:
+            raise _annotate(error, 'open', temporary) from None
+        try:
+            _write_all(fd, payload)
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+        try:
+            os.replace(raw_temp, nodefs.encode(path))
+        except OSError as error:
+            raise _annotate(error, 'rename', temporary) from None
+        parent = nodepath.dirname(path)
+        try:
+            dir_fd = os.open(nodefs.encode(parent), os.O_RDONLY | getattr(os, 'O_CLOEXEC', 0))
+        except OSError as error:
+            raise _annotate(error, 'open', parent) from None
+        try:
+            try:
+                os.fsync(dir_fd)
+            except OSError as error:
+                if error.errno not in (errno.EINVAL, errno.ENOTSUP):
+                    raise
+        finally:
+            os.close(dir_fd)
+    finally:
+        try:
+            os.unlink(raw_temp)
+        except FileNotFoundError:
+            pass
+
+
 class RecordStore:
-    """``new RecordStore(repositoryRoot)``, read side: the root is ``path.resolve``-d, never resolved through links."""
+    """``new RecordStore(repositoryRoot)``: the root is ``path.resolve``-d, never resolved through links."""
 
     def __init__(self, root: str):
         self.root = nodepath.resolve(root)
@@ -165,6 +218,36 @@ class RecordStore:
     def read(self, path: str) -> Any:
         """``JSON.parse(await readFile(await this.contained(path), 'utf8'))``."""
         return jsjson.parse(nodefs.decode(read_file(self.contained(path))))
+
+    def write(self, path: str, value: Any) -> None:
+        """``await store.write(path, value)``: checks the real parent directory is inside the real root, then
+        replaces ``path`` atomically via ``atomic_json``."""
+        root = realpath(self.root)
+        parent = realpath(nodepath.dirname(path))
+        if not parent.startswith(root + '/'):
+            raise RecordError('Record path leaves the repository.')
+        atomic_json(path, value)
+
+    def create_batch(self, kind: str, key: Any, id: Any) -> str:
+        """``await store.createBatch(kind, key, id)``: checks every ancestor with ``realpath(3)`` as it creates the
+        batch directory, refusing symlinks that leave the repository."""
+        if not (isinstance(id, str) and UUID.fullmatch(id)):
+            raise RecordError('Invalid batch identifier.')
+        path = self.path(kind, key, id)
+        root = realpath(self.root)
+        cursor = self.root
+        for part in nodepath.relative(self.root, path).split('/'):
+            cursor = nodepath.join(cursor, part)
+            try:
+                os.mkdir(nodefs.encode(cursor))
+            except FileExistsError:
+                pass
+            except OSError as error:
+                raise _annotate(error, 'mkdir', cursor) from None
+            actual = realpath(cursor)
+            if not actual.startswith(root + '/'):
+                raise RecordError('Record directory leaves the repository.')
+        return path
 
     def keys(self, kind: str) -> list[str]:
         """The keys of one record tree in Node's order; ``[]`` when the tree (or the root) is missing."""

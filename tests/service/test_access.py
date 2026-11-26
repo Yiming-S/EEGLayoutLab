@@ -269,9 +269,9 @@ def test_http_enforces_same_origin_and_token(client):
     """check-community-queue.mjs:138 'HTTP enforces same-origin, token, cookie ownership; stats never expose IP or
     other receipts': the origin and token parts. Cookie ownership and visitor statistics are not carried over."""
     headers = {'x-eeg-compute-token': TOKENS.csrf, 'content-type': 'application/json'}
-    # With the token the request passes access control; the queue endpoint itself arrives in slice 4.
-    assert_error(client.post('/api/local-compute/jobs', headers=headers, content=b'{"n":1}'), 404, 'not_found',
-                 'Unknown queue endpoint')
+    assert_error(client.post('/api/local-compute/jobs', headers=headers, content=b'{"n":1}'), 400, 'invalid_request',
+                 '配置含未支持字段')
+    assert client.get('/api/community/status').status_code == 200
     assert_error(client.post('/api/local-compute/jobs', content=b'{}'), 403, 'request_forbidden', COMPUTE_REFUSED)
     assert_error(client.get('/api/local-compute/health', headers={'origin': 'http://evil.example'}), 403,
                  'request_forbidden', FORBIDDEN)
@@ -386,7 +386,7 @@ def test_production_host_preserves_ui_routing_and_local_api_guards(app, client):
     ('/api/electrode-editor/jobs/' + '0' * 36, 'Unknown queue endpoint'),
     ('/api/source-reception/jobs/' + '0' * 36 + '/cancel', 'Unknown queue endpoint'),
     ('/api/source-reception/jobs/' + '0' * 35, '未知源实验接口'),
-    ('/api/community/status', 'Unknown community endpoint'),
+    ('/api/community/unknown', 'Unknown community endpoint'),
     ('/api/projects/bad', 'Project endpoint not found.'),
     ('/api/robustness-studies/bad', 'Study not found.'),
     ('/api/unknown', 'Not Found'),

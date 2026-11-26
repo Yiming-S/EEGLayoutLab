@@ -1,43 +1,160 @@
 {
-  "community_online": { "source": "在线访客", "en": "Online visitors" },
-  "community_wait": { "source": "等待", "en": "Queued" },
-  "community_run": { "source": "计算中", "en": "Running" },
-  "community_queue": { "source": "排队中", "en": "Queued" },
-  "community_stop": { "source": "正在停止", "en": "Stopping" },
-  "community_offline": { "source": "服务状态暂不可用", "en": "Service status unavailable" },
-  "community_tasks": { "source": "当前浏览器的任务", "en": "Tasks in this browser" },
-  "community_count": { "source": "在线访客按最近90秒活跃的浏览器估算，同一浏览器多个标签页计为一个。", "en": "Estimated browsers active in the last 90 seconds. Multiple tabs in one browser count once." },
-  "community_privacy": { "source": "无需登录。后台记录IP用于访问日志和限流，日志保留7天，不公开显示。", "en": "No sign-in. IP addresses are logged privately for access monitoring and rate limits, and retained for 7 days." },
-  "community_paused": { "source": "队列暂停，等待服务检查", "en": "Queue paused; service inspection required" },
-  "community_empty": { "source": "当前浏览器暂无计算任务", "en": "No computation tasks in this browser" },
-  "community_position": { "source": "数字为等待队列中的位置，按提交顺序执行。", "en": "The number is your position in the waiting queue. Tasks run in submission order." },
-  "community_cancel": { "source": "取消等待或计算", "en": "Cancel task" },
-  "community_download": { "source": "下载计算结果", "en": "Download result" },
-  "community_enqueued": { "source": "已加入计算队列", "en": "Added to the computation queue" },
-  "community_restart": { "source": "服务重启中断了计算，可重新提交", "en": "Computation was interrupted by a service restart. Submit again to retry." },
-  "community_rate": { "source": "提交过于频繁，请一分钟后重试", "en": "Too many requests. Try again in one minute." },
-  "community_max": { "source": "当前浏览器最多保留{{0}}个未完成任务", "en": "This browser can keep up to {{0}} unfinished tasks." },
-  "community_network_max": { "source": "同一网络最多保留{{0}}个未完成任务，请等前面的任务完成", "en": "One network can keep up to {{0}} unfinished tasks. Wait for earlier tasks to finish." },
-  "community_names_hourly": { "source": "同一网络一小时内最多新建60组电极名称，请稍后再试", "en": "One network can create at most 60 electrode-name sets per hour. Try again later." },
-  "community_maintenance": { "source": "服务维护中，已有结果仍可读取；请稍后提交新计算", "en": "The service is under maintenance. Existing results remain readable; submit new computations later." },
-  "community_refresh_retry": { "source": "刷新页面后重试", "en": "Refresh the page and try again." },
-  "server_busy": { "source": "服务器正忙，请稍后重试", "en": "The server is busy. Try again later." },
-  "server_internal": { "source": "服务器内部错误，已记录；请稍后重试", "en": "Internal server error. It has been logged; try again later." },
-  "server_bad_json": { "source": "请求内容不是有效的JSON", "en": "The request body is not valid JSON." },
-  "reception_saved_layout_invalid": { "source": "保存的信号布局坐标或区域标签无效", "en": "The saved signal layout has invalid coordinates or region labels." },
-  "decision_restored_job": { "source": "已恢复离开前提交的坐标评价，正在继续查询进度。", "en": "Restored the coordinate evaluation submitted before you left; still checking its progress." },
-  "community_back_to_task": { "source": "回到任务页面", "en": "Back to the task page" },
-  "design_expand_to_compute": { "source": "展开调整参数并开始计算", "en": "Expand to adjust parameters and start a computation" },
-  "community_full": { "source": "队列已满，请稍后提交；已有结果仍可读取", "en": "The queue is full. Submit later; saved results remain available." },
-  "community_missing": { "source": "任务不存在或不属于当前浏览器", "en": "Task not found or not owned by this browser." },
-  "community_unsubscribe": { "source": "已退出共享任务，其他访客的计算继续", "en": "You left the shared task. Computation continues for other visitors." },
-  "community_changed": { "source": "模型或代码已更新，请重新提交", "en": "The model or code has changed. Submit again." },
-  "community_changed_queue": { "source": "排队后模型或代码已更新，请重新提交", "en": "The model or code changed while queued. Submit again." },
-  "community_unavailable": { "source": "计算队列不可用，请稍后重试", "en": "The computation queue is unavailable. Try again later." },
-  "community_record": { "source": "计算记录无法读取，请重新提交", "en": "The saved result cannot be read. Submit again." },
-  "community_read": { "source": "无法读取任务", "en": "Unable to read the task" },
-  "community_noresult": { "source": "计算进程未返回结果", "en": "The worker returned no result." },
-  "community_occupied": { "source": "计算资源被其他进程占用，请重新提交", "en": "Another process is using the computation resource. Submit again." },
+  "community_online": {
+    "source": "在线访客",
+    "en": "Online visitors"
+  },
+  "community_wait": {
+    "source": "等待",
+    "en": "Queued"
+  },
+  "community_run": {
+    "source": "计算中",
+    "en": "Running"
+  },
+  "community_queue": {
+    "source": "排队中",
+    "en": "Queued"
+  },
+  "community_stop": {
+    "source": "正在停止",
+    "en": "Stopping"
+  },
+  "community_offline": {
+    "source": "服务状态暂不可用",
+    "en": "Service status unavailable"
+  },
+  "community_tasks": {
+    "source": "当前浏览器的任务",
+    "en": "Tasks in this browser"
+  },
+  "community_count": {
+    "source": "在线访客按最近90秒活跃的浏览器估算，同一浏览器多个标签页计为一个。",
+    "en": "Estimated browsers active in the last 90 seconds. Multiple tabs in one browser count once."
+  },
+  "community_privacy": {
+    "source": "无需登录。后台记录IP用于访问日志和限流，日志保留7天，不公开显示。",
+    "en": "No sign-in. IP addresses are logged privately for access monitoring and rate limits, and retained for 7 days."
+  },
+  "community_paused": {
+    "source": "队列暂停，等待服务检查",
+    "en": "Queue paused; service inspection required"
+  },
+  "community_empty": {
+    "source": "当前浏览器暂无计算任务",
+    "en": "No computation tasks in this browser"
+  },
+  "community_position": {
+    "source": "数字为等待队列中的位置，按提交顺序执行。",
+    "en": "The number is your position in the waiting queue. Tasks run in submission order."
+  },
+  "community_cancel": {
+    "source": "取消等待或计算",
+    "en": "Cancel task"
+  },
+  "community_download": {
+    "source": "下载计算结果",
+    "en": "Download result"
+  },
+  "community_enqueued": {
+    "source": "已加入计算队列",
+    "en": "Added to the computation queue"
+  },
+  "community_restart": {
+    "source": "服务重启中断了计算，可重新提交",
+    "en": "Computation was interrupted by a service restart. Submit again to retry."
+  },
+  "community_rate": {
+    "source": "提交过于频繁，请一分钟后重试",
+    "en": "Too many requests. Try again in one minute."
+  },
+  "community_max": {
+    "source": "当前浏览器最多保留{{0}}个未完成任务",
+    "en": "This browser can keep up to {{0}} unfinished tasks."
+  },
+  "community_network_max": {
+    "source": "同一网络最多保留{{0}}个未完成任务，请等前面的任务完成",
+    "en": "One network can keep up to {{0}} unfinished tasks. Wait for earlier tasks to finish."
+  },
+  "community_names_hourly": {
+    "source": "同一网络一小时内最多新建60组电极名称，请稍后再试",
+    "en": "One network can create at most 60 electrode-name sets per hour. Try again later."
+  },
+  "community_maintenance": {
+    "source": "服务维护中，已有结果仍可读取；请稍后提交新计算",
+    "en": "The service is under maintenance. Existing results remain readable; submit new computations later."
+  },
+  "community_refresh_retry": {
+    "source": "刷新页面后重试",
+    "en": "Refresh the page and try again."
+  },
+  "server_busy": {
+    "source": "服务器正忙，请稍后重试",
+    "en": "The server is busy. Try again later."
+  },
+  "server_internal": {
+    "source": "服务器内部错误，已记录；请稍后重试",
+    "en": "Internal server error. It has been logged; try again later."
+  },
+  "server_bad_json": {
+    "source": "请求内容不是有效的JSON",
+    "en": "The request body is not valid JSON."
+  },
+  "reception_saved_layout_invalid": {
+    "source": "保存的信号布局坐标或区域标签无效",
+    "en": "The saved signal layout has invalid coordinates or region labels."
+  },
+  "decision_restored_job": {
+    "source": "已恢复离开前提交的坐标评价，正在继续查询进度。",
+    "en": "Restored the coordinate evaluation submitted before you left; still checking its progress."
+  },
+  "community_back_to_task": {
+    "source": "回到任务页面",
+    "en": "Back to the task page"
+  },
+  "design_expand_to_compute": {
+    "source": "展开调整参数并开始计算",
+    "en": "Expand to adjust parameters and start a computation"
+  },
+  "community_full": {
+    "source": "队列已满，请稍后提交；已有结果仍可读取",
+    "en": "The queue is full. Submit later; saved results remain available."
+  },
+  "community_missing": {
+    "source": "任务不存在或不属于当前浏览器",
+    "en": "Task not found or not owned by this browser."
+  },
+  "community_unsubscribe": {
+    "source": "已退出共享任务，其他访客的计算继续",
+    "en": "You left the shared task. Computation continues for other visitors."
+  },
+  "community_changed": {
+    "source": "模型或代码已更新，请重新提交",
+    "en": "The model or code has changed. Submit again."
+  },
+  "community_changed_queue": {
+    "source": "排队后模型或代码已更新，请重新提交",
+    "en": "The model or code changed while queued. Submit again."
+  },
+  "community_unavailable": {
+    "source": "计算队列不可用，请稍后重试",
+    "en": "The computation queue is unavailable. Try again later."
+  },
+  "community_record": {
+    "source": "计算记录无法读取，请重新提交",
+    "en": "The saved result cannot be read. Submit again."
+  },
+  "community_read": {
+    "source": "无法读取任务",
+    "en": "Unable to read the task"
+  },
+  "community_noresult": {
+    "source": "计算进程未返回结果",
+    "en": "The worker returned no result."
+  },
+  "community_occupied": {
+    "source": "计算资源被其他进程占用，请重新提交",
+    "en": "Another process is using the computation resource. Submit again."
+  },
   "workspace0": {
     "source": "文档",
     "en": "Documentation"
@@ -306,12 +423,30 @@
     "source": "在当前候选网格、4mm间距和有限搜索预算内，未构造出满足严格区域约束的{{0}}点布局；这不是数学不可行证明。",
     "en": "Within the current candidate grid, 4 mm spacing, and bounded search budget, no {{0}}-electrode layout satisfying strict region constraints was constructed; this does not certify mathematical infeasibility."
   },
-  "electrode_label_8": { "source": "8导", "en": "8 channels" },
-  "electrode_label_12": { "source": "12导", "en": "12 channels" },
-  "electrode_label_16": { "source": "16导", "en": "16 channels" },
-  "electrode_label_24": { "source": "24导", "en": "24 channels" },
-  "electrode_label_32": { "source": "32导", "en": "32 channels" },
-  "electrode_label_48": { "source": "48导", "en": "48 channels" },
+  "electrode_label_8": {
+    "source": "8导",
+    "en": "8 channels"
+  },
+  "electrode_label_12": {
+    "source": "12导",
+    "en": "12 channels"
+  },
+  "electrode_label_16": {
+    "source": "16导",
+    "en": "16 channels"
+  },
+  "electrode_label_24": {
+    "source": "24导",
+    "en": "24 channels"
+  },
+  "electrode_label_32": {
+    "source": "32导",
+    "en": "32 channels"
+  },
+  "electrode_label_48": {
+    "source": "48导",
+    "en": "48 channels"
+  },
   "design_limits_variable_k": {
     "source": "支持8–64导（默认64导） · 最小电极直线间距4 mm · 单Ernie头模 · 标准64导名义SNR＝20 dB。各布局使用相同物理噪声尺度。算法在有限候选网格内搜索，位置范围按模型坐标近似定义。",
     "en": "Supports 8–64 channels (default 64) · minimum straight-line electrode spacing of 4 mm · one Ernie head model · nominal standard-64 SNR = 20 dB. All layouts use the same physical noise scale. The algorithm searches a finite candidate grid; placement domains are approximated using model coordinates."
@@ -399,5 +534,1477 @@
   "figure_err_names": {
     "source": "电极名称数量须与坐标一致。",
     "en": "Electrode name count must match the coordinates."
+  },
+  "existing": {
+    "source": "总面积约束 · 已计算数据",
+    "en": "Total-area constraint · saved results"
+  },
+  "new": {
+    "source": "每区半径约束 · 新建设计",
+    "en": "Per-region radius constraint · new design"
+  },
+  "presets": {
+    "source": "按部位创建布局",
+    "en": "Create a layout by location"
+  },
+  "presets_jump": {
+    "source": "按部位创建布局 ↓",
+    "en": "Create a layout by location ↓"
+  },
+  "create": {
+    "source": "创建设计 →",
+    "en": "Create design →"
+  },
+  "create_named": {
+    "source": "用此组合创建设计：{{0}}",
+    "en": "Create a design with: {{0}}"
+  },
+  "question": {
+    "source": "64个电极，集中布置后还能保留多少信号？",
+    "en": "How much signal can 64 electrodes retain when concentrated into fewer regions?"
+  },
+  "regions": {
+    "source": "查看几个区域的布局？",
+    "en": "Number of regions"
+  },
+  "read_only": {
+    "source": "切换以上条件只读取已有结果。单Ernie头模 · 标准64导名义SNR 20 dB。",
+    "en": "These controls select saved results. One Ernie head model · nominal 20 dB SNR at the standard 64 electrodes."
+  },
+  "table": {
+    "source": "相同面积上限下，几个区域更合适？",
+    "en": "Compare region counts under the same area limit"
+  },
+  "count": {
+    "source": "{{0}}/3项达标",
+    "en": "{{0}}/3 metrics meet the requirement"
+  },
+  "joint": {
+    "source": "联合要求未通过",
+    "en": "Joint requirement not met"
+  },
+  "curve": {
+    "source": "曲线阈值线对应当前所选指标；下方结论要求三项指标均达到最低保留要求。",
+    "en": "The chart threshold applies to the selected metric. The conclusions below require all three metrics to meet the minimum retention requirement."
+  },
+  "scope": {
+    "source": "本页实验条件与阅读说明",
+    "en": "Experiment conditions and reading notes"
+  },
+  "whole_scope": {
+    "source": "全头候选区：不限制毛发位置，由算法选择区域。",
+    "en": "Whole-scalp candidates: no hair-location restriction; the algorithm selects the regions."
+  },
+  "hair_scope": {
+    "source": "少毛发候选区：耳后、前额与眶周的模型近似范围，不包含完整扩展耳周。",
+    "en": "Low-hair candidates: model-defined approximations behind the ears, on the forehead and around the eyes; the full extended ear region is excluded."
+  },
+  "status": {
+    "source": "查看访客与计算队列",
+    "en": "View visitors and computation queue"
+  },
+  "online": {
+    "source": "在线",
+    "en": "Online"
+  },
+  "queue": {
+    "source": "队列",
+    "en": "Queue"
+  },
+  "queue_summary": {
+    "source": "运行中：{{0}}项 · 等待中：{{1}}项",
+    "en": "Running: {{0}} · Queued: {{1}}"
+  },
+  "queue_ahead": {
+    "source": "前方等待任务：{{0}}项；按提交顺序执行。",
+    "en": "{{0}} waiting tasks ahead; executed in submission order."
+  },
+  "cache": {
+    "source": "已读取已有结果",
+    "en": "Loaded saved result"
+  },
+  "requirements_label": {
+    "source": "判定要求",
+    "en": "Decision requirements"
+  },
+  "requirements_mode": {
+    "source": "判定方式",
+    "en": "Decision mode"
+  },
+  "requirements_joint": {
+    "source": "三项共同要求（与实验总览一致）",
+    "en": "Shared requirement for all three metrics (same as overview)"
+  },
+  "requirements_custom": {
+    "source": "自定义各项要求",
+    "en": "Set individual requirements"
+  },
+  "requirements_joint_threshold": {
+    "source": "三项最低保留要求（%）",
+    "en": "Minimum retention for all three metrics (%)"
+  },
+  "requirements_field_threshold": {
+    "source": "场重建保留率下限（%）",
+    "en": "Minimum field reconstruction retention (%)"
+  },
+  "requirements_joint_summary": {
+    "source": "三项共同要求：场重建、幅度和定位效用保留率均不低于{{0}}%。",
+    "en": "Shared requirement: field reconstruction, amplitude, and localization utility retention must each be at least {{0}}%."
+  },
+  "requirements_field_summary": {
+    "source": "仅检查场重建保留率 ≥ {{0}}%。",
+    "en": "Checks only field reconstruction retention ≥ {{0}}%."
+  },
+  "requirements_custom_summary": {
+    "source": "自定义要求：{{0}}。",
+    "en": "Individual requirements: {{0}}."
+  },
+  "requirements_note": {
+    "source": "修改要求只重新判断现有指标，不启动计算。自定义模式下，留空的指标不参与判定。",
+    "en": "Changing requirements only reassesses existing metrics; it does not start a computation. Blank limits are not checked in individual mode."
+  },
+  "requirements_pass": {
+    "source": "达到全部启用要求",
+    "en": "Meets all enabled requirements"
+  },
+  "requirements_guide": {
+    "source": "已有结果、布局设计和方案对比默认要求三项保留率都达到同一最低要求，G为三项最低值。方案对比和坐标评价可切换为自定义要求，分别设置场重建、幅度、定位效用或毫米误差上限；留空的指标不参与判定。修改要求只重新判断已有数值，不改变点位、不重新计算。",
+    "en": "Results, Layout Design, and Compare Layouts require all three retention metrics to meet the same minimum by default; G is their minimum. Compare Layouts and coordinate evaluation can use individual limits for field reconstruction, amplitude, localization utility, or error in millimeters. Blank limits are not checked. Changing requirements only reassesses existing values; it does not move electrodes or rerun computation."
+  },
+  "joint_area_assessment": {
+    "source": "三项联合达标情况",
+    "en": "Joint assessment across all three metrics"
+  },
+  "historical_signal_availability": {
+    "source": "此历史协议的记录仅供查看与导出。信号仿真支持当前总面积布局、半径计算布局和已评价坐标布局。",
+    "en": "Records from this historical protocol are available for viewing and export. Signal simulation supports current area-constrained layouts, computed radius-constrained layouts, and evaluated coordinate layouts."
+  },
+  "interface_settings": {
+    "source": "界面设置",
+    "en": "Interface settings"
+  },
+  "layout_parameters": {
+    "source": "布局参数",
+    "en": "Layout parameters"
+  },
+  "layout_metrics_glance": {
+    "source": "当前布局指标摘要",
+    "en": "Current layout metric summary"
+  },
+  "placement_loading": {
+    "source": "正在读取部位组合…",
+    "en": "Loading placement combinations…"
+  },
+  "placement_load_failed": {
+    "source": "部位组合未载入，可进入布局设计重新读取。",
+    "en": "Placement combinations could not be loaded. Open Layout Design to reload them."
+  },
+  "negative_reconstruction_both": {
+    "source": "两套布局的重建解释率均为负。",
+    "en": "Both layouts have negative reconstruction explained energy."
+  },
+  "negative_reconstruction_explanation": {
+    "source": "重建误差超过干净信号功率，当前相对保留率无法定义。",
+    "en": "Reconstruction error exceeds clean signal power, so relative retention is undefined."
+  },
+  "relative_retention_undefined": {
+    "source": "当前相对保留率无法定义。",
+    "en": "Relative retention is undefined."
+  },
+  "baseline_not_valid": {
+    "source": "标准布局的重建解释率非正或过小，无法作为有效的相对比较基准。",
+    "en": "The standard layout has nonpositive or near-zero explained energy and cannot serve as a valid reference for relative comparison."
+  },
+  "negative_candidate_reconstruction": {
+    "source": "自定义布局的重建解释率为负。",
+    "en": "The custom layout has negative reconstruction explained energy."
+  },
+  "negative_candidate_explanation": {
+    "source": "自定义布局的重建误差超过干净信号功率。原始评分保留在下表中。",
+    "en": "The custom layout reconstruction error exceeds clean signal power. The original scores remain in the table below."
+  },
+  "view_clean_condition": {
+    "source": "查看无心眼干扰条件",
+    "en": "View condition without cardiac or ocular artifacts"
+  },
+  "reduce_artifact_amplitude": {
+    "source": "降低干扰幅度",
+    "en": "Reduce artifact amplitude"
+  },
+  "ui_placement_section": {
+    "source": "布置方式与区域部位",
+    "en": "Placement method and region locations"
+  },
+  "ui_placement_step1": {
+    "source": "1 · 选择区域数与布置方式",
+    "en": "1 · Choose regions and placement method"
+  },
+  "ui_placement_method": {
+    "source": "布置方式",
+    "en": "Placement method"
+  },
+  "ui_placement_regions": {
+    "source": "指定部位组合",
+    "en": "Named location for each region"
+  },
+  "ui_placement_whole_note": {
+    "source": "不限制毛发位置，由算法选择区域。",
+    "en": "No hair-location restriction; the algorithm selects the regions."
+  },
+  "ui_placement_low_hair_note": {
+    "source": "只在耳后、前额与眶周的近似少毛发范围内选择。",
+    "en": "Only within the approximate low-hair areas behind the ears, on the forehead and around the eyes."
+  },
+  "ui_placement_regions_note": {
+    "source": "为每个区域指定部位：选常用组合，或逐区自由组合。",
+    "en": "Name a location for every region: pick a common combination or choose each region freely."
+  },
+  "ui_design_step2": {
+    "source": "2 · 设置每区半径",
+    "en": "2 · Set the radius per region"
+  },
+  "ui_design_step3": {
+    "source": "3 · 生成布局并评估",
+    "en": "3 · Generate and evaluate"
+  },
+  "ui_design_generated": {
+    "source": "已生成并评估的布局",
+    "en": "Generated and evaluated layout"
+  },
+  "ui_design_empty": {
+    "source": "计算完成后，这里显示三项保留率与达标判断。",
+    "en": "After the calculation, the three retention scores and the pass/fail judgment appear here."
+  },
+  "ui_design_empty_title": {
+    "source": "尚无评价结果",
+    "en": "No evaluation yet"
+  },
+  "ui_start_title": {
+    "source": "三步上手",
+    "en": "Get started in three steps"
+  },
+  "ui_start_compare": {
+    "source": "比较1–6个区域在相同面积下保留多少信号。",
+    "en": "Compare how much signal 1–6 regions keep under the same area."
+  },
+  "ui_start_design": {
+    "source": "设计新布局",
+    "en": "Design a new layout"
+  },
+  "ui_start_design_note": {
+    "source": "选择部位和每区半径，计算并保存新的64电极布局。",
+    "en": "Choose locations and a radius per region, then calculate and save a new 64-electrode layout."
+  },
+  "ui_start_reception_note": {
+    "source": "用同一模拟脑源，对照标准64导与新布局的接收信号。",
+    "en": "Use the same simulated brain source to compare what standard 64 channels and the new layout receive."
+  },
+  "ui_details_close": {
+    "source": "关闭方案详情",
+    "en": "Close layout details"
+  },
+  "ui_details_area_note": {
+    "source": "总面积上限约束实验 · 只读，不触发计算",
+    "en": "Total-area-cap experiment · Read-only, no calculation"
+  },
+  "ui2_file_choose": {
+    "source": "选择文件",
+    "en": "Choose file"
+  },
+  "ui2_file_choose_multiple": {
+    "source": "选择文件（可多选）",
+    "en": "Choose files"
+  },
+  "ui2_file_none": {
+    "source": "未选择文件",
+    "en": "No file chosen"
+  },
+  "ui2_threshold_joint": {
+    "source": "三项最低保留要求",
+    "en": "Minimum retention for all three"
+  },
+  "ui2_threshold_field": {
+    "source": "场重建保留率下限",
+    "en": "Minimum field reconstruction retention"
+  },
+  "ui2_more_filters": {
+    "source": "更多筛选与排序",
+    "en": "More filters and sorting"
+  },
+  "ui2_multi_condition": {
+    "source": "多条件评价",
+    "en": "Evaluated under several conditions"
+  },
+  "ui2_condition_count": {
+    "source": "共{{0}}种条件",
+    "en": "{{0}} conditions"
+  },
+  "ui2_conductivity": {
+    "source": "电导率",
+    "en": "Conductivity"
+  },
+  "ui2_latest": {
+    "source": "最近一次",
+    "en": "Latest"
+  },
+  "ui2_median_range": {
+    "source": "中位数 · 范围 {{0}}–{{1}}",
+    "en": "Median · range {{0}}–{{1}}"
+  },
+  "ui2_conditions_pass": {
+    "source": "{{0}}/{{1}}种条件达到要求",
+    "en": "{{0}}/{{1}} conditions meet the requirement"
+  },
+  "ui2_collapse": {
+    "source": "收起",
+    "en": "Collapse"
+  },
+  "ui2_expand_all": {
+    "source": "展开全部{{0}}条",
+    "en": "Show all {{0}}"
+  },
+  "ui2_requirement_short": {
+    "source": "要求 {{0}}%",
+    "en": "Required {{0}}%"
+  },
+  "ui2_requirement_column": {
+    "source": "最低保留要求 {{0}}%",
+    "en": "Minimum retention {{0}}%"
+  },
+  "ui2_percentage_points": {
+    "source": "个百分点",
+    "en": "pp"
+  },
+  "ui2_b_better": {
+    "source": "（B更好）",
+    "en": "(B is better)"
+  },
+  "ui2_b_worse": {
+    "source": "（B更差）",
+    "en": "(B is worse)"
+  },
+  "ui2_difference": {
+    "source": "差值（B − A）",
+    "en": "Difference (B − A)"
+  },
+  "ui2_cancel": {
+    "source": "取消",
+    "en": "Cancel"
+  },
+  "ui2_switch_layout": {
+    "source": "切换布局",
+    "en": "Switch layout"
+  },
+  "ui2_discard_and_switch": {
+    "source": "放弃编辑并切换",
+    "en": "Discard edits and switch"
+  },
+  "ui2_reception_step1": {
+    "source": "1 · 选择实验源模式",
+    "en": "1 · Choose the source mode"
+  },
+  "ui2_reception_step2": {
+    "source": "2 · 选择布局与信号条件",
+    "en": "2 · Choose the layout and signal conditions"
+  },
+  "ui2_reception_layout": {
+    "source": "选择已计算布局（64电极）",
+    "en": "Choose a computed layout (64 electrodes)"
+  },
+  "ui2_reception_source": {
+    "source": "模拟脑源位置",
+    "en": "Simulated source location"
+  },
+  "ui2_robustness_lead": {
+    "source": "可复现的重复评估：按明确的种子与偏移参数重复原评价协议，逐项保存请求、结果及失败原因。",
+    "en": "Reproducible repeated evaluation: repeat the original protocol with explicit seeds and offsets, saving each request, result and failure reason."
+  },
+  "ui2_not_met": {
+    "source": "未达到：{{0}}",
+    "en": "Not met: {{0}}"
+  },
+  "showcase_read_only": {
+    "source": "只读展示版",
+    "en": "Read-only showcase"
+  },
+  "showcase_banner_note": {
+    "source": "可浏览示例结果、三维头模和方法说明；计算、保存与导入需要安装本地版。",
+    "en": "Browse example results, the 3D head and the method pages. Calculating, saving and importing need the installed application."
+  },
+  "showcase_install_link": {
+    "source": "安装说明",
+    "en": "Installation"
+  },
+  "showcase_refusal": {
+    "source": "这是只读展示版，不运行计算，也不保存数据。安装 EEGLayoutLab 本地版后即可计算。",
+    "en": "This is the read-only showcase: it runs no calculations and stores nothing. Install EEGLayoutLab to compute."
+  },
+  "library.unifiedTitle": {
+    "source": "布局与实验记录",
+    "en": "Layout and experiment records"
+  },
+  "library.unifiedIntro": {
+    "source": "统一查找布局、坐标评价、编辑副本和信号实验。每条记录保留自己的评价协议与原布局关联。",
+    "en": "Find layouts, coordinate evaluations, edited copies and signal experiments together. Each record retains its evaluation protocol and original-layout association."
+  },
+  "library.kind": {
+    "source": "记录类型",
+    "en": "Record type"
+  },
+  "library.allKinds": {
+    "source": "全部记录类型",
+    "en": "All record types"
+  },
+  "library.layoutKind": {
+    "source": "布局与搜索",
+    "en": "Layouts and searches"
+  },
+  "library.coordinateKind": {
+    "source": "坐标评价",
+    "en": "Coordinate evaluation"
+  },
+  "library.editorKind": {
+    "source": "编辑副本",
+    "en": "Edited copy"
+  },
+  "library.layoutProtocol": {
+    "source": "布局实验协议",
+    "en": "Layout experiment protocol"
+  },
+  "library.allProtocols": {
+    "source": "全部协议",
+    "en": "All protocols"
+  },
+  "library.electrodes": {
+    "source": "实际电极数",
+    "en": "Actual electrode count"
+  },
+  "library.allElectrodes": {
+    "source": "全部电极数量",
+    "en": "All electrode counts"
+  },
+  "library.location": {
+    "source": "电极所在部位",
+    "en": "Electrode location"
+  },
+  "library.allLocations": {
+    "source": "全部部位",
+    "en": "All locations"
+  },
+  "library.countSort": {
+    "source": "电极数从少到多",
+    "en": "Electrode count, low to high"
+  },
+  "library.scope": {
+    "source": "信号实验只列出当前浏览器完成的任务，较早的任务可能已不在列表中。筛选记录不会读取完整波形或启动计算。",
+    "en": "Signal experiments list only tasks completed in this browser; older tasks may no longer be listed. Filtering neither loads full waveforms nor starts computation."
+  },
+  "library.recordProtocol": {
+    "source": "记录与协议",
+    "en": "Record and protocol"
+  },
+  "library.counts": {
+    "source": "电极 / 区域",
+    "en": "Electrodes / regions"
+  },
+  "library.noTime": {
+    "source": "保存时间未记录",
+    "en": "Save time not recorded"
+  },
+  "library.saveTime": {
+    "source": "保存时间",
+    "en": "Saved at"
+  },
+  "library.mixed": {
+    "source": "心眼混合干扰条件",
+    "en": "Combined cardiac and ocular artifacts"
+  },
+  "library.editorBasis": {
+    "source": "按编辑协议解释",
+    "en": "Interpret under the editing protocol"
+  },
+  "library.sourceBasis": {
+    "source": "按干扰条件分别解释",
+    "en": "Interpret each artifact condition separately"
+  },
+  "library.related": {
+    "source": "同一原布局的关联记录",
+    "en": "Records associated with this original layout"
+  },
+  "library.relatedIntro": {
+    "source": "编辑副本与信号实验分别关联原布局；信号实验使用其记录指定的完整布局。",
+    "en": "Edited copies and signal experiments each refer to their original layout. Signal experiments use the complete layout specified in their record."
+  },
+  "library.editorTitle": {
+    "source": "编辑布局",
+    "en": "Edited layout"
+  },
+  "library.single": {
+    "source": "单源",
+    "en": "Single source"
+  },
+  "library.burst": {
+    "source": "短时爆发",
+    "en": "Brief burst"
+  },
+  "library.rhythm": {
+    "source": "持续节律",
+    "en": "Sustained rhythm"
+  },
+  "library.editorFetchError": {
+    "source": "电极编辑记录未载入，请刷新记录。",
+    "en": "Electrode editing records could not be loaded. Refresh the records."
+  },
+  "library.sourceFetchError": {
+    "source": "当前浏览器的信号记录未载入，请刷新记录。",
+    "en": "Signal records from this browser could not be loaded. Refresh the records."
+  },
+  "library.original": {
+    "source": "查看原布局",
+    "en": "View original layout"
+  },
+  "library.editorDetails": {
+    "source": "编辑评分使用独立协议。载入后恢复这条记录的点位；重新评价时检查模型、原布局与缓存。",
+    "en": "Editing scores use a separate protocol. Loading restores this record's electrode positions; re-evaluation checks the model, original layout and cache."
+  },
+  "library.sourceDetails": {
+    "source": "打开后恢复源模式、源位置、波形、干扰幅度与随机种子，并检查该场景的已有缓存。",
+    "en": "Opening restores source mode and positions, waveform, artifact amplitude and random seed, and checks the saved cache for this scenario."
+  },
+  "library.legacy": {
+    "source": "历史信号协议",
+    "en": "Historical signal protocol"
+  },
+  "library.legacySource": {
+    "source": "历史源定义",
+    "en": "Historical source definition"
+  },
+  "library.legacyDetails": {
+    "source": "历史信号协议保留原结果下载；当前信号页面使用不同源分区，不能直接恢复这个场景。",
+    "en": "Historical signal results remain available for download. The current signal workspace uses different source regions and cannot directly restore this scenario."
+  },
+  "library.condition": {
+    "source": "干扰条件",
+    "en": "Artifact condition"
+  },
+  "library.baselineEnergy": {
+    "source": "标准布局重建解释率",
+    "en": "Standard layout explained reconstruction energy"
+  },
+  "library.candidateEnergy": {
+    "source": "当前布局重建解释率",
+    "en": "Current layout explained reconstruction energy"
+  },
+  "library.missingSummary": {
+    "source": "这条旧任务未保存指标摘要，查看或下载结果时读取完整记录。",
+    "en": "This older task has no saved metric summary. Viewing or downloading loads the complete record."
+  },
+  "library.missingSummaryLabel": {
+    "source": "未保存指标摘要",
+    "en": "Metric summary not saved"
+  },
+  "library.scenario": {
+    "source": "查看场景参数",
+    "en": "View scenario parameters"
+  },
+  "library.downloading": {
+    "source": "读取计算结果…",
+    "en": "Loading computation result…"
+  },
+  "library.invalidEditorKey": {
+    "source": "编辑记录编号无效，请从记录列表重新选择。",
+    "en": "The edited record ID is invalid. Select it again from the records."
+  },
+  "library.missingEditor": {
+    "source": "指定编辑记录无法读取，或与原布局不一致。",
+    "en": "The specified edited record is unavailable or does not match the original layout."
+  },
+  "tasks.summary": {
+    "source": "任务 / 队列",
+    "en": "Tasks / queue"
+  },
+  "tasks.aria": {
+    "source": "查看任务与计算队列",
+    "en": "View tasks and computation queue"
+  },
+  "tasks.offline": {
+    "source": "服务未连接",
+    "en": "Service disconnected"
+  },
+  "tasks.open": {
+    "source": "打开结果",
+    "en": "Open result"
+  },
+  "tasks.openSource": {
+    "source": "打开信号实验",
+    "en": "Open signal experiment"
+  },
+  "tasks.details": {
+    "source": "查看任务详情",
+    "en": "View task details"
+  },
+  "tasks.progress": {
+    "source": "计算进度",
+    "en": "Computation progress"
+  },
+  "tasks.completed": {
+    "source": "已完成",
+    "en": "Completed"
+  },
+  "tasks.cancelled": {
+    "source": "已取消",
+    "en": "Cancelled"
+  },
+  "tasks.timeout": {
+    "source": "已超时",
+    "en": "Timed out"
+  },
+  "tasks.failed": {
+    "source": "未完成",
+    "en": "Not completed"
+  },
+  "tasks.noLayout": {
+    "source": "未构造出布局",
+    "en": "No layout constructed"
+  },
+  "library.visibility.othersPublic": {
+    "source": "共享库 · 其他访客公开",
+    "en": "Shared library · published by another visitor"
+  },
+  "library.visibility.private": {
+    "source": "仅本浏览器可见",
+    "en": "Visible to this browser only"
+  },
+  "library.visibility.pending": {
+    "source": "已申请公开 · 等待审核",
+    "en": "Publication requested · awaiting review"
+  },
+  "library.visibility.public": {
+    "source": "已公开到共享库",
+    "en": "Published to the shared library"
+  },
+  "library.visibility.removed": {
+    "source": "已被管理员从共享库移除",
+    "en": "Removed from the shared library by the operator"
+  },
+  "library.visibility.confirm": {
+    "source": "公开后，所有访客都能在共享库看到这条记录：名称「{{0}}」、电极坐标、计算参数和指标。可随时撤回公开。确认公开？",
+    "en": "Once published, every visitor can see this record in the shared library: the name “{{0}}”, the electrode coordinates, the computation settings and the metrics. You can withdraw it at any time. Publish?"
+  },
+  "library.visibility.region": {
+    "source": "共享库可见范围",
+    "en": "Shared library visibility"
+  },
+  "library.visibility.privateNote": {
+    "source": "只有提交过这条记录的浏览器能在列表中看到它；持有记录链接的人仍可打开。",
+    "en": "Only browsers that submitted this record see it in their lists; anyone holding the record link can still open it."
+  },
+  "library.visibility.pendingNote": {
+    "source": "管理员审核通过后，其他访客才能在共享库看到它。",
+    "en": "Other visitors see it in the shared library after the operator approves it."
+  },
+  "library.visibility.otherOwner": {
+    "source": "提交过同一配置的另一个浏览器已公开这条记录。",
+    "en": "Another browser that submitted the same configuration has published this record."
+  },
+  "library.visibility.reason": {
+    "source": "移除原因：",
+    "en": "Reason for removal: "
+  },
+  "library.visibility.withdraw": {
+    "source": "撤回公开",
+    "en": "Withdraw publication"
+  },
+  "library.visibility.publish": {
+    "source": "公开到共享库",
+    "en": "Publish to the shared library"
+  },
+  "library.visibility.scopeReview": {
+    "source": "本浏览器提交的计算默认只有本浏览器能在列表中看到。公开到共享库的记录经管理员审核后对所有访客列出；官方实验记录始终列出。清除浏览器数据后列表将找不到自己的记录，需要长期保留请加入研究项目。",
+    "en": "Computations submitted from this browser are listed only to this browser by default. Records published to the shared library are listed to every visitor after the operator reviews them; official experiment records are always listed. After clearing browser data you will no longer find your records in the list; add them to a research project to keep them."
+  },
+  "library.visibility.scope": {
+    "source": "本浏览器提交的计算默认只有本浏览器能在列表中看到。公开到共享库的记录对所有访客列出；官方实验记录始终列出。清除浏览器数据后列表将找不到自己的记录，需要长期保留请加入研究项目。",
+    "en": "Computations submitted from this browser are listed only to this browser by default. Records published to the shared library are listed to every visitor; official experiment records are always listed. After clearing browser data you will no longer find your records in the list; add them to a research project to keep them."
+  },
+  "library.visibility.updateFailed": {
+    "source": "公开状态未能更新，请刷新后重试",
+    "en": "The publication state was not updated; refresh and try again."
+  },
+  "library.visibility.badId": {
+    "source": "记录编号无效",
+    "en": "Invalid record identifier"
+  },
+  "library.visibility.choose": {
+    "source": "请选择是否公开这条记录",
+    "en": "Choose whether to publish this record"
+  },
+  "library.visibility.notOwner": {
+    "source": "只有提交过这条记录的浏览器才能更改公开状态",
+    "en": "Only a browser that submitted this record can change whether it is published"
+  },
+  "library.visibility.removedRepublish": {
+    "source": "管理员已将这条记录从共享库移除，不能再次公开",
+    "en": "The operator removed this record from the shared library; it cannot be published again"
+  },
+  "library.visibility.usePost": {
+    "source": "请使用POST",
+    "en": "Use POST"
+  },
+  "library.supersededShown": {
+    "source": "已显示较早代码版本的同配置记录。",
+    "en": "Records with the same configuration from earlier code versions are shown."
+  },
+  "library.supersededFolded": {
+    "source": "另有{{0}}条同配置记录来自较早的代码版本，已折叠。",
+    "en": "{{0}} more records with the same configuration come from earlier code versions and are folded."
+  },
+  "library.supersededHide": {
+    "source": "折叠旧版本",
+    "en": "Fold earlier versions"
+  },
+  "library.supersededShow": {
+    "source": "显示旧版本",
+    "en": "Show earlier versions"
+  },
+  "library.chooseHint": {
+    "source": "点击“查看结果”打开记录详情。",
+    "en": "Choose “View results” to open a record’s details."
+  },
+  "nav_workspace": {
+    "source": "工作区",
+    "en": "Workspace"
+  },
+  "nav_analysis": {
+    "source": "分析",
+    "en": "Analysis"
+  },
+  "nav_findings": {
+    "source": "研究结果",
+    "en": "Findings"
+  },
+  "nav_home": {
+    "source": "工作区首页",
+    "en": "Workspace Home"
+  },
+  "nav_layouts": {
+    "source": "布局列表",
+    "en": "Layout List"
+  },
+  "nav_channels": {
+    "source": "通道子集",
+    "en": "Channel Subsets"
+  },
+  "nav_total_area": {
+    "source": "总面积研究",
+    "en": "Total-Area Study"
+  },
+  "nav_batches": {
+    "source": "历史批次",
+    "en": "Historical Batches"
+  },
+  "nav_layout": {
+    "source": "布局详情",
+    "en": "Layout Details"
+  },
+  "nav_logo_home": {
+    "source": "EEG Layout Lab · 返回工作区",
+    "en": "EEG Layout Lab · Back to the workspace"
+  },
+  "home_draft": {
+    "source": "草稿",
+    "en": "Draft"
+  },
+  "home_running": {
+    "source": "进行中",
+    "en": "In progress"
+  },
+  "home_paused": {
+    "source": "已暂停",
+    "en": "Paused"
+  },
+  "home_search": {
+    "source": "按区域搜索",
+    "en": "Search by region"
+  },
+  "home_search_text": {
+    "source": "选择部位、区域数和每区半径，搜索64电极布局。",
+    "en": "Choose sites, the number of regions and the radius per region, and search for a 64-electrode layout."
+  },
+  "home_import_text": {
+    "source": "读取已有电极坐标文件，在当前条件下评价。",
+    "en": "Read an existing electrode coordinate file and evaluate it under the current conditions."
+  },
+  "home_copy": {
+    "source": "复制并编辑",
+    "en": "Copy and edit"
+  },
+  "home_copy_text": {
+    "source": "从布局列表打开一个布局，移动或停用电极。",
+    "en": "Open a layout from the layout list and move or disable electrodes."
+  },
+  "home_new": {
+    "source": "新建布局",
+    "en": "New layout"
+  },
+  "home_recent": {
+    "source": "最近的布局",
+    "en": "Recent layouts"
+  },
+  "home_all_layouts": {
+    "source": "全部布局",
+    "en": "All layouts"
+  },
+  "home_no_layouts": {
+    "source": "还没有保存的布局。",
+    "en": "No saved layouts yet."
+  },
+  "home_all_studies": {
+    "source": "全部研究",
+    "en": "All studies"
+  },
+  "home_reading_studies": {
+    "source": "读取研究目录…",
+    "en": "Reading the study directory…"
+  },
+  "home_no_studies": {
+    "source": "还没有稳健性研究。",
+    "en": "No robustness studies yet."
+  },
+  "home_cases": {
+    "source": "{{0}}/{{1}}个案例",
+    "en": "{{0}}/{{1}} cases"
+  },
+  "home_intro": {
+    "source": "最近的布局、计算任务、研究和项目。新布局从这里开始；已发表的研究结果在“研究结果”中。",
+    "en": "Recent layouts, computation tasks, studies and projects. New layouts start here; published results are under “Findings”."
+  },
+  "home_tasks": {
+    "source": "计算任务",
+    "en": "Computation tasks"
+  },
+  "home_projects_text": {
+    "source": "项目把多个布局、对比和交付包放在一起，便于导出和交给合作者。",
+    "en": "A project keeps several layouts, comparisons and delivery packages together, ready to export and hand to collaborators."
+  },
+  "home_open_projects": {
+    "source": "打开研究项目",
+    "en": "Open research projects"
+  },
+  "home_read_delivery": {
+    "source": "读取交付包",
+    "en": "Read a delivery package"
+  },
+  "home_findings_text": {
+    "source": "总面积研究：相同面积上限下，1–6个区域各保留多少信号。历史批次保留最初的半径实验和两区域原型。",
+    "en": "Total-area study: how much signal 1–6 regions keep under the same area cap. The historical batches keep the original radius experiment and the two-region pilot."
+  },
+  "home_open_findings": {
+    "source": "打开总面积研究",
+    "en": "Open the total-area study"
+  },
+  "channels_intro": {
+    "source": "从已有记录的协方差摘要中，为给定通道数选出重建误差最小的通道子集。计算在浏览器内完成，不提交任务。",
+    "en": "From the covariance summary of an existing recording, choose the channel subset with the smallest reconstruction error for a given number of channels. The calculation runs in the browser and submits no task."
+  },
+  "layout_imported": {
+    "source": "导入的坐标",
+    "en": "Imported coordinates"
+  },
+  "layout_hist_area": {
+    "source": "历史面积实验",
+    "en": "Historical area experiment"
+  },
+  "layout_hist_radius": {
+    "source": "历史半径实验",
+    "en": "Historical radius experiment"
+  },
+  "layout_breadcrumb": {
+    "source": "位置",
+    "en": "Location"
+  },
+  "layout_missing": {
+    "source": "找不到这个布局的记录。它可能来自其他工作区，或记录已被移除。",
+    "en": "No record of this layout was found. It may come from another workspace, or the record was removed."
+  },
+  "layout_choose": {
+    "source": "请从布局列表选择一个布局。",
+    "en": "Choose a layout from the layout list."
+  },
+  "layout_open_list": {
+    "source": "打开布局列表",
+    "en": "Open the layout list"
+  },
+  "layout_evaluations": {
+    "source": "共{{0}}次评价",
+    "en": "{{0}} evaluations"
+  },
+  "layout_editors": {
+    "source": "{{0}}个编辑副本",
+    "en": "{{0}} edited copies"
+  },
+  "layout_signals": {
+    "source": "{{0}}次信号实验",
+    "en": "{{0}} signal experiments"
+  },
+  "layout_by_condition": {
+    "source": "各条件下的评价",
+    "en": "Evaluations under each condition"
+  },
+  "layout_by_condition_text": {
+    "source": "同一组坐标在不同噪声模型、电导率、头模或数据先验下的评价。名义Ernie评价排在最前；不同条件的分数只与相同条件比较。",
+    "en": "Evaluations of the same coordinates under different noise models, conductivities, heads or data priors. The nominal Ernie evaluation comes first; scores are compared only within the same condition."
+  },
+  "layout_ar": {
+    "source": "布局接受阈值AR",
+    "en": "Minimum Required Retention for this layout"
+  },
+  "layout_ar_hint": {
+    "source": "只更新判断，不重新计算。",
+    "en": "Updates the judgement only; nothing is recalculated."
+  },
+  "layout_not_all": {
+    "source": "未全部达标",
+    "en": "Not all met"
+  },
+  "layout_no_metrics": {
+    "source": "无指标",
+    "en": "No metrics"
+  },
+  "layout_shown": {
+    "source": "当前显示",
+    "en": "Shown"
+  },
+  "layout_view": {
+    "source": "查看",
+    "en": "View"
+  },
+  "layout_ask": {
+    "source": "对这个布局提问",
+    "en": "Ask about this layout"
+  },
+  "layout_ask_text": {
+    "source": "一次请求就能回答的问题在这里发起；需要多次请求的问题是稳健性研究。",
+    "en": "Questions one request can answer start here; questions that need several requests are robustness studies."
+  },
+  "layout_other_conditions": {
+    "source": "在其他条件下评价 · 位置偏移测试",
+    "en": "Evaluate under other conditions · Position displacement test"
+  },
+  "layout_compare": {
+    "source": "与另一个布局对比",
+    "en": "Compare with another layout"
+  },
+  "layout_derived": {
+    "source": "由这个布局派生的记录",
+    "en": "Records derived from this layout"
+  },
+  "library_amplitude": {
+    "source": "幅度",
+    "en": "Amplitude"
+  },
+  "library_localization": {
+    "source": "定位",
+    "en": "Localization"
+  },
+  "library_view_layout": {
+    "source": "查看布局",
+    "en": "View layout"
+  },
+  "library_three": {
+    "source": "三项保留率",
+    "en": "Three retentions"
+  },
+  "library_data_prior": {
+    "source": "数据先验",
+    "en": "Data prior"
+  },
+  "library_range": {
+    "source": "各条件场重建 {{0}}–{{1}}",
+    "en": "Field reconstruction across conditions {{0}}–{{1}}"
+  },
+  "library_intro": {
+    "source": "每个布局一行：同一组坐标在不同条件下的评价合并显示，“查看布局”打开它的详情页。编辑副本和信号实验保留自己的协议与原布局关联。",
+    "en": "One row per layout: evaluations of the same coordinates under different conditions are shown together, and “View layout” opens its page. Edited copies and signal experiments keep their own protocols and their link to the original layout."
+  },
+  "library_hint": {
+    "source": "点击“查看布局”打开布局详情；编辑副本与信号实验的“查看结果”在本页下方展开。",
+    "en": "“View layout” opens the layout’s page; “View results” of an edited copy or a signal experiment opens below on this page."
+  },
+  "library_opening": {
+    "source": "正在打开布局详情…",
+    "en": "Opening the layout’s page…"
+  },
+  "picker_matches": {
+    "source": "匹配{{0}}个布局",
+    "en": "{{0}} matching layouts"
+  },
+  "conclusion_choose_b": {
+    "source": "选择方案B后显示对比结论。",
+    "en": "Choose design B to see the conclusion."
+  },
+  "conclusion_choose_a": {
+    "source": "选择方案A后显示对比结论。",
+    "en": "Choose design A to see the conclusion."
+  },
+  "conclusion_both": {
+    "source": "两个方案都达到全部启用要求。",
+    "en": "Both designs meet all enabled requirements."
+  },
+  "conclusion_only": {
+    "source": "只有{{0}}达到全部启用要求。",
+    "en": "Only {{0}} meets all enabled requirements."
+  },
+  "conclusion_neither": {
+    "source": "两个方案都未达到全部启用要求。",
+    "en": "Neither design meets all enabled requirements."
+  },
+  "conclusion_title": {
+    "source": "对比结论",
+    "en": "Conclusion"
+  },
+  "conclusion_same": {
+    "source": "两个方案的信号重建保留率相同。",
+    "en": "The two designs have the same field reconstruction retention."
+  },
+  "conclusion_higher": {
+    "source": "方案B的信号重建保留率比方案A高{{0}}个百分点。",
+    "en": "Design B’s field reconstruction retention is {{0}} percentage points higher than design A’s."
+  },
+  "conclusion_lower": {
+    "source": "方案B的信号重建保留率比方案A低{{0}}个百分点。",
+    "en": "Design B’s field reconstruction retention is {{0}} percentage points lower than design A’s."
+  },
+  "conclusion_conditions": {
+    "source": "两条记录的评价条件不同，差值只作参考；同一条件下的对比请在布局详情页选择相同条件。",
+    "en": "The two records were evaluated under different conditions, so the difference is only indicative; to compare under one condition, choose the same condition on the layouts’ pages."
+  },
+  "conclusion_pass": {
+    "source": "{{0}}达到全部启用要求",
+    "en": "{{0}} meets all enabled requirements"
+  },
+  "conclusion_missing": {
+    "source": "{{0}}数据不完整：{{1}}",
+    "en": "{{0}} has incomplete data: {{1}}"
+  },
+  "conclusion_fail": {
+    "source": "{{0}}未达到：{{1}}",
+    "en": "{{0}} does not meet: {{1}}"
+  },
+  "decision_open_layout": {
+    "source": "打开布局详情",
+    "en": "Open the layout’s page"
+  },
+  "design_next": {
+    "source": "下一步",
+    "en": "Next step"
+  },
+  "design_next_text": {
+    "source": "布局详情汇总这个布局在各条件下的评价；信号仿真对照标准64的时间波形与重建，加入模拟心电和眼电。",
+    "en": "The layout’s page gathers its evaluations under every condition; signal simulation compares time waveforms and reconstruction with standard64, adding simulated ECG and EOG."
+  },
+  "design_next_text_noise": {
+    "source": "布局详情汇总这个布局在各条件下的评价。空间相关噪声或数据先验下搜索的布局不进入信号仿真。",
+    "en": "The layout’s page gathers its evaluations under every condition. Layouts searched under spatially correlated noise or a data prior do not enter signal simulation."
+  },
+  "design_next_empty": {
+    "source": "计算出完整64点布局后，可打开布局详情或用同一脑源测试。",
+    "en": "Once a complete 64-point layout is computed, open its page or test it with the same brain sources."
+  },
+  "reception_step2": {
+    "source": "2 · 选择实验源模式",
+    "en": "2 · Choose the source mode"
+  },
+  "reception_step3": {
+    "source": "3 · 选择信号条件",
+    "en": "3 · Choose the signal conditions"
+  },
+  "reception_step4": {
+    "source": "4 · 开始信号仿真",
+    "en": "4 · Run signal simulation"
+  },
+  "study_64_only": {
+    "source": "稳健性研究只接受64电极布局",
+    "en": "Robustness studies accept only 64-electrode layouts"
+  },
+  "study_from_saved": {
+    "source": "从已保存布局选择",
+    "en": "Choose from saved layouts"
+  },
+  "study_choose_saved": {
+    "source": "选择已保存布局",
+    "en": "Choose a saved layout"
+  },
+  "method_intro": {
+    "source": "完整的方法说明写在项目文档中，按主题分章；本页是目录。首次操作请查看“使用指南”。",
+    "en": "The full method is written in the project documentation, one chapter per topic; this page is its index. For first steps, see the “User Guide”."
+  },
+  "method_local": {
+    "source": "文档由本机服务提供（/docs/）。",
+    "en": "The documentation is served by the local service (/docs/)."
+  },
+  "method_published": {
+    "source": "文档与本站一起发布（/docs/）。",
+    "en": "The documentation is published with this site (/docs/)."
+  },
+  "method_github": {
+    "source": "文档链接打开GitHub上的原文；用本机服务（eeglayoutlab）运行并构建文档后，链接改为本机的/docs/。",
+    "en": "Documentation links open the text on GitHub; when the local service (eeglayoutlab) runs with the documentation built, they open /docs/ on this machine."
+  },
+  "method_moved": {
+    "source": "“{{0}}”一节已移到文档。",
+    "en": "The section “{{0}}” has moved to the documentation."
+  },
+  "method_open_chapter": {
+    "source": "打开该章节",
+    "en": "Open that chapter"
+  },
+  "method_read_chapter": {
+    "source": "阅读整章",
+    "en": "Read the chapter"
+  },
+  "method_model": {
+    "source": "模型与指标",
+    "en": "Model and metrics"
+  },
+  "method_details": {
+    "source": "方法细节",
+    "en": "Method details"
+  },
+  "method_history": {
+    "source": "历史研究与验证",
+    "en": "Historical studies and validation"
+  },
+  "method_model_text": {
+    "source": "头模、脑源、噪声、三项保留率的定义与公式、阈值与布局约束，以及分数的适用范围。",
+    "en": "The head model, sources and noise; the definitions and formulas of the three retentions; thresholds and layout constraints; and the scope of the scores."
+  },
+  "method_details_text": {
+    "source": "信号生成、组织传播、脑源与波形、干扰、默认参数，以及每个工具（搜索、编辑、坐标评价、信号仿真）的计算方式。",
+    "en": "Signal generation, tissue propagation, sources and waveforms, interference, default parameters, and how each tool (search, editing, coordinate evaluation, signal simulation) calculates."
+  },
+  "method_history_text": {
+    "source": "最初的半径批次与两区域原型按原协议保留；验证页列出已完成的检查与仍未完成的工作。",
+    "en": "The original radius batch and the two-region pilot are kept under their own protocols; the validation page lists the checks done and the work still open."
+  },
+  "method_observations": {
+    "source": "头模、脑源与观测",
+    "en": "Head model, sources and observations"
+  },
+  "method_noise": {
+    "source": "噪声与信号重建",
+    "en": "Noise and reconstruction"
+  },
+  "method_thresholds": {
+    "source": "AR阈值与搜索目标",
+    "en": "Thresholds and search objectives"
+  },
+  "method_constraints": {
+    "source": "布局约束",
+    "en": "Layout constraints"
+  },
+  "method_terms": {
+    "source": "布置部位与术语",
+    "en": "Placement sites and terms"
+  },
+  "method_reading": {
+    "source": "结果阅读顺序",
+    "en": "Reading order"
+  },
+  "method_scope": {
+    "source": "分数的适用范围",
+    "en": "Scope of the scores"
+  },
+  "method_fem": {
+    "source": "FEM与互易定理",
+    "en": "FEM and reciprocity"
+  },
+  "method_sampling": {
+    "source": "源采样与协方差",
+    "en": "Source sampling and covariance"
+  },
+  "method_dk40": {
+    "source": "六个脑区（DK40）",
+    "en": "Six brain regions (DK40)"
+  },
+  "method_parameters": {
+    "source": "默认参数",
+    "en": "Default parameters"
+  },
+  "method_coordinate": {
+    "source": "坐标评价与位置偏移测试",
+    "en": "Coordinate evaluation and position displacement test"
+  },
+  "method_display": {
+    "source": "三维显示与模型来源",
+    "en": "3D display and model sources"
+  },
+  "method_radius_batch": {
+    "source": "半径批次实验",
+    "en": "Radius batch"
+  },
+  "method_pilot": {
+    "source": "两区域原型",
+    "en": "Two-region pilot"
+  },
+  "method_early_plan": {
+    "source": "早期验证计划",
+    "en": "Early validation plan"
+  },
+  "method_validation": {
+    "source": "验证与未完成项",
+    "en": "Validation and open items"
+  },
+  "guide_open_workspace": {
+    "source": "打开工作区",
+    "en": "Open the workspace"
+  },
+  "guide_purpose": {
+    "source": "比较电极集中到少数区域后，相对标准全头64导的采集表现。界面分五个板块，顶栏从左到右依次排列。",
+    "en": "Compare how 64 electrodes gathered into a few regions record relative to the standard full-head 64-channel layout. The interface has five areas, in order from left to right in the top bar."
+  },
+  "guide_findings": {
+    "source": "先看已发表的结果：相同面积上限下，区域越少，保留的信号越少吗？比较前先核对实验协议、面积或半径约束，以及电极总数。",
+    "en": "Start with the published results: under the same area cap, do fewer regions keep less signal? Before comparing, check the protocol, the area or radius constraint, and the electrode count."
+  },
+  "guide_open_design": {
+    "source": "打开区域设计",
+    "en": "Open region design"
+  },
+  "guide_design": {
+    "source": "依次选择允许布置范围、区域数量和每区半径上限，再点击计算；已有电极坐标时，直接进入坐标导入。尚未生成完整布局时，扩大半径或调整区域后重试。",
+    "en": "Choose the allowed placement range, the number of regions and the radius cap per region, then calculate; with existing electrode coordinates, go straight to coordinate import. If no complete layout is constructed, widen the radius or adjust the regions and try again."
+  },
+  "guide_layouts": {
+    "source": "布局列表每个布局一行；“查看布局”打开详情页，从那里发起评价、对比、研究、信号仿真、编辑和导出。",
+    "en": "The layout list has one row per layout; “View layout” opens its page, where evaluations, comparisons, studies, signal simulation, editing and export start."
+  },
+  "guide_compare": {
+    "source": "方案对比先选布局，再选评价条件；结论栏先说明两个布局是否达到要求以及相差多少，详细指标在下方。",
+    "en": "Compare Layouts asks for a layout, then for an evaluation condition; the conclusion bar first says whether each layout meets the requirement and how far apart they are, with the detailed metrics below."
+  },
+  "guide_reception": {
+    "source": "比较同一场景下的标准64导、当前布局接收信号和重建结果。编辑后的减导记录不进入此实验。",
+    "en": "Compare the signals received by standard64 and by the current layout, and their reconstruction, in the same scenario. Edited records with fewer channels do not enter this experiment."
+  },
+  "guide_projects": {
+    "source": "研究项目把多个布局、对比和交付包放在一起，便于导出和交给合作者。方案对比支持报告、JSON和坐标CSV导出。",
+    "en": "A research project keeps several layouts, comparisons and delivery packages together, ready to export and hand to collaborators. Compare Layouts exports a report, JSON and coordinate CSV."
+  },
+  "guide_intro": {
+    "source": "工作区汇总最近的工作；布局板块新建和查找布局；分析板块提出问题；研究结果是已发表的实验；文档包括本指南与建模原理。",
+    "en": "The workspace gathers recent work; Layouts creates and finds layouts; Analysis asks questions; Findings holds the published experiments; Documentation has this guide and the methods."
+  },
+  "usage_1_title": {
+    "source": "1. 五个板块",
+    "en": "1. The five areas"
+  },
+  "usage_1": {
+    "source": "工作区：最近的布局、计算任务、研究和项目。布局：新建布局（区域设计、坐标导入、电极编辑）和布局列表。分析：方案对比、稳健性研究、信号仿真和通道子集。研究结果：已发表的总面积研究与历史批次。文档：本指南与建模原理。",
+    "en": "Workspace: recent layouts, computation tasks, studies and projects. Layouts: new layouts (region design, coordinate import, electrode editing) and the layout list. Analysis: Compare Layouts, robustness studies, signal simulation and channel subsets. Findings: the published total-area study and the historical batches. Documentation: this guide and the methods."
+  },
+  "usage_2_title": {
+    "source": "2. 研究结果",
+    "en": "2. Findings"
+  },
+  "usage_2": {
+    "source": "总面积研究比较相同总面积上限下1、2、3、4、6个区域各保留多少信号。选择一行查看点位与三项保留率；查看、筛选和调整AR不会启动新计算。",
+    "en": "The total-area study compares how much signal 1, 2, 3, 4 and 6 regions keep under the same total-area cap. Choose a row to see its electrode positions and three retentions; viewing, filtering and changing the minimum required retention start no new calculation."
+  },
+  "usage_3_title": {
+    "source": "3. 新建布局",
+    "en": "3. New layouts"
+  },
+  "usage_3": {
+    "source": "区域设计固定64点并按区域均衡分配，按每区半径上限搜索；坐标导入读取已有电极坐标并在当前条件下评价；电极编辑从已有布局删减或移动点位，另存为编辑副本。新结果自动保存，相同配置优先直接读取。",
+    "en": "Region design fixes 64 points, shares them evenly among the regions and searches under a radius cap per region; coordinate import reads existing electrode coordinates and evaluates them under the current conditions; electrode editing removes or moves points of an existing layout and saves an edited copy. New results are saved automatically, and a configuration already computed is read back."
+  },
+  "usage_4_title": {
+    "source": "4. 布局详情",
+    "en": "4. Layout details"
+  },
+  "usage_4": {
+    "source": "每个布局一页：同一组坐标在不同噪声模型、电导率、头模或数据先验下的评价排成一张表，名义Ernie评价在前。不同条件的分数只与相同条件比较。",
+    "en": "Each layout has one page: evaluations of the same coordinates under different noise models, conductivities, heads or data priors form one table, the nominal Ernie evaluation first. Scores are compared only within the same condition."
+  },
+  "usage_5_title": {
+    "source": "5. 一个问题，一次操作或一项研究",
+    "en": "5. One question: an action or a study"
+  },
+  "usage_5": {
+    "source": "一次请求就能回答的问题是一个操作：在其他条件下评价、位置偏移测试、与另一个布局对比。需要多次请求的问题是稳健性研究：按随机种子、头模或网格位移重复评价并汇总。",
+    "en": "A question one request can answer is an action: an evaluation under other conditions, a position displacement test, a comparison with another layout. A question that needs several requests is a robustness study: evaluations repeated over random seeds, heads or grid displacements and summarized together."
+  },
+  "usage_6": {
+    "source": "先选一个完整的64点布局，再设置脑源位置、波形和模拟干扰。布局坐标固定；此页比较所选场景下标准64导与当前布局的接收波形和信号重建。只有独立噪声下得到的布局进入信号仿真。",
+    "en": "Choose a complete 64-point layout, then set the source location, waveform and simulated interference. The coordinates stay fixed; the page compares the waveforms received by standard64 and by the current layout, and their reconstruction, in the chosen scenario. Only layouts obtained under independent noise enter signal simulation."
+  },
+  "usage_7_title": {
+    "source": "7. 三项保留率与AR",
+    "en": "7. The three retentions and the minimum requirement"
+  },
+  "usage_7": {
+    "source": "与同一协议下的标准全头64导比较。信号重建保留率衡量恢复全头信号的能力；幅度保留率（最差10%）取相对损失最大的10%源面积权重的幅度比；相对定位评分由误差换算。默认三项都要达到同一最低要求AR；修改AR只重新判断已有数值，不改变点位、不重新计算。",
+    "en": "Each is compared with the standard full-head 64-channel layout under the same protocol. Field reconstruction retention measures how well the full-head signal is recovered; amplitude retention (worst 10%) is the amplitude ratio over the 10% of source area with the largest relative loss; the relative localization score is derived from the error. By default all three must reach the same minimum required retention; changing it only re-judges existing values and neither moves points nor recalculates."
+  },
+  "findings_batches_intro": {
+    "source": "两个早期批次按各自协议保留，只读查看；它们的分数只评价各自的布局，不与本页结果混合。",
+    "en": "Two early batches are kept under their own protocols, read-only. Their scores qualify only their own layouts and are not mixed with the results on this page."
+  },
+  "findings_batch_date": {
+    "source": "计算日期",
+    "en": "Computed on"
+  },
+  "findings_radius_protocol": {
+    "source": "每区半径上限，区域允许相交 · 单Ernie头模",
+    "en": "Radius cap per region, regions may overlap · Ernie head only"
+  },
+  "findings_pilot_protocol": {
+    "source": "两个32电极区域按几何规则构造，未做优化 · 单Ernie头模",
+    "en": "Two regions of 32 electrodes built by geometric rules, not optimized · Ernie head only"
+  },
+  "start_title": {
+    "source": "从这里开始",
+    "en": "Start here"
+  },
+  "start_lead": {
+    "source": "把64个电极集中放在头上少数几个区域，相比标准64导全头布置还能保留多少信号？本应用用头模仿真回答这个问题，并帮你设计、评价和比较这样的布局。",
+    "en": "If the 64 electrodes are concentrated in a few regions of the head, how much signal do they keep compared with the standard whole-head 64-electrode layout? This application answers that by head-model simulation, and helps you design, evaluate and compare such layouts."
+  },
+  "start_close": {
+    "source": "我已了解，收起",
+    "en": "Got it, hide this"
+  },
+  "start_reopen": {
+    "source": "新手入门",
+    "en": "Getting started"
+  },
+  "start_findings": {
+    "source": "先看现成结论",
+    "en": "See the existing findings"
+  },
+  "start_findings_text": {
+    "source": "浏览总面积研究：1–6个区域在不同面积上限下各保留多少信号。只读，不需要计算。",
+    "en": "Browse the total-area study: how much signal 1–6 regions keep under each area cap. Read-only; nothing is computed."
+  },
+  "start_coordinates": {
+    "source": "评价我已有的电极位置",
+    "en": "Evaluate my electrode positions"
+  },
+  "start_coordinates_text": {
+    "source": "导入CSV、JSON、BIDS、.elc或.sfp坐标文件，或按10-05电极名称导入，得到三项保留率。",
+    "en": "Import a CSV, JSON, BIDS, .elc or .sfp coordinate file, or 10-05 electrode names, and get the three retention scores."
+  },
+  "start_design": {
+    "source": "设计一个新布局",
+    "en": "Design a new layout"
+  },
+  "start_design_text": {
+    "source": "选择头部部位、区域数和每区大小，搜索64电极布局并评价。",
+    "en": "Choose the head locations, the number of regions and each region's size, then search for a 64-electrode layout and evaluate it."
+  },
+  "start_example": {
+    "source": "打开示例布局",
+    "en": "Open an example layout"
+  },
+  "start_example_text": {
+    "source": "一个已在多种条件下评价过的布局，可以先看看完整的结果页面。",
+    "en": "A layout evaluated under several conditions, to see what a full results page looks like."
+  },
+  "start_scores": {
+    "source": "怎么读分数",
+    "en": "How to read the scores"
+  },
+  "start_score_ratio": {
+    "source": "保留率 = 布局的得分 ÷ 标准64导全头布置的得分；100%表示与全头64导相同。",
+    "en": "Retention = the layout's score ÷ the score of the standard whole-head 64-electrode layout; 100% means the same as whole-head 64."
+  },
+  "start_score_metrics": {
+    "source": "三项保留率分别回答：标准64导记录到的头皮电场能重建多少（场重建）；损失最多的10%脑源还能记录到多大的电位差（幅度）；源定位与标准64导相比如何（定位效用）。",
+    "en": "The three retentions answer: how much of the scalp field recorded by standard64 can be reconstructed (field reconstruction); how large a potential difference the 10% of sources that lose the most can still produce (amplitude); and how source localization compares with standard64 (localization utility)."
+  },
+  "start_score_ar": {
+    "source": "最低保留要求是你设定的合格线：三项保留率都达到它才算合格。调整它只重新判断，不重新计算。",
+    "en": "The minimum required retention is your pass line: a layout passes when all three retentions reach it. Changing it re-judges the results without recomputing them."
+  },
+  "start_method": {
+    "source": "三项指标如何计算",
+    "en": "How the three metrics are computed"
+  },
+  "home_lead": {
+    "source": "你的布局、计算任务、研究和项目。",
+    "en": "Your layouts, computation tasks, studies and projects."
+  },
+  "home_findings_note": {
+    "source": "已发表的总面积研究和历史批次。",
+    "en": "The published total-area study and the historical batches."
+  },
+  "home_new_study": {
+    "source": "新建研究",
+    "en": "New study"
+  },
+  "visitor_notice": {
+    "source": "访客与访问记录",
+    "en": "Visitors and access logs"
+  },
+  "term_retention": {
+    "source": "保留率是什么？",
+    "en": "What is retention?"
+  },
+  "term_retention_text": {
+    "source": "布局的得分除以标准64导全头布置的得分。100%表示与全头64导相同。",
+    "en": "The layout's score divided by the score of the standard whole-head 64-electrode layout. 100% means the same as whole-head 64."
+  },
+  "term_ar": {
+    "source": "最低保留要求是什么？",
+    "en": "What is the minimum required retention?"
+  },
+  "term_ar_text": {
+    "source": "你设定的合格线：三项保留率都达到它才算合格。改变它只重新判断，不重新计算。",
+    "en": "The pass line you set: a layout passes when all three retentions reach it. Changing it re-judges the results without recomputing them."
+  },
+  "term_head": {
+    "source": "头模是什么？",
+    "en": "What is a head model?"
+  },
+  "term_head_text": {
+    "source": "用于仿真的头部模型（由MRI重建的头皮、颅骨和脑组织）。默认是Ernie；其他头模用来检查结论是否只适用于一个人的头。",
+    "en": "The head used in the simulation (scalp, skull and brain tissue reconstructed from MRI). The default is Ernie; other heads check whether a conclusion holds beyond one person's head."
+  },
+  "term_more": {
+    "source": "详细说明",
+    "en": "Details"
+  },
+  "method_reference_list": {
+    "source": "完整参考文献（按主题）",
+    "en": "Full reference list (by topic)"
+  },
+  "library_search_placeholder": {
+    "source": "部位、区域数、面积或编号，例如：耳后 2区",
+    "en": "Site, region count, area or ID, e.g. behind ear 2 regions"
+  },
+  "library_search_missing": {
+    "source": "没有记录包含：",
+    "en": "No record contains: "
+  },
+  "library_search_none_together": {
+    "source": "没有记录同时符合全部查找词。",
+    "en": "No record matches all the search words together."
+  },
+  "library_search_try": {
+    "source": "可以换个说法，例如“耳后”“前额”“2区”“120 cm²”，或",
+    "en": "Try other words, such as “behind the ear”, “forehead”, “2 regions” or “120 cm²”, or"
+  },
+  "library_search_clear": {
+    "source": "清空查找",
+    "en": "clear the search"
+  },
+  "picker_search_missing": {
+    "source": "没有布局包含：",
+    "en": "No layout contains: "
+  },
+  "picker_search_none_together": {
+    "source": "没有布局同时符合全部查找词。",
+    "en": "No layout matches all the search words together."
   }
 }

@@ -33,11 +33,12 @@ await test('selected record owns actions and export; header retains navigation w
 
 await test('refresh catalogs have complete translations and matching interpolation tokens', async () => {
   const seen = new Set();
-  for (const part of ['home', 'metric', 'viewer', 'export']) {
-    const catalog = JSON.parse(await read(`lib/i18n/${part}-refresh-catalog.json`));
+  for (const file of ['catalog.json', 'workspace-catalog.json', 'documentation-catalog.json', 'exports-catalog.json', 'editor-catalog.json', 'simulation-catalog.json', 'projects-catalog.json', 'research-workflow-catalog.json']) {
+    const catalog = JSON.parse(await read(`lib/i18n/${file}`));
     for (const entry of Object.values(catalog)) {
+      const normalized = entry.source.replace(/\s+/g, ' ').trim();
       assert.ok(entry.source && entry.en);
-      assert.ok(!seen.has(entry.source), entry.source); seen.add(entry.source);
+      assert.ok(!seen.has(normalized), entry.source); seen.add(normalized);
       assert.doesNotMatch(entry.en, /[\u3400-\u9fff]/);
       const tokens = (text) => [...text.matchAll(/\{\{\d+\}\}/g)].map(match => match[0]).sort((a, b) => a.localeCompare(b));
       assert.deepEqual(tokens(entry.source), tokens(entry.en), entry.source);

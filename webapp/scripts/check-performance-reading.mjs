@@ -61,7 +61,7 @@ await test('individual status never replaces the existing joint assessment', () 
 
 await test('every metric keeps its explanation and bilingual plain-language question', async () => {
   const component = await readFile(new URL('../components/performance-summary.tsx', import.meta.url), 'utf8');
-  const catalog = JSON.parse(await readFile(new URL('../lib/i18n/metric-refresh-catalog.json', import.meta.url), 'utf8'));
+  const catalog = JSON.parse(await readFile(new URL('../lib/i18n/catalog.json', import.meta.url), 'utf8'));
   const entries = Object.values(catalog);
   for (const metric of METRICS) {
     assert.ok(METRIC_QUESTIONS[metric.key]);

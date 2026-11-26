@@ -23,10 +23,6 @@
     "source": "1. 从哪里开始？",
     "en": "1. Where do I start?"
   },
-  "method.acf1407b2cfd": {
-    "source": "打开“已有结果”，比较1、2、3、4、6个电极分布区域。选择一行查看已计算点位；“布局设计”用于设置新条件，也可直接进入。查看、筛选和调整AR不会启动新计算。",
-    "en": "Open Results to compare electrode layouts with 1, 2, 3, 4, or 6 regions. Select a row to view its computed positions. Open Layout Design to set new conditions; you can also enter that page directly. Viewing, filtering, and changing Minimum Required Retention do not start a new computation."
-  },
   "method.b60ab384d2a5": {
     "source": "2. 64个电极怎样分配？",
     "en": "2. How are the 64 electrodes allocated?"
@@ -111,10 +107,6 @@
     "source": "方案对比、坐标导入与位置偏移",
     "en": "Design comparison, coordinate import, and position shifts"
   },
-  "method.78af96cd7819": {
-    "source": "从“已有结果”的所选布局进入“加入方案对比”，或在主导航打开“方案对比”。选择A、B后先核对协议、实际面积与允许位置范围，再设置接受条件。可导出Markdown报告、完整JSON及64点CSV坐标。",
-    "en": "Choose Add to Compare Layouts for a selected layout in Results, or open Compare Layouts from the main navigation. After selecting A and B, check their protocols, actual areas, and allowed locations before setting acceptance requirements. Export a Markdown report, complete JSON, or CSV coordinates for all 64 points."
-  },
   "method.24c1fcfd06e7": {
     "source": "坐标导入限定为已经配准到本项目Ernie头模的原生毫米坐标；X向右、Y向前、Z向上。模板明确记录坐标系、单位、64个点和从0开始的区域标签。其他头模、MNI或数字化仪坐标需先配准。三维预览只显示输入，不产生性能评分。",
     "en": "Imported coordinates must already be registered to this project's native Ernie head-model frame in mm: X points right, Y anterior, and Z superior. The template specifies the coordinate frame, units, 64 points, and zero-based region labels. Coordinates from other head models, MNI space, or digitizers require registration first. The 3D preview displays the input without generating performance scores."
@@ -150,10 +142,6 @@
   "method.f604487539b4": {
     "source": "源—场交互与可复现实验",
     "en": "Source–field interaction and reproducible experiments"
-  },
-  "method.06951372edc6": {
-    "source": "“计算记录”提供初始化、已接受的位置交换曲线及最终布局。搜索目标沿用原实验定义；曲线不包含未保存的被拒绝提案。完整实验包包含原始记录、配置、轨迹和SHA256身份，重新运行需要对应代码版本、头模与前向矩阵。",
-    "en": "Records provides initialization, the trajectory of accepted position exchanges, and the final layout. Search objectives retain their original experimental definitions; trajectories exclude rejected proposals that were not saved. The complete experiment bundle contains the original record, configuration, trajectory, and SHA256 identities. Reproduction requires the corresponding code version, head model, and forward matrices."
   },
   "method.337f086be5cb": {
     "source": "“信号仿真”默认保留区域内6源场景。新增“固定法向单源探索”，从256个冻结生成源中选择一个。它们与4096点反演字典不同；坐标和皮层法向使用原前向模型记录，方向不随界面操作改变。重建器始终由原全脑源先验确定，不用所选测试源重新训练。",
@@ -230,10 +218,6 @@
   "method.598bff711777": {
     "source": "数据读取优先于计算。关闭自动计算后仍查找缓存，命中时直接恢复坐标和分数；无匹配记录才按需启动Python。 完成或有限搜索未构造出布局的结果保存在计算服务的结果文件中，服务重启后继续使用，不因修改AR失效。 取消、失败和超时仅保存任务日志，不作为性能缓存。输入文件变动时重新校验模型与数据版本。 搜索算法更新后，旧记录仍可查看，也可只恢复其原始参数；设计页读取当前版本的匹配结果。",
     "en": "Existing data are loaded before computation. Cache lookup continues when automatic computation is disabled; a hit restores coordinates and scores directly. Python runs on demand only when no matching record exists. Completed results and bounded-search outcomes with no constructed layout are stored in the computation service's result files, survive service restarts, and remain valid when Minimum Required Retention changes. Cancelled, failed, and timed-out tasks retain logs only, not performance-cache entries. Input changes trigger model and data-version checks. After search-algorithm updates, old records remain viewable and their original parameters can be restored; the design page loads results matching the current version."
-  },
-  "method.e5c8af7a587e": {
-    "source": "“计算记录”页只读展示已有严格面积和半径方案；342个早期半径布局通过历史筛选查看。 总面积上限数据采用原4096点字典与256个生成源；早期半径布局允许区域相交。 历史记录保留其原始协议；当前半径计算按自身版本查找匹配数据。不同协议分别绘制曲线。",
-    "en": "Records provides read-only access to existing strict-area and radius-constrained layouts. The historical filter exposes 342 early radius layouts. Total-area-limit data use the original 4096-point dictionary and 256 generation sources; early radius layouts allow overlapping regions. Historical records retain their original protocols, while current radius computations retrieve data matching their own version. Curves for different protocols are plotted separately."
   },
   "method.62a5accd606b": {
     "source": "历史结果页 · 原半径实验（允许区域相交）",
@@ -1320,10 +1304,6 @@
     "source": "操作",
     "en": "Actions"
   },
-  "page.7450cc5b16e2": {
-    "source": "未记录",
-    "en": "Not recorded"
-  },
   "page.faadfaed6571": {
     "source": "未用满面积预算",
     "en": "Area budget not fully used"
@@ -1339,10 +1319,6 @@
   "page.99c210de7f80": {
     "source": "查看布局与指标",
     "en": "View layout and metrics"
-  },
-  "page.68c5388fdb66": {
-    "source": "标准全头64导",
-    "en": "Standard full-head 64-channel reference"
   },
   "page.e8c808a64cae": {
     "source": "全头分布",
@@ -1667,10 +1643,6 @@
   "design.8f9ebefb9448": {
     "source": "返回来源比较",
     "en": "Back to the source comparison"
-  },
-  "design.593d9fc82982": {
-    "source": "查看已有结果",
-    "en": "View saved results"
   },
   "design.9ac3e08e76e0": {
     "source": "· 新半径方案不会加入固定面积曲线；在",
@@ -2140,10 +2112,6 @@
   "decision.1169f056c2f0": {
     "source": "标准全头64",
     "en": "Standard full-head 64"
-  },
-  "decision.2aa891b2e89d": {
-    "source": "定位误差中位数",
-    "en": "Median localization error"
   },
   "decision.6eb357c06f17": {
     "source": "本次坐标评价：",
@@ -2808,10 +2776,6 @@
   "pilot_results.c7c39a1fe7fb": {
     "source": "配置编号",
     "en": "Configuration ID"
-  },
-  "pilot_results.3382870bc4ad": {
-    "source": "区域",
-    "en": "Region "
   },
   "pilot_results.5d5818f8c659": {
     "source": "· 候选面积",
@@ -3640,11 +3604,6 @@
     "en": "Compare Layouts",
     "zh": "方案对比"
   },
-  "ui_language.779337b160ff": {
-    "source": "计算记录",
-    "en": "Records",
-    "zh": "计算记录"
-  },
   "ui_language.a481c03d7181": {
     "source": "使用与原理",
     "en": "Guide & Methods",
@@ -4014,11 +3973,6 @@
     "source": "布局页面",
     "en": "Layout pages"
   },
-  "ui_language.75cdea59dddd": {
-    "source": "已有结果",
-    "en": "Results",
-    "zh": "已有结果"
-  },
   "ui_language.bdc9309eab43": {
     "source": "布局设计",
     "en": "Layout Design"
@@ -4243,10 +4197,6 @@
     "source": "按需计算的方法与限制",
     "en": "On-demand computation: method and scope"
   },
-  "local_compute_panel.8dd856189ed0": {
-    "source": "打开计算记录",
-    "en": "Open Records"
-  },
   "method_context.ff1f8e40a8af": {
     "source": "← 返回刚才的页面与设置",
     "en": "← Return to the previous page and settings"
@@ -4359,10 +4309,6 @@
     "source": "个区域",
     "en": " regions "
   },
-  "placement_options.bcf927b9a277": {
-    "source": "电极",
-    "en": " electrodes"
-  },
   "placement_options.1d1b4eb370a4": {
     "source": "不使用预设：逐个区域从9个部位自由组合 →",
     "en": "Custom combination: choose from nine areas for each region →"
@@ -4410,10 +4356,6 @@
   "site_header.3a908c93ec62": {
     "source": "历史实验",
     "en": "Historical Experiments"
-  },
-  "site_header.bb61c42b98ec": {
-    "source": "EEG Layout Lab · 返回已有结果",
-    "en": "EEG Layout Lab · return to Results"
   },
   "site_header.00c9fd83f55e": {
     "source": "脑电电极布局仿真 · 固定64电极",
@@ -5574,5 +5516,400 @@
   "local_compute_server.d1c9ed424aa2": {
     "source": "计算记录无法读取",
     "en": "Calculation records could not be read"
+  },
+  "results0": {
+    "source": "结果库",
+    "en": "Results Library"
+  },
+  "results1": {
+    "source": "结果库视图",
+    "en": "Results library views"
+  },
+  "results2": {
+    "source": "实验总览",
+    "en": "Experiment Overview"
+  },
+  "results3": {
+    "source": "全部记录",
+    "en": "All Records"
+  },
+  "results4": {
+    "source": "查看同协议下的规律与曲线",
+    "en": "Explore trends and curves within one protocol"
+  },
+  "results5": {
+    "source": "查找布局、结果与搜索记录",
+    "en": "Find layouts, results, and search records"
+  },
+  "results6": {
+    "source": "计算状态",
+    "en": "Computation Status"
+  },
+  "results7": {
+    "source": "性能判断",
+    "en": "Performance Assessment"
+  },
+  "results8": {
+    "source": "已完成评价",
+    "en": "Evaluation completed"
+  },
+  "results9": {
+    "source": "达到要求",
+    "en": "Meets requirements"
+  },
+  "results10": {
+    "source": "未达到要求",
+    "en": "Below requirements"
+  },
+  "results11": {
+    "source": "电极数 / 区域数",
+    "en": "Electrodes / Regions"
+  },
+  "results12": {
+    "source": "各区电极数",
+    "en": "Electrodes per region"
+  },
+  "results13": {
+    "source": "方案详情",
+    "en": "Layout Details"
+  },
+  "results14": {
+    "source": "下一步操作",
+    "en": "Next Actions"
+  },
+  "results15": {
+    "source": "编辑电极",
+    "en": "Edit Electrodes"
+  },
+  "results16": {
+    "source": "运行信号仿真",
+    "en": "Run Signal Simulation"
+  },
+  "results17": {
+    "source": "计算过程与实验包",
+    "en": "Search History & Experiment Bundle"
+  },
+  "results18": {
+    "source": "记录缺少完整坐标，无法显示布局或启动后续分析。",
+    "en": "This record has no complete coordinates, so its layout and downstream analyses are unavailable."
+  },
+  "results19": {
+    "source": "仅显示该记录支持的操作。报告与坐标导出、位置偏移测试在“方案对比”中进行。",
+    "en": "Only actions supported by this record are shown. Reports, coordinate exports, and displacement tests are available in Layout Comparison."
+  },
+  "results20": {
+    "source": "收录已有布局与搜索记录；不同协议分别解释。电极编辑记录保留独立入口。",
+    "en": "Includes saved layouts and search records, interpreted separately by protocol. Electrode-editing records retain their separate entry point."
+  },
+  "results21": {
+    "source": "全部已收录记录",
+    "en": "All included records"
+  },
+  "results22": {
+    "source": "排序方式",
+    "en": "Sort by"
+  },
+  "results23": {
+    "source": "最近保存优先",
+    "en": "Newest saved first"
+  },
+  "results24": {
+    "source": "最早保存优先",
+    "en": "Oldest saved first"
+  },
+  "results25": {
+    "source": "按方案名称",
+    "en": "Layout name"
+  },
+  "results26": {
+    "source": "当前布局定位90分位误差",
+    "en": "Candidate 90th-percentile localization error"
+  },
+  "results27": {
+    "source": "EEG Layout Lab · 返回已有结果",
+    "en": "EEG Layout Lab · Results Library",
+    "zh": "EEG Layout Lab · 返回结果库"
+  },
+  "results28": {
+    "source": "已有结果",
+    "en": "Results Library · Overview",
+    "zh": "结果库 · 实验总览"
+  },
+  "results29": {
+    "source": "计算记录",
+    "en": "Results Library · All Records",
+    "zh": "结果库 · 全部记录"
+  },
+  "results30": {
+    "source": "开始查看已有结果",
+    "en": "Open Experiment Overview"
+  },
+  "results31": {
+    "source": "查看已有结果",
+    "en": "View Experiment Overview"
+  },
+  "results32": {
+    "source": "打开计算记录",
+    "en": "Open All Records"
+  },
+  "results33": {
+    "source": "2. 查看已有方案",
+    "en": "2. Explore layouts in the Results Library"
+  },
+  "reference0": {
+    "source": "打开“已有结果”，比较1、2、3、4、6个电极分布区域。选择一行查看已计算点位；“布局设计”用于设置新条件，也可直接进入。查看、筛选和调整AR不会启动新计算。",
+    "en": "Open Results to compare electrode layouts with 1, 2, 3, 4, or 6 regions. Select a row to view its computed positions. Open Layout Design to set new conditions; you can also enter that page directly. Viewing, filtering, and changing Minimum Required Retention do not start a new computation.",
+    "zh": "打开“结果库”的“实验总览”，比较1、2、3、4、6个电极分布区域。选择一行查看已计算点位；“布局设计”用于设置新条件，也可直接进入。查看、筛选和调整AR不会启动新计算。"
+  },
+  "reference1": {
+    "source": "从“已有结果”的所选布局进入“加入方案对比”，或在主导航打开“方案对比”。选择A、B后先核对协议、实际面积与允许位置范围，再设置接受条件。可导出Markdown报告、完整JSON及64点CSV坐标。",
+    "en": "Choose Add to Compare Layouts for a selected layout in Results, or open Compare Layouts from the main navigation. After selecting A and B, check their protocols, actual areas, and allowed locations before setting acceptance requirements. Export a Markdown report, complete JSON, or CSV coordinates for all 64 points.",
+    "zh": "从“结果库”的“实验总览”的所选布局进入“加入方案对比”，或在主导航打开“方案对比”。选择A、B后先核对协议、实际面积与允许位置范围，再设置接受条件。可导出Markdown报告、完整JSON及64点CSV坐标。"
+  },
+  "reference2": {
+    "source": "“计算记录”提供初始化、已接受的位置交换曲线及最终布局。搜索目标沿用原实验定义；曲线不包含未保存的被拒绝提案。完整实验包包含原始记录、配置、轨迹和SHA256身份，重新运行需要对应代码版本、头模与前向矩阵。",
+    "en": "Records provides initialization, the trajectory of accepted position exchanges, and the final layout. Search objectives retain their original experimental definitions; trajectories exclude rejected proposals that were not saved. The complete experiment bundle contains the original record, configuration, trajectory, and SHA256 identities. Reproduction requires the corresponding code version, head model, and forward matrices.",
+    "zh": "“结果库”的“全部记录”提供初始化、已接受的位置交换曲线及最终布局。搜索目标沿用原实验定义；曲线不包含未保存的被拒绝提案。完整实验包包含原始记录、配置、轨迹和SHA256身份，重新运行需要对应代码版本、头模与前向矩阵。"
+  },
+  "reference3": {
+    "source": "“计算记录”页只读展示已有严格面积和半径方案；342个早期半径布局通过历史筛选查看。 总面积上限数据采用原4096点字典与256个生成源；早期半径布局允许区域相交。 历史记录保留其原始协议；当前半径计算按自身版本查找匹配数据。不同协议分别绘制曲线。",
+    "en": "Records provides read-only access to existing strict-area and radius-constrained layouts. The historical filter exposes 342 early radius layouts. Total-area-limit data use the original 4096-point dictionary and 256 generation sources; early radius layouts allow overlapping regions. Historical records retain their original protocols, while current radius computations retrieve data matching their own version. Curves for different protocols are plotted separately.",
+    "zh": "“结果库”的“全部记录”页只读展示已有严格面积和半径方案；342个早期半径布局通过历史筛选查看。 总面积上限数据采用原4096点字典与256个生成源；早期半径布局允许区域相交。 历史记录保留其原始协议；当前半径计算按自身版本查找匹配数据。不同协议分别绘制曲线。"
+  },
+  "fieldQuestion": {
+    "source": "只用这套电极，能把标准全头64导的信号还原到什么程度？",
+    "en": "How well can these electrodes reconstruct the signals at the standard 64-channel layout?"
+  },
+  "sensitivityQuestion": {
+    "source": "对相对接收最弱的那部分脑源，信号幅度还剩多少？",
+    "en": "How much signal amplitude remains for the sources this layout detects least well relative to the reference?"
+  },
+  "localizationQuestion": {
+    "source": "根据收到的信号，能多好地判断脑源来自哪里？",
+    "en": "How well can the recorded signals reveal where a brain source is located?"
+  },
+  "passCount": {
+    "source": "已达标 {{0}}/3 项",
+    "en": "{{0}} of 3 metrics meet the requirement"
+  },
+  "jointPass": {
+    "source": "三项均达到最低保留要求。",
+    "en": "All three metrics meet the minimum required retention."
+  },
+  "incomplete": {
+    "source": "有 {{0}} 项无法判断，尚不能确认三项共同达标。",
+    "en": "Metrics awaiting assessment: {{0}}. The joint requirement is not yet confirmed."
+  },
+  "jointFail": {
+    "source": "尚未三项共同达标；下方分别显示达标项和差距。",
+    "en": "The joint requirement is not met. See each metric's status and margin below."
+  },
+  "requirement": {
+    "source": "本次最低保留要求：{{0}}% · 三项分别判断",
+    "en": "Minimum required retention: {{0}}% · applied to each of the three metrics"
+  },
+  "equal": {
+    "source": "恰好达到最低保留要求",
+    "en": "Exactly meets the minimum required retention"
+  },
+  "smallSurplus": {
+    "source": "超过要求不足0.01个百分点",
+    "en": "Above the requirement by less than 0.01 percentage points"
+  },
+  "smallShortfall": {
+    "source": "还差不足0.01个百分点",
+    "en": "Below the requirement by less than 0.01 percentage points"
+  },
+  "surplus": {
+    "source": "超过要求 {{0}} 个百分点",
+    "en": "Above the requirement by {{0}} percentage points"
+  },
+  "shortfall": {
+    "source": "还差 {{0}} 个百分点",
+    "en": "Below the requirement by {{0}} percentage points"
+  },
+  "details": {
+    "source": "评分口径与联合判断",
+    "en": "Metric definitions and joint assessment"
+  },
+  "rawRatio": {
+    "source": "原始相对比值：",
+    "en": "Unrounded relative value:"
+  },
+  "jointDefinition": {
+    "source": "G取三项最低值，仅用于三项联合判断；单项达标不代表三项共同达标。",
+    "en": "G is the minimum of the three metrics and is used only for their joint assessment. Passing one metric does not satisfy the joint requirement."
+  },
+  "viewer_refresh_electrodes": {
+    "source": "当前布局电极",
+    "en": "Current layout electrodes"
+  },
+  "viewer_refresh_rear_toggle": {
+    "source": "后视小窗",
+    "en": "Rear overview"
+  },
+  "viewer_refresh_legend": {
+    "source": "电极形状图例",
+    "en": "Electrode shape legend"
+  },
+  "viewer_refresh_reference": {
+    "source": "方形：标准64导",
+    "en": "Square: standard 64"
+  },
+  "viewer_refresh_current": {
+    "source": "圆形：当前布局",
+    "en": "Circle: current layout"
+  },
+  "viewer_refresh_hidden": {
+    "source": "已隐藏",
+    "en": "Hidden"
+  },
+  "viewer_refresh_edit": {
+    "source": "编辑模式 · 拖动电极",
+    "en": "Edit mode · drag electrodes"
+  },
+  "viewer_refresh_observe": {
+    "source": "观察模式 · 拖动旋转",
+    "en": "View mode · drag to rotate"
+  },
+  "viewer_refresh_rear_description": {
+    "source": "同一布局的固定后视总览",
+    "en": "Fixed rear overview of the same layout"
+  },
+  "viewer_refresh_rear_title": {
+    "source": "后视总览",
+    "en": "Rear overview"
+  },
+  "viewer_refresh_coordinate_notes": {
+    "source": "坐标与显示说明",
+    "en": "Coordinate and display notes"
+  },
+  "local": {
+    "source": "区域内6源",
+    "en": "Six local sources"
+  },
+  "progressFit": {
+    "source": "保持全脑先验与共同噪声；所选测试源不参与重建器拟合",
+    "en": "Keeping the whole-brain prior and common noise level; selected test sources do not refit the decoder."
+  },
+  "progressField": {
+    "source": "将所选固定法向源共同传播到两套64点布局",
+    "en": "Projecting the selected fixed-normal sources to both 64-electrode layouts."
+  },
+  "receiverDisplay": {
+    "source": "接收电位采用各布局64通道平均参考。两侧的电极颜色表示这一参考定义下实际坐标处的电位，单位μV；蓝为负、红为正，两侧及全部预览时间共用同一色标。接收图使用各自坐标；重建图和残差图均使用标准64平均参考目标场。点间不插值。",
+    "en": "Received potentials use each layout's 64-channel average reference. Electrode colors show potentials at their actual coordinates in μV: blue is negative and red is positive. Both layouts and all preview frames share one scale. Reception views use each layout's coordinates; reconstruction and residual views use the standard-64 average-referenced target field. Values are not interpolated between electrodes."
+  },
+  "crossMode": {
+    "source": "跨区域多源（1–6源）",
+    "en": "Cross-region sources (1–6)"
+  },
+  "cross": {
+    "source": "跨区域多源",
+    "en": "Cross-region sources"
+  },
+  "instruction": {
+    "source": "选择1–6个源区域，每区启用一个固定生成源。源点使用皮层法向；共享节律与各自波动叠加。总源均方能量固定，各源均分，不随选中数量增加。",
+    "en": "Select 1–6 source regions, with one fixed generator per region. Sources use cortical-normal orientations and combine shared rhythms with individual fluctuations. Total mean-square source moment is fixed and divided equally among sources."
+  },
+  "select": {
+    "source": "选择发出信号的区域",
+    "en": "Select active source regions"
+  },
+  "colors": {
+    "source": "颜色对应DK图谱标签定义的六个研究区，与透视图中的分区和实际选源一致。",
+    "en": "Colors identify six research ROIs defined by DK atlas labels, shared by the cortex display and actual source selection."
+  },
+  "empty": {
+    "source": "至少选择一个源区域才能运行。",
+    "en": "Select at least one source region to run."
+  },
+  "coords": {
+    "source": "查看所选生成源坐标",
+    "en": "View selected generator coordinates"
+  },
+  "front": {
+    "source": "额叶研究区",
+    "en": "Frontal ROI"
+  },
+  "central": {
+    "source": "中央感觉运动区",
+    "en": "Sensorimotor ROI"
+  },
+  "parietal": {
+    "source": "顶叶研究区",
+    "en": "Parietal ROI"
+  },
+  "back": {
+    "source": "枕叶研究区",
+    "en": "Occipital ROI"
+  },
+  "left": {
+    "source": "左颞叶研究区",
+    "en": "Left temporal ROI"
+  },
+  "right": {
+    "source": "右颞叶研究区",
+    "en": "Right temporal ROI"
+  },
+  "partition": {
+    "source": "DK图谱研究分区",
+    "en": "DK atlas research ROIs"
+  },
+  "partitions": {
+    "source": "六个DK图谱研究区",
+    "en": "Six DK-defined research ROIs"
+  },
+  "other": {
+    "source": "其他皮层或分区边界",
+    "en": "Other cortex / ROI boundaries"
+  },
+  "localProtocol": {
+    "source": "在所选DK图谱研究区内选择6个固定生成源。节律/间歇波形和四组干扰对照保持不变；新分区结果使用独立缓存。",
+    "en": "Select six fixed generators within the chosen DK-defined ROI. Rhythm/burst waveforms and four artifact comparisons are unchanged; atlas-defined results use separate cache identities."
+  },
+  "active": {
+    "source": "本次已启用源",
+    "en": "Active in this simulation"
+  },
+  "legend": {
+    "source": "颜色按Ernie皮层的DK图谱标签分组，选源与着色使用同一规则。灰色为其他皮层或分区边界。S编号标记实际生成源；点击图例调整视角。",
+    "en": "Colors group DK atlas labels on Ernie's cortex. Source selection and coloring share one rule. Gray marks other cortex or ROI boundaries. S labels identify actual generators; click a legend item to focus the view."
+  },
+  "points": {
+    "source": "S编号标记为实际源点，颜色与所属源区域一致；选中源的曲线使用同色。",
+    "en": "S labels mark actual generators. Marker colors match their source region and the selected source trace."
+  },
+  "invalid": {
+    "source": "跨区域模式需要选择1–6个不同的源区域",
+    "en": "Select 1–6 distinct source regions for cross-region mode."
+  },
+  "mapping": {
+    "source": "跨区域源位置记录与选择不一致",
+    "en": "The recorded cross-region sources do not match the selection."
+  },
+  "methodTitle": {
+    "source": "图谱分区与跨区域发生器",
+    "en": "Atlas ROIs and cross-region generators"
+  },
+  "methodBody": {
+    "source": "六组研究区由Ernie原生皮层上的Desikan–Killiany（DK40）标签合并定义，不是六个标准脑叶。中央区单列中央前回、中央后回和旁中央小叶；额叶组、顶叶组不再包含这些标签。脑岛、扣带及跨研究区边界三角面保留灰色。只有原始三角面三个顶点都属于同一研究区的生成源，才能用于该区。区域内模式从该区选择6源；跨区域模式每区选1源，代表点不随组合改变。坐标锚点只用于区内排序和视角导航，不决定区域归属。",
+    "en": "Six research ROIs merge Desikan–Killiany (DK40) labels on Ernie's native cortex; they are not six standard anatomical lobes. The sensorimotor group contains precentral, postcentral and paracentral labels, excluded from the frontal and parietal groups. Insular/cingulate cortex and triangles crossing ROI boundaries remain gray. A generator belongs to an ROI only when all three vertices of its original parent face share that ROI. Local mode selects six eligible sources; cross-region mode selects one stable representative per chosen ROI. Coordinate anchors rank sources only within an ROI and control camera navigation; they never determine membership."
+  },
+  "atlasTable": {
+    "source": "查看完整图谱标签映射",
+    "en": "View the complete atlas-label mapping"
+  },
+  "atlasLabels": {
+    "source": "合并的DK图谱标签（左右半球，颞叶分左右）",
+    "en": "Merged DK labels (both hemispheres; temporal ROIs are lateralized)"
+  },
+  "atlasSource": {
+    "source": "图谱与原始源数据核验记录",
+    "en": "Atlas and original-source verification record"
+  },
+  "methodPower": {
+    "source": "跨区域模式各源均分总偶极矩均方能量，合计RMS范数为10 nA·m；接收到的电位能量仍随位置、方向和源相关性变化。两套布局使用相同发生器，重建器仍由4096源先验固定计算。切换区域、波形或随机种子会形成不同缓存键；分区显示开关不参与计算。",
+    "en": "Cross-region sources share a fixed total mean-square dipole moment, with an aggregate RMS norm of 10 nA·m. Received potential energy still depends on positions, orientations, and source correlations. Both layouts use identical generators, and decoders remain fixed from the 4,096-source prior. Region, waveform, and seed changes identify different cached experiments; the partition display toggle does not affect computation."
   }
 }

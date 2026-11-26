@@ -2,20 +2,10 @@ import catalog from './catalog.json' with { type: 'json' };
 import editorCatalog from './editor-catalog.json' with { type: 'json' };
 import simulationCatalog from './simulation-catalog.json' with { type: 'json' };
 import documentationCatalog from './documentation-catalog.json' with { type: 'json' };
-import resultsCatalog from './results-catalog.json' with { type: 'json' };
 import workspaceCatalog from './workspace-catalog.json' with { type: 'json' };
-import homeRefreshCatalog from './home-refresh-catalog.json' with { type: 'json' };
-import metricRefreshCatalog from './metric-refresh-catalog.json' with { type: 'json' };
-import viewerRefreshCatalog from './viewer-refresh-catalog.json' with { type: 'json' };
-import exportRefreshCatalog from './export-refresh-catalog.json' with { type: 'json' };
-import sourceRegionsCatalog from './source-regions-catalog.json' with { type: 'json' };
-import libraryTaskCatalog from './library-task-catalog.json' with { type: 'json' };
-import appUsabilityCatalog from './app-usability-catalog.json' with { type: 'json' };
-import decisionRequirementsCatalog from './decision-requirements-catalog.json' with { type: 'json' };
+import exportsCatalog from './exports-catalog.json' with { type: 'json' };
 import projectsCatalog from './projects-catalog.json' with { type: 'json' };
 import researchWorkflowCatalog from './research-workflow-catalog.json' with { type: 'json' };
-import roadmapCatalog from './roadmap-catalog.json' with { type: 'json' };
-import interfaceStructureCatalog from './interface-structure-catalog.json' with { type: 'json' };
 
 export type Locale = 'en' | 'zh-CN';
 export const LANGUAGE_COOKIE = 'eeg-layout-language';
@@ -63,7 +53,7 @@ export function retentionTerminology(text: string): string {
 }
 
 type Entry = { source: string; en: string; zh?: string };
-const entries = [...Object.values(catalog), ...Object.values(editorCatalog), ...Object.values(simulationCatalog), ...Object.values(documentationCatalog), ...Object.values(resultsCatalog), ...Object.values(workspaceCatalog), ...Object.values(homeRefreshCatalog), ...Object.values(metricRefreshCatalog), ...Object.values(viewerRefreshCatalog), ...Object.values(exportRefreshCatalog), ...Object.values(sourceRegionsCatalog), ...Object.values(decisionRequirementsCatalog), ...Object.values(appUsabilityCatalog), ...Object.values(libraryTaskCatalog), ...Object.values(projectsCatalog), ...Object.values(researchWorkflowCatalog), ...Object.values(roadmapCatalog), ...Object.values(interfaceStructureCatalog)] as Entry[];
+const entries = [...Object.values(catalog), ...Object.values(editorCatalog), ...Object.values(simulationCatalog), ...Object.values(documentationCatalog), ...Object.values(workspaceCatalog), ...Object.values(exportsCatalog), ...Object.values(projectsCatalog), ...Object.values(researchWorkflowCatalog)] as Entry[];
 const exact = new Map(entries.map((entry) => [normalizeText(entry.source), entry]));
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const templateToken = /\{\{(\d+)\}\}/g;

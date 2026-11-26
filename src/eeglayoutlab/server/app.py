@@ -2,30 +2,18 @@
 
 ``create_app(config)`` builds the service of one process. Every request passes the access checks of
 ``server.access`` first (guard, session cookie, CSRF token for writes); then paths under ``/api/`` go to the JSON
-API and every other path to the static interface (``server.static``). The API has, so far, the health routes of
-the four task kinds (``routes.health``), the read-only library and catalogs (``routes.library``) and, for every
-request format, a diagnostic endpoint that returns the canonical request.
-
-The transport follows the route that serves the Node host's job submissions (``communityMiddleware`` in
-webapp/server/community-queue.mjs), so the interface sees the same answers:
-
-- a request body must be JSON: ``Content-Type`` must start with ``application/json`` (case-sensitive, as in
-  Node), else 415;
-- at most the route's limit as received (``BODY_LIMITS``), else 413;
-- the whole body is decoded as UTF-8 with replacement and parsed with JavaScript's rules (``schemas.jsjson``),
-  else 400;
-- JSON responses are written with ``JSON.stringify`` semantics and carry ``X-EEG-API-Version: 1``,
-  ``Cache-Control: no-store``, ``X-Content-Type-Options: nosniff`` and
-  ``Cross-Origin-Resource-Policy: same-origin``; errors are ``{"error": ..., "code": ...}``;
-- an unknown path or method under one of Node's API prefixes gets Node's 404 message (``node_fallback``), and
-  an unexpected exception a generic 500 (the library routes answer Node's own 500 instead: ``routes.library``).
+API and every other path to the static interface (``server.static``). The API serves the health routes of the four
+task kinds (``routes.health``), the read-only library and catalogs (``routes.library``), the workspace queue and
+radius search endpoints (``routes.queue``), and, for every request format, a diagnostic endpoint that returns the
+canonical request.
 """
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass
 import logging
 import re
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional
+from typing import TYPE_CHECKING, Any, AsyncIterator, Awaitable, Callable, Optional
 
 from fastapi import FastAPI, Request, Response
 from pydantic import ValidationError
@@ -92,6 +80,8 @@ class ServiceConfig:
     runtime: Optional['RuntimeConfig'] = None
     """The root and interpreters (``jobs.runtime.runtime_config``); by default ``runtime_config(root)`` on first
     use, with ``EEG_COMPUTE_PYTHON`` as Node reads it."""
+    cache_only: bool = False
+    """Serve ready cached results and lookups without starting new calculations (replaces maintenance mode)."""
 
 
 def json_response(status: int, value: Any) -> Response:
@@ -182,14 +172,24 @@ class RawPathRouting:
         await self.app(scope, receive, send)
 
 
-def _api(config: ServiceConfig) -> FastAPI:
+def _api(config: ServiceConfig) -> tuple[FastAPI, Any]:
     from .openapi import openapi_text
-    from .routes import health, library
+    from .routes import health, library, queue
+
+    holder: list[Any] = []
+
+    @contextlib.asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        try:
+            yield
+        finally:
+            if holder:
+                holder[0].close()
 
     # The interactive documentation pages load scripts from a CDN, which a local-first service does not do.
     # A trailing slash is an unknown path (404), as in Node, not a redirect built from the Host header.
     app = FastAPI(title='EEGLayoutLab', version=API_VERSION, docs_url=None, redoc_url=None, openapi_url=None,
-                  redirect_slashes=False)
+                  redirect_slashes=False, lifespan=lifespan)
     app.add_middleware(RawPathRouting)
 
     @app.exception_handler(ApiError)
@@ -209,8 +209,10 @@ def _api(config: ServiceConfig) -> FastAPI:
     async def internal_error(_: Request, error: Exception) -> Response:
         return error_response(500, INTERNAL_MESSAGE)
 
-    health.add_routes(app, config)
-    library.add_routes(app, config)
+    library_routes = library.add_routes(app, config)
+    queue_routes = queue.add_routes(app, config, library_routes)
+    holder.append(queue_routes)
+    health.add_routes(app, config, queue_routes)
     for format in REQUEST_FORMATS.values():
         app.add_api_route(f'/api/normalize/{format.name}', normalize_endpoint(format), methods=['POST'],
                           include_in_schema=False)
@@ -222,7 +224,7 @@ def _api(config: ServiceConfig) -> FastAPI:
         return Response(openapi_text().encode('utf-8'), status_code=200,
                         media_type='application/json; charset=utf-8', headers=HEADERS)
 
-    return app
+    return app, queue_routes
 
 
 class Service:
@@ -233,10 +235,13 @@ class Service:
         from .static import DocsSite, StaticExport
 
         self.config = config
-        self.api = _api(config)
+        self.api, self.queue_routes = _api(config)
         self.static = StaticExport(config.static_dir)
         self.docs = DocsSite(config.docs_dir)
         self.access = AccessControl(self._route, config.tokens, config.port)
+
+    def close(self) -> None:
+        self.queue_routes.close()
 
     async def _route(self, scope: Any, receive: Any, send: Any) -> None:
         path = raw_path(scope)

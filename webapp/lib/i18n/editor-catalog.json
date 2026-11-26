@@ -1,5 +1,8 @@
 {
-  "editor.nav": { "source": "电极编辑", "en": "Electrode Editor" },
+  "editor.nav": {
+    "source": "电极编辑",
+    "en": "Electrode Editor"
+  },
   "editor.methodIntro": {
     "source": "自动布局设计固定64点并均衡分配。“电极编辑”可从已有布局删减或移动点位，允许各区数量不同，另存为独立评价。查看模式旋转头部，编辑模式移动电极。",
     "en": "Automatic layout design uses 64 electrodes with balanced allocation. Electrode Editor can deactivate or move recorded electrodes, allow unequal regional counts, and save separate evaluations. View mode rotates the head; edit mode moves electrodes."
@@ -24,12 +27,18 @@
     "source": "编辑草稿与已评价结果分开保存。修改点位后旧评分失效；评价结果使用独立缓存，不加入固定64点实验曲线。当前编辑记录不接入只支持完整64点的信号仿真入口。",
     "en": "Drafts and evaluated results are saved separately. Editing invalidates previous scores; evaluations use a separate cache and do not enter fixed64 experiment curves. Edited records are not currently passed to Signal Simulation, which requires a complete 64-electrode layout."
   },
-  "editor.delta": { "source": "相对原布局变化", "en": "Change from original" },
+  "editor.delta": {
+    "source": "相对原布局变化",
+    "en": "Change from original"
+  },
   "editor.absolute": {
     "source": "重建解释率（绝对）",
     "en": "Explained reconstruction energy (absolute)"
   },
-  "editor.pp": { "source": "百分点", "en": "pp" },
+  "editor.pp": {
+    "source": "百分点",
+    "en": "pp"
+  },
   "editor.missingMetric": {
     "source": "部分指标不可用，不能给出三项共同达标结论",
     "en": "Some metrics are unavailable; a three-metric pass cannot be determined"
@@ -46,7 +55,10 @@
     "source": "状态连接中断，后台任务尚未确认结束。",
     "en": "The status connection was lost. The background task has not been confirmed as stopped."
   },
-  "editor.reconnect": { "source": "重新查询任务", "en": "Reconnect to task" },
+  "editor.reconnect": {
+    "source": "重新查询任务",
+    "en": "Reconnect to task"
+  },
   "editor.subtitle": {
     "source": "脑电电极布局仿真",
     "en": "EEG electrode layout simulation"
@@ -71,29 +83,62 @@
     "source": "从已有布局创建副本。原区域边界不变，原始64点记录不被覆盖。",
     "en": "Create a copy of a recorded layout. Keep its original region boundaries and preserve the original 64-electrode record."
   },
-  "editor.choose": { "source": "选择来源布局", "en": "Choose a source layout" },
-  "editor.load": { "source": "载入编辑器", "en": "Load into editor" },
+  "editor.choose": {
+    "source": "选择来源布局",
+    "en": "Choose a source layout"
+  },
+  "editor.load": {
+    "source": "载入编辑器",
+    "en": "Load into editor"
+  },
   "editor.chooseHint": {
     "source": "载入后显示真实点位与可移动范围。历史记录若未保存区域边界，需要先在布局设计中生成新版布局。",
     "en": "Load recorded coordinates and allowed movement regions. Historical records without saved region boundaries require a new layout from Layout Design."
   },
-  "editor.view": { "source": "查看模式", "en": "View mode" },
-  "editor.edit": { "source": "编辑模式", "en": "Edit mode" },
-  "editor.select": { "source": "选择电极", "en": "Select electrodes" },
+  "editor.view": {
+    "source": "查看模式",
+    "en": "View mode"
+  },
+  "editor.edit": {
+    "source": "编辑模式",
+    "en": "Edit mode"
+  },
+  "editor.select": {
+    "source": "选择电极",
+    "en": "Select electrodes"
+  },
   "editor.selectHint": {
     "source": "点击点位选择；Shift点击多选。也可在下方按编号选择。拖动仅在编辑模式生效。",
     "en": "Click an electrode to select it; Shift-click to select several. You can also select by ID below. Dragging electrodes requires edit mode."
   },
-  "editor.remove": { "source": "移除选中电极", "en": "Deactivate selected" },
-  "editor.restore": { "source": "恢复选中电极", "en": "Restore selected" },
-  "editor.undo": { "source": "撤销", "en": "Undo" },
-  "editor.redo": { "source": "重做", "en": "Redo" },
-  "editor.reset": { "source": "恢复原始布局", "en": "Reset to original" },
+  "editor.remove": {
+    "source": "移除选中电极",
+    "en": "Deactivate selected"
+  },
+  "editor.restore": {
+    "source": "恢复选中电极",
+    "en": "Restore selected"
+  },
+  "editor.undo": {
+    "source": "撤销",
+    "en": "Undo"
+  },
+  "editor.redo": {
+    "source": "重做",
+    "en": "Redo"
+  },
+  "editor.reset": {
+    "source": "恢复原始布局",
+    "en": "Reset to original"
+  },
   "editor.saveDraft": {
     "source": "保存草稿到当前浏览器",
     "en": "Save draft in this browser"
   },
-  "editor.restoreDraft": { "source": "读取已存草稿", "en": "Load saved draft" },
+  "editor.restoreDraft": {
+    "source": "读取已存草稿",
+    "en": "Load saved draft"
+  },
   "editor.savedDraft": {
     "source": "草稿已保存在此浏览器；尚未生成新评分。",
     "en": "Draft saved in this browser. No new scores have been generated."
@@ -118,8 +163,14 @@
     "source": "评价并另存此布局",
     "en": "Evaluate and save as a new layout"
   },
-  "editor.cancel": { "source": "停止当前任务", "en": "Stop current task" },
-  "editor.progress": { "source": "正在处理布局", "en": "Processing layout" },
+  "editor.cancel": {
+    "source": "停止当前任务",
+    "en": "Stop current task"
+  },
+  "editor.progress": {
+    "source": "正在处理布局",
+    "en": "Processing layout"
+  },
   "editor.operationFailed": {
     "source": "本次操作未完成",
     "en": "The operation did not complete"
@@ -128,7 +179,10 @@
     "source": "查看诊断详情",
     "en": "View diagnostic details"
   },
-  "editor.region": { "source": "原区域 {{0}}", "en": "Original region {{0}}" },
+  "editor.region": {
+    "source": "原区域 {{0}}",
+    "en": "Original region {{0}}"
+  },
   "editor.regionCount": {
     "source": "启用 {{0}} / 原有 {{1}} 点",
     "en": "{{0}} active / {{1}} original electrodes"
@@ -137,13 +191,22 @@
     "source": "选择此区域全部点",
     "en": "Select all in this region"
   },
-  "editor.all": { "source": "全选", "en": "Select all" },
-  "editor.clear": { "source": "清空选择", "en": "Clear selection" },
+  "editor.all": {
+    "source": "全选",
+    "en": "Select all"
+  },
+  "editor.clear": {
+    "source": "清空选择",
+    "en": "Clear selection"
+  },
   "editor.candidate": {
     "source": "候选点位（编号）",
     "en": "Candidate position (ID)"
   },
-  "editor.apply": { "source": "移动到此点", "en": "Move to this position" },
+  "editor.apply": {
+    "source": "移动到此点",
+    "en": "Move to this position"
+  },
   "editor.single": {
     "source": "选择一个电极，可用候选编号精确移动；也可直接拖动。",
     "en": "Select one electrode to move precisely by candidate ID, or drag it on the head."
@@ -180,12 +243,18 @@
     "source": "编辑布局 · {{0}}点",
     "en": "Edited layout · {{0}} electrodes"
   },
-  "editor.metric": { "source": "评价指标", "en": "Metric" },
+  "editor.metric": {
+    "source": "评价指标",
+    "en": "Metric"
+  },
   "editor.locMissing": {
     "source": "两个电极只有一个参考无关维度；当前未知振幅定位模型无法辨识源位置，不提供三项共同达标结论。",
     "en": "Two electrodes provide one reference-free dimension. The current unknown-amplitude localization model cannot identify source position; a three-metric pass cannot be determined."
   },
-  "editor.savedScore": { "source": "已保存评分", "en": "Saved score" },
+  "editor.savedScore": {
+    "source": "已保存评分",
+    "en": "Saved score"
+  },
   "editor.savedScoreHint": {
     "source": "载入为草稿，重新评价时检查协议与缓存",
     "en": "Loads as a draft; evaluation checks the protocol and cache"
