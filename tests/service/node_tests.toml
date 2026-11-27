@@ -2376,6 +2376,10 @@ note = "static showcase build tooling and browser shim, not the Node host"
 disposition = "N"
 note = "language chosen in the browser on load, not the Node host"
 
+[sites."check-showcase.mjs::showcase builder signs in to the Python service, emits workspace community records, and links to /docs/installation/"]
+disposition = "N"
+note = "static showcase build tooling on the Python service, not the Node host"
+
 # --- check-single-head-results.mjs ------------------------------------------------------------------------------------
 
 [sites."check-single-head-results.mjs::balanced allocation always totals 64 with no fractional channels"]

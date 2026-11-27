@@ -9,4 +9,9 @@ export const SHOWCASE: boolean = typeof document !== 'undefined'
   ? document.documentElement.dataset.showcase === '1'
   : process.env.EEG_SHOWCASE === '1';
 
-export const SHOWCASE_INSTALL_URL = 'https://github.com/Yiming-S/EEGLayoutLab#run-locally';
+export const SHOWCASE_INSTALL_URL = '/docs/installation/';
+export const SHOWCASE_INSTALL_ZH_URL = '/docs/installation.zh-CN/';
+
+export function showcaseInstallHref(locale?: string): string {
+  return locale === 'zh-CN' ? SHOWCASE_INSTALL_ZH_URL : SHOWCASE_INSTALL_URL;
+}

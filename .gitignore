@@ -4,6 +4,7 @@
 !/.gitattributes
 !/.github/
 !/README.md
+!/CHANGELOG.md
 !/CONTRIBUTING.md
 !/THIRD_PARTY_NOTICES.md
 !/LICENSE

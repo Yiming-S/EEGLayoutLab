@@ -1,6 +1,6 @@
 # 0001, phase 3 — distribution, in slices
 
-- **Status:** accepted on 2026-11-25 with every recommended default (decisions U8 to U28); slices 1 to 9 and 11 to 13 done; slice 10 next.
+- **Status:** accepted on 2026-11-25 with every recommended default (decisions U8 to U28); slices 1 to 15 done; slice 16 next.
 - **Date:** 2026-11-25
 - **Design:** [0001 — Local-first application with a Python service](0001-local-first-architecture.md), migration table, phase 3; [0002 — The scientific root of an installed application](0002-installed-scientific-root.md); decision U5 of the [phase 2 plan](0001-phase-2-plan.md#decisions)
 
@@ -267,7 +267,7 @@ Result: done on macOS, 2026-11-26 (step 1 offline installed-prefix rehearsal com
 - **Downloads:** on the runners only.
 - **Size:** medium.
 
-Result: not started.
+Result: done on macOS, 2026-11-26. `.github/workflows/data.yml` adds a manual `seed-cache` job (`workflow_dispatch` with `seed_cache` and optional `release_tag`) and a `data` matrix over `ubuntu-24.04` (`scripts/bootstrap_runtime.py --manifest configs/runtime/manifest-linux-64.json`) and `macos-15` (a micromamba environment with 0002's pinned numerical closure), restoring `base` and `scalp-node-table` from `actions/cache` keyed by their `manifest_sha256` in `data/packages.json`, running `data verify`, `data compose`, `pytest -m 'data_bundle and not native_runtime'`, real-root key parity (`EEG_KEY_PARITY_ROOT`) and `eeglayoutlab examples run --skip-cross-head`. `.github/workflows/package.yml` runs on `v*` tags and `workflow_dispatch`, building `cortech` and `noarch: python` `eeglayoutlab` with `rattler-build`, installing them into a fresh micromamba environment outside any checkout, installing the 13 example packages (`eeglayoutlab data install --examples --from ...`) and running `eeglayoutlab examples run` with zero `--root` and zero `EEG_COMPUTE_PYTHON`. `CONTRIBUTING.md` and `docs/data-packages.md` document both workflows, and `tests/cli/test_third_party_licenses_and_recipe.py` validates all five workflow files with PyYAML. Needs Linux: first CI runs after the user pushes and seeds the data cache (U26).
 
 ### Slice 11 — command line: pareto, eeg-summary and prior
 
@@ -316,7 +316,7 @@ Result: done on macOS, 2026-11-26 (delivered together with slice 4). `core/ernie
 - **Downloads:** none while that venv exists; otherwise `pip install -r docs/requirements.txt`, about 15 MB (estimate), asked first.
 - **Size:** medium.
 
-Result: not started.
+Result: done on macOS, 2026-11-26. `docs/installation.md` and `docs/installation.zh-CN.md` document the `conda-forge` installation workflow (`conda create`, `eeglayoutlab data install`, `eeglayoutlab serve`, `eeglayoutlab examples run --skip-cross-head`), read-only prefix refusal, unavailability of SimNIBS `source-reception/2` in the Conda package, and deletion of `$CONDA_PREFIX/share/eeglayoutlab/root/results/v2` records on `conda env remove` (0002, decision 1). `CHANGELOG.md` records Phase 2 and Phase 3 additions and scientific-identity rules (0001, decision 8). `mkdocs.yml` places Installation first under `Run locally:`, groups legacy Node pages under `Legacy Node host (until phase 4):`, and adds `0001: Phase 3 plan` and `CHANGELOG.md`; `README.md`, `docs/getting-started.zh-CN.md` and `docs/command-line.md` lead with the installed-application workflow; `server/static.py` (`DOCS_NOT_BUILT_PAGE`) and `tests/service/test_static.py` update the 503 unbuilt-documentation page with installed-form advice. Zero identity inputs touched.
 
 ### Slice 15 — showcase on the Python service
 
@@ -329,7 +329,7 @@ Result: not started.
 - **On this Mac:** all of it. **Needs Linux:** none. **Downloads:** none.
 - **Size:** small.
 
-Result: not started.
+Result: done on macOS, 2026-11-26. `webapp/scripts/build-showcase-data.mjs` signs in to `eeglayoutlab serve` via `helpers/service-session.mjs` (`EEG_SERVICE_RUNTIME`, `--runtime`, `EEG_SERVICE_TOKEN` or `--token`, keeping `--from` alone for a legacy Node host) and writes `scope: 'workspace'` in `/api/community/records` (`showcaseCommunityRecords`); `webapp/lib/showcase.ts` and `webapp/components/showcase-banner.tsx` point `SHOWCASE_INSTALL_URL` to `/docs/installation/` (`/docs/installation.zh-CN/` in Chinese); `docs/showcase.md` documents regeneration from `eeglayoutlab serve --cache-only`, leaving `webapp/showcase/api` untouched; verified by `check-showcase.mjs`, `check-i18n.mjs`, `npm run typecheck` and `npm run lint`.
 
 ### Slice 16 — CI: browser tier
 

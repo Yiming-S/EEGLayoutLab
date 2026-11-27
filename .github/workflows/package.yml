@@ -1,0 +1,196 @@
+name: Conda package
+
+# Phase 3, slice 10 (design 0001 exit rehearsal on fresh Linux x86_64 and macOS arm64 runners; decision U26):
+# 1. Builds cortech (compiled, platform-specific) and eeglayoutlab (noarch: python) into a local conda channel
+#    with rattler-build, running each recipe's package tests (run_test.py + fast checks).
+# 2. Installs both packages into a brand-new micromamba environment outside any repository checkout.
+# 3. Installs the data packages (default set, or --examples including all 11 heads when release_tag is supplied
+#    or the repository release tag holds the archives), verifies SHA-256 digests, and runs
+#    `eeglayoutlab examples run` with zero --root and zero EEG_COMPUTE_PYTHON against expected.json.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      data_release_tag:
+        description: 'Optional release tag holding the 13 example package manifests and .tar archives'
+        required: false
+        type: string
+        default: ''
+      skip_cross_head:
+        description: 'Run examples 1 and 2 from the cached default set instead of downloading the 11 heads'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: package-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PYTHONDONTWRITEBYTECODE: '1'
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+
+jobs:
+  build-packages:
+    name: Build recipes (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            subdir: linux-64
+            build_noarch: true
+          - os: macos-15
+            subdir: osx-arm64
+            build_noarch: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up micromamba and rattler-build
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          micromamba-version: '2.0.5-0'
+          environment-name: builder
+          create-args: >-
+            -c conda-forge
+            rattler-build=0.35.5
+          init-shell: bash
+          cache-downloads: true
+      - name: Build cortech (${{ matrix.subdir }}, Python 3.11)
+        shell: bash -el {0}
+        run: |
+          rattler-build build \
+            --recipe packaging/conda-forge/cortech/recipe.yaml \
+            -c conda-forge \
+            --variant-config <(printf 'python:\n  - "3.11.* *_cpython"\n') \
+            --output-dir "$RUNNER_TEMP/channel"
+      - name: "Build eeglayoutlab (noarch: python)"
+        if: matrix.build_noarch
+        shell: bash -el {0}
+        run: |
+          rattler-build build \
+            --recipe packaging/conda-forge/eeglayoutlab/recipe.yaml \
+            -c "$RUNNER_TEMP/channel" -c conda-forge \
+            --output-dir "$RUNNER_TEMP/channel"
+      - name: Upload built conda channel (${{ matrix.subdir }})
+        uses: actions/upload-artifact@v4
+        with:
+          name: conda-channel-${{ matrix.subdir }}
+          path: ${{ runner.temp }}/channel/
+          if-no-files-found: error
+          retention-days: 7
+
+  verify-installed:
+    name: Fresh-environment install & examples (${{ matrix.os }})
+    needs: build-packages
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            subdir: linux-64
+          - os: macos-15
+            subdir: osx-arm64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: checkout-meta
+      - name: Compute default-set cache key and remove checkout before testing installed package
+        id: meta
+        run: |
+          KEY=$(python3 - <<'PY'
+          import hashlib, json, pathlib
+          index = json.loads(pathlib.Path('checkout-meta/data/packages.json').read_text('utf-8'))
+          by_name = {item['name']: item for item in index['packages']}
+          parts = [f"{name}:{by_name[name]['manifest_sha256']}" for name in ('base', 'scalp-node-table')]
+          print('eeglayoutlab-default-data-v1-' + hashlib.sha256('\n'.join(parts).encode()).hexdigest()[:24])
+          PY
+          )
+          echo "cache_key=${KEY}" >> "$GITHUB_OUTPUT"
+          rm -rf checkout-meta
+      - name: Download noarch and platform channels
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/artifacts
+      - name: Merge local conda channel and index with rattler-index
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          micromamba-version: '2.0.5-0'
+          environment-name: indexer
+          create-args: >-
+            -c conda-forge
+            rattler-index
+          init-shell: bash
+          cache-downloads: true
+      - name: Index local channel and install eeglayoutlab into a fresh environment
+        shell: bash -el {0}
+        run: |
+          mkdir -p "$RUNNER_TEMP/local-channel/noarch" "$RUNNER_TEMP/local-channel/${{ matrix.subdir }}"
+          cp -R "$RUNNER_TEMP/artifacts/conda-channel-linux-64/noarch/." "$RUNNER_TEMP/local-channel/noarch/"
+          cp -R "$RUNNER_TEMP/artifacts/conda-channel-${{ matrix.subdir }}/${{ matrix.subdir }}/." \
+            "$RUNNER_TEMP/local-channel/${{ matrix.subdir }}/"
+          rattler-index fs "$RUNNER_TEMP/local-channel"
+          micromamba create -y -p "$RUNNER_TEMP/eeg-installed" \
+            -c "$RUNNER_TEMP/local-channel" -c conda-forge \
+            eeglayoutlab
+      - name: Restore cached default data store when available
+        id: default-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/data-store
+          key: ${{ steps.meta.outputs.cache_key }}
+      - name: Populate data packages and auto-compose into installed scientific root
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EEGLAYOUTLAB_DATA_DIR: ${{ runner.temp }}/data-store
+          DATA_TAG: ${{ inputs.data_release_tag }}
+          SKIP_XH: ${{ inputs.skip_cross_head || false }}
+        run: |
+          EEG_BIN="$RUNNER_TEMP/eeg-installed/bin/eeglayoutlab"
+          mkdir -p "$RUNNER_TEMP/work" "$RUNNER_TEMP/mirror"
+          cd "$RUNNER_TEMP/work"
+          if [ -n "$DATA_TAG" ]; then
+            gh release download "$DATA_TAG" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --pattern '*.json' \
+              --pattern '*.tar' \
+              --dir "$RUNNER_TEMP/mirror"
+            if [ "$SKIP_XH" = "true" ]; then
+              "$EEG_BIN" data install --from "$RUNNER_TEMP/mirror"
+            else
+              "$EEG_BIN" data install --examples --from "$RUNNER_TEMP/mirror"
+            fi
+          elif [ "${{ steps.default-cache.outputs.cache-hit }}" = "true" ] && [ "$SKIP_XH" = "true" ]; then
+            "$EEG_BIN" data compose
+          elif [ -z "$DATA_TAG" ] && [ "$SKIP_XH" != "true" ]; then
+            # Once published to Zenodo (data/packages.json URLs), install directly without --from.
+            "$EEG_BIN" data install --examples
+          else
+            "$EEG_BIN" data install
+          fi
+          "$EEG_BIN" data verify
+      - name: Run examples in the installed environment without --root or EEG_COMPUTE_PYTHON
+        env:
+          EEGLAYOUTLAB_DATA_DIR: ${{ runner.temp }}/data-store
+          SKIP_XH: ${{ inputs.skip_cross_head || false }}
+        run: |
+          EEG_BIN="$RUNNER_TEMP/eeg-installed/bin/eeglayoutlab"
+          cd "$RUNNER_TEMP/work"
+          if [ "$SKIP_XH" = "true" ]; then
+            "$EEG_BIN" examples run --skip-cross-head
+          else
+            "$EEG_BIN" examples run
+          fi
+          test -d "$RUNNER_TEMP/work/eeglayoutlab-examples"
+          test ! -e "$RUNNER_TEMP/eeg-installed/share/eeglayoutlab/root/examples/outputs"

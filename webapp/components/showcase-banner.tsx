@@ -1,7 +1,8 @@
 'use client';
+/* oxlint-disable next/no-html-link-for-pages -- vinext production link prefetch is not runtime-safe */
 import { ArrowUpRight, Eye } from 'lucide-react';
 import { useLanguage } from '@/components/language-provider';
-import { SHOWCASE, SHOWCASE_INSTALL_URL } from '@/lib/showcase';
+import { SHOWCASE, showcaseInstallHref } from '@/lib/showcase';
 import { installShowcaseApi } from '@/lib/showcase-api';
 import { cn } from '@/lib/utils';
 
@@ -10,7 +11,7 @@ if (SHOWCASE) installShowcaseApi();
 
 /** Shown where a calculation would start, in place of a "service unavailable" state. */
 export function ShowcaseComputeNotice({ className }: { className?: string }) {
-  const { tx } = useLanguage();
+  const { tx, locale } = useLanguage();
   return (
     <p
       role="note"
@@ -22,9 +23,7 @@ export function ShowcaseComputeNotice({ className }: { className?: string }) {
       <span>{tx('这是只读展示版，不运行计算，也不保存数据。安装 EEGLayoutLab 本地版后即可计算。')}</span>
       <a
         className="inline-flex items-center gap-1 font-semibold text-[#2451D8] underline underline-offset-4 hover:opacity-80 dark:text-[#7DB3FF]"
-        href={SHOWCASE_INSTALL_URL}
-        target="_blank"
-        rel="noreferrer"
+        href={showcaseInstallHref(locale)}
       >
         {tx('安装说明')}
         <ArrowUpRight aria-hidden className="size-4" />
@@ -35,7 +34,7 @@ export function ShowcaseComputeNotice({ className }: { className?: string }) {
 
 /** Prominent top banner on every page of the read-only showcase; renders nothing in the local application. */
 export function ShowcaseBanner() {
-  const { tx } = useLanguage();
+  const { tx, locale } = useLanguage();
   if (!SHOWCASE) return null;
   return (
     <div
@@ -54,9 +53,7 @@ export function ShowcaseBanner() {
         </div>
         <a
           className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-white px-3.5 py-1.5 text-sm font-semibold text-[#1B3AA8] shadow-xs transition-colors hover:bg-white/92 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1F42B6]"
-          href={SHOWCASE_INSTALL_URL}
-          target="_blank"
-          rel="noreferrer"
+          href={showcaseInstallHref(locale)}
         >
           {tx('安装说明')}
           <ArrowUpRight aria-hidden className="size-4" />

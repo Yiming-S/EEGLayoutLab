@@ -4,20 +4,21 @@ EEG Layout Lab 是免费的科研开源软件，用于设计、查看和比较 E
 
 项目目前集中维护网页版。界面在浏览器中使用，由本地 Python 服务 `eeglayoutlab serve` 提供，计算由 Python／SimNIBS 工作进程完成。
 
-[English instructions](../README.md) · [本机安装](source-installation.zh-CN.md)
+[English instructions](../README.md) · [本机安装](installation.zh-CN.md) · [源码安装](source-installation.zh-CN.md)
 
 ## 运行方式
 
 | 方式 | 当前状态 | 说明 |
 | --- | --- | --- |
-| 本机网页版 | 当前开发版本 | 按[源码安装说明](source-installation.zh-CN.md)准备环境，再在浏览器中打开。目前的计算环境安装流程面向 Apple Silicon Mac。 |
+| 本机 Conda 安装版 | 推荐安装方式 | 按[安装说明](installation.zh-CN.md)在个人 Conda 环境中安装应用与默认数据包，无需 Node.js 即可运行区域搜索、坐标评价与稳健性研究（支持 Apple Silicon Mac 与 Linux x86_64）。 |
+| 本机源码开发版 | 开发者与有限元求解 | 按[源码安装说明](source-installation.zh-CN.md)准备源码与 SimNIBS 环境，支持二代信号仿真计算与开发调试。 |
 | 服务器网页版 | 冻结 | 使用旧版 Node 服务，冻结在标签 `node-host-freeze`，见[服务器部署准备说明（英文）](server-deployment.md)。 |
 
 Mac 桌面版已停止维护，桌面外壳和打包工具已从当前源码中移除。[v0.1.2 版本页](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.1.2)保留最后一个桌面版的发布记录。当前使用的基础数据包见 [v0.2.0 版本页](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.2.0)。
 
 ## 在本机打开网页版
 
-首次使用时，按[源码安装说明](source-installation.zh-CN.md)安装模型数据、Python 计算环境和网页依赖。当前流程需要 Apple Silicon（M 系列芯片）Mac，macOS 14 或更新版本。
+首次使用时，普通用户可按[安装说明](installation.zh-CN.md)创建 Conda 环境并运行 `eeglayoutlab data install`；需要二次开发或调用 SimNIBS 求解二代信号仿真的用户可按[源码安装说明](source-installation.zh-CN.md)配置。
 
 安装完成后（包括[源码安装说明](source-installation.zh-CN.md)第 4 步中的 `eeglayoutlab` 命令和界面构建），在仓库根目录运行：
 

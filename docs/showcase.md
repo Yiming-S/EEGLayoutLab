@@ -57,13 +57,15 @@ The health endpoints are published as a service that cannot compute (`available:
 
 ## Rebuilding the data
 
-The data in `webapp/showcase/api` is generated from the maintainer's installation and committed:
+The data in `webapp/showcase/api` is generated from the maintainer's installation on an APFS scratch clone through the Python service in cache-only mode and committed:
 
 ```bash
+eeglayoutlab --root /path/to/installation serve /path/to/workspace --cache-only --no-browser
 cd webapp
-node server/start.mjs      # with EEG_REPOSITORY_ROOT set to the installation, on a free PORT
-npm run showcase:data -- --from http://127.0.0.1:<PORT>
+EEG_SERVICE_RUNTIME=/path/to/workspace/.eeglayoutlab/runtime.json npm run showcase:data
 ```
+
+`build-showcase-data.mjs` signs in through `scripts/helpers/service-session.mjs` using `EEG_SERVICE_RUNTIME` (or `--runtime <workspace>/.eeglayoutlab/runtime.json`); `--from` alone remains supported for the legacy Node host until phase 4.
 
 Only `GET` requests are sent. Catalogs that list layouts (editor parents, reception layouts) are filtered to the curated records, so every listed entry opens. Paths under a home directory are written as `~/…`, and the script fails if any other local path remains. Selected experiment bundles are converted to display copies after checking the original result checksum; their new payload checksums are calculated after redaction. This conversion is deterministic and leaves the original files untouched. Records not in the curation, electrode-name annotations, editor results, signal records, studies and head packages are not published. To change what is shown, edit `curation.json` and run the script again.
 

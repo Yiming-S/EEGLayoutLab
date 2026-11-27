@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { curateLibrary, redactHomePaths, showcaseHealth, showcaseDisplayCopy, SHOWCASE_DATA_SCHEMA as WRITTEN_SCHEMA } from './build-showcase-data.mjs';
+import { curateLibrary, redactHomePaths, showcaseCommunityRecords, showcaseHealth, showcaseDisplayCopy, showcaseTarget, SHOWCASE_DATA_SCHEMA as WRITTEN_SCHEMA } from './build-showcase-data.mjs';
+import { SHOWCASE_INSTALL_URL, SHOWCASE_INSTALL_ZH_URL, showcaseInstallHref } from '../lib/showcase.ts';
 import { installShowcaseApi, showcaseFile, showcaseRefusal, SHOWCASE_DATA_SCHEMA, SHOWCASE_READ_ONLY_CODE } from '../lib/showcase-api.ts';
 import { guideStepHref } from '../lib/usage-guide.ts';
 import { startupLocale } from '../lib/i18n/core.ts';
@@ -256,4 +257,29 @@ void test('the showcase opens in English whatever the browser language, until th
   assert.equal(startupLocale('zh-CN', 'en-US', true), 'zh-CN');
   assert.equal(startupLocale('en', 'zh-CN', false), 'en');
   assert.equal(startupLocale('fr', '', true), 'en');
+});
+
+void test('showcase builder signs in to the Python service, emits workspace community records, and links to /docs/installation/', async () => {
+  assert.equal(SHOWCASE_INSTALL_URL, '/docs/installation/');
+  assert.equal(SHOWCASE_INSTALL_ZH_URL, '/docs/installation.zh-CN/');
+  assert.equal(showcaseInstallHref('en'), '/docs/installation/');
+  assert.equal(showcaseInstallHref('zh-CN'), '/docs/installation.zh-CN/');
+  assert.deepEqual(showcaseCommunityRecords(), { schema: 'browser-experiment-records/1', scope: 'workspace', receipt_limit: 0, records: [] });
+
+  const localOrigin = ['http', '://127.0.0.1:4319'].join('');
+  const seen = [];
+  const signedIn = await showcaseTarget({
+    runtime: '/tmp/ws/.eeglayoutlab/runtime.json',
+    token: '',
+    openSession: async (opts) => {
+      seen.push(opts);
+      return { base: localOrigin, cookie: 'eeglayoutlab-4319=s3cr3t', csrf: 'a'.repeat(64), headers: () => ({}) };
+    },
+  });
+  assert.deepEqual(seen, [{ runtime: '/tmp/ws/.eeglayoutlab/runtime.json', token: '', base: undefined }]);
+  assert.deepEqual(signedIn, { origin: localOrigin, headers: { Accept: 'application/json', Cookie: 'eeglayoutlab-4319=s3cr3t' } });
+
+  const legacy = await showcaseTarget({ from: localOrigin + '/ignored', runtime: '', token: '' });
+  assert.deepEqual(legacy, { origin: localOrigin, headers: { Accept: 'application/json' } });
+  await assert.rejects(showcaseTarget({ from: '', runtime: '', token: '' }), /EEG_SERVICE_RUNTIME/);
 });

@@ -66,9 +66,10 @@ NOT_BUILT_PAGE = _PAGE.format(
             '(or pass <code>--static</code>), then run eeglayoutlab again.').encode('utf-8')
 NOT_FOUND_PAGE = _PAGE.format(title='页面不存在', english='Page not found.').encode('utf-8')
 DOCS_NOT_BUILT_PAGE = _PAGE.format(
-    title='文档尚未构建：请在仓库根目录运行 <code>mkdocs build</code>，然后重新打开本页。',
-    english='The documentation has not been built. Run <code>mkdocs build</code> at the top of the repository '
-            '(or pass <code>--docs</code>), then reload this page.').encode('utf-8')
+    title='本地离线文档未包含在当前安装中：请打开在线文档，传入已构建站点的 <code>--docs</code>，或在源码检出目录运行 <code>mkdocs build</code>。',
+    english='Local documentation is not included in this installation. Open the online documentation, pass '
+            '<code>--docs</code> to a built site, or in a source checkout run <code>mkdocs build</code> and reload '
+            'this page.').encode('utf-8')
 _COMMON = [(b'x-content-type-options', b'nosniff')]
 
 

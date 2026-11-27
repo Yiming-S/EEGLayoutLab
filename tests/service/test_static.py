@@ -590,7 +590,9 @@ def test_docs_unknown_paths_get_the_sites_404(docs_client):
 def test_docs_answer_503_until_built_and_leave_the_interface_alone(tmp_path, export):
     client = loopback_client(make_app(synthetic_root(tmp_path / 'root'), export, docs=tmp_path / 'missing'))
     response = client.get('/docs/method-details/')
-    assert response.status_code == 503 and 'mkdocs build' in response.text
+    assert response.status_code == 503
+    assert 'not included in this installation' in response.text and 'mkdocs build' in response.text
+    assert 'at the top of the repository' not in response.text
     assert client.get('/').status_code == 200
     # A page of the interface whose name starts with "docs" is not the site.
     assert client.get('/docsx').status_code == 404

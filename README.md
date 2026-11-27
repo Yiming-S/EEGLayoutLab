@@ -8,7 +8,7 @@ EEGLayoutLab is developed on a non-profit basis and provided free of charge. Its
 
 **Try it online:** a read-only preview runs at [eeglayout.org](https://eeglayout.org), with this documentation at [eeglayout.org/docs](https://eeglayout.org/docs/).
 
-[简体中文指南](docs/getting-started.zh-CN.md) · [Run locally](docs/source-installation.md) · [Model and metrics](docs/model-and-metrics.md) · [References](docs/references.md) · [Command line](docs/command-line.md) · [Architecture](docs/architecture.md) · [Operations](docs/web-operations.md)
+[简体中文指南](docs/getting-started.zh-CN.md) · [Run locally](docs/installation.md) · [Source setup](docs/source-installation.md) · [Model and metrics](docs/model-and-metrics.md) · [References](docs/references.md) · [Command line](docs/command-line.md) · [Architecture](docs/architecture.md) · [Changelog](CHANGELOG.md)
 
 ## Features
 
@@ -27,9 +27,11 @@ The interface supports English and Simplified Chinese. A local Python service, `
 
 ## Run locally
 
-Follow the [source installation guide](docs/source-installation.md) to install the matching model data and prepare the scientific runtime. The Python project supports **Python 3.11–3.13** (the managed scientific runtime uses 3.11); building the interface and running its scripts requires **Node.js 22.18.0 or newer** (checked with 26.5.0; with 24.22.3 the type check and fast tests only, until CI also lints and builds with it). The supplied managed scientific runtime targets **Apple Silicon macOS**. **Linux x86_64** has a smaller runtime without SimNIBS that computes from published scalp-node tables. On Windows, follow the Linux steps in WSL2 (not yet tested).
+For regular use on **Apple Silicon macOS** or **Linux x86_64**, follow the [installation guide](docs/installation.md) to install `eeglayoutlab` into a user-writable Conda environment (which bundles the pre-built web interface and numerical runtime without requiring Node.js), install the default model data (`eeglayoutlab data install`), open the browser (`eeglayoutlab serve ~/eeglayoutlab-workspace`), and verify your setup (`eeglayoutlab examples run --skip-cross-head`).
 
-Then, from the repository root (`EEGLayoutLab/`), install the `eeglayoutlab` command, build the interface once and start the application:
+For development or direct SimNIBS finite-element solves (`source-reception/2`), follow the [source installation guide](docs/source-installation.md) instead. The Python project supports **Python 3.11–3.13** (the managed scientific runtime uses 3.11); building the interface from source requires **Node.js 22.18.0 or newer** (checked with 26.5.0; with 24.22.3 the type check and fast tests only, until CI also lints and builds with it). The supplied managed scientific runtime targets **Apple Silicon macOS**; **Linux x86_64** uses a smaller runtime without SimNIBS that computes from published scalp-node tables, and on Windows follow the Linux steps in WSL2 (not yet tested).
+
+From a source checkout (`EEGLayoutLab/`), install the `eeglayoutlab` command, build the interface once and start the application:
 
 ```sh
 python3.11 -m venv .venv                         # a Python 3.11 of your own, not the runtime under .runtime

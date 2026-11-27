@@ -8,10 +8,10 @@
 
 The request key is therefore the one the web service would use for the same request on the same installation. Nothing is written to the web service's queue, library or projects.
 
-In a source checkout, run it from `.venv/bin/eeglayoutlab` (or `eeglayoutlab` in an activated environment):
+In an installed Conda environment, run `eeglayoutlab` directly; in a source checkout, run `.venv/bin/eeglayoutlab`:
 
 ```bash
-.venv/bin/eeglayoutlab --help
+eeglayoutlab --help
 ```
 
 `--root DIR` selects another scientific root holding `configs/`, `data/` and `results/v2/`. The default is `EEG_REPOSITORY_ROOT`, else the checkout holding the package, else the installed root of the conda environment (`$PREFIX/share/eeglayoutlab/root`). `--python PATH` overrides the worker interpreter: following the service (decision U8), `search` runs and fingerprints the compute interpreter (`--python`, else `EEG_COMPUTE_PYTHON`, else `.runtime/simnibs-4.6.0/bin/python`, else the installed environment's `bin/python`, else `python3`), while `evaluate`, `study`, `eeg-summary` and `prior` use the native interpreter (`.runtime/simnibs-4.6.0/bin/python` when present, else `--python`, else `EEG_COMPUTE_PYTHON`, else the installed environment's `bin/python`, else `python3`). `webapp/scripts/eeglayoutlab.mjs` remains unchanged only as the legacy parity reference until phase 4.

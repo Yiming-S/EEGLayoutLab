@@ -107,3 +107,29 @@ def test_conda_recipe_yaml_and_run_test_pass_in_installed_prefix(tmp_path: Path)
     res = prefix.run(run_test_code, env=clean_env)
     assert res.returncode == 0, f'stdout:\n{res.stdout}\nstderr:\n{res.stderr}'
     assert 'layout, default root, interpreter, environment rows, data verify and CLI verified' in res.stdout
+
+
+def test_github_workflows_parse_cleanly_and_cover_fast_data_and_package_tiers() -> None:
+    import yaml  # type: ignore[import-untyped]
+
+    workflows_dir = ROOT / '.github/workflows'
+    expected = {'checks.yml', 'docs.yml', 'pages.yml', 'data.yml', 'package.yml'}
+    present = {p.name for p in workflows_dir.glob('*.yml')}
+    assert expected <= present, f'missing workflows: {expected - present}'
+
+    for name in sorted(present):
+        raw = (workflows_dir / name).read_text(encoding='utf-8')
+        parsed = yaml.safe_load(raw)
+        assert isinstance(parsed, dict), name
+        assert isinstance(parsed.get('name'), str) and parsed['name'].strip(), name
+        triggers = parsed.get('on') or parsed.get(True)
+        assert isinstance(triggers, dict) and triggers, f'{name} missing triggers'
+        assert parsed.get('permissions') == {'contents': 'read'}, f'{name} top-level permissions should be read-only'
+        jobs = parsed.get('jobs')
+        assert isinstance(jobs, dict) and jobs, f'{name} missing jobs'
+
+    data_wf = yaml.safe_load((workflows_dir / 'data.yml').read_text(encoding='utf-8'))
+    assert {'seed-cache', 'data'} == set(data_wf['jobs'])
+    pkg_wf = yaml.safe_load((workflows_dir / 'package.yml').read_text(encoding='utf-8'))
+    assert {'build-packages', 'verify-installed'} == set(pkg_wf['jobs'])
+

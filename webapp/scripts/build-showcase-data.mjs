@@ -14,6 +14,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { DISPLAY_COPY_REDACTION_POLICY, DISPLAY_COPY_REFERENCE_SCOPE, DISPLAY_COPY_SERIALIZATION, LOCAL_PRIVATE_PATH, SHOWCASE_DISPLAY_COPY_SCHEMA, displayCopyDigest, verifyShowcaseDisplayCopy } from '../lib/showcase-display-copy.ts';
+import { openServiceSession } from './helpers/service-session.mjs';
 
 export const SHOWCASE_DATA_SCHEMA = 'eeglayoutlab-showcase-data/1';
 const webapp = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -78,6 +79,30 @@ export function showcaseHealth(health) {
   return { ...health, available: false, showcase: true, token: 'showcase-read-only', active_job: null, max_concurrent_jobs: 0, maintenance: false, drained: false };
 }
 
+/** Empty signal-simulation record stub matching the Python service's workspace scope. */
+export function showcaseCommunityRecords() {
+  return { schema: 'browser-experiment-records/1', scope: 'workspace', receipt_limit: 0, records: [] };
+}
+
+/** Resolves the showcase source host: signs in to eeglayoutlab serve when a runtime or token is given, else uses --from. */
+export async function showcaseTarget({
+  from,
+  runtime = process.env.EEG_SERVICE_RUNTIME,
+  token = process.env.EEG_SERVICE_TOKEN,
+  openSession = openServiceSession,
+} = {}) {
+  if (runtime || token) {
+    const session = await openSession({ runtime, token, base: from || undefined });
+    return { origin: session.base, headers: { Accept: 'application/json', Cookie: session.cookie } };
+  }
+  if (!from) {
+    throw new Error(
+      'Set EEG_SERVICE_RUNTIME (or pass --runtime) to <workspace>/.eeglayoutlab/runtime.json, or pass --from <origin> for a legacy Node host',
+    );
+  }
+  return { origin: new URL(from).origin, headers: { Accept: 'application/json' } };
+}
+
 /** The library list restricted to the curated records, without per-visitor fields. */
 export function curateLibrary(library, curation) {
   const datasets = new Set(curation.library.datasets);
@@ -103,15 +128,22 @@ export function curateLibrary(library, curation) {
 }
 
 async function main() {
-  const { values } = parseArgs({ options: { from: { type: 'string' }, out: { type: 'string', default: 'showcase/api' }, curation: { type: 'string', default: 'showcase/curation.json' } } });
-  if (!values.from) throw new Error('--from <origin of a running host> is required');
-  const origin = new URL(values.from).origin;
+  const { values } = parseArgs({
+    options: {
+      runtime: { type: 'string' },
+      token: { type: 'string' },
+      from: { type: 'string' },
+      out: { type: 'string', default: 'showcase/api' },
+      curation: { type: 'string', default: 'showcase/curation.json' },
+    },
+  });
+  const { origin, headers } = await showcaseTarget({ from: values.from, runtime: values.runtime, token: values.token });
   const out = resolve(webapp, values.out);
   const curation = JSON.parse(await readFile(resolve(webapp, values.curation), 'utf8'));
   if (curation.schema !== 'eeglayoutlab-showcase-curation/1') throw new Error('Unknown curation schema');
 
   const get = async (path) => {
-    const response = await fetch(origin + path, { headers: { Accept: 'application/json' } });
+    const response = await fetch(origin + path, { headers });
     if (!response.ok) throw new Error(`GET ${path}: ${response.status} ${await response.text()}`);
     return response.json();
   };
@@ -146,7 +178,7 @@ async function main() {
   // reaches the showcase's refusal instead of a connection error.
   for (const kind of ['local-compute', 'design-evaluation', 'electrode-editor', 'source-reception'])
     put(`/api/${kind}/health`, showcaseHealth(await get(`/api/${kind}/health`)));
-  put('/api/community/records', { schema: 'browser-experiment-records/1', scope: 'current_browser', receipt_limit: 0, records: [] });
+  put('/api/community/records', showcaseCommunityRecords());
   put('/api/robustness-studies', { studies: [] });
 
   await rm(out, { recursive: true, force: true });

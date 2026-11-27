@@ -1,0 +1,203 @@
+name: Data tier
+
+# Phase 3, slice 10 (design 0001, decision 11; decisions U25 and U26):
+# Restores the verified default data package set (base + scalp-node-table, 1.80 GB) from actions/cache
+# keyed by the exact manifest SHA-256 digests in data/packages.json, composes it into the checkout, and runs:
+#   1. eeglayoutlab data verify
+#   2. pytest -m 'data_bundle and not native_runtime' (real-data forward/search/reception + stored record checks)
+#   3. the real-root key parity suite (EEG_KEY_PARITY_ROOT on the composed root)
+#   4. eeglayoutlab examples run --skip-cross-head against examples/expected.json (within 1e-6)
+#
+# Until the Zenodo data release is published (U18, U28), run workflow_dispatch with seed_cache=true and
+# release_tag=<private-prerelease-tag> once to populate the repository's Actions cache from private release
+# assets (.json manifests and .tar archives).
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      seed_cache:
+        description: 'Seed the Actions cache from a release tag holding package manifests and .tar archives'
+        required: false
+        type: boolean
+        default: false
+      release_tag:
+        description: 'Release tag holding base-1.0.0.{json,tar} and scalp-node-table-1.0.0.{json,tar} (for seed_cache)'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: data-${{ github.workflow }}-${{ github.ref }}-${{ inputs.seed_cache || false }}
+  cancel-in-progress: false
+
+env:
+  PYTHONDONTWRITEBYTECODE: '1'
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+
+jobs:
+  seed-cache:
+    name: Seed default data cache
+    if: github.event_name == 'workflow_dispatch' && inputs.seed_cache == true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install eeglayoutlab CLI
+        run: python -m pip install -e '.[service]'
+      - name: Compute default-set cache key from data/packages.json
+        id: key
+        run: |
+          KEY=$(python - <<'PY'
+          import hashlib, json, pathlib
+          index = json.loads(pathlib.Path('data/packages.json').read_text('utf-8'))
+          by_name = {item['name']: item for item in index['packages']}
+          parts = [f"{name}:{by_name[name]['manifest_sha256']}" for name in ('base', 'scalp-node-table')]
+          print('eeglayoutlab-default-data-v1-' + hashlib.sha256('\n'.join(parts).encode()).hexdigest()[:24])
+          PY
+          )
+          echo "cache_key=${KEY}" >> "$GITHUB_OUTPUT"
+      - name: Download manifests and archives from release tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          if [ -z "$RELEASE_TAG" ]; then
+            echo "Pass release_tag when running seed_cache=true." >&2
+            exit 2
+          fi
+          mkdir -p "$RUNNER_TEMP/mirror" "$RUNNER_TEMP/data-store"
+          gh release download "$RELEASE_TAG" \
+            --pattern 'base-*.json' \
+            --pattern 'base-*.tar' \
+            --pattern 'scalp-node-table-1.*.json' \
+            --pattern 'scalp-node-table-1.*.tar' \
+            --dir "$RUNNER_TEMP/mirror"
+          EEGLAYOUTLAB_DATA_DIR="$RUNNER_TEMP/data-store" \
+            eeglayoutlab data install base scalp-node-table --from "$RUNNER_TEMP/mirror" --no-compose
+          EEGLAYOUTLAB_DATA_DIR="$RUNNER_TEMP/data-store" \
+            eeglayoutlab data verify base scalp-node-table
+      - name: Save verified data store to Actions cache
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/data-store
+          key: ${{ steps.key.outputs.cache_key }}
+
+  data:
+    name: Data tier (${{ matrix.os }})
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.seed_cache == true) }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+        exclude:
+          # While the repository is private, nightly scheduled runs execute on Linux only (decision U25).
+          - os: ${{ (github.event.repository.private && github.event_name == 'schedule') && 'macos-15' || 'none' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Confirm checkout starts clean
+        run: test ! -e results && test ! -e data/external && test ! -e .runtime
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.3'
+          cache: npm
+          cache-dependency-path: webapp/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Compute default-set cache key from data/packages.json
+        id: key
+        run: |
+          KEY=$(python - <<'PY'
+          import hashlib, json, pathlib
+          index = json.loads(pathlib.Path('data/packages.json').read_text('utf-8'))
+          by_name = {item['name']: item for item in index['packages']}
+          parts = [f"{name}:{by_name[name]['manifest_sha256']}" for name in ('base', 'scalp-node-table')]
+          print('eeglayoutlab-default-data-v1-' + hashlib.sha256('\n'.join(parts).encode()).hexdigest()[:24])
+          PY
+          )
+          echo "cache_key=${KEY}" >> "$GITHUB_OUTPUT"
+      - name: Restore verified default data store
+        id: data-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/data-store
+          key: ${{ steps.key.outputs.cache_key }}
+      - name: Require seeded data cache
+        if: steps.data-cache.outputs.cache-hit != 'true'
+        run: |
+          echo "Default data cache (${{ steps.key.outputs.cache_key }}) was not found." >&2
+          echo "Run workflow_dispatch on data.yml with seed_cache=true and release_tag=<tag> first." >&2
+          exit 1
+      - name: Set up micromamba
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          micromamba-version: '2.0.5-0'
+          init-shell: bash
+          cache-downloads: true
+      - name: Bootstrap Linux table runtime (ubuntu-24.04)
+        if: matrix.os == 'ubuntu-24.04'
+        run: |
+          python scripts/bootstrap_runtime.py --execute --conda "$MAMBA_EXE"
+          .runtime/compute-linux-64/bin/python scripts/check_environment.py --native
+      - name: Build cortech and create pinned macOS table environment (macos-15)
+        if: matrix.os == 'macos-15'
+        run: |
+          micromamba create -y -p "$RUNNER_TEMP/rattler-env" -c conda-forge rattler-build=0.35.5
+          "$RUNNER_TEMP/rattler-env/bin/rattler-build" build \
+            --recipe packaging/conda-forge/cortech/recipe.yaml \
+            -c conda-forge \
+            --variant-config <(printf 'python:\n  - "3.11.* *_cpython"\n') \
+            --output-dir "$RUNNER_TEMP/local-channel"
+          micromamba create -y -p "$RUNNER_TEMP/compute-macos-arm64" \
+            -c "$RUNNER_TEMP/local-channel" -c conda-forge \
+            python=3.11.14 numpy=2.3.0 scipy=1.17.1 numba=0.64.0 llvmlite=0.46.0 \
+            nibabel=5.3.3 threadpoolctl=3.6.0 cortech=0.1
+      - name: Build web interface and install Python test/service dependencies
+        run: |
+          (cd webapp && npm ci && npm run build)
+          python -m pip install -e '.[dev,service]'
+      - name: Verify installed packages and compose into checkout
+        env:
+          EEGLAYOUTLAB_DATA_DIR: ${{ runner.temp }}/data-store
+        run: |
+          eeglayoutlab data verify base scalp-node-table
+          eeglayoutlab data compose base scalp-node-table --root "$GITHUB_WORKSPACE"
+      - name: Run data_bundle tests and real-root key parity
+        env:
+          EEG_REQUIRE_SCHEMA_PARITY: '1'
+          EEG_KEY_PARITY_ROOT: ${{ github.workspace }}
+        run: |
+          if [ "${{ matrix.os }}" = "ubuntu-24.04" ]; then
+            TEST_PY="$GITHUB_WORKSPACE/.runtime/compute-linux-64/bin/python"
+          else
+            TEST_PY="$RUNNER_TEMP/compute-macos-arm64/bin/python"
+          fi
+          "$TEST_PY" scripts/build_scalp_node_table.py --verify
+          "$TEST_PY" -B -m pytest tests -m 'data_bundle and not native_runtime' \
+            --ignore=tests/service -q -p no:cacheprovider
+          python -m pytest tests/service/test_key_parity.py -m 'data_bundle and not native_runtime' -q
+      - name: Run reproducible examples 1 and 2 against expected.json
+        run: |
+          if [ "${{ matrix.os }}" = "macos-15" ]; then
+            eeglayoutlab examples run --skip-cross-head --python "$RUNNER_TEMP/compute-macos-arm64/bin/python"
+          else
+            eeglayoutlab examples run --skip-cross-head
+          fi

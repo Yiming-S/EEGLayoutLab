@@ -20,6 +20,7 @@ hooks:
   - docs/mkdocs_hooks.py
 watch:
   - README.md
+  - CHANGELOG.md
   - CONTRIBUTING.md
   - THIRD_PARTY_NOTICES.md
   - contracts
@@ -44,6 +45,8 @@ nav:
   - Home: README.md
   - 简体中文指南: docs/getting-started.zh-CN.md
   - Run locally:
+      - Installation: docs/installation.md
+      - 安装说明: docs/installation.zh-CN.md
       - Source installation: docs/source-installation.md
       - 源码安装说明: docs/source-installation.zh-CN.md
   - Model data:
@@ -68,12 +71,13 @@ nav:
       - Source ROI validation: docs/SOURCE_ROI_VALIDATION.md
       - Atlas source cache: docs/CACHE_PRECOMPUTE.md
   - Deployment and operations:
-      - Server deployment: docs/server-deployment.md
-      - Web operations: docs/web-operations.md
       - Read-only showcase: docs/showcase.md
-      - Anonymous queue: docs/anonymous-queue.md
       - Access and dependencies: docs/security.md
       - Architecture: docs/architecture.md
+      - Legacy Node host (until phase 4):
+          - Server deployment: docs/server-deployment.md
+          - Web operations: docs/web-operations.md
+          - Anonymous queue: docs/anonymous-queue.md
   - Contracts:
       - Shared data contracts: contracts/README.md
       - API formats: contracts/api-formats.md
@@ -81,9 +85,11 @@ nav:
   - Design:
       - "0001: Local-first application": docs/design/0001-local-first-architecture.md
       - "0001: Phase 2 plan": docs/design/0001-phase-2-plan.md
+      - "0001: Phase 3 plan": docs/design/0001-phase-3-plan.md
       - "0002: Installed scientific root": docs/design/0002-installed-scientific-root.md
       - "0003: Identity change at 1.0": docs/design/0003-identity-at-1.0.md
       - "0004: Structure of the interface": docs/design/0004-interface-structure.md
+  - Changelog: CHANGELOG.md
   - Third-party notices: THIRD_PARTY_NOTICES.md
 
 theme:
