@@ -10,14 +10,26 @@
 
 - Apple Silicon（M 系列芯片）Mac，macOS **14 或更新版本**。
 - Node.js **22.18.0 或更新版本**，以及 npm，用于构建界面。
-- 用于运行安装工具的 Python **3.10 或更新版本**，以及一个自备的 **Python 3.11**（例如来自 Homebrew 或 python.org），用于安装 `eeglayoutlab` 命令。安装工具会另行准备使用 **Python 3.11** 的计算环境，具体版本见[运行环境清单](../configs/runtime/manifest.json)；该命令不在这个环境中运行。
+- 任意系统自带的 **Python 3.9 或更新版本**（`python3`），用于运行一键初始化脚本 `scripts/setup_local.py`。**无需单独安装 Python 3.11 或 `gh`**：脚本会自动准备固定版本的 **Python 3.11** 计算环境（见[运行环境清单](../configs/runtime/manifest.json)），并直接复用该解释器创建隔离的 `.venv` 服务环境。
 - Apple Silicon 版本的 Conda，且终端中可以运行 `conda` 命令。
 - Git 和 Apple 命令行工具（可选安装 [GitHub 命令行工具](https://cli.github.com/) `gh` 用于命令行下载发布附件）。
 - 安装依赖时需要联网。
 
 使用上述工具的原生 Apple Silicon 版本，不通过 Rosetta 运行。运行环境本身保持原生；只有用 `charm` 构建头模包时，还需安装 Rosetta 2 来运行 SimNIBS 自带的 x86_64 工具（见 [server deployment](server-deployment.md#building-head-packages)）。
 
-## 首次安装
+## 一键快速配置（推荐，3 行命令）
+
+克隆源码后，直接运行 `scripts/setup_local.py` 即可自动完成全部四步配置（匿名通过 HTTPS 下载并按 SHA-256 校验 `v0.2.0` 基础数据包，无需登录 GitHub 或安装 `gh`；自动识别 Conda／Miniforge／micromamba 配置 `.runtime/` 计算环境；自动创建 `.venv` 并安装 `eeglayoutlab`；自动构建 `webapp/` 前端静态页面；最后执行真实计算自检）：
+
+```sh
+git clone https://github.com/Yiming-S/EEGLayoutLab.git && cd EEGLayoutLab
+python3 scripts/setup_local.py --smoke
+.venv/bin/eeglayoutlab quickstart
+```
+
+重复运行 `python3 scripts/setup_local.py` 会自动跳过已完成的步骤（传入 `--plan` 可在不改动任何文件的前提下预览各步状态；在 Linux 上如需评估自定义坐标，可再运行 `.venv/bin/eeglayoutlab data install scalp-node-table --compose`）。
+
+## 分步手动安装（参考）
 
 ![本地安装四步流程与目录位置示意图：第 1–3 步在仓库根目录运行，第 4 步进入 webapp/ 启动网页](images/install-flow.svg)
 

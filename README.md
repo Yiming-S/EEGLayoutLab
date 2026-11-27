@@ -27,17 +27,21 @@ The interface supports English and Simplified Chinese. A local Python service, `
 
 ## Run locally
 
-For regular use on **Apple Silicon macOS** or **Linux x86_64**, follow the [installation guide](docs/installation.md) to install `eeglayoutlab` into a user-writable Conda environment (which bundles the pre-built web interface and numerical runtime without requiring Node.js), install the default model data (`eeglayoutlab data install`), open the browser (`eeglayoutlab serve ~/eeglayoutlab-workspace`), and verify your setup (`eeglayoutlab examples run --skip-cross-head`).
-
-For development or direct SimNIBS finite-element solves (`source-reception/2`), follow the [source installation guide](docs/source-installation.md) instead. The Python project supports **Python 3.11–3.13** (the managed scientific runtime uses 3.11); building the interface from source requires **Node.js 22.18.0 or newer** (checked with 26.5.0; with 24.22.3 the type check and fast tests only, until CI also lints and builds with it). The supplied managed scientific runtime targets **Apple Silicon macOS**; **Linux x86_64** uses a smaller runtime without SimNIBS that computes from published scalp-node tables, and on Windows follow the Linux steps in WSL2 (not yet tested).
-
-From a source checkout (`EEGLayoutLab/`), install the `eeglayoutlab` command, build the interface once and start the application:
+For regular use on **Apple Silicon macOS** or **Linux x86_64**, install `eeglayoutlab` into a user-writable Conda environment (bundling the pre-built web interface and numerical runtime without Node.js) and launch in three commands ([installation guide](docs/installation.md)):
 
 ```sh
-python3.11 -m venv .venv                         # a Python 3.11 of your own, not the runtime under .runtime
-.venv/bin/python -m pip install -e '.[service]'  # installs the eeglayoutlab command
-(cd webapp && npm ci && npm run build)            # builds the interface that the service serves
-.venv/bin/eeglayoutlab serve ~/eeglayoutlab-workspace
+conda create -y -n eeglayoutlab -c conda-forge eeglayoutlab
+conda activate eeglayoutlab
+eeglayoutlab quickstart
+```
+
+`eeglayoutlab quickstart` downloads, SHA-256-verifies and links the default model data (`base` + `scalp-node-table`, 1.80 GB) on first run, creates `~/eeglayoutlab-workspace`, and opens the browser; run `eeglayoutlab doctor --smoke` anytime to verify your setup with a real calculation.
+
+For development or direct SimNIBS finite-element solves (`source-reception/2`), run the one-command source setup from a checkout ([source installation guide](docs/source-installation.md); requires any system `python3 >= 3.9`, Conda/Miniforge/micromamba, and **Node.js 22.18.0 or newer**):
+
+```sh
+python3 scripts/setup_local.py --smoke           # downloads & verifies base data, builds .runtime, .venv and webapp/
+.venv/bin/eeglayoutlab quickstart                # opens ~/eeglayoutlab-workspace in your browser
 ```
 
 `eeglayoutlab serve` runs the application for one **workspace**, a directory of your choice (the current directory if you name none) that keeps your task list, electrode names, robustness studies and research projects. Calculation results stay in the checkout's `results/v2`, shared by every workspace, and the computations use the scientific runtime under `.runtime`. The service listens on a free port of `127.0.0.1` and opens the application in your browser once it answers; keep the terminal running and press **Control + C** to stop it. Each start has a new address and session: a tab left from an earlier run asks you to run the command again, and running the command while the service runs opens the running instance. `--no-browser` prints the address instead, `--cache-only` serves stored results without computing, and [CONTRIBUTING](CONTRIBUTING.md#the-local-service) describes the other options. To verify the scientific runtime and model data end to end, run `.venv/bin/eeglayoutlab examples run --skip-cross-head`. When the page opens, confirm the **Tasks / Queue** badge in the top-right shows `0` (connected) and pick any starting card:

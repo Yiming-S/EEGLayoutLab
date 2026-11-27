@@ -20,6 +20,8 @@ eeglayoutlab --help
 
 | Command | Input | Output |
 | --- | --- | --- |
+| `eeglayoutlab quickstart [WORKSPACE] [--from URL\|DIR] [--base-only] [--examples] [--verify] [--no-browser]` | Optional workspace directory (defaults to current directory if already a workspace, else `~/eeglayoutlab-workspace`) | Installs/links missing model data, optionally runs `--verify` smoke calculations, and opens the local web application on `127.0.0.1` |
+| `eeglayoutlab doctor [--root DIR] [--python PATH] [--smoke]` | Optional root or interpreter; `--smoke` runs Examples 1 & 2 in a temporary directory | Readiness report for scientific root, compute Python, model data and static UI (plus `1e-6` score check with `--smoke`) |
 | `eeglayoutlab design FILE... --out DESIGN.json [--name NAME] [--regions N] [--unit U] [--root DIR]` | A BIDS pair (Ernie native, MNI or a digitized head frame with landmarks), an `.elc` or `.sfp` montage, a 10-05 name list, the layout CSV, a design JSON, or a search result (`eeglayoutlab-cli-run/1`). `--regions 1\|2\|3\|4\|6` assigns balanced spatial regions to files without a region column; `--unit mm\|cm\|m` gives the unit of an `.sfp` file | A design: `eeg-electrode-design/1` with names and coordinate source |
 | `eeglayoutlab export DESIGN.json --format F --out-dir DIR [--labels yes\|no] [--root DIR]` | A design | `bids`, `mni`, `mne` (`.elc`), `eeglab` (`.sfp`) or `svg` (layout figure; `--labels yes\|no`) |
 | `eeglayoutlab evaluate REQUEST.json... --out-dir DIR [--data-prior PRIOR.json] [--root DIR] [--python PATH]` | Requests in the `/api/design-evaluation` format, or `design-submission/1` with names | One `<name>.result.json` per request |

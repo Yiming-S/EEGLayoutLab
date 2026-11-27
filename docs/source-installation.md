@@ -10,14 +10,26 @@ This guide covers the **Apple Silicon macOS** setup first. [Linux x86_64](#linux
 
 - An Apple Silicon Mac running macOS **14 or newer**.
 - Node.js **22.18.0 or newer**, with npm, to build the interface.
-- Python **3.10 or newer** to run the setup tools, and a **Python 3.11** of your own (for example from Homebrew or python.org) for the `eeglayoutlab` command. The managed computation environment installs its own **Python 3.11** interpreter, as specified in the [runtime manifest](../configs/runtime/manifest.json); the command does not run in it.
+- Any system **Python 3.9 or newer** (`python3`) to run `scripts/setup_local.py`. You do **not** need to install a separate Python 3.11 or `gh`: the setup script installs the locked **Python 3.11** scientific runtime ([runtime manifest](../configs/runtime/manifest.json)) and creates `.venv` from that verified interpreter.
 - An Apple Silicon Conda installation with the `conda` command available in Terminal.
 - Git and Apple's Command Line Tools (and optionally [GitHub CLI](https://cli.github.com/) `gh` for command-line release downloads).
 - An internet connection for installing dependencies.
 
 Use the native Apple Silicon versions of these tools, without Rosetta. The runtime itself stays native. Only building head packages with `charm` also needs Rosetta 2 installed, for SimNIBS's bundled x86_64 tools (see [server deployment](server-deployment.md#building-head-packages)).
 
-## First-time setup
+## Quick setup (recommended, 3 commands)
+
+After cloning the repository, `scripts/setup_local.py` runs all four setup stages automatically (downloads and SHA-256-verifies the `v0.2.0` base data bundle over HTTPS without requiring `gh` or a GitHub sign-in, prepares `.runtime/`, creates `.venv` with `eeglayoutlab`, builds `webapp/`, and runs a real smoke calculation):
+
+```sh
+git clone https://github.com/Yiming-S/EEGLayoutLab.git && cd EEGLayoutLab
+python3 scripts/setup_local.py --smoke
+.venv/bin/eeglayoutlab quickstart
+```
+
+Re-running `python3 scripts/setup_local.py` is safe and skips any stage already completed (`--plan` previews what will run without changing files; on Linux also run `.venv/bin/eeglayoutlab data install scalp-node-table --compose` to enable custom coordinate evaluation).
+
+## Step-by-step manual setup (reference)
 
 ![4-step local installation map showing which commands run in the repository root versus webapp/](images/install-flow.svg)
 

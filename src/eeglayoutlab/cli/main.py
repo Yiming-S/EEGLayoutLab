@@ -97,6 +97,7 @@ class _ArgumentParser(argparse.ArgumentParser):
 
 
 def _parser() -> argparse.ArgumentParser:
+    from . import quickstart as quickstart_cli
     from . import science as science_cli
 
     parser = _ArgumentParser(prog=PROGRAM, description='EEG Layout Lab, the local application.')
@@ -127,6 +128,7 @@ def _parser() -> argparse.ArgumentParser:
     legacy.add_argument('--queue-directory', metavar='Q',
                         help="the Node host's queue directory (default: R/results/web-service)")
     legacy.add_argument('--dry-run', action='store_true', help='report what would be imported; write nothing')
+    quickstart_cli.add_commands(commands, ROOT_HELP, _port)
     data_cli.add_commands(commands)
     science_cli.add_commands(commands)
     return parser
@@ -296,6 +298,10 @@ def _run(workspace: Workspace, root: str, static: str, port: int, browser: bool,
             print(f'Workspace: {workspace.path} (PID {os.getpid()}); press Ctrl+C to stop.', flush=True)
             if cache_only:
                 print('Cache only: stored results are served; new computations are refused.', flush=True)
+            elif (pathlib.Path(root) / 'data/packages.json').is_file() and not (
+                    pathlib.Path(root) / 'results/v2/current_multiregion_bank.json').is_file():
+                print("Model data is not installed yet; run 'eeglayoutlab data install' (or 'eeglayoutlab quickstart') "
+                      'before running calculations.', flush=True)
             if export_root(static) is None:
                 print(f'The interface is not built ({static}); {_interface_hint(root, static)}', flush=True)
             if browser:
@@ -428,12 +434,18 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             return int(error.code) if isinstance(error.code, int) else 2
         from . import examples as examples_cli
         return examples_cli.run_examples_cli(args)
-    if actual[0] not in ('serve', 'workspace', 'data', '-h', '--help'):
+    if actual[0] not in ('serve', 'quickstart', 'doctor', 'workspace', 'data', '-h', '--help'):
         from . import science as science_cli
         return science_cli.run_science(actual)
     args = _parser().parse_args(actual)
     if args.command == 'serve':
         return serve(args)
+    if args.command == 'quickstart':
+        from . import quickstart as quickstart_cli
+        return quickstart_cli.run_quickstart(args)
+    if args.command == 'doctor':
+        from . import quickstart as quickstart_cli
+        return quickstart_cli.run_doctor(args)
     if args.command == 'workspace':
         return import_legacy(args)
     if args.command == 'data':

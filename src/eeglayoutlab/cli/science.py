@@ -58,6 +58,13 @@ _ALLOWED_OPTIONS: dict[str, frozenset[str]] = {
 
 HELP = """EEGLayoutLab command line
 
+  eeglayoutlab quickstart [WORKSPACE] [--from URL|DIR] [--base-only] [--examples] [--verify] [--no-browser]
+      First-run and daily launch: install/link missing model data, create ~/eeglayoutlab-workspace
+      if needed, and open the local web application on 127.0.0.1.
+
+  eeglayoutlab doctor [--root DIR] [--smoke]
+      Check scientific root, Python worker packages, model data and web UI (--smoke runs a quick calculation).
+
   eeglayoutlab serve [WORKSPACE] [--root DIR] [--port N] [--no-browser] [--cache-only]
       Start the local web application on 127.0.0.1 for a workspace.
 

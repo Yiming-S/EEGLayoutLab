@@ -18,12 +18,13 @@ Mac 桌面版已停止维护，桌面外壳和打包工具已从当前源码中�
 
 ## 在本机打开网页版
 
-首次使用时，普通用户可按[安装说明](installation.zh-CN.md)创建 Conda 环境并运行 `eeglayoutlab data install`；需要二次开发或调用 SimNIBS 求解二代信号仿真的用户可按[源码安装说明](source-installation.zh-CN.md)配置。
+首次使用时：
 
-安装完成后（包括[源码安装说明](source-installation.zh-CN.md)第 4 步中的 `eeglayoutlab` 命令和界面构建），在仓库根目录运行：
+- **Conda 安装版（推荐）**：按[安装说明](installation.zh-CN.md)执行 3 行命令（`conda create -y -n eeglayoutlab -c conda-forge eeglayoutlab` → `conda activate eeglayoutlab` → `eeglayoutlab quickstart`），首次运行会自动下载校验数据包、创建 `~/eeglayoutlab-workspace` 并打开浏览器。
+- **源码开发／SimNIBS 版**：按[源码安装说明](source-installation.zh-CN.md)在仓库根目录运行一行初始化命令 `python3 scripts/setup_local.py --smoke`，随后运行：
 
 ```sh
-.venv/bin/eeglayoutlab serve ~/eeglayoutlab-workspace
+.venv/bin/eeglayoutlab quickstart
 ```
 
 命令会在浏览器中打开应用；工作区目录 `~/eeglayoutlab-workspace` 保存任务列表、研究项目等，可以换成任意目录。使用期间保持终端运行；结束使用时，在终端按 **Control + C** 停止服务。每次启动的地址都不同：上一次运行留下的标签页会提示重新运行命令。
