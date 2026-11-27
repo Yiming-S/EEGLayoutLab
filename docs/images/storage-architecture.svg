@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="430" viewBox="0 0 1180 430" fill="none">
+  <rect width="1180" height="430" rx="16" fill="#F6F5F1" />
+  <rect x="0.75" y="0.75" width="1178.5" height="428.5" rx="15.25" stroke="#E2DFD7" stroke-width="1.5" />
+  <g transform="translate(36, 28)">
+    <text x="0" y="16" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11" font-weight="700" letter-spacing="1.3" fill="#2451D8">THREE-TIER LOCAL STORAGE · DESIGN 0002</text>
+    <text x="0" y="42" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="21" font-weight="700" fill="#18181B">Where Your Files Live — Workspace, Data Store, and Environment Root</text>
+    <text x="0" y="64" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#63615C">Removing or upgrading a Conda environment preserves your Workspace and Data Store, but deletes Tier 3 caches — export Deliveries to archive.</text>
+  </g>
+  <g transform="translate(36, 110)">
+    <rect width="356" height="296" rx="12" fill="#FFFFFF" stroke="#86EFAC" stroke-width="1.8" />
+    <rect x="16" y="14" width="324" height="26" rx="6" fill="#F0FDF4" />
+    <text x="28" y="31" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11" font-weight="700" fill="#16A34A">TIER 1 · USER WORKSPACE</text>
+    <text x="16" y="62" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" font-weight="600" fill="#18181B">~/eeglayoutlab-workspace/</text>
+    <text x="16" y="78" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10" fill="#63615C"></text>
+    <line x1="16" y1="92" x2="340" y2="92" stroke="#ECEAE3" />
+    <text x="16" y="111" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" font-weight="600" fill="#63615C">Key Contents</text>
+    <rect x="16" y="122" width="324" height="28" rx="6" fill="#FAF9F5" stroke="#E5E2DA" />
+    <text x="26" y="140" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" font-weight="600" fill="#18181B">projects/</text>
+    <text x="330" y="140" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#52525B">Research projects &amp; snapshots</text>
+    <rect x="16" y="156" width="324" height="28" rx="6" fill="#FAF9F5" stroke="#E5E2DA" />
+    <text x="26" y="174" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" font-weight="600" fill="#18181B">studies/</text>
+    <text x="330" y="174" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#52525B">Robustness batch studies</text>
+    <rect x="16" y="190" width="324" height="28" rx="6" fill="#FAF9F5" stroke="#E5E2DA" />
+    <text x="26" y="208" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" font-weight="600" fill="#18181B">annotations/</text>
+    <text x="330" y="208" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#52525B">Imported electrode names</text>
+    <rect x="16" y="224" width="324" height="28" rx="6" fill="#FAF9F5" stroke="#E5E2DA" />
+    <text x="26" y="242" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" font-weight="600" fill="#18181B">.eeglayoutlab/</text>
+    <text x="330" y="242" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#52525B">Queue &amp; session state (0700)</text>
+    <rect x="16" y="262" width="324" height="22" rx="5" fill="#F0FDF4" />
+    <text x="178" y="277" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" font-weight="600" fill="#16A34A">Lifecycle: Kept safely across upgrades</text>
+  </g>
+  <g transform="translate(412, 110)">
+    <rect width="356" height="296" rx="12" fill="#FFFFFF" stroke="#93C5FD" stroke-width="1.8" />
+    <rect x="16" y="14" width="324" height="26" rx="6" fill="#EFF4FF" />
+    <text x="28" y="31" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11" font-weight="700" fill="#2451D8">TIER 2 · USER DATA STORE</text>
+    <text x="16" y="62" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" font-weight="600" fill="#18181B">~/Library/Application Support/EEGLayoutLab/ (macOS)</text>
+    <text x="16" y="78" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10" fill="#63615C">~/.local/share/eeglayoutlab/ (Linux)</text>
+    <line x1="16" y1="92" x2="340" y2="92" stroke="#ECEAE3" />
+    <text x="16" y="111" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" font-weight="600" fill="#63615C">Key Contents</text>
+    <rect x="16" y="122" width="324" height="28" rx="6" fill="#FAF9F5" stroke="#E5E2DA" />
+    <text x="26" y="140" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" font-weight="600" fill="#18181B">packages/base-1.0.0/</text>
+    <text x="330" y="140" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#52525B">Base model &amp; bank (0.41 GB)</text>
+    <rect x="16" y="156" width="324" height="28" rx="6" fill="#FAF9F5" stroke="#E5E2DA" />
+    <text x="26" y="174" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" font-weight="600" fill="#18181B">packages/scalp-node-table-1.0.0/</text>
+    <text x="330" y="174" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#52525B">Nominal scalp-node table (1.40 GB)</text>
+    <rect x="16" y="190" width="324" height="28" rx="6" fill="#FAF9F5" stroke="#E5E2DA" />
+    <text x="26" y="208" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" font-weight="600" fill="#18181B">packages/head-ixi*/</text>
+    <text x="330" y="208" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#52525B">Optional IXI/Ernie head packages</text>
+    <rect x="16" y="224" width="324" height="28" rx="6" fill="#FAF9F5" stroke="#E5E2DA" />
+    <text x="26" y="242" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" font-weight="600" fill="#18181B">packages/*skull_x*/</text>
+    <text x="330" y="242" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#52525B">Optional conductivity tables</text>
+    <rect x="16" y="262" width="324" height="22" rx="5" fill="#EFF4FF" />
+    <text x="178" y="277" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" font-weight="600" fill="#2451D8">Lifecycle: Reused across environments</text>
+  </g>
+  <g transform="translate(788, 110)">
+    <rect width="356" height="296" rx="12" fill="#FFFFFF" stroke="#FCD34D" stroke-width="1.8" />
+    <rect x="16" y="14" width="324" height="26" rx="6" fill="#FFFBEB" />
+    <text x="28" y="31" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11" font-weight="700" fill="#D97706">TIER 3 · SCIENTIFIC ROOT (R)</text>
+    <text x="16" y="62" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" font-weight="600" fill="#18181B">$CONDA_PREFIX/share/eeglayoutlab/root/</text>
+    <text x="16" y="78" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10" fill="#63615C">(或源码仓根目录 EEGLayoutLab/)</text>
+    <line x1="16" y1="92" x2="340" y2="92" stroke="#ECEAE3" />
+    <text x="16" y="111" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" font-weight="600" fill="#63615C">Key Contents</text>
+    <rect x="16" y="122" width="324" height="28" rx="6" fill="#FAF9F5" stroke="#E5E2DA" />
+    <text x="26" y="140" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" font-weight="600" fill="#18181B">src/compact_eeg/</text>
+    <text x="330" y="140" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#52525B">Fingerprinted scientific core</text>
+    <rect x="16" y="156" width="324" height="28" rx="6" fill="#FAF9F5" stroke="#E5E2DA" />
+    <text x="26" y="174" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" font-weight="600" fill="#18181B">webapp/dist/client/</text>
+    <text x="330" y="174" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#52525B">Built web UI &amp; 3D display meshes</text>
+    <rect x="16" y="190" width="324" height="28" rx="6" fill="#FAF9F5" stroke="#E5E2DA" />
+    <text x="26" y="208" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" font-weight="600" fill="#18181B">data/ &amp; results/v2/heads/</text>
+    <text x="330" y="208" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#52525B">Hard-linked model files from Tier 2</text>
+    <rect x="16" y="224" width="324" height="28" rx="6" fill="#FAF9F5" stroke="#E5E2DA" />
+    <text x="26" y="242" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" font-weight="600" fill="#18181B">results/v2/*_jobs/</text>
+    <text x="330" y="242" text-anchor="end" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#52525B">Shared job caches (deleted w/ env)</text>
+    <rect x="16" y="262" width="324" height="22" rx="5" fill="#FFFBEB" />
+    <text x="178" y="277" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" font-weight="600" fill="#D97706">Note: Deleted on conda env remove!</text>
+  </g>
+  <path d="M 768 190 H 788" stroke="#2451D8" stroke-width="2.2" stroke-dasharray="4 3" />
+  <rect x="706" y="96" width="144" height="20" rx="10" fill="#2451D8" />
+  <text x="778" y="110" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="10" font-weight="700" fill="#FFFFFF">0-copy hard-link compose</text>
+</svg>

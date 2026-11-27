@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="544" viewBox="0 0 1120 544" fill="none">
+  <rect width="1120" height="544" rx="16" fill="#F6F5F1" />
+  <rect x="0.75" y="0.75" width="1118.5" height="542.5" rx="15.25" stroke="#E2DFD7" stroke-width="1.5" />
+  <!-- Browser Window -->
+  <rect x="32" y="24" width="1056" height="398" rx="12" fill="#F6F5F1" stroke="#D5D2C8" stroke-width="1.5" />
+  <rect x="32" y="24" width="1056" height="36" rx="12" fill="#ECEAE3" />
+  <rect x="32" y="48" width="1056" height="12" fill="#ECEAE3" />
+  <line x1="32" y1="60" x2="1088" y2="60" stroke="#DCD9D0" />
+  <circle cx="54" cy="42" r="5" fill="#C7C4BA" />
+  <circle cx="72" cy="42" r="5" fill="#C7C4BA" />
+  <circle cx="90" cy="42" r="5" fill="#C7C4BA" />
+  <rect x="360" y="31" width="400" height="22" rx="6" fill="#FFFFFF" stroke="#DCD9D0" />
+  <text x="560" y="46" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11.5" fill="#18181B">http://127.0.0.1:52817/</text>
+
+  <!-- Top Bar -->
+  <rect x="33" y="61" width="1054" height="54" fill="#F8F7F3" />
+  <line x1="33" y1="115" x2="1087" y2="115" stroke="#E2DFD7" />
+  <rect x="54" y="72" width="32" height="32" rx="8" fill="#2451D8" />
+  <text x="70" y="93" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="12" font-weight="700" fill="#FFFFFF">EEG</text>
+  <text x="98" y="93" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#18181B">EEG Layout Lab</text>
+
+  <!-- 5 Primary Areas -->
+  <rect x="306" y="72" width="430" height="32" rx="8" fill="#ECEAE3" />
+  <rect x="310" y="75" width="76" height="26" rx="6" fill="#FFFFFF" />
+  <text x="348" y="92" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#18181B">工作区</text>
+  <text x="424" y="92" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#52525B">布局</text>
+  <text x="494" y="92" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#52525B">分析</text>
+  <text x="576" y="92" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#52525B">研究结果</text>
+  <text x="668" y="92" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#52525B">文档</text>
+  <circle cx="520" cy="68" r="10" fill="#2451D8" />
+  <text x="520" y="72" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11" font-weight="700" fill="#FFFFFF">1</text>
+
+  <!-- Queue & Locale Controls -->
+  <rect x="836" y="73" width="128" height="30" rx="8" fill="#FFFFFF" stroke="#DCD9D0" />
+  <circle cx="852" cy="88" r="4.5" fill="#16A34A" />
+  <text x="865" y="92" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="600" fill="#18181B">任务队列</text>
+  <rect x="934" y="79" width="22" height="18" rx="4" fill="#EFF4FF" />
+  <text x="945" y="92" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11" font-weight="700" fill="#2451D8">0</text>
+  <circle cx="900" cy="68" r="10" fill="#2451D8" />
+  <text x="900" y="72" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11" font-weight="700" fill="#FFFFFF">2</text>
+
+  <rect x="974" y="73" width="92" height="30" rx="8" fill="#FFFFFF" stroke="#DCD9D0" />
+  <text x="1020" y="92" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#18181B">中 / EN · 主题</text>
+  <circle cx="1020" cy="68" r="10" fill="#2451D8" />
+  <text x="1020" y="72" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11" font-weight="700" fill="#FFFFFF">3</text>
+
+  <!-- Data Status & Hero -->
+  <rect x="56" y="134" width="1008" height="44" rx="8" fill="#F0FDF4" stroke="#86EFAC" />
+  <text x="76" y="161" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#166534">✓ 本地模型数据已就绪（base 21/21 文件 + scalp-node-table 节点表已启用） · 若缺数据此处会自动显示一键复制的 eeglayoutlab data install 命令</text>
+
+  <!-- Starting Cards -->
+  <rect x="56" y="194" width="1008" height="206" rx="12" fill="#FFFFFF" stroke="#DCD9D0" />
+  <text x="80" y="226" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#18181B">开始一项新的布局设计或评估工作</text>
+  <circle cx="56" cy="222" r="10" fill="#2451D8" />
+  <text x="56" y="226" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11" font-weight="700" fill="#FFFFFF">4</text>
+
+  <g transform="translate(76, 244)">
+    <rect width="306" height="136" rx="10" fill="#FAF9F5" stroke="#E5E2DA" />
+    <text x="18" y="30" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#18181B">区域半径搜索 (/design)</text>
+    <text x="18" y="54" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#52525B">限定前额、耳周或少毛发区，按半径上限</text>
+    <text x="18" y="72" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#52525B">自动优化电极数量与空间分布。</text>
+    <rect x="18" y="92" width="116" height="28" rx="6" fill="#2451D8" />
+    <text x="76" y="110" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="600" fill="#FFFFFF">新建区域设计</text>
+  </g>
+  <g transform="translate(407, 244)">
+    <rect width="306" height="136" rx="10" fill="#FAF9F5" stroke="#E5E2DA" />
+    <text x="18" y="30" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#18181B">导入自定义坐标 (/coordinates)</text>
+    <text x="18" y="54" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#52525B">导入 10-05 名称表、BIDS、MNI 或 .elc/.sfp，</text>
+    <text x="18" y="72" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#52525B">配准至 Ernie 头皮并计算三项保留率。</text>
+    <rect x="18" y="92" width="116" height="28" rx="6" fill="#18181B" />
+    <text x="76" y="110" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="600" fill="#FFFFFF">导入坐标文件</text>
+  </g>
+  <g transform="translate(738, 244)">
+    <rect width="306" height="136" rx="10" fill="#FAF9F5" stroke="#E5E2DA" />
+    <text x="18" y="30" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#18181B">浏览布局与研究项目 (/library)</text>
+    <text x="18" y="54" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#52525B">查看总面积研究、Pareto 前沿排序、</text>
+    <text x="18" y="72" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#52525B">保存研究项目快照或打开本地交付包。</text>
+    <rect x="18" y="92" width="116" height="28" rx="6" fill="#ECEAE3" />
+    <text x="76" y="110" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="600" fill="#18181B">打开布局列表</text>
+  </g>
+
+  <!-- Legend Callouts -->
+  <g transform="translate(32, 438)">
+    <rect x="0" y="0" width="252" height="86" rx="10" fill="#FFFFFF" stroke="#E2DFD7" />
+    <text x="16" y="26" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#2451D8">① 顶栏五大功能板块</text>
+    <text x="16" y="48" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#52525B">工作区、布局、分析、研究结果与</text>
+    <text x="16" y="66" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#52525B">方法文档一键切换，自动保留阈值。</text>
+
+    <rect x="268" y="0" width="252" height="86" rx="10" fill="#FFFFFF" stroke="#E2DFD7" />
+    <text x="284" y="26" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#2451D8">② 本地计算连接状态</text>
+    <text x="284" y="48" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#52525B">绿点与数字 0 表示已连接本地服务；</text>
+    <text x="284" y="66" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#52525B">点击可随时查看进度或停止运行任务。</text>
+
+    <rect x="536" y="0" width="252" height="86" rx="10" fill="#FFFFFF" stroke="#E2DFD7" />
+    <text x="552" y="26" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#2451D8">③ 双语与明暗主题切换</text>
+    <text x="552" y="48" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#52525B">简体中文与 English 即时无损切换，</text>
+    <text x="552" y="66" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#52525B">绝不改变底层科学请求与缓存哈希。</text>
+
+    <rect x="804" y="0" width="252" height="86" rx="10" fill="#FFFFFF" stroke="#E2DFD7" />
+    <text x="820" y="26" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#2451D8">④ 三大核心工作流入口</text>
+    <text x="820" y="48" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#52525B">区域搜索、外部坐标导入评估与</text>
+    <text x="820" y="66" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" fill="#52525B">历史结果库浏览均可直接发起。</text>
+  </g>
+</svg>

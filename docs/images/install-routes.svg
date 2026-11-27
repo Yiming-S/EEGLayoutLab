@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="456" viewBox="0 0 1180 456" fill="none">
+  <rect width="1180" height="456" rx="16" fill="#F6F5F1" />
+  <rect x="0.75" y="0.75" width="1178.5" height="454.5" rx="15.25" stroke="#E2DFD7" stroke-width="1.5" />
+  <g transform="translate(36, 28)">
+    <text x="0" y="16" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11" font-weight="700" letter-spacing="1.3" fill="#2451D8">INSTALLATION ROUTES · CHOOSE YOUR PATH</text>
+    <text x="0" y="42" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="21" font-weight="700" fill="#18181B">Pick the Fastest Setup for Your Goal — Preview, Conda Package, or Source</text>
+    <text x="0" y="64" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#63615C">Most researchers should use the middle 3-command Conda route (no Node.js or SimNIBS needed); use Source only for code edits or v2 FEM.</text>
+  </g>
+  <g transform="translate(36, 112)">
+    <rect width="356" height="268" rx="12" fill="#FFFFFF" stroke="#DCD9D0" stroke-width="1.5" />
+    <rect x="18" y="16" width="218" height="24" rx="6" fill="#ECEAE3" />
+    <text x="127" y="32" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" font-weight="700" fill="#3F3F46">01 · ZERO INSTALL</text>
+    <text x="18" y="64" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="16" font-weight="700" fill="#18181B">Online Read-Only Showcase</text>
+    <text x="18" y="84" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#63615C">Best for: quick preview &amp; sharing links</text>
+    <rect x="18" y="98" width="320" height="54" rx="8" fill="#161618" />
+    <text x="28" y="119" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10" fill="#93C5FD">Open eeglayout.org in browser</text>
+    <text x="28" y="139" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10" fill="#FAF9F5">No Python, Conda, or data download</text>
+    <text x="18" y="180" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#18181B">✓ Browse 30 area-study layouts &amp; 3D head</text>
+    <text x="18" y="206" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#18181B">✓ Compare saved layouts &amp; open deliveries</text>
+    <text x="18" y="232" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#52525B">— Read-only (does not run new jobs)</text>
+  </g>
+  <g transform="translate(412, 112)">
+    <rect width="356" height="268" rx="12" fill="#FFFFFF" stroke="#2451D8" stroke-width="2" />
+    <rect x="18" y="16" width="218" height="24" rx="6" fill="#2451D8" />
+    <text x="127" y="32" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" font-weight="700" fill="#FFFFFF">02 · RECOMMENDED (3 COMMANDS)</text>
+    <text x="18" y="64" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="16" font-weight="700" fill="#18181B">Local Conda Application</text>
+    <text x="18" y="84" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#63615C">Best for: Apple Silicon Mac &amp; Linux research</text>
+    <rect x="18" y="98" width="320" height="54" rx="8" fill="#161618" />
+    <text x="28" y="119" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10" fill="#93C5FD">$ conda create -y -n eeglayoutlab -c conda-forge eeglayoutlab</text>
+    <text x="28" y="139" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10" fill="#FAF9F5">$ conda activate eeglayoutlab &amp;&amp; eeglayoutlab quickstart</text>
+    <text x="18" y="180" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#18181B">✓ Pre-built web UI bundled (no Node.js)</text>
+    <text x="18" y="206" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#18181B">✓ Auto-fetches &amp; SHA-256 checks 1.80 GB data</text>
+    <text x="18" y="232" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#52525B">✓ Full search, coordinate eval, studies &amp; CLI</text>
+  </g>
+  <g transform="translate(788, 112)">
+    <rect width="356" height="268" rx="12" fill="#FFFFFF" stroke="#DCD9D0" stroke-width="1.5" />
+    <rect x="18" y="16" width="218" height="24" rx="6" fill="#18181B" />
+    <text x="127" y="32" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" font-weight="700" fill="#FAF9F5">03 · CONTRIBUTORS &amp; DIRECT FEM</text>
+    <text x="18" y="64" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="16" font-weight="700" fill="#18181B">Source Checkout + SimNIBS</text>
+    <text x="18" y="84" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#63615C">Best for: editing source &amp; v2 FEM simulation</text>
+    <rect x="18" y="98" width="320" height="54" rx="8" fill="#161618" />
+    <text x="28" y="119" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10" fill="#93C5FD">$ python3 scripts/setup_local.py --smoke</text>
+    <text x="28" y="139" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10" fill="#FAF9F5">$ .venv/bin/eeglayoutlab quickstart</text>
+    <text x="18" y="180" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#18181B">✓ One script sets up data, .runtime, .venv &amp; UI</text>
+    <text x="18" y="206" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#18181B">✓ Unlocks direct SimNIBS FEM &amp; reception v2</text>
+    <text x="18" y="232" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#52525B">✓ Requires Conda + Node.js &gt;= 22.18.0</text>
+  </g>
+  <rect x="36" y="396" width="1108" height="38" rx="8" fill="#EFF4FF" stroke="#BFDBFE" />
+  <circle cx="58" cy="415" r="6" fill="#2451D8" />
+  <text x="74" y="420" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="600" fill="#1E3A8A">Post-install check: run  eeglayoutlab doctor --smoke  (~10–15 s real search + coordinate evaluation verified within 1e-6 of expected.json)</text>
+</svg>

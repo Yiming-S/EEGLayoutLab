@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="464" viewBox="0 0 1180 464" fill="none">
+  <rect width="1180" height="464" rx="16" fill="#F6F5F1" />
+  <rect x="0.75" y="0.75" width="1178.5" height="462.5" rx="15.25" stroke="#E2DFD7" stroke-width="1.5" />
+  <g transform="translate(36, 28)">
+    <text x="0" y="16" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11" font-weight="700" letter-spacing="1.3" fill="#2451D8">外部坐标配准与真实脑电数据流 · INTEROPERABILITY</text>
+    <text x="0" y="42" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="21" font-weight="700" fill="#18181B">多格式电极坐标配准导出 + 真实脑电录音先验与通道子集筛选</text>
+    <text x="0" y="64" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#63615C">所有原始脑电录音均留在本地原路径就地读取，仅生成轻量级通道协方差摘要（含输入文件字节数与 SHA-256），绝不上传原始信号。</text>
+  </g>
+  <!-- Pipeline A Container -->
+  <rect x="36" y="110" width="1108" height="150" rx="12" fill="#FFFFFF" stroke="#DCD9D0" stroke-width="1.5" />
+  <rect x="54" y="99" width="420" height="22" rx="5" fill="#2451D8" />
+  <text x="264" y="114" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" font-weight="700" fill="#FFFFFF">PIPELINE A · 外部坐标导入、头皮投影评价与多格式导出</text>
+  <g transform="translate(54, 134)">
+    <rect width="332" height="108" rx="10" fill="#FAF9F5" stroke="#E5E2DA" />
+    <text x="14" y="24" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#18181B">输入格式 (5 类)</text>
+    <text x="14" y="46" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.2" fill="#18181B">• 10-05 标准电极名列表 (.tsv/.csv)</text>
+    <text x="14" y="66" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.2" fill="#18181B">• BIDS (Ernie / MNI / 实测地标)</text>
+    <text x="14" y="86" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.2" fill="#2451D8">• MNE (.elc) 与 EEGLAB (.sfp)</text>
+  </g>
+  <path d="M 392 188 H 416 M 411 183 L 417 188 L 411 193" stroke="#2451D8" stroke-width="2" stroke-linecap="round" />
+  <g transform="translate(424, 134)">
+    <rect width="332" height="108" rx="10" fill="#FAF9F5" stroke="#E5E2DA" />
+    <text x="14" y="24" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#18181B">自动配准与表面投影</text>
+    <text x="14" y="46" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.2" fill="#18181B">• 实测头表地标相似变换 ICP 配准</text>
+    <text x="14" y="66" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.2" fill="#18181B">• MNI 非线性映射至 Ernie 头皮</text>
+    <text x="14" y="86" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.2" fill="#2451D8">• 逐点检查投影距离与最小间距</text>
+  </g>
+  <path d="M 762 188 H 786 M 781 183 L 787 188 L 781 193" stroke="#2451D8" stroke-width="2" stroke-linecap="round" />
+  <g transform="translate(794, 134)">
+    <rect width="332" height="108" rx="10" fill="#FAF9F5" stroke="#E5E2DA" />
+    <text x="14" y="24" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#2451D8">节点表快速前向评价</text>
+    <text x="14" y="46" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.2" fill="#18181B">• 免 FEM 秒级计算三项保留率</text>
+    <text x="14" y="66" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.2" fill="#18181B">• 导出 BIDS / MNI / .elc / .sfp</text>
+    <text x="14" y="86" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.2" fill="#2451D8">• 导出发表级二维电极布局 SVG/PNG</text>
+  </g>
+
+  <!-- Pipeline B Container -->
+  <rect x="36" y="284" width="1108" height="156" rx="12" fill="#FFFFFF" stroke="#DCD9D0" stroke-width="1.5" />
+  <rect x="54" y="273" width="460" height="22" rx="5" fill="#18181B" />
+  <text x="284" y="288" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" font-weight="700" fill="#FAF9F5">PIPELINE B · 真实脑电录音协方差摘要、区域源先验与通道子集</text>
+  <g transform="translate(54, 310)">
+    <rect width="246" height="112" rx="10" fill="#FAF9F5" stroke="#E5E2DA" />
+    <text x="14" y="24" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#18181B">1. 本地脑电录音读取</text>
+    <text x="14" y="46" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.2" fill="#18181B">• EDF / EDF+C / BDF</text>
+    <text x="14" y="66" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.2" fill="#18181B">• BrainVision (.vhdr) / EEGLAB (.set)</text>
+    <text x="14" y="86" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.2" fill="#2451D8">CLI: eeglayoutlab eeg-summary</text>
+  </g>
+  <path d="M 305 366 H 323 M 318 361 L 324 366 L 318 371" stroke="#2451D8" stroke-width="2" stroke-linecap="round" />
+  <g transform="translate(328, 310)">
+    <rect width="246" height="112" rx="10" fill="#FAF9F5" stroke="#E5E2DA" />
+    <text x="14" y="24" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#18181B">2. 协方差摘要 JSON</text>
+    <text x="14" y="46" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.2" fill="#18181B">• 滤波分窗提取通道协方差矩阵</text>
+    <text x="14" y="66" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.2" fill="#18181B">• 记录原始文件字节数与 SHA-256</text>
+    <text x="14" y="86" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.2" fill="#2451D8">输出: *.summary.json</text>
+  </g>
+  <path d="M 579 348 H 599 M 594 343 L 600 348 L 594 353" stroke="#2451D8" stroke-width="2" stroke-linecap="round" />
+  <path d="M 579 388 H 599 M 594 383 L 600 388 L 594 393" stroke="#0D9488" stroke-width="2" stroke-linecap="round" />
+  <g transform="translate(604, 310)">
+    <rect width="254" height="112" rx="10" fill="#FAF9F5" stroke="#E5E2DA" />
+    <text x="14" y="24" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#2451D8">3A. 拟合区域源先验 → 搜索/评价</text>
+    <text x="14" y="46" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.2" fill="#18181B">• 留一法校验拟合 7 区增益与噪声</text>
+    <text x="14" y="66" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.2" fill="#18181B">• 导入 /design 或 /coordinates</text>
+    <text x="14" y="86" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.2" fill="#2451D8">CLI: eeglayoutlab prior</text>
+  </g>
+  <g transform="translate(872, 310)">
+    <rect width="254" height="112" rx="10" fill="#FAF9F5" stroke="#E5E2DA" />
+    <text x="14" y="24" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#0D9488">3B. 贪心通道子集选择 (/channels)</text>
+    <text x="14" y="46" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.2" fill="#18181B">• 对比贪心算法、10-20 与随机抽样</text>
+    <text x="14" y="66" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.2" fill="#18181B">• 独立测试集重构误差曲线 SVG</text>
+    <text x="14" y="86" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.2" fill="#2451D8">CLI: eeglayoutlab channels</text>
+  </g>
+</svg>

@@ -2,7 +2,7 @@
 
 These instructions run the maintained web application locally and prepare a checkout for development. The interface opens in a browser; the local Python service (`eeglayoutlab serve`) and its Python/SimNIBS workers run on the same computer.
 
-[简体中文源码安装说明](source-installation.zh-CN.md)
+[简体中文源码安装说明](source-installation.zh-CN.md) · [Regular Conda installation](installation.md) · [User manual](user-manual.md)
 
 This guide covers the **Apple Silicon macOS** setup first. [Linux x86_64](#linux-x86_64) has its own runtime without SimNIBS that computes from published scalp-node tables. [Windows](#windows) is not supported natively yet; use WSL2 (not yet tested). Hosted deployments use the legacy Node host, frozen at the tag `node-host-freeze`; see [Server deployment preparation](server-deployment.md).
 

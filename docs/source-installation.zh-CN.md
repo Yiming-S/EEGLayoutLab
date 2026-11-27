@@ -2,7 +2,7 @@
 
 本说明用于在本机运行和开发目前维护的网页版。界面在浏览器中打开，本地 Python 服务（`eeglayoutlab serve`）及其 Python／SimNIBS 计算进程运行在同一台电脑上。
 
-[English source installation](source-installation.md)
+[English source installation](source-installation.md) · [完整安装手册（Conda 推荐版）](installation.zh-CN.md) · [完整使用手册（图文版）](user-manual.zh-CN.md)
 
 本指南先介绍 **Apple Silicon macOS** 的安装流程。**Linux x86_64** 有一套不含 SimNIBS 的计算环境，依靠已发布的头皮节点表计算，见文末[Linux x86_64](#linux-x86_64)。**Windows** 暂不支持原生安装，请使用 WSL2（尚未测试）。服务器部署使用旧版 Node 服务，已冻结在标签 `node-host-freeze`，见[服务器部署准备说明（英文）](server-deployment.md)。
 
@@ -31,7 +31,7 @@ python3 scripts/setup_local.py --smoke
 
 ## 分步手动安装（参考）
 
-![本地安装四步流程与目录位置示意图：第 1–3 步在仓库根目录运行，第 4 步进入 webapp/ 启动网页](images/install-flow.svg)
+![本地源码安装四阶段流程与一键脚本示意图](images/install-flow.zh-CN.svg)
 
 ### 1. 克隆仓库
 
@@ -89,7 +89,7 @@ python3.11 -m venv .venv
 .venv/bin/eeglayoutlab serve ~/eeglayoutlab-workspace
 ```
 
-![终端安装各步骤成功输出检查点示意图：数据包校验、Python 运行环境就绪与本地服务启动](images/install-terminal-checkpoints.svg)
+![终端安装各步骤成功输出检查点示意图：数据包校验、真机计算自检与本地工作区启动](images/install-terminal-checkpoints.zh-CN.svg)
 
 服务会打印地址 `http://127.0.0.1:<端口>/open?token=…`，并在就绪后用浏览器打开它。请使用这个页面：该地址负责让浏览器登录本地服务，而且每次启动的端口都不同，所以书签或手动输入的地址无法打开应用。使用期间保持终端运行；结束使用时，在终端按 **Control + C** 停止服务。
 
@@ -101,7 +101,7 @@ python3.11 -m venv .venv
 
 首次打开浏览器页面后，确认右上角**任务 / 队列**显示 `0`（已连接本地服务）即可开始使用：
 
-![首次打开浏览器工作区界面标注图：顶栏五大板块、任务队列连接状态、语言与主题切换以及三个起点入口](images/workspace-first-launch.svg)
+![首次打开浏览器工作区中文界面标注图：顶栏五大板块、任务队列连接状态、语言与主题切换以及三个起点入口](images/workspace-first-launch.zh-CN.svg)
 
 ## 安装完成后，每次怎么打开
 

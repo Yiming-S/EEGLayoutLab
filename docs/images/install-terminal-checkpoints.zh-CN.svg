@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="456" viewBox="0 0 1120 456" fill="none">
+  <rect width="1120" height="456" rx="16" fill="#F6F5F1" />
+  <rect x="0.75" y="0.75" width="1118.5" height="454.5" rx="15.25" stroke="#E2DFD7" stroke-width="1.5" />
+  <g transform="translate(36, 28)">
+    <text x="0" y="16" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11" font-weight="700" letter-spacing="1.3" fill="#2451D8">终端安装检查点 · TERMINAL CHECKPOINTS</text>
+    <text x="0" y="42" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="21" font-weight="700" fill="#18181B">安装成功的标准终端输出对照图（Conda 版与源码版通用）</text>
+    <text x="0" y="64" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#63615C">每完成一步请核对下方绿色成功提示；遇到任何缺失项可随时运行 eeglayoutlab doctor 查看诊断建议。</text>
+  </g>
+  <rect x="36" y="112" width="1048" height="322" rx="12" fill="#161618" stroke="#2D2D32" stroke-width="1.5" />
+  <rect x="36" y="112" width="1048" height="34" rx="12" fill="#202024" />
+  <rect x="36" y="134" width="1048" height="12" fill="#202024" />
+  <line x1="36" y1="146" x2="1084" y2="146" stroke="#2D2D32" />
+  <circle cx="58" cy="129" r="5" fill="#52525B" />
+  <circle cx="76" cy="129" r="5" fill="#52525B" />
+  <circle cx="94" cy="129" r="5" fill="#52525B" />
+  <text x="560" y="133" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11.5" fill="#A1A1AA">Terminal — eeglayoutlab (zsh / bash)</text>
+
+  <g transform="translate(58, 166)">
+    <rect x="0" y="0" width="108" height="20" rx="4" fill="#1E3A8A" />
+    <text x="54" y="14" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" font-weight="700" fill="#BFDBFE">1 · 数据校验</text>
+    <text x="122" y="14" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="12" fill="#FAF9F5">$ eeglayoutlab data verify</text>
+    <text x="122" y="36" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="12" fill="#4ADE80">base-1.0.0: intact (21 files, 0.41 GB) · scalp-node-table-1.0.0: intact (1.40 GB)</text>
+  </g>
+
+  <line x1="58" y1="220" x2="1062" y2="220" stroke="#27272A" />
+
+  <g transform="translate(58, 236)">
+    <rect x="0" y="0" width="108" height="20" rx="4" fill="#1E3A8A" />
+    <text x="54" y="14" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" font-weight="700" fill="#BFDBFE">2 · 真机自检</text>
+    <text x="122" y="14" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="12" fill="#FAF9F5">$ eeglayoutlab doctor --smoke</text>
+    <text x="122" y="36" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="12" fill="#4ADE80">[ OK ] Base model data: ready (21/21 files) · [ OK ] Scalp-node table: ready</text>
+    <text x="122" y="56" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="12" fill="#4ADE80">[ OK ] Smoke calculation passed: Examples 1 &amp; 2 matched expected.json within 1e-6</text>
+  </g>
+
+  <line x1="58" y1="312" x2="1062" y2="312" stroke="#27272A" />
+
+  <g transform="translate(58, 328)">
+    <rect x="0" y="0" width="108" height="20" rx="4" fill="#166534" />
+    <text x="54" y="14" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" font-weight="700" fill="#BBF7D0">3 · 启动工作区</text>
+    <text x="122" y="14" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="12" fill="#FAF9F5">$ eeglayoutlab quickstart</text>
+    <text x="122" y="36" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="12" fill="#93C5FD">Workspace ready: ~/eeglayoutlab-workspace · Listening on 127.0.0.1 (session cookie active)</text>
+    <text x="122" y="56" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="12" fill="#4ADE80">Opened browser window · Keep this terminal running (press Control + C to stop)</text>
+  </g>
+</svg>

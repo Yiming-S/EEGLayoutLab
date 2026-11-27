@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="456" viewBox="0 0 1180 456" fill="none">
+  <rect width="1180" height="456" rx="16" fill="#F6F5F1" />
+  <rect x="0.75" y="0.75" width="1178.5" height="454.5" rx="15.25" stroke="#E2DFD7" stroke-width="1.5" />
+  <g transform="translate(36, 28)">
+    <text x="0" y="16" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11" font-weight="700" letter-spacing="1.3" fill="#2451D8">安装路线选型 · 三种使用方式</text>
+    <text x="0" y="42" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="21" font-weight="700" fill="#18181B">按使用场景选择最简方式：在线浏览、三行 Conda 安装或源码开发</text>
+    <text x="0" y="64" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#63615C">常规科研推荐使用中间的 Conda 三行命令（免装 Node.js 与 SimNIBS）；仅开发改代码或跑二代有限元仿真时用右侧源码路线。</text>
+  </g>
+  <g transform="translate(36, 112)">
+    <rect width="356" height="268" rx="12" fill="#FFFFFF" stroke="#DCD9D0" stroke-width="1.5" />
+    <rect x="18" y="16" width="218" height="24" rx="6" fill="#ECEAE3" />
+    <text x="127" y="32" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" font-weight="700" fill="#3F3F46">01 · 零安装预览</text>
+    <text x="18" y="64" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="16" font-weight="700" fill="#18181B">在线只读展示站</text>
+    <text x="18" y="84" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#63615C">适合：快速看效果、发给导师/合作者</text>
+    <rect x="18" y="98" width="320" height="54" rx="8" fill="#161618" />
+    <text x="28" y="119" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10" fill="#93C5FD">浏览器直接打开 eeglayout.org</text>
+    <text x="28" y="139" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10" fill="#FAF9F5">无需安装 Python / Conda / 数据包</text>
+    <text x="18" y="180" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#18181B">✓ 查看 30 组总面积研究与三维头模</text>
+    <text x="18" y="206" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#18181B">✓ 方案对比、报告导出与交付包阅读</text>
+    <text x="18" y="232" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#52525B">— 不发起新布局搜索或新坐标计算</text>
+  </g>
+  <g transform="translate(412, 112)">
+    <rect width="356" height="268" rx="12" fill="#FFFFFF" stroke="#2451D8" stroke-width="2" />
+    <rect x="18" y="16" width="218" height="24" rx="6" fill="#2451D8" />
+    <text x="127" y="32" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" font-weight="700" fill="#FFFFFF">02 · 推荐首选（3 行命令）</text>
+    <text x="18" y="64" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="16" font-weight="700" fill="#18181B">本机 Conda 独立应用版</text>
+    <text x="18" y="84" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#63615C">适合：Mac (M 系列) 与 Linux 常规科研计算</text>
+    <rect x="18" y="98" width="320" height="54" rx="8" fill="#161618" />
+    <text x="28" y="119" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10" fill="#93C5FD">$ conda create -y -n eeglayoutlab -c conda-forge eeglayoutlab</text>
+    <text x="28" y="139" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10" fill="#FAF9F5">$ conda activate eeglayoutlab &amp;&amp; eeglayoutlab quickstart</text>
+    <text x="18" y="180" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#18181B">✓ 内置构建好的网页界面（免装 Node.js）</text>
+    <text x="18" y="206" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#18181B">✓ 自动断点续传并校验 1.80 GB 默认数据包</text>
+    <text x="18" y="232" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#52525B">✓ 支持区域搜索、新坐标评价、稳健性与命令行</text>
+  </g>
+  <g transform="translate(788, 112)">
+    <rect width="356" height="268" rx="12" fill="#FFFFFF" stroke="#DCD9D0" stroke-width="1.5" />
+    <rect x="18" y="16" width="218" height="24" rx="6" fill="#18181B" />
+    <text x="127" y="32" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" font-weight="700" fill="#FAF9F5">03 · 开发者与有限元求解</text>
+    <text x="18" y="64" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="16" font-weight="700" fill="#18181B">源码仓 + SimNIBS 环境</text>
+    <text x="18" y="84" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#63615C">适合：修改前后端源码、二代单源仿真 (v2)</text>
+    <rect x="18" y="98" width="320" height="54" rx="8" fill="#161618" />
+    <text x="28" y="119" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10" fill="#93C5FD">$ python3 scripts/setup_local.py --smoke</text>
+    <text x="28" y="139" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10" fill="#FAF9F5">$ .venv/bin/eeglayoutlab quickstart</text>
+    <text x="18" y="180" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#18181B">✓ 一条脚本配齐基础数据、.runtime、.venv 与前端</text>
+    <text x="18" y="206" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#18181B">✓ 支持 SimNIBS 直接有限元求解与二代信号仿真</text>
+    <text x="18" y="232" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12" fill="#52525B">✓ 需要 Conda + Node.js &gt;= 22.18.0</text>
+  </g>
+  <rect x="36" y="396" width="1108" height="38" rx="8" fill="#EFF4FF" stroke="#BFDBFE" />
+  <circle cx="58" cy="415" r="6" fill="#2451D8" />
+  <text x="74" y="420" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="600" fill="#1E3A8A">安装后验证黄金标准：在终端运行 eeglayoutlab doctor --smoke（约 10–15 秒跑完真实搜索与坐标评价，核对与 expected.json 误差 ≤ 1e-6）</text>
+</svg>

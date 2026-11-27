@@ -4,7 +4,7 @@ EEG Layout Lab 是免费的科研开源软件，用于设计、查看和比较 E
 
 项目目前集中维护网页版。界面在浏览器中使用，由本地 Python 服务 `eeglayoutlab serve` 提供，计算由 Python／SimNIBS 工作进程完成。
 
-[English instructions](../README.md) · [本机安装](installation.zh-CN.md) · [源码安装](source-installation.zh-CN.md)
+[English instructions](../README.md) · [完整安装手册](installation.zh-CN.md) · [完整使用手册（图文版）](user-manual.zh-CN.md) · [源码安装](source-installation.zh-CN.md) · [English User Manual](user-manual.md)
 
 ## 运行方式
 
@@ -32,6 +32,10 @@ Mac 桌面版已停止维护，桌面外壳和打包工具已从当前源码中�
 源码与基础数据包均可直接公开获取（数据包及校验文件位于 [v0.2.0 版本页](https://github.com/Yiming-S/EEGLayoutLab/releases/tag/v0.2.0)，无需登录 GitHub；完整历史计算缓存不包含在基础数据包内）。首次安装后可运行 `.venv/bin/eeglayoutlab examples run --skip-cross-head` 验证本机计算环境与模型数据。
 
 ## 使用顺序
+
+> 含完整配图、九大头皮解剖区域代码、三项保留率指标解读、真实脑电先验/通道子集与命令行批处理脚本的系统教程，请参阅 **[完整使用手册（图文版）](user-manual.zh-CN.md)**。
+
+![端到端六阶段科研工作流全景图：方案生成、精细调优、对比判据、假设检验、接收仿真与离线交付](images/research-workflow-map.zh-CN.svg)
 
 1. **工作区**：首页列出新建布局的入口、最近的布局、计算任务、稳健性研究和研究项目。
 2. **布局 → 布局列表**：每个布局一行；“查看布局”打开布局详情页，列出同一组坐标在各条件下的评价，并从这里进入对比、信号仿真和稳健性研究。

@@ -46,8 +46,8 @@ nav:
   - Home: README.md
   - 简体中文指南: docs/getting-started.zh-CN.md
   - Run locally:
-      - Installation: docs/installation.md
-      - 安装说明: docs/installation.zh-CN.md
+      - Installation manual: docs/installation.md
+      - 完整安装手册: docs/installation.zh-CN.md
       - Source installation: docs/source-installation.md
       - 源码安装说明: docs/source-installation.zh-CN.md
   - Model data:
@@ -56,6 +56,8 @@ nav:
       - Data and reproducibility: docs/data-and-reproducibility.md
       - Data sources: data/SOURCES.md
   - How to use:
+      - User manual: docs/user-manual.md
+      - 完整使用手册: docs/user-manual.zh-CN.md
       - Model and metrics: docs/model-and-metrics.md
       - Method details: docs/method-details.md
       - References: docs/references.md

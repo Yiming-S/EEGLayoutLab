@@ -8,7 +8,7 @@ EEGLayoutLab is developed on a non-profit basis and provided free of charge. Its
 
 **Try it online:** a read-only preview runs at [eeglayout.org](https://eeglayout.org), with this documentation at [eeglayout.org/docs](https://eeglayout.org/docs/).
 
-[简体中文指南](docs/getting-started.zh-CN.md) · [Run locally](docs/installation.md) · [Source setup](docs/source-installation.md) · [Model and metrics](docs/model-and-metrics.md) · [References](docs/references.md) · [Command line](docs/command-line.md) · [Architecture](docs/architecture.md) · [Changelog](CHANGELOG.md)
+[简体中文指南](docs/getting-started.zh-CN.md) · [Installation manual](docs/installation.md) · [User manual](docs/user-manual.md) · [中文使用手册](docs/user-manual.zh-CN.md) · [Source setup](docs/source-installation.md) · [Model and metrics](docs/model-and-metrics.md) · [References](docs/references.md) · [Command line](docs/command-line.md) · [Architecture](docs/architecture.md) · [Changelog](CHANGELOG.md)
 
 ## Features
 

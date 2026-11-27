@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="468" viewBox="0 0 1180 468" fill="none">
+  <rect width="1180" height="468" rx="16" fill="#F6F5F1" />
+  <rect x="0.75" y="0.75" width="1178.5" height="466.5" rx="15.25" stroke="#E2DFD7" stroke-width="1.5" />
+  <g transform="translate(36, 28)">
+    <text x="0" y="16" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11" font-weight="700" letter-spacing="1.3" fill="#2451D8">SCALP PLACEMENT REGIONS &amp; RETENTION METRICS</text>
+    <text x="0" y="42" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="21" font-weight="700" fill="#18181B">Anatomical Scalp Masks and How Layouts Are Scored vs Whole-Head Standard64</text>
+    <text x="0" y="64" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#63615C">All retention percentages are relative to whole-head 64-electrode BioSemi at 20 dB SNR; adjusting AR re-judges saved scores immediately.</text>
+  </g>
+  <!-- Left Card: Top-down Scalp Diagram -->
+  <g transform="translate(36, 112)">
+    <rect width="460" height="332" rx="12" fill="#FFFFFF" stroke="#DCD9D0" stroke-width="1.5" />
+    <text x="24" y="30" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14.5" font-weight="700" fill="#18181B">Top-Down Scalp Region Codes (Nasion Up)</text>
+
+    <!-- Head silhouette + nose + ears -->
+    <path d="M 216 62 L 230 44 L 244 62" fill="#FAF9F5" stroke="#52525B" stroke-width="2" />
+    <ellipse cx="104" cy="182" rx="10" ry="24" fill="#FAF9F5" stroke="#52525B" stroke-width="2" />
+    <ellipse cx="356" cy="182" rx="10" ry="24" fill="#FAF9F5" stroke="#52525B" stroke-width="2" />
+    <circle cx="230" cy="182" r="118" fill="#FAF9F5" stroke="#52525B" stroke-width="2" />
+
+    <!-- FM Forehead -->
+    <rect x="184" y="76" width="92" height="34" rx="14" fill="#DBEAFE" stroke="#2451D8" stroke-width="1.8" />
+    <text x="230" y="98" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="12" font-weight="700" fill="#1E3A8A">FM</text>
+
+    <!-- AL / AR Peri-auricular -->
+    <rect x="116" y="142" width="54" height="58" rx="12" fill="#DBEAFE" stroke="#2451D8" stroke-width="1.8" />
+    <text x="143" y="176" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="12" font-weight="700" fill="#1E3A8A">AL</text>
+    <rect x="290" y="142" width="54" height="58" rx="12" fill="#DBEAFE" stroke="#2451D8" stroke-width="1.8" />
+    <text x="317" y="176" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="12" font-weight="700" fill="#1E3A8A">AR</text>
+
+    <!-- CL / CR Central -->
+    <rect x="178" y="132" width="48" height="44" rx="10" fill="#F4F4F5" stroke="#71717A" stroke-width="1.4" />
+    <text x="202" y="159" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11.5" font-weight="700" fill="#3F3F46">CL</text>
+    <rect x="234" y="132" width="48" height="44" rx="10" fill="#F4F4F5" stroke="#71717A" stroke-width="1.4" />
+    <text x="258" y="159" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11.5" font-weight="700" fill="#3F3F46">CR</text>
+
+    <!-- PL / PR Parietal-temporal -->
+    <rect x="162" y="190" width="60" height="42" rx="10" fill="#FEF3C7" stroke="#D97706" stroke-width="1.5" />
+    <text x="192" y="216" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11.5" font-weight="700" fill="#92400E">PL</text>
+    <rect x="238" y="190" width="60" height="42" rx="10" fill="#FEF3C7" stroke="#D97706" stroke-width="1.5" />
+    <text x="268" y="216" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11.5" font-weight="700" fill="#92400E">PR</text>
+
+    <!-- OL / OR Occipital -->
+    <rect x="174" y="244" width="52" height="36" rx="10" fill="#F4F4F5" stroke="#71717A" stroke-width="1.4" />
+    <text x="200" y="267" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11.5" font-weight="700" fill="#3F3F46">OL</text>
+    <rect x="234" y="244" width="52" height="36" rx="10" fill="#F4F4F5" stroke="#71717A" stroke-width="1.4" />
+    <text x="260" y="267" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11.5" font-weight="700" fill="#3F3F46">OR</text>
+
+    <text x="230" y="318" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="600" fill="#2451D8">Popular low-hair masks: FM (forehead) + AL / AR (peri-auricular)</text>
+  </g>
+
+  <!-- Right Card: 3 Metrics + AR Qualification -->
+  <g transform="translate(516, 112)">
+    <rect width="628" height="332" rx="12" fill="#FFFFFF" stroke="#DCD9D0" stroke-width="1.5" />
+
+    <g transform="translate(22, 18)">
+      <rect width="584" height="68" rx="8" fill="#FAF9F5" stroke="#E5E2DA" />
+      <text x="16" y="24" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13.5" font-weight="700" fill="#18181B">1. Field Reconstruction Retention (R_field)</text>
+      <text x="16" y="46" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#52525B"> overall cortical leadfield information retained relative to standard64 (= 100%).</text>
+      <rect x="468" y="14" width="100" height="14" rx="4" fill="#E4E4E7" />
+      <rect x="468" y="14" width="71" height="14" rx="4" fill="#2451D8" />
+      <text x="568" y="48" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" font-weight="700" fill="#2451D8">e.g. 70.8%</text>
+    </g>
+
+    <g transform="translate(22, 96)">
+      <rect width="584" height="68" rx="8" fill="#FAF9F5" stroke="#E5E2DA" />
+      <text x="16" y="24" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13.5" font-weight="700" fill="#18181B">2. Sensitivity Lower-Tail Retention (R_sens, CVaR 10%)</text>
+      <text x="16" y="46" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#52525B">Worst-10% source sensitivity retention — guards against blind spots far from patches.</text>
+      <rect x="468" y="14" width="100" height="14" rx="4" fill="#E4E4E7" />
+      <rect x="468" y="14" width="42" height="14" rx="4" fill="#0D9488" />
+      <text x="568" y="48" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" font-weight="700" fill="#0D9488">CVaR 10%</text>
+    </g>
+
+    <g transform="translate(22, 174)">
+      <rect width="584" height="68" rx="8" fill="#FAF9F5" stroke="#E5E2DA" />
+      <text x="16" y="24" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13.5" font-weight="700" fill="#18181B">3. Source Localization Retention (R_loc) &amp; Error (mm)</text>
+      <text x="16" y="46" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#52525B">Out-of-sample localization utility across 256 test sources, plus Median &amp; P90 error in mm.</text>
+      <rect x="468" y="14" width="100" height="14" rx="4" fill="#E4E4E7" />
+      <rect x="468" y="14" width="64" height="14" rx="4" fill="#D97706" />
+      <text x="568" y="48" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" font-weight="700" fill="#D97706">R_loc + mm</text>
+    </g>
+
+    <g transform="translate(22, 254)">
+      <rect width="584" height="60" rx="8" fill="#EFF4FF" stroke="#BFDBFE" />
+      <text x="16" y="23" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#1E3A8A">Minimum Required Retention (AR) &amp; Custom Thresholds</text>
+      <text x="16" y="44" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.2" fill="#1E3A8A">In joint mode, Pass requires R_field, R_sens, and R_loc &gt;= AR%; customize per-metric caps in Compare Layouts.</text>
+    </g>
+  </g>
+</svg>
