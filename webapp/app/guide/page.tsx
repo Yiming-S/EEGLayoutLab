@@ -5,11 +5,12 @@ import { ArrowUpRight } from 'lucide-react';
 import { SiteHeader } from '@/components/site-header';
 import { MethodBackLink } from '@/components/method-context';
 import { DocumentationLink } from '@/components/documentation-navigation';
+import { useDocsSite } from '@/components/docs-site';
 import { buttonVariants } from '@/components/ui/button';
 import { useLanguage } from '@/components/language-provider';
 import { parseAR } from '@/lib/lab-workflow';
 import { SHOWCASE } from '@/lib/showcase';
-import { USAGE_EXPLANATIONS, guideStepHref } from '@/lib/usage-guide';
+import { USAGE_EXPLANATIONS, guideManualHrefs, guideStepHref } from '@/lib/usage-guide';
 
 // One step per area of the interface; each opens its page and the matching method chapter.
 const STEPS = [
@@ -23,7 +24,10 @@ const STEPS = [
 ] as const;
 
 export default function GuidePage() {
-  const { tx } = useLanguage();
+  const { tx, locale } = useLanguage();
+  const site = useDocsSite();
+  const manuals = guideManualHrefs(locale, site, SHOWCASE);
+  const external = manuals.external ? { target: '_blank', rel: 'noreferrer' } : {};
   const [ar, setAR] = useState(90);
   useEffect(() => {
     const restore = () => setAR(parseAR(new URLSearchParams(window.location.search).get('ar')));
@@ -38,6 +42,17 @@ export default function GuidePage() {
           <MethodBackLink />
           <h1 className="mt-2 text-2xl font-semibold tracking-[-0.03em] sm:text-[1.75rem]">{tx('使用指南')}</h1>
           <p className="mt-2.5 max-w-3xl text-sm leading-7 text-ink-soft">{tx('工作区汇总最近的工作；布局板块新建和查找布局；分析板块提出问题；研究结果是已发表的实验；文档包括本指南与建模原理。')}</p>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <a href={manuals.userManual} {...external} className={buttonVariants({ size: 'sm' })}>
+              {tx('完整图文使用手册')}
+              <ArrowUpRight aria-hidden className="size-3.5" />
+            </a>
+            <a href={manuals.installation} {...external} className="lab-link-pill">
+              {tx('完整安装手册')}
+              <ArrowUpRight aria-hidden className="size-3.5" />
+            </a>
+            <DocumentationLink target="method" className="lab-link-pill">{tx('建模与原理')}</DocumentationLink>
+          </div>
         </div>
         <nav aria-label={tx('使用指南目录')} className="grid border-t border-border bg-secondary/30 sm:grid-cols-2 lg:grid-cols-3">
           {STEPS.map((step, index) => (
@@ -72,6 +87,30 @@ export default function GuidePage() {
           <DocumentationLink target="method" section={step.section} className="lab-link-pill">{tx('查看对应计算原理')}</DocumentationLink>
         </div>
       </section>; })}
+      <section id="usage-manuals" aria-labelledby="usage-manuals-title" className="lab-panel scroll-mt-36 space-y-3">
+        <h2 id="usage-manuals-title" className="text-base font-semibold sm:text-lg">{tx('完整手册与命令行参考')}</h2>
+        <p className="text-[0.8125rem] leading-6.5 text-ink-soft">
+          {tx('深入阅读：完整图文使用手册涵盖九大头皮解剖分区、外部坐标配准、真实脑电先验与通道子集筛选及全部14个命令行工具；完整安装手册提供Conda三行安装、数据包管理与排障指南。')}
+        </p>
+        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3.5">
+          <a href={manuals.userManual} {...external} className={buttonVariants({ size: 'sm' })}>
+            {tx('完整图文使用手册')}
+            <ArrowUpRight aria-hidden className="size-3.5" />
+          </a>
+          <a href={manuals.installation} {...external} className="lab-link-pill">
+            {tx('完整安装手册')}
+            <ArrowUpRight aria-hidden className="size-3.5" />
+          </a>
+          <a href={manuals.sourceInstallation} {...external} className="lab-link-pill">
+            {tx('源码安装说明')}
+            <ArrowUpRight aria-hidden className="size-3.5" />
+          </a>
+          <a href={manuals.commandLine} {...external} className="lab-link-pill">
+            {tx('命令行参考')}
+            <ArrowUpRight aria-hidden className="size-3.5" />
+          </a>
+        </div>
+      </section>
     </div>
   </main>;
 }

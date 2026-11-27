@@ -1,3 +1,6 @@
+import type { Locale } from './i18n/core.ts';
+import { type DocsSite, docsHref } from './method-index.ts';
+
 // One explanation per guide step, in the order of the five areas.
 export const USAGE_EXPLANATIONS = [
   ['1. 五个板块', '工作区：最近的布局、计算任务、研究和项目。布局：新建布局（区域设计、坐标导入、电极编辑）和布局列表。分析：方案对比、稳健性研究、信号仿真和通道子集。研究结果：已发表的总面积研究与历史批次。文档：本指南与建模原理。'],
@@ -15,4 +18,21 @@ export const USAGE_EXPLANATIONS = [
  */
 export function guideStepHref(path: string, ar: number, showcase: boolean): string | null {
   return showcase && path === '/' ? null : path + '?ar=' + ar;
+}
+
+/**
+ * Locale-matched links from the in-app User Guide (/guide) to the full illustrated manuals
+ * and command-line reference, resolving to local /docs/ when built (or in the showcase) and
+ * falling back to GitHub Markdown otherwise.
+ */
+export function guideManualHrefs(locale: Locale, site: DocsSite, showcase = false) {
+  const effectiveSite: DocsSite = showcase ? 'local' : site;
+  const suffix = locale === 'zh-CN' ? '.zh-CN/' : '/';
+  return {
+    userManual: docsHref('user-manual' + suffix, effectiveSite),
+    installation: docsHref('installation' + suffix, effectiveSite),
+    sourceInstallation: docsHref('source-installation' + suffix, effectiveSite),
+    commandLine: docsHref('command-line/', effectiveSite),
+    external: effectiveSite === 'github',
+  };
 }

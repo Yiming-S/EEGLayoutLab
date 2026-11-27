@@ -826,5 +826,29 @@
   "roadmap.0c3017e6d993": {
     "source": "通道子集重建误差随通道数变化的曲线图；数值见下表。",
     "en": "Chart of channel-subset reconstruction error against the number of channels; the values are in the table below."
+  },
+  "documentationManualUser": {
+    "source": "完整图文使用手册",
+    "en": "Complete Illustrated User Manual"
+  },
+  "documentationManualInstall": {
+    "source": "完整安装手册",
+    "en": "Installation Manual"
+  },
+  "documentationManualSourceInstall": {
+    "source": "源码安装说明",
+    "en": "Source Installation Guide"
+  },
+  "documentationManualCli": {
+    "source": "命令行参考",
+    "en": "Command-Line Reference"
+  },
+  "documentationManualHeading": {
+    "source": "完整手册与命令行参考",
+    "en": "Complete Manuals & Command-Line Reference"
+  },
+  "documentationManualSummary": {
+    "source": "深入阅读：完整图文使用手册涵盖九大头皮解剖分区、外部坐标配准、真实脑电先验与通道子集筛选及全部14个命令行工具；完整安装手册提供Conda三行安装、数据包管理与排障指南。",
+    "en": "Further reading: the Complete Illustrated User Manual covers the nine scalp placement masks, external coordinate registration, empirical EEG priors, channel-subset selection, and all 14 CLI commands; the Installation Manual covers the three-command Conda setup, data packages, and troubleshooting."
   }
 }

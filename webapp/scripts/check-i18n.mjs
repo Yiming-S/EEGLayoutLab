@@ -17,7 +17,7 @@ import researchWorkflowCatalog from '../lib/i18n/research-workflow-catalog.json'
 import { METHOD_ENTRIES, METHOD_GROUPS, docsHref, movedSection } from '../lib/method-index.ts';
 import { COPYRIGHT_NOTICE, copyrightHref, isCopyrightHash } from '../lib/copyright.ts';
 import { documentationHref, METHOD_CONTENTS } from '../lib/documentation.ts';
-import { USAGE_EXPLANATIONS } from '../lib/usage-guide.ts';
+import { USAGE_EXPLANATIONS, guideManualHrefs } from '../lib/usage-guide.ts';
 import { preserveResultsContext, resultsViewHref, resultQualification, savedLayoutActions } from '../lib/results-library.ts';
 
 const root = path.resolve(import.meta.dirname, '..');
@@ -60,6 +60,18 @@ void test('usage and methods are separate bilingual pages with preserved content
       assert.equal((guide.match(new RegExp('id="usage-' + id + '"', 'g')) ?? []).length, 1);
       assert.ok(guide.includes('href="#usage-' + id + '"'));
     }
+    assert.equal((guide.match(/id="usage-manuals"/g) ?? []).length, 1);
+    const expectedGithub = guideManualHrefs(locale, 'github', false);
+    assert.equal((guide.match(new RegExp('href="' + expectedGithub.userManual.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '"', 'g')) ?? []).length, 2);
+    assert.equal((guide.match(new RegExp('href="' + expectedGithub.installation.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '"', 'g')) ?? []).length, 2);
+    assert.ok(guide.includes('href="' + expectedGithub.sourceInstallation + '"'));
+    assert.ok(guide.includes('href="' + expectedGithub.commandLine + '"'));
+    assert.match(guide, locale === 'en' ? /Complete Illustrated User Manual/ : /完整图文使用手册/);
+    assert.match(guide, locale === 'en' ? /Installation Manual/ : /完整安装手册/);
+    const expectedLocal = guideManualHrefs(locale, 'local', false);
+    assert.equal(expectedLocal.userManual, locale === 'zh-CN' ? '/docs/user-manual.zh-CN/' : '/docs/user-manual/');
+    assert.equal(expectedLocal.installation, locale === 'zh-CN' ? '/docs/installation.zh-CN/' : '/docs/installation/');
+    assert.deepEqual(guideManualHrefs(locale, 'github', true), { ...expectedLocal, external: false });
     assert.ok(!guide.includes('id="retention-guide"'));
     assert.ok(!method.includes('id="usage-purpose"'));
     for (const id of METHOD_ENTRIES.flatMap(entry => entry.ids)) assert.equal((method.match(new RegExp('id="' + id + '"', 'g')) ?? []).length, 1, id);
