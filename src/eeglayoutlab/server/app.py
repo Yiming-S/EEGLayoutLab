@@ -200,7 +200,7 @@ class RawPathRouting:
 
 def _api(config: ServiceConfig, compute: 'ComputeHost') -> FastAPI:
     from .openapi import openapi_text
-    from .routes import community, health, library
+    from .routes import community, data_status, health, library
     from .routes import compute as compute_routes
 
     # The interactive documentation pages load scripts from a CDN, which a local-first service does not do.
@@ -227,6 +227,7 @@ def _api(config: ServiceConfig, compute: 'ComputeHost') -> FastAPI:
         return error_response(500, INTERNAL_MESSAGE)
 
     health.add_routes(app, config, compute)
+    data_status.add_routes(app, config, compute)
     library_routes = library.add_routes(app, config, radius=lambda: compute.radius)
     # The job services read the root and interpreters the library reads, and the editor reads its parents through
     # the library routes' library, as Node's editor and library routes share queue.library.

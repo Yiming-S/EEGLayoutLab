@@ -1,6 +1,7 @@
 'use client';
 /* oxlint-disable next/no-html-link-for-pages */
 import { lazy, Suspense } from 'react';
+import { DataReadinessNotice } from '@/components/data-readiness-notice';
 import { SiteHeader } from '@/components/site-header';
 import { RuntimeMessage } from '@/components/runtime-message';
 import { ShowcaseComputeNotice } from '@/components/showcase-banner';
@@ -121,6 +122,7 @@ export default function ElectrodesPage() {
             {tx('从已有布局创建副本。原区域边界不变，原始64点记录不被覆盖。')}
           </p>
         </header>
+        <DataReadinessNotice scope="electrodes" className="mb-4" />
         <section className="lab-panel mb-4 flex flex-wrap items-end gap-3">
           <div className="min-w-0 flex-1 text-sm font-medium">
             <label id="editor-parent-label">{tx('选择来源布局')}</label>

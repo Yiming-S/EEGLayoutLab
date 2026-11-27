@@ -62,6 +62,7 @@ export type ComputeHealth = {
   token: string;
   supported_masks: string[];
   active_job: ComputeJob | null;
+  maintenance?: boolean;
 };
 
 export function requestKey(request: ComputeRequest) {

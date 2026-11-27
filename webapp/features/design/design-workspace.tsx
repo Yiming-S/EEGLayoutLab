@@ -6,6 +6,7 @@ import { localizedRecordTitle } from "@/lib/i18n/records";
 /* oxlint-disable next/no-html-link-for-pages -- preserve established vinext navigation */
 import { lazy, Suspense, useRef } from 'react';
 import { ChevronDown, SlidersHorizontal } from 'lucide-react';
+import { DataReadinessNotice } from '@/components/data-readiness-notice';
 import { SiteHeader } from '@/components/site-header';
 import { LocalComputePanel } from '@/components/local-compute-panel';
 import { PerformanceSummary, percent } from '@/components/performance-summary';
@@ -51,6 +52,7 @@ export default function DesignWorkspace() {
         </div>
         {state.action && <Button size="sm" variant={state.action === 'new-radius' ? 'default' : 'outline'} onClick={() => { if (state.action === 'new-radius') startRadius(); revealSettings(); }}>{tx(state.actionLabel)}</Button>}
       </header>
+      <DataReadinessNotice scope="design" className="mb-4" />
       {tx(error ? <div role="alert" className="lab-panel text-danger"><RuntimeMessage message={error} />。<a href={'/library?ar=' + ar} className="ml-2 underline">{tx("返回计算记录")}</a></div> : !ready ? <p className="lab-panel">{tx("正在恢复所选方案与AR…")}</p> : <>
         {tx(source && <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-2.5 text-sm"><span className="text-ink-soft">{tx("来源：")}<strong className="font-medium text-foreground">{localizedRecordTitle(source, locale)}</strong></span><a className="lab-link-pill" href={recordLink(source, ar)}>{tx("打开原记录")}</a></div>)}
         {tx(notice && <output className="mb-4 block rounded-lg border border-warning/30 bg-warning-surface/85 p-4 text-sm leading-6">{tx(notice)}</output>)}

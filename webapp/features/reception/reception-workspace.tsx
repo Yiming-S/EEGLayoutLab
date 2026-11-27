@@ -2,6 +2,7 @@
 import { lazy, Suspense } from 'react';
 import { Activity, ChevronDown } from 'lucide-react';
 
+import { DataReadinessNotice } from '@/components/data-readiness-notice';
 import { RuntimeMessage } from '@/components/runtime-message';
 import { localizedRecordTitle } from '@/lib/i18n/records';
 
@@ -87,6 +88,7 @@ export default function ReceptionPage() {
             )}
           </p>
         </header>
+        <DataReadinessNotice scope="reception" />
         <div className="rounded-xl border border-warning/30 bg-warning-surface/75 px-4 py-3 text-xs leading-5 text-warning shadow-2xs">
           {tx(
             '单头模仿真：脑信号通过已有FEM传递矩阵投影；心电、眼电采用假设性空间场。源区由坐标定义，用于表示皮层位置。本页AR用于当前场景的信号重建判定；布局评估采用三项联合判定。',

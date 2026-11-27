@@ -2,6 +2,7 @@
 /* oxlint-disable next/no-html-link-for-pages -- preserve established vinext navigation */
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ArrowUpRight, BookOpen, FlaskConical, FolderKanban, Grid3x3, Import, PencilRuler, Search } from 'lucide-react';
+import { DataReadinessNotice } from '@/components/data-readiness-notice';
 import { useLanguage } from '@/components/language-provider';
 import { RuntimeMessage } from '@/components/runtime-message';
 import { SiteHeader } from '@/components/site-header';
@@ -313,6 +314,7 @@ export default function HomeWorkspace() {
           {start === false && <Button size="sm" variant="outline" onClick={() => showStart(true)}>{tx('新手入门')}</Button>}
         </div>
       </header>
+      <DataReadinessNotice scope="home" />
       {start ? <StartHere ar={ar} example={example} onClose={() => showStart(false)} /> : start === false && <NewLayout ar={ar} />}
       <div className="grid items-start gap-5 lg:grid-cols-2">
         <RecentLayouts records={library} ar={ar} error={error} />

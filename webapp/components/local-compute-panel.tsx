@@ -7,6 +7,7 @@ import { RuntimeMessage } from "@/components/runtime-message";
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Cpu, LoaderCircle, Play, Square, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { refreshDataStatus } from '@/components/data-readiness-notice';
 import { Button } from '@/components/ui/button';
 import { ShowcaseComputeNotice } from '@/components/showcase-banner';
 import { SHOWCASE } from '@/lib/showcase';
@@ -171,7 +172,18 @@ export function LocalComputePanel({ request, arPercent, onResult, onStatus, comp
       </div>
       {!compact && <p className="mt-2 text-sm leading-6 text-ink-soft">
         {tx("先查相同配置的已有记录；没有结果时才优化64个点并保存。复用预计算的电位传递矩阵，直接计算各项指标。")}</p>}
-      {tx(connection === 'checking' ? <p className="mt-3 text-sm text-ink-soft">{tx("正在连接计算服务…")}</p> : connection === 'unavailable' && SHOWCASE ? <ShowcaseComputeNotice className="mt-3" /> : connection === 'unavailable' ? (
+      {tx(connection === 'checking' ? <p className="mt-3 text-sm text-ink-soft">{tx("正在连接计算服务…")}</p> : connection === 'unavailable' && SHOWCASE ? <ShowcaseComputeNotice className="mt-3" /> : connection === 'unavailable' && health?.maintenance ? (
+        <div className="mt-3 space-y-2 rounded-xl border border-warning/30 bg-warning-surface/70 p-3 text-sm leading-6 text-warning">
+          <p>{tx("当前服务以只读缓存模式（--cache-only）启动，已有结果仍可查看；如需提交新计算，请去掉 --cache-only 重新启动。")}</p>
+          <Button size="sm" variant="outline" onClick={() => { attempted.current = ''; setConnection('checking'); void refreshConnection(); }}>{tx("重新连接")}</Button>
+        </div>
+      ) : connection === 'unavailable' && health && !health.available ? (
+        <div className="mt-3 space-y-2.5 rounded-xl border border-warning/30 bg-warning-surface/70 p-3 text-sm leading-6 text-foreground">
+          <p className="text-warning">{tx("尚未安装基础模型数据（base）；已有结果仍可查看。请在终端运行以下命令安装模型数据，完成后点击“重新检查数据”：")}</p>
+          <p><code className="rounded border border-border bg-card px-2 py-1 font-mono text-xs font-medium text-foreground select-all">eeglayoutlab data install</code></p>
+          <Button size="sm" variant="outline" onClick={() => { refreshDataStatus(); attempted.current = ''; setConnection('checking'); void refreshConnection(); }}>{tx("重新检查数据")}</Button>
+        </div>
+      ) : connection === 'unavailable' ? (
         <div className="mt-3 space-y-2 rounded-xl border border-warning/30 bg-warning-surface/70 p-3 text-sm leading-6 text-warning">
           <p>{tx("计算服务暂不可用，请稍后重试；已有结果仍可查看。")}</p>
           <Button size="sm" variant="outline" onClick={() => { attempted.current = ''; setConnection('checking'); void refreshConnection(); }}>{tx("重新连接")}</Button>

@@ -958,6 +958,10 @@ disposition = "N"
 disposition = "N"
 note = "replaces the shared-library visibility test (R4, removed with record-visibility-control.tsx)"
 
+[sites."check-i18n.mjs::missing model data notices and runtime install hints render bilingually with eeglayoutlab data install commands"]
+disposition = "N"
+note = "local web onboarding banners and runtime hints for missing base or scalp-node-table model data"
+
 # --- check-key-parity.mjs ---------------------------------------------------------------------------------------------
 
 [sites."check-key-parity.mjs::a lookup that misses on both hosts compares no key"]

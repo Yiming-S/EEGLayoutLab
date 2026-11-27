@@ -1914,5 +1914,93 @@
   "community_empty_workspace": {
     "source": "此工作区暂无计算任务",
     "en": "No computation tasks in this workspace"
+  },
+  "data_notice_missing_base_title": {
+    "source": "尚未安装基础模型数据（base）",
+    "en": "Base model data (base) is not installed yet"
+  },
+  "data_notice_missing_both_body": {
+    "source": "当前可正常浏览已发表结论与已有记录；运行新的区域搜索、坐标评价、电极编辑或信号仿真前，请在终端安装默认模型数据包（base + scalp-node-table，约 1.80 GB）：",
+    "en": "Published findings and existing records remain readable. Before running new regional searches, coordinate evaluations, electrode edits or signal simulations, install the default model data packages (base + scalp-node-table, about 1.80 GB) in your terminal:"
+  },
+  "data_notice_missing_base_only_body": {
+    "source": "当前缺少基础模型数据包（base，约 0.41 GB）；请在终端运行以下命令补齐并校验数据后再提交新计算：",
+    "en": "The base model data package (base, about 0.41 GB) is missing; run the command below in your terminal to download and verify it before submitting new computations:"
+  },
+  "data_notice_quickstart_lead": {
+    "source": "也可运行一键启动命令自动下载校验数据并打开网页：",
+    "en": "Or run the one-command launcher to install missing data automatically and open the app:"
+  },
+  "data_notice_setup_local_lead": {
+    "source": "源码环境也可运行一键初始化脚本：",
+    "en": "In a source checkout, you can also run the one-step setup script:"
+  },
+  "data_notice_missing_table_title": {
+    "source": "尚未安装头皮节点表（scalp-node-table）",
+    "en": "Nominal scalp-node table (scalp-node-table) is not installed yet"
+  },
+  "data_notice_missing_table_home_body": {
+    "source": "基础模型数据（base）已就绪，可直接运行按区域搜索、电极编辑与默认信号仿真。若需导入并评价自定义电极坐标或运行稳健性研究，请在终端安装头皮节点表（约 1.40 GB）：",
+    "en": "Base model data (base) is ready for regional search, electrode editing and default signal simulation. To import and evaluate custom electrode coordinates or run robustness studies, install the scalp-node table (about 1.40 GB) in your terminal:"
+  },
+  "data_notice_missing_table_blocking_body": {
+    "source": "当前环境已安装基础数据（base），但未安装 SimNIBS 有限元求解器；评价导入的外部电极坐标、拟合数据先验或运行稳健性研究需要先安装预计算头皮节点表（约 1.40 GB）：",
+    "en": "Base model data (base) is installed, and SimNIBS FEM is not installed in this environment; evaluating imported electrode coordinates, fitting data priors or running robustness studies requires the precomputed scalp-node table (about 1.40 GB):"
+  },
+  "data_notice_optional_table_title": {
+    "source": "可选数据包：头皮节点表（scalp-node-table）尚未安装",
+    "en": "Optional data package: scalp-node-table is not installed"
+  },
+  "data_notice_optional_table_body": {
+    "source": "当前可通过本机 SimNIBS 直接求解新坐标的有限元场（单次最多约10分钟）；安装预计算头皮节点表（约 1.40 GB）可将坐标评价加速至数秒，并解锁重戴稳健性与电导率情景检查：",
+    "en": "New coordinates can currently be solved directly with local SimNIBS FEM (up to 10 minutes per run); installing the precomputed scalp-node table (about 1.40 GB) speeds up coordinate evaluation to seconds and enables re-application robustness and conductivity scenario checks:"
+  },
+  "data_notice_copy": {
+    "source": "复制命令",
+    "en": "Copy command"
+  },
+  "data_notice_copied": {
+    "source": "已复制",
+    "en": "Copied"
+  },
+  "data_notice_recheck": {
+    "source": "重新检查数据",
+    "en": "Check data again"
+  },
+  "data_notice_rechecking": {
+    "source": "正在重新检查…",
+    "en": "Checking again…"
+  },
+  "data_notice_no_restart": {
+    "source": "安装完成后无需重启服务，点击“重新检查数据”即可立即使用。",
+    "en": "No server restart is needed after installation; click “Check data again” to continue immediately."
+  },
+  "local_compute_missing_base": {
+    "source": "尚未安装基础模型数据（base）；已有结果仍可查看。请在终端运行以下命令安装模型数据，完成后点击“重新检查数据”：",
+    "en": "Base model data (base) is not installed yet; saved results remain readable. Run the command below in your terminal, then click “Check data again”:"
+  },
+  "local_compute_cache_only": {
+    "source": "当前服务以只读缓存模式（--cache-only）启动，已有结果仍可查看；如需提交新计算，请去掉 --cache-only 重新启动。",
+    "en": "The service is running in read-only cache mode (--cache-only); saved results remain readable. Restart without --cache-only to run new computations."
+  },
+  "runtime_install_hint_prefix": {
+    "source": "安装指引：请在终端运行",
+    "en": "Setup tip: run"
+  },
+  "runtime_install_hint_table_suffix": {
+    "source": "安装头皮节点表后重试。",
+    "en": "in your terminal to install the scalp-node table, then try again."
+  },
+  "runtime_install_hint_base_suffix": {
+    "source": "安装基础模型数据后重试。",
+    "en": "in your terminal to install the base model data, then try again."
+  },
+  "runtime_install_hint_heads_suffix": {
+    "source": "安装跨头模示例数据包（或指定 head-<编号>）后重试。",
+    "en": "in your terminal to install the cross-head example packages (or a specific head-<id>), then try again."
+  },
+  "runtime_install_hint_generic_suffix": {
+    "source": "安装所需数据包后重试。",
+    "en": "in your terminal to install the required data packages, then try again."
   }
 }

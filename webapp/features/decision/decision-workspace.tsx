@@ -2,6 +2,7 @@
 
 /* oxlint-disable next/no-html-link-for-pages -- preserve established vinext navigation */
 import { Download } from 'lucide-react';
+import { DataReadinessNotice } from '@/components/data-readiness-notice';
 import { RuntimeMessage } from '@/components/runtime-message';
 import { SiteHeader } from '@/components/site-header';
 import { Button } from '@/components/ui/button';
@@ -139,6 +140,7 @@ export default function DecisionPage({
             </Button>
           )}
         </header>
+        <DataReadinessNotice scope={mode} />
         {tx(
           error && (
             <p

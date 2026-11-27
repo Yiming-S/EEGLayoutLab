@@ -1,6 +1,7 @@
 "use client";
 /* oxlint-disable next/no-html-link-for-pages -- preserve established local navigation */
 import { useEffect, useState } from "react";
+import { DataReadinessNotice } from "@/components/data-readiness-notice";
 import { Button } from "@/components/ui/button";
 import { SiteHeader } from "@/components/site-header";
 import { RuntimeMessage } from "@/components/runtime-message";
@@ -112,6 +113,7 @@ export default function RobustnessWorkspace() {
             )}
           </p>
         </header>
+        <DataReadinessNotice scope="robustness" />
         <section
           className="lab-panel space-y-3.5"
           aria-label={tx("此工作区的稳健性研究")}

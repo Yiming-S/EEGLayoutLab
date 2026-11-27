@@ -605,3 +605,59 @@ void test('the library names the workspace scope of its signal records in both l
   for (const note of notes) assert.doesNotMatch(translateText(note.slice(1, -1), 'en'), /[㐀-鿿]/, note);
   assert.equal(fs.existsSync(path.join(root, 'components/record-visibility-control.tsx')), false);
 });
+
+void test('missing model data notices and runtime install hints render bilingually with eeglayoutlab data install commands', () => {
+  const { DataReadinessBanner, dataInstallCommandForError } = loadUI('components/data-readiness-notice.tsx');
+  const { RuntimeMessage } = loadUI('components/runtime-message.tsx');
+  const baseStatus = {
+    schema: 'eeglayoutlab-data-status/1',
+    installed_form: true,
+    cache_only: false,
+    base_ready: false,
+    base_present: 0,
+    base_total: 21,
+    scalp_node_table_ready: false,
+    direct_fem_available: false,
+    coordinate_evaluation_ready: false,
+    heads: [],
+    scenarios: [],
+  };
+  const tableMissingNoFem = { ...baseStatus, base_ready: true, base_present: 21 };
+  const tableMissingWithFem = { ...tableMissingNoFem, installed_form: false, direct_fem_available: true, coordinate_evaluation_ready: true };
+  const allReady = { ...tableMissingNoFem, scalp_node_table_ready: true, coordinate_evaluation_ready: true };
+
+  assert.equal(render(DataReadinessBanner, { status: allReady, scope: 'home' }, 'zh-CN'), '');
+  assert.equal(render(DataReadinessBanner, { status: { ...baseStatus, cache_only: true }, scope: 'home' }, 'zh-CN'), '');
+
+  for (const locale of ['zh-CN', 'en']) {
+    const missingBaseHome = render(DataReadinessBanner, { status: baseStatus, scope: 'home', onRefresh() {} }, locale);
+    assert.match(missingBaseHome, /eeglayoutlab data install/);
+    assert.match(missingBaseHome, /eeglayoutlab quickstart/);
+
+    const missingBaseCheckout = render(DataReadinessBanner, { status: { ...baseStatus, installed_form: false }, scope: 'design', onRefresh() {} }, locale);
+    assert.match(missingBaseCheckout, /eeglayoutlab data install/);
+    assert.match(missingBaseCheckout, /python3 scripts\/setup_local\.py/);
+
+    const missingTableCoords = render(DataReadinessBanner, { status: tableMissingNoFem, scope: 'coordinates', onRefresh() {} }, locale);
+    assert.match(missingTableCoords, /eeglayoutlab data install scalp-node-table/);
+
+    const missingTableHome = render(DataReadinessBanner, { status: tableMissingNoFem, scope: 'home', onRefresh() {} }, locale);
+    assert.match(missingTableHome, /eeglayoutlab data install scalp-node-table/);
+
+    const optionalTableCoords = render(DataReadinessBanner, { status: tableMissingWithFem, scope: 'coordinates', onRefresh() {} }, locale);
+    assert.match(optionalTableCoords, /eeglayoutlab data install scalp-node-table/);
+
+    const runtimeTableErr = render(RuntimeMessage, { message: '电导率情景评价需要名义头皮节点表，用于核对同一电极采样。', status: 'failed' }, locale);
+    assert.match(runtimeTableErr, /eeglayoutlab data install scalp-node-table/);
+
+    const runtimeHeadErr = render(RuntimeMessage, { message: '头模 ixi012 的头皮节点表尚未预计算。', status: 'failed' }, locale);
+    assert.match(runtimeHeadErr, /eeglayoutlab data install head-ixi012/);
+
+    if (locale === 'en') {
+      for (const html of [missingBaseHome, missingBaseCheckout, missingTableCoords, missingTableHome, optionalTableCoords, runtimeTableErr, runtimeHeadErr]) {
+        assert.doesNotMatch(visibleText(html), /[\u3400-\u9fff]/);
+      }
+    }
+  }
+  assert.equal(dataInstallCommandForError("ModuleNotFoundError: No module named 'simnibs'")?.command, 'eeglayoutlab data install scalp-node-table');
+});
