@@ -1,9 +1,9 @@
 name: Documentation
 
-# Builds the documentation site (mkdocs.yml) in strict mode on every push and pull request and keeps
-# it as a workflow artifact. Nothing is deployed here: pages.yml publishes the site under /docs/ of
-# the website, beside the showcase. Versioned documentation for tags (mike) is planned in
-# CONTRIBUTING.md, "Building the documentation".
+# Builds the documentation site (mkdocs.yml) in strict mode on every push and pull request, verifies
+# local mike versioned deployment into a throwaway branch (without pushing), and uploads the built
+# site as a workflow artifact. Release tags publish versions via release.yml into docs-versions, and
+# pages.yml assembles them under /docs/ beside the showcase.
 
 on:
   push:
@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   site:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -28,14 +28,20 @@ jobs:
           python-version: '3.11'
           cache: pip
           cache-dependency-path: docs/requirements.txt
-      - name: Install the pinned site generator
+      - name: Install the pinned site generator and mike
         run: python -m pip install -r docs/requirements.txt
-      - name: Build the site in strict mode
+      - name: Build the site in strict mode and verify throwaway mike deploy
         env:
           # Links to repository files point to the commit that was built.
           DOCS_SOURCE_REF: ${{ github.event.pull_request.head.sha || github.sha }}
           NO_MKDOCS_2_WARNING: '1'
-        run: mkdocs build --strict
+        run: |
+          mkdocs build --strict
+          git config user.name "ci-docs-check"
+          git config user.email "ci-docs-check@localhost"
+          mike deploy --update-aliases --deploy-prefix docs --branch docs-versions-ci dev latest
+          mike set-default --deploy-prefix docs --branch docs-versions-ci latest
+          git show docs-versions-ci:docs/versions.json
       - uses: actions/upload-artifact@v4
         with:
           name: documentation-site

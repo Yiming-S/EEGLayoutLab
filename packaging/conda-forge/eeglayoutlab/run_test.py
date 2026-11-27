@@ -58,6 +58,12 @@ for required_pkg in ('cortech', 'nibabel', 'numba', 'numpy', 'scipy', 'llvmlite'
         f'missing metadata row for {required_pkg} in {rows}'
     )
 
+# Slice 18: off macOS (Linux conda-forge / rattler-build runner), verify runtime_identity works alongside env rows.
+if sys.platform != 'darwin':
+    from eeglayoutlab.jobs.fingerprint import runtime_identity  # noqa: E402
+    fp = runtime_identity(expected_py)
+    assert isinstance(fp, dict) and fp.get('python') and fp.get('numpy') and fp.get('scipy'), fp
+
 # The workers put R/src first on sys.path and find R from their own location.
 probe = (
     'import sys, pathlib; sys.path.insert(0, sys.argv[1]); '

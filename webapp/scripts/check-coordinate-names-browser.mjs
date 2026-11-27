@@ -25,7 +25,7 @@ const child = relative(artifactRoot, output);
 assert.ok(isAbsolute(output) && child && child !== '..' && !child.startsWith('../') && !isAbsolute(child));
 const executablePath = process.env.EEG_BROWSER_EXECUTABLE || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 assert.ok(isAbsolute(executablePath)); await access(executablePath);
-const baseline = JSON.parse(await readFile(join(root, 'artifacts/productization/2026-11-13/scientific-baseline/design-request.json'), 'utf8'));
+const baseline = JSON.parse(await readFile(process.env.EEG_GOLDEN_REQUEST || join(root, 'artifacts/productization/2026-11-13/scientific-baseline/design-request.json'), 'utf8'));
 assert.equal(baseline.action, 'evaluate'); assert.equal(baseline.radius_mm, 6); assert.equal(baseline.seed, 42);
 assert.equal(baseline.design.name, 'Native FEM integration fixture'); assert.equal(baseline.design.xyz_mm.length, 64);
 await mkdir(output, { recursive: true, mode: 0o700 });

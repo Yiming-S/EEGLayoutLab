@@ -109,11 +109,50 @@ def test_conda_recipe_yaml_and_run_test_pass_in_installed_prefix(tmp_path: Path)
     assert 'layout, default root, interpreter, environment rows, data verify and CLI verified' in res.stdout
 
 
-def test_github_workflows_parse_cleanly_and_cover_fast_data_and_package_tiers() -> None:
+def test_conda_run_test_asserts_runtime_fingerprint_off_darwin(tmp_path: Path) -> None:
+    """Slice 18: off macOS (e.g. Linux), installed D identities carry both identity['runtime'] and environment: rows."""
+    from unittest.mock import patch
+
+    from eeglayoutlab.jobs.identity import design_context
+    from eeglayoutlab.jobs.integrity import InputIntegrity
+    from eeglayoutlab.jobs.runtime import installed_environment, runtime_config
+    from service.test_installed_identity import REQUEST, _seed_scientific_pointers
+
+    prefix = fake_prefix(
+        tmp_path / 'P_linux',
+        public=(
+            'webapp/public/models/ernie/source-roi.json',
+            'webapp/public/data/ernie-mni-mapping.json',
+        ),
+    )
+    _seed_scientific_pointers(prefix.root, tmp_path)
+    pkg = str(prefix.site / 'eeglayoutlab/jobs/runtime.py')
+    where = {'prefix': str(prefix.path), 'package_file': pkg}
+    env_base = installed_environment(str(prefix.root), **where)
+    assert env_base is not None
+    cfg = runtime_config(str(prefix.root), env={}, **where)
+    fake_linux_fp = {
+        'machine': 'x86_64',
+        'numpy': '2.3.0',
+        'python': '3.11.14',
+        'scipy': '1.17.1',
+        'system': 'Linux',
+    }
+    with patch('eeglayoutlab.jobs.identity.runtime_identity', return_value=fake_linux_fp):
+        ctx = design_context(cfg.repository_root, cfg.native_python, InputIntegrity(cfg.repository_root, env_base),
+                             REQUEST, **where)
+    assert ctx.identity.get('runtime') == fake_linux_fp
+    env_rows = [key for key in ctx.identity['digests'] if key.startswith('environment:')]
+    assert 'environment:bin/python' in env_rows
+    for required_pkg in ('cortech', 'nibabel', 'numba', 'numpy', 'scipy', 'llvmlite'):
+        assert any(required_pkg in row for row in env_rows), required_pkg
+
+
+def test_github_workflows_and_release_readiness_parse_cleanly() -> None:
     import yaml  # type: ignore[import-untyped]
 
     workflows_dir = ROOT / '.github/workflows'
-    expected = {'checks.yml', 'docs.yml', 'pages.yml', 'data.yml', 'package.yml'}
+    expected = {'checks.yml', 'docs.yml', 'pages.yml', 'data.yml', 'package.yml', 'browser.yml', 'release.yml'}
     present = {p.name for p in workflows_dir.glob('*.yml')}
     assert expected <= present, f'missing workflows: {expected - present}'
 
@@ -132,4 +171,17 @@ def test_github_workflows_parse_cleanly_and_cover_fast_data_and_package_tiers() 
     assert {'seed-cache', 'data'} == set(data_wf['jobs'])
     pkg_wf = yaml.safe_load((workflows_dir / 'package.yml').read_text(encoding='utf-8'))
     assert {'build-packages', 'verify-installed'} == set(pkg_wf['jobs'])
+    browser_wf = yaml.safe_load((workflows_dir / 'browser.yml').read_text(encoding='utf-8'))
+    assert {'browser'} == set(browser_wf['jobs'])
+    release_wf = yaml.safe_load((workflows_dir / 'release.yml').read_text(encoding='utf-8'))
+    assert {'conda-packages', 'web-bundles', 'versioned-docs', 'draft-release'} == set(release_wf['jobs'])
+
+    res = subprocess.run(
+        [sys.executable, str(ROOT / 'scripts/prepare_release_v021.py'), '--check'],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert '[ OK ]' in res.stdout
 

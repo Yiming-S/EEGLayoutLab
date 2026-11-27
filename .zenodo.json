@@ -1,0 +1,24 @@
+{
+  "title": "EEG Layout Lab: Local-First Design and Evaluation of Compact Multi-Region EEG Electrode Layouts",
+  "upload_type": "software",
+  "version": "0.2.0",
+  "license": "GPL-3.0-only",
+  "description": "Local-first scientific application and command-line toolkit for designing, evaluating, and comparing compact multi-region EEG electrode layouts on finite-element head models.",
+  "creators": [
+    {
+      "name": "Shen, Yiming"
+    },
+    {
+      "name": "Wang, Yi"
+    }
+  ],
+  "keywords": [
+    "EEG",
+    "electrode layout",
+    "source localization",
+    "finite element head model",
+    "wearable neurotechnology",
+    "reproducible research"
+  ],
+  "access_right": "open"
+}

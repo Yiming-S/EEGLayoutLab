@@ -1,6 +1,6 @@
 # 0001, phase 3 — distribution, in slices
 
-- **Status:** accepted on 2026-11-25 with every recommended default (decisions U8 to U28); slices 1 to 15 done; slice 16 next.
+- **Status:** accepted on 2026-11-25 with every recommended default (decisions U8 to U28); slices 1 to 17 done on macOS and slice 18 assertions wired (first Linux CI runs await push).
 - **Date:** 2026-11-25
 - **Design:** [0001 — Local-first application with a Python service](0001-local-first-architecture.md), migration table, phase 3; [0002 — The scientific root of an installed application](0002-installed-scientific-root.md); decision U5 of the [phase 2 plan](0001-phase-2-plan.md#decisions)
 
@@ -342,7 +342,7 @@ Result: done on macOS, 2026-11-26. `webapp/scripts/build-showcase-data.mjs` sign
 - **Downloads:** none locally (Chrome is installed); the runner's preinstalled Chrome in CI.
 - **Size:** large. It needs slice 10's data source.
 
-Result: not started.
+Result: done on macOS, 2026-11-26. `webapp/scripts/build-browser-fixtures.mjs` computes and exports (`fixtures.env`) the cached records for a composed root (`AL,AR` 35 mm search, 63-electrode edit, golden 64-point evaluation, the 8 robustness cases, v1 signal simulation, and optional v2 signal simulation + older delivery unless `--skip-v2`); `check-coordinate-names-browser.mjs`, `check-coordinate-review-browser.mjs` and the delivery/association helpers accept `EEG_GOLDEN_REQUEST` and `EEG_OLDER_DELIVERY`; `check-workflows-browser.mjs` adds `--cache-only` (`EEG_BROWSER_CACHE_ONLY=1`) so its 7 non-v2 checks run cleanly against `eeglayoutlab serve --cache-only`; `.github/workflows/browser.yml` wires fixture precomputation, `--cache-only` service startup, real Chrome (`EEG_BROWSER_EXECUTABLE` with SwiftShader WebGL) and `EEG_QA_OUTPUT` artifact upload on `ubuntu-24.04` and `macos-15`, documented in `CONTRIBUTING.md`. Needs Linux: first CI run after seeding the data cache (U26).
 
 ### Slice 17 — release workflow and versioned documentation
 
@@ -356,7 +356,7 @@ Result: not started.
 - **Downloads (asked first):** mike and its pinned dependencies from PyPI, well under 1 MB (estimate).
 - **Size:** medium.
 
-Result: not started.
+Result: done on macOS, 2026-11-26. `.github/workflows/release.yml` builds `cortech` (`linux-64`, `osx-arm64`) and `noarch: python` `eeglayoutlab`, archives `webapp/dist/client` and `webapp/showcase-dist` with SHA-256 checksums and `THIRD_PARTY_WEB_LICENSES.txt`, deploys `X.Y` (`latest`) via `mike` into `docs-versions` under the `docs/` prefix, and stages a draft GitHub Release on `v*` tags; `pages.yml` adds interface typecheck/lint, `pages: read` on `build` and overlays `origin/docs-versions` beside `dev` from `main` (falling back cleanly before the first tag); `docs.yml` verifies strict MkDocs builds and throwaway local `mike deploy`; `docs/requirements.txt` pins `mike==2.1.3` and pure-Python dependencies, `mkdocs.yml` configures `extra.version.provider: mike`, and root `CITATION.cff`, `.zenodo.json` and `SECURITY.md` (allowlisted in `.gitignore`) are added and verified in `tests/cli/test_third_party_licenses_and_recipe.py`. Needs Linux: tag/dry-run CI execution.
 
 ### Slice 18 — Linux verification (needs Linux)
 
@@ -369,7 +369,7 @@ Every "needs Linux" step of slices 1 to 17 in one run, on a CI runner after the 
 - **Downloads:** runner packages and data packages, listed with sizes at that time.
 - **Size:** medium.
 
-Result: not started.
+Result: prepared on macOS, 2026-11-26; awaiting user push for the first Linux CI run. `packaging/conda-forge/eeglayoutlab/run_test.py` now asserts on non-macOS (`sys.platform != 'darwin'`) that `runtime_identity` succeeds alongside numerical-closure `environment:` rows, and `tests/cli/test_third_party_licenses_and_recipe.py` verifies that installed D identities carry both `identity['runtime']` and `environment:` rows simultaneously; `checks.yml`, `data.yml`, `package.yml`, `browser.yml` and `release.yml` cover the full Linux fast, parity, data, fresh-conda-install (`examples run`) and browser tiers once pushed.
 
 ## Public steps: a checklist for the user
 

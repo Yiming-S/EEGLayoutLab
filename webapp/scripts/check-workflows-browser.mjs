@@ -19,6 +19,9 @@ const output = process.env.EEG_QA_OUTPUT || join(project, 'artifacts/web-refacto
 assert.ok(isAbsolute(output) && relative(project, output).startsWith('artifacts/'), 'QA output must be an absolute project artifacts directory.');
 await mkdir(output, { recursive: true });
 const observations = [], diagnostics = { pageErrors: [], consoleErrors: [], httpFailures: [], requestFailures: [] }, requests = [];
+const cliArgs = process.argv.slice(2);
+assert.ok(cliArgs.every(arg => arg === '--cache-only'), 'Unknown browser QA argument.');
+const cacheOnly = cliArgs.includes('--cache-only') || process.env.EEG_BROWSER_CACHE_ONLY === '1';
 const ownedJobs = [];
 let expectedOffline = false, browser, page, context, failure;
 const t = (source, locale = 'en') => translateText(source, locale);
@@ -177,6 +180,7 @@ try {
     await page.getByText(t('当前启用 63 点 · 2 个有电极区域 / 2 个原区域'), { exact: true }).waitFor();
     const job = await terminal('/api/electrode-editor', await submit(button('评价并另存此布局'), '/api/electrode-editor'));
     assert.equal(job.status, 'completed'); assert.equal(job.result.electrode_count, 63);
+    if (cacheOnly) assert.equal(job.cached, true);
     assert.equal(job.result.request.slots[0].enabled, false);
     await page.locator('#records').getByText(regex(t('信号重建保留率'))).first().waitFor();
     assert.doesNotMatch(await page.locator('#records').innerText(), /场Reconstruction/);
@@ -200,6 +204,7 @@ try {
     return { a: area.id, b: otherArea.id };
   });
 
+  if (!cacheOnly) {
   await check('Signal simulation uses the selected source/layout and supports playback, channels and original JSON download', async () => {
     const before = submitCount();
     await go(`/reception?record=${radius.id}&sourceMode=single_source&source=2&seed=2026&ar=46`);
@@ -246,6 +251,7 @@ try {
     assert.equal(stopped.status, 'cancelled'); assert.equal(stopped.result, null);
     return { id: job.id, statusAtSubmission: job.status, terminal: stopped.status, usesMockResponses: false };
   });
+  }
 
   await check('No unexpected page, console or asset/API HTTP errors', async () => {
     assert.deepEqual(diagnostics.pageErrors, []);

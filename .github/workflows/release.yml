@@ -1,0 +1,209 @@
+name: Release
+
+# Phase 3, slice 17 (design 0001, decision 11; decisions U26, U27 and U28):
+# Triggered by a version tag (`v*`) or manually (`workflow_dispatch` dry run):
+# 1. Builds `cortech` (`linux-64` and `osx-arm64`) and `eeglayoutlab` (`noarch: python`) conda packages
+#    with rattler-build and verifies fresh-environment installation and `run_test.py`.
+# 2. Builds the static client interface (`webapp/dist/client`) and read-only showcase (`webapp/showcase-dist`)
+#    tarballs, bundled web license manifest (`THIRD_PARTY_WEB_LICENSES.txt`), and `SHA256SUMS.txt`.
+# 3. On `v*` tags, deploys versioned documentation (`X.Y` aliased to `latest`) into the `docs/` prefix
+#    of the `docs-versions` storage branch with `mike`, which `pages.yml` overlays onto the site.
+# 4. On `v*` tags, creates a **draft** GitHub Release holding all built release assets and checksums;
+#    nothing is published publicly until the maintainer reviews and publishes the draft.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version_label:
+        description: 'Version label for dry-run archive naming (e.g. v0.2.1)'
+        required: false
+        type: string
+        default: 'v0.2.1-dryrun'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PYTHONDONTWRITEBYTECODE: '1'
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+
+jobs:
+  conda-packages:
+    name: Build & verify conda packages (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            subdir: linux-64
+            build_noarch: true
+          - os: macos-15
+            subdir: osx-arm64
+            build_noarch: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up micromamba and rattler-build
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          micromamba-version: '2.0.5-0'
+          environment-name: builder
+          create-args: >-
+            -c conda-forge
+            rattler-build=0.35.5
+          init-shell: bash
+          cache-downloads: true
+      - name: Build cortech (${{ matrix.subdir }}, Python 3.11)
+        shell: bash -el {0}
+        run: |
+          rattler-build build \
+            --recipe packaging/conda-forge/cortech/recipe.yaml \
+            -c conda-forge \
+            --variant-config <(printf 'python:\n  - "3.11.* *_cpython"\n') \
+            --output-dir "$RUNNER_TEMP/channel"
+      - name: "Build eeglayoutlab (noarch: python)"
+        if: matrix.build_noarch
+        shell: bash -el {0}
+        run: |
+          rattler-build build \
+            --recipe packaging/conda-forge/eeglayoutlab/recipe.yaml \
+            -c "$RUNNER_TEMP/channel" -c conda-forge \
+            --output-dir "$RUNNER_TEMP/channel"
+      - name: Upload built conda packages (${{ matrix.subdir }})
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-conda-${{ matrix.subdir }}
+          path: ${{ runner.temp }}/channel/
+          if-no-files-found: error
+          retention-days: 14
+
+  web-bundles:
+    name: Build web client & showcase bundles
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.3'
+          cache: npm
+          cache-dependency-path: webapp/package-lock.json
+      - name: Install dependencies and verify interface checks
+        working-directory: webapp
+        run: |
+          npm ci
+          npm run typecheck
+          npm run lint
+          node --test scripts/check-showcase.mjs scripts/check-i18n.mjs
+      - name: Build client interface, showcase, and third-party web license notice
+        run: |
+          TAG_LABEL="${GITHUB_REF_NAME}"
+          if [[ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]]; then
+            TAG_LABEL="${{ inputs.version_label }}"
+          fi
+          OUT_DIR="$RUNNER_TEMP/web-release"
+          mkdir -p "$OUT_DIR"
+          (cd webapp && npm run build)
+          node webapp/scripts/third-party-licenses.mjs --out "$OUT_DIR/THIRD_PARTY_WEB_LICENSES.txt"
+          tar -C webapp/dist -czf "$OUT_DIR/eeglayoutlab-webapp-client-${TAG_LABEL}.tar.gz" client
+          (cd webapp && npm run build:showcase)
+          tar -C webapp -czf "$OUT_DIR/eeglayoutlab-showcase-${TAG_LABEL}.tar.gz" showcase-dist
+          (
+            cd "$OUT_DIR"
+            shasum -a 256 eeglayoutlab-webapp-client-"${TAG_LABEL}".tar.gz > eeglayoutlab-webapp-client-"${TAG_LABEL}".tar.gz.sha256
+            shasum -a 256 eeglayoutlab-showcase-"${TAG_LABEL}".tar.gz > eeglayoutlab-showcase-"${TAG_LABEL}".tar.gz.sha256
+          )
+      - name: Upload web release archives
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-web-bundles
+          path: ${{ runner.temp }}/web-release/
+          if-no-files-found: error
+          retention-days: 14
+
+  versioned-docs:
+    name: Deploy versioned documentation (mike)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: docs/requirements.txt
+      - name: Install MkDocs and mike
+        run: python -m pip install -r docs/requirements.txt
+      - name: Validate strict MkDocs build and deploy mike version
+        env:
+          DOCS_SOURCE_REF: ${{ github.ref_name }}
+          NO_MKDOCS_2_WARNING: '1'
+        run: |
+          mkdocs build --strict
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            RAW_VER="${GITHUB_REF_NAME#v}"
+            DOC_VER="$(echo "$RAW_VER" | cut -d. -f1,2)"
+            git fetch origin docs-versions:docs-versions 2>/dev/null || true
+            mike deploy --update-aliases --deploy-prefix docs --branch docs-versions --push "$DOC_VER" latest
+            mike set-default --deploy-prefix docs --branch docs-versions --push latest
+          else
+            # Dry-run into a local branch without pushing on workflow_dispatch.
+            mike deploy --update-aliases --deploy-prefix docs --branch docs-versions-dryrun "0.2" latest
+            mike set-default --deploy-prefix docs --branch docs-versions-dryrun latest
+          fi
+
+  draft-release:
+    name: Assemble assets & create draft GitHub Release
+    needs: [conda-packages, web-bundles, versioned-docs]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download built release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/downloaded
+      - name: Stage release assets and generate SHA256SUMS.txt
+        run: |
+          STAGE="$RUNNER_TEMP/release-assets"
+          mkdir -p "$STAGE"
+          find "$RUNNER_TEMP/downloaded" -type f \( -name '*.conda' -o -name '*.tar.bz2' -o -name '*.tar.gz' -o -name '*.sha256' -o -name 'THIRD_PARTY_WEB_LICENSES.txt' \) -exec cp {} "$STAGE/" \;
+          cp THIRD_PARTY_NOTICES.md CITATION.cff "$STAGE/"
+          (
+            cd "$STAGE"
+            shasum -a 256 * > SHA256SUMS.txt
+          )
+          ls -lh "$STAGE"
+      - name: Create or update draft GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          STAGE="$RUNNER_TEMP/release-assets"
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" "$STAGE"/* --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" "$STAGE"/* \
+              --draft \
+              --verify-tag \
+              --title "EEG Layout Lab ${GITHUB_REF_NAME}" \
+              --generate-notes
+          fi

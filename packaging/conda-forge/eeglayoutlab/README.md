@@ -57,9 +57,9 @@ All code items required by [design 0002](../../../docs/design/0002-installed-sci
 ## Verification history (macOS arm64)
 
 - **2026-11-23 (initial recipe build):** Built `eeglayoutlab-0.2.0` (`62 MB`) with `rattler-build 0.81.0`, resolved 90 packages (`2.3 GB`, Python 3.11.18, `libopenblas 0.3.34`), composed `base`, `scalp-node-table` and all 11 rebuilt heads (zero home-directory paths), and matched all 24 scores of `expected.json`.
-- **2026-11-26 (post-0002 & Phase 3 Slices 2–9, 11–13 rehearsal):** Verified `third-party-licenses.mjs` (49 bundled client npm packages, zero copyleft/CC-BY packages), `recipe.yaml` YAML schema, `run_test.py` on an installed-layout prefix without `--root` or `EEG_COMPUTE_PYTHON` (verifying `default_repository_root()`, `<realpath(P)>/bin/python`, numerical-closure `environment:` rows, fixture `data install`/`verify`, and `design`/`export`), and end-to-end `data install --from` + `eeglayoutlab examples run` across all 3 examples (all 24 scores matching `expected.json` within `1e-6`, and run/study/SVG/montage outputs matching the Node runner byte-for-byte with worker timings masked).
+- **2026-11-26 (post-0002 & Phase 3 Slices 2–18 preparation):** Verified `third-party-licenses.mjs` (55 bundled client npm packages, zero copyleft/CC-BY packages), `recipe.yaml` YAML schema, `run_test.py` on an installed-layout prefix without `--root` or `EEG_COMPUTE_PYTHON` (verifying `default_repository_root()`, `<realpath(P)>/bin/python`, numerical-closure `environment:` rows, non-macOS `runtime_identity` co-presence assertion for Linux `Slice 18`, fixture `data install`/`verify`, and `design`/`export`), and end-to-end `data install --from` + `eeglayoutlab examples run` across all 3 examples (all 24 scores matching `expected.json` within `1e-6`, and run/study/SVG/montage outputs matching the Node runner byte-for-byte with worker timings masked).
 
 **Remaining before conda-forge submission:**
 - `cortech` submitted and merged on `conda-forge/staged-recipes` first (`U22`).
 - Public repository switch (`U28`), release tarball URL + SHA-256 in `source`, and Zenodo data release (`U18`, `U20`).
-- Linux verification on CI runners (`Slice 10` & `Slice 18`).
+- First GitHub Actions Linux run of `checks.yml`, `data.yml`, `package.yml`, `browser.yml` and `release.yml` after pushing (`Slice 10` & `Slice 18`).

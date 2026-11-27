@@ -14,10 +14,10 @@ const digest = bytes => createHash('sha256').update(bytes).digest('hex');
  * prepared in a workspace project, which needs no credential.
  */
 export async function runLocalDeliveryChecks({ root, output, base, check, newContext, read, button, screenshot, requests, keepSecret, setPage }) {
-  const oldPath = join(root, 'artifacts/productization/2026-11-13/stage4-browser/owner-research-delivery.json');
+  const oldPath = process.env.EEG_OLDER_DELIVERY || join(root, 'artifacts/productization/2026-11-13/stage4-browser/owner-research-delivery.json');
   const oldBytes = await readFile(oldPath), oldBundle = JSON.parse(oldBytes.toString('utf8'));
   const sourceFixture = JSON.parse(await readFile(process.env.EEG_SIGNAL_FIXTURE || join(root, 'artifacts/performance-optimizations/2026-11-13/bank-signal-result.json'), 'utf8'));
-  const golden = JSON.parse(await readFile(join(root, 'artifacts/productization/2026-11-13/scientific-baseline/design-request.json'), 'utf8'));
+  const golden = JSON.parse(await readFile(process.env.EEG_GOLDEN_REQUEST || join(root, 'artifacts/productization/2026-11-13/scientific-baseline/design-request.json'), 'utf8'));
   const setup = await newContext('en');
   const editorKey = process.env.EEG_EDITOR_RECORD_KEY || '18fa179ed208203da9ae07f013a4e81c69f635889a4ee1436f0fc12409fadc06';
   const otherId = process.env.EEG_SECOND_LAYOUT_ID || '1c23da5c1dae629610c0f2a39fe7b48d8c0fba86d41c1c77276f2b90a937b0f4';

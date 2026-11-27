@@ -1,0 +1,208 @@
+name: Browser tier
+
+# Phase 3, slice 16 (design 0001, decision 11; decisions U25 and U26):
+# 1. Restores the verified default data packages (base + scalp-node-table) from actions/cache
+#    and composes them into the clean checkout.
+# 2. Starts a writable eeglayoutlab serve instance on a temporary fixture workspace and runs
+#    webapp/scripts/build-browser-fixtures.mjs (--skip-v2 on table-only CI runners) to compute
+#    and cache the AL,AR 35 mm layout, its 63-electrode edit, the golden 64-point coordinate
+#    evaluation, the 8 robustness study cases, and a v1 signal simulation.
+# 3. Stops the fixture service, starts eeglayoutlab serve --cache-only on a clean QA workspace,
+#    and runs the key real-Chrome Playwright workflows (including SwiftShader WebGL head viewer)
+#    with EEG_SERVICE_RUNTIME and EEG_BROWSER_EXECUTABLE, uploading EEG_QA_OUTPUT artifacts.
+
+on:
+  schedule:
+    - cron: '47 4 * * *'
+  workflow_dispatch:
+    inputs:
+      run_macos:
+        description: 'Also run the browser suite on macos-15 arm64'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: browser-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PYTHONDONTWRITEBYTECODE: '1'
+  OMP_NUM_THREADS: '1'
+  OPENBLAS_NUM_THREADS: '1'
+  MKL_NUM_THREADS: '1'
+
+jobs:
+  browser:
+    name: Browser tier (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+        exclude:
+          # While private, scheduled runs execute on Linux only unless run_macos is requested (U25).
+          - os: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.run_macos != true)) && 'macos-15' || 'none' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Confirm checkout starts clean
+        run: test ! -e results && test ! -e data/external && test ! -e .runtime
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.3'
+          cache: npm
+          cache-dependency-path: webapp/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Compute default-set cache key from data/packages.json
+        id: key
+        run: |
+          KEY=$(python - <<'PY'
+          import hashlib, json, pathlib
+          index = json.loads(pathlib.Path('data/packages.json').read_text('utf-8'))
+          by_name = {item['name']: item for item in index['packages']}
+          parts = [f"{name}:{by_name[name]['manifest_sha256']}" for name in ('base', 'scalp-node-table')]
+          print('eeglayoutlab-default-data-v1-' + hashlib.sha256('\n'.join(parts).encode()).hexdigest()[:24])
+          PY
+          )
+          echo "cache_key=${KEY}" >> "$GITHUB_OUTPUT"
+      - name: Restore verified default data store
+        id: data-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/data-store
+          key: ${{ steps.key.outputs.cache_key }}
+      - name: Require seeded data cache
+        if: steps.data-cache.outputs.cache-hit != 'true'
+        run: |
+          echo "Default data cache (${{ steps.key.outputs.cache_key }}) was not found." >&2
+          echo "Run workflow_dispatch on data.yml with seed_cache=true and release_tag=<tag> first." >&2
+          exit 1
+      - name: Set up micromamba
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          micromamba-version: '2.0.5-0'
+          init-shell: bash
+          cache-downloads: true
+      - name: Bootstrap Linux table runtime (ubuntu-24.04)
+        if: matrix.os == 'ubuntu-24.04'
+        run: |
+          python scripts/bootstrap_runtime.py --execute --conda "$MAMBA_EXE"
+          .runtime/compute-linux-64/bin/python scripts/check_environment.py --native
+      - name: Build cortech and create pinned macOS table environment (macos-15)
+        if: matrix.os == 'macos-15'
+        run: |
+          micromamba create -y -p "$RUNNER_TEMP/rattler-env" -c conda-forge rattler-build=0.35.5
+          "$RUNNER_TEMP/rattler-env/bin/rattler-build" build \
+            --recipe packaging/conda-forge/cortech/recipe.yaml \
+            -c conda-forge \
+            --variant-config <(printf 'python:\n  - "3.11.* *_cpython"\n') \
+            --output-dir "$RUNNER_TEMP/local-channel"
+          micromamba create -y -p "$RUNNER_TEMP/compute-macos-arm64" \
+            -c "$RUNNER_TEMP/local-channel" -c conda-forge \
+            python=3.11.14 numpy=2.3.0 scipy=1.17.1 numba=0.64.0 llvmlite=0.46.0 \
+            nibabel=5.3.3 threadpoolctl=3.6.0 cortech=0.1
+      - name: Build web interface and install Python service
+        run: |
+          (cd webapp && npm ci && npm run build)
+          python -m pip install -e '.[dev,service]'
+      - name: Verify and compose default data packages into checkout
+        env:
+          EEGLAYOUTLAB_DATA_DIR: ${{ runner.temp }}/data-store
+        run: |
+          eeglayoutlab data verify base scalp-node-table
+          eeglayoutlab data compose base scalp-node-table --root "$GITHUB_WORKSPACE"
+      - name: Resolve runner Chrome executable
+        id: chrome
+        uses: browser-actions/setup-chrome@v1
+      - name: Precompute browser fixtures on writable service
+        run: |
+          if [ "${{ matrix.os }}" = "macos-15" ]; then
+            export EEG_COMPUTE_PYTHON="$RUNNER_TEMP/compute-macos-arm64/bin/python"
+          fi
+          WS_PREP="$RUNNER_TEMP/fixture-workspace"
+          FIX_OUT="$GITHUB_WORKSPACE/artifacts/browser-fixtures"
+          mkdir -p "$WS_PREP" "$FIX_OUT"
+          eeglayoutlab serve "$WS_PREP" --root "$GITHUB_WORKSPACE" --no-browser &
+          SERVE_PID=$!
+          trap 'kill "$SERVE_PID" 2>/dev/null || true; wait "$SERVE_PID" 2>/dev/null || true' EXIT
+          for _ in $(seq 1 60); do
+            [ -s "$WS_PREP/.eeglayoutlab/runtime.json" ] && break
+            sleep 0.5
+          done
+          test -s "$WS_PREP/.eeglayoutlab/runtime.json"
+          (
+            cd webapp
+            EEG_REPOSITORY_ROOT="$GITHUB_WORKSPACE" \
+            EEG_SERVICE_RUNTIME="$WS_PREP/.eeglayoutlab/runtime.json" \
+              node scripts/build-browser-fixtures.mjs --out-dir "$FIX_OUT" --skip-v2
+          )
+          kill "$SERVE_PID"
+          wait "$SERVE_PID" || true
+          trap - EXIT
+      - name: Run Chrome workflows against eeglayoutlab serve --cache-only
+        env:
+          EEG_BROWSER_EXECUTABLE: ${{ steps.chrome.outputs.chrome-path }}
+          EEG_REPOSITORY_ROOT: ${{ github.workspace }}
+        run: |
+          if [ "${{ matrix.os }}" = "macos-15" ]; then
+            export EEG_COMPUTE_PYTHON="$RUNNER_TEMP/compute-macos-arm64/bin/python"
+          fi
+          WS_QA="$RUNNER_TEMP/qa-workspace"
+          mkdir -p "$WS_QA"
+          # shellcheck disable=SC1091
+          source "$GITHUB_WORKSPACE/artifacts/browser-fixtures/fixtures.env"
+          eeglayoutlab serve "$WS_QA" --root "$GITHUB_WORKSPACE" --cache-only --no-browser &
+          SERVE_PID=$!
+          trap 'kill "$SERVE_PID" 2>/dev/null || true; wait "$SERVE_PID" 2>/dev/null || true' EXIT
+          for _ in $(seq 1 60); do
+            [ -s "$WS_QA/.eeglayoutlab/runtime.json" ] && break
+            sleep 0.5
+          done
+          test -s "$WS_QA/.eeglayoutlab/runtime.json"
+          export EEG_SERVICE_RUNTIME="$WS_QA/.eeglayoutlab/runtime.json"
+          cd webapp
+          EEG_QA_OUTPUT="$GITHUB_WORKSPACE/artifacts/browser-qa/head-viewer" \
+            node scripts/check-head-viewer.mjs
+          EEG_QA_OUTPUT="$GITHUB_WORKSPACE/artifacts/productization/2026-11-25/workspace-projects-browser" \
+            node scripts/check-workspace-projects-browser.mjs
+          EEG_QA_OUTPUT="$GITHUB_WORKSPACE/artifacts/research-workflow/2026-11-14/stage1-names-browser" \
+            node scripts/check-coordinate-names-browser.mjs
+          EEG_QA_OUTPUT="$GITHUB_WORKSPACE/artifacts/research-workflow/2026-11-14/stage2-coordinate-review-browser" \
+            node scripts/check-coordinate-review-browser.mjs
+          EEG_QA_OUTPUT="$GITHUB_WORKSPACE/artifacts/research-workflow/2026-11-14/stage5-browser" \
+            node scripts/check-robustness-browser.mjs
+          EEG_QA_OUTPUT="$GITHUB_WORKSPACE/artifacts/research-workflow/2026-11-14/stage1-browser" \
+            node scripts/check-research-workflow-browser.mjs
+          if [ -n "${EEG_SIGNAL_FIXTURE:-}" ]; then
+            EEG_QA_OUTPUT="$GITHUB_WORKSPACE/artifacts/research-workflow/2026-11-14/stage2-browser" \
+              node scripts/check-research-workflow-browser.mjs --stage2
+            EEG_QA_OUTPUT="$GITHUB_WORKSPACE/artifacts/research-workflow/2026-11-14/stage3-browser" \
+              node scripts/check-research-workflow-browser.mjs --stage3
+            EEG_QA_OUTPUT="$GITHUB_WORKSPACE/artifacts/productization/2026-11-13/stage3-browser" \
+              node scripts/check-project-workflow-browser.mjs --with-delivery
+          fi
+          EEG_QA_OUTPUT="$GITHUB_WORKSPACE/artifacts/web-refactor/2026-11-13/workflows-browser" \
+            node scripts/check-workflows-browser.mjs --cache-only
+          kill "$SERVE_PID"
+          wait "$SERVE_PID" || true
+          trap - EXIT
+      - name: Upload browser QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-qa-${{ matrix.os }}
+          path: |
+            artifacts/browser-qa/
+            artifacts/productization/
+            artifacts/research-workflow/
+            artifacts/web-refactor/
+          if-no-files-found: warn
+          retention-days: 14

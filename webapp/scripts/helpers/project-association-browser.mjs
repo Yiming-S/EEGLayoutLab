@@ -13,7 +13,7 @@ import { assertCacheOnly } from './service-session.mjs';
  */
 export async function runProjectAssociationChecks({ root, base, check, newContext, read, button, screenshot, requests, keepSecret, setPage }) {
   const fixture = JSON.parse(await readFile(process.env.EEG_SIGNAL_FIXTURE || join(root, 'artifacts/performance-optimizations/2026-11-13/bank-signal-result.json'), 'utf8'));
-  const golden = JSON.parse(await readFile(join(root, 'artifacts/productization/2026-11-13/scientific-baseline/design-request.json'), 'utf8'));
+  const golden = JSON.parse(await readFile(process.env.EEG_GOLDEN_REQUEST || join(root, 'artifacts/productization/2026-11-13/scientific-baseline/design-request.json'), 'utf8'));
   const english = await newContext('en'), { context, state } = english;
   let page = await context.newPage(); setPage(page);
   let project, signalReceipt, aliases, referenceEntry, candidateEntry, aliasEntries, signalEntry;

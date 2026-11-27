@@ -16,6 +16,7 @@ exclude_docs: |
   /__pycache__/
   /mkdocs_hooks.py
   /requirements.txt
+  /release-v0.2.1-checklist.md
 hooks:
   - docs/mkdocs_hooks.py
 watch:
@@ -126,3 +127,9 @@ markdown_extensions:
   - pymdownx.highlight
   - pymdownx.superfences
   - pymdownx.magiclink
+
+extra:
+  version:
+    provider: mike
+    default: latest
+

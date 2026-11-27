@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+title: "EEG Layout Lab: Local-First Design and Evaluation of Compact Multi-Region EEG Electrode Layouts"
+message: "If you use EEG Layout Lab or its evaluation protocols in academic work, please cite this software."
+type: software
+authors:
+  - family-names: Shen
+    given-names: Yiming
+  - family-names: Wang
+    given-names: Yi
+version: 0.2.0
+date-released: "2026-11-26"
+license: GPL-3.0-only
+keywords:
+  - EEG
+  - electrode layout optimization
+  - finite element head model
+  - source localization
+  - wearable BCI
+  - neuroengineering
+abstract: >-
+  EEG Layout Lab designs, evaluates, and compares compact multi-region EEG electrode
+  layouts (8 to 64 channels) against a standard 64-electrode whole-head reference on
+  realistic finite-element head models, quantifying field reconstruction retention,
+  lower-tail bipolar sensitivity retention, and source localization utility.

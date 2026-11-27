@@ -20,10 +20,15 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
+    permissions:
+      contents: read
+      pages: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Require a custom domain
         env:
           SHOWCASE_CNAME: ${{ vars.SHOWCASE_CNAME }}
@@ -34,15 +39,18 @@ jobs:
           fi
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24.22.3'
           cache: npm
           cache-dependency-path: webapp/package-lock.json
       - name: Install locked web dependencies
         working-directory: webapp
         run: npm ci
-      - name: Check the showcase tooling
+      - name: Check interface types, lint and showcase tooling
         working-directory: webapp
-        run: node --test scripts/check-showcase.mjs
+        run: |
+          npm run typecheck
+          npm run lint
+          node --test scripts/check-showcase.mjs scripts/check-i18n.mjs
       - name: Build the showcase
         working-directory: webapp
         run: npm run build:showcase
@@ -59,7 +67,14 @@ jobs:
           DOCS_SOURCE_REF: ${{ github.sha }}
           DOCS_SITE_URL: https://${{ vars.SHOWCASE_CNAME }}/docs/
           NO_MKDOCS_2_WARNING: '1'
-        run: mkdocs build --strict --site-dir webapp/showcase-dist/docs
+        run: |
+          if git show-ref --verify --quiet refs/remotes/origin/docs-versions; then
+            mkdir -p webapp/showcase-dist/docs
+            git archive origin/docs-versions docs | tar -x -C webapp/showcase-dist
+            mkdocs build --strict --site-dir webapp/showcase-dist/docs/dev
+          else
+            mkdocs build --strict --site-dir webapp/showcase-dist/docs
+          fi
       - name: Write the custom domain
         env:
           SHOWCASE_CNAME: ${{ vars.SHOWCASE_CNAME }}

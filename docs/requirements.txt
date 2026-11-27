@@ -1,5 +1,5 @@
-# Documentation site generator (mkdocs.yml); not a runtime dependency.
-# MkDocs 1.6 with Material for MkDocs 9.8, every package pinned. Python 3.11 or newer.
+# Documentation site generator (mkdocs.yml) and versioned deployment (mike); not a runtime dependency.
+# MkDocs 1.6 with Material for MkDocs 9.8 and mike 2.1, every package pinned. Python 3.11 or newer.
 # Install: python -m pip install -r docs/requirements.txt
 babel==2.18.0
 backrefs==8.3.1
@@ -9,10 +9,13 @@ click==8.5.1
 colorama==0.4.6
 ghp-import==2.1.0
 idna==3.20
+importlib_metadata==8.7.0
+importlib_resources==6.5.2
 Jinja2==3.1.6
 Markdown==3.11.3
 MarkupSafe==3.0.4
 mergedeep==1.3.4
+mike==2.1.3
 mkdocs==1.6.1
 mkdocs-get-deps==0.2.2
 mkdocs-material==9.8.2
@@ -23,10 +26,13 @@ pathspec==1.1.1
 platformdirs==4.14.8
 Pygments==2.21.0
 pymdown-extensions==13.1.2
+pyparsing==3.2.3
 python-dateutil==4.0.0
 PyYAML==6.0.4
 pyyaml_env_tag==1.1
 requests==2.34.2
 tzdata==2026.6
 urllib3==2.8.0
+verspec==0.1.0
 watchdog==7.1.1
+zipp==3.23.0
