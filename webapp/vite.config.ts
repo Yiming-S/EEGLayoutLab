@@ -69,6 +69,19 @@ export default defineConfig(async ({ command }) => {
   const nodePlugins = serving && NODE_API ? [(await import('./server/host/development.mjs')).localComputePlugin()] : [];
   return {
     css: { postcss: { plugins: [tailwindcss()] } },
+    build: {
+      chunkSizeWarningLimit: 700,
+      rolldownOptions: {
+        output: {
+          codeSplitting: {
+            groups: [
+              { name: 'three-vendor', test: /[\\/]node_modules[\\/]three[\\/]/, priority: 20 },
+              { name: 'charts-vendor', test: /[\\/]node_modules[\\/](?:recharts|d3-|victory-vendor)[\\/]/, priority: 15 },
+            ],
+          },
+        },
+      },
+    },
     server: {
       host: '127.0.0.1',
       watch: process.env.EEG_WATCH_POLLING === '1'

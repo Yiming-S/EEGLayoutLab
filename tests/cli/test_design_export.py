@@ -134,6 +134,68 @@ def test_the_command_line_rejects_incomplete_commands_before_starting_a_calculat
         assert p_err.splitlines()[0] == n_res.stderr.splitlines()[0], (args, p_err, n_res.stderr)
 
 
+def test_export_supports_sparse_and_adaptive_search_runs_across_all_formats(tmp_path: Path, capsys) -> None:
+    """Verifies U15: variable-K (8–64) and adaptive-quota radius-search runs export to BIDS, MNI, MNE, EEGLAB and SVG."""
+    golden = load_mapping()['golden']['standard64']
+    xyz24 = [list(pt) for pt in golden['xyz_mm'][:24]]
+    adaptive_run = tmp_path / 'sparse24.result.json'
+    adaptive_run.write_text(
+        jsjson.stringify({
+            'schema': 'eeglayoutlab-cli-run/1',
+            'service': 'radius-search',
+            'request': {
+                'region_count': 2,
+                'radius_mm': 30,
+                'mode': 'preset',
+                'mask_codes': ['AL', 'AR'],
+                'electrode_count': 24,
+                'allocation_mode': 'adaptive',
+            },
+            'result': {
+                'status': 'completed',
+                'layout': {
+                    'xyzMm': xyz24,
+                    'regionIndices': [0] * 8 + [1] * 16,
+                },
+            },
+        }),
+        encoding='utf-8',
+    )
+
+    out_dir = tmp_path / 'exported-24'
+    for fmt in ('bids', 'mni', 'mne', 'eeglab', 'svg'):
+        code, _, err = run_python_cli_inproc(
+            ['export', str(adaptive_run), '--format', fmt, '--out-dir', str(out_dir)], capsys
+        )
+        assert code == 0, (fmt, err)
+
+    tsv_lines = (out_dir / 'electrodes.tsv').read_text(encoding='utf-8').strip().splitlines()
+    assert len(tsv_lines) == 25 and tsv_lines[1].startswith('E1\t')
+    mni_lines = (out_dir / 'space-MNI152NLin6Asym_electrodes.tsv').read_text(encoding='utf-8').strip().splitlines()
+    assert len(mni_lines) == 25
+    elc_text = (out_dir / 'electrodes.elc').read_text(encoding='utf-8')
+    assert 'NumberPositions=\t27\n' in elc_text
+    sfp_lines = (out_dir / 'electrodes.sfp').read_text(encoding='utf-8').strip().splitlines()
+    assert len(sfp_lines) == 27
+    svg_text = (out_dir / 'layout.svg').read_text(encoding='utf-8')
+    assert '24 electrodes · 2 regions · Ernie template head' in svg_text
+    assert 'Region 1 (8)' in svg_text and 'Region 2 (16)' in svg_text
+
+    # Malformed 23-electrode or unbalanced non-adaptive search runs are still strictly rejected
+    bad_run = tmp_path / 'bad23.result.json'
+    bad_run.write_text(
+        jsjson.stringify({
+            'schema': 'eeglayoutlab-cli-run/1',
+            'service': 'radius-search',
+            'request': {'region_count': 2, 'radius_mm': 30, 'mode': 'whole_surface'},
+            'result': {'status': 'completed', 'layout': {'xyzMm': xyz24[:23], 'regionIndices': [0] * 11 + [1] * 12}},
+        }),
+        encoding='utf-8',
+    )
+    code, _, _ = run_python_cli_inproc(['export', str(bad_run), '--format', 'svg', '--out-dir', str(out_dir)], capsys)
+    assert code == 2
+
+
 @needs_node
 def test_coordinate_parsers_registration_mni_and_csv_match_node_byte_for_byte(tmp_path: Path) -> None:
     surface = verified_surface()

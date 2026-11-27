@@ -1,4 +1,4 @@
-"""Worker-running scientific CLI commands: ``evaluate``, ``search`` and ``study`` (phase 3 slice 6; U8, U10, U11).
+"""Worker-running scientific CLI commands: ``evaluate``, ``search`` and ``study`` (phase 3 slice 6; U8, U10, U11, U15).
 
 Follows ``webapp/scripts/eeglayoutlab.mjs`` statement by statement while using ``jobs.runtime.runtime_config``'s
 service interpreter rule (U8): ``search`` runs and fingerprints ``config.python`` (``--python``, else
@@ -33,7 +33,8 @@ from .science import RUN_SCHEMA, read_json, stem, write_json
 
 __all__ = [
     'STUDY_SCHEMA', 'CliEnvironment', 'build_environment', 'run_worker_sync',
-    'with_data_prior', 'request_from_options', 'evaluate_one', 'search_one', 'run_study', 'execute',
+    'with_data_prior', 'request_from_options', 'search_request_from_options',
+    'evaluate_one', 'search_one', 'run_study', 'execute',
 ]
 
 STUDY_SCHEMA = 'eeglayoutlab-cli-study/1'
@@ -211,6 +212,38 @@ def request_from_options(options: dict[str, str]) -> dict[str, Any]:
         if js_truthy(source_metadata):
             envelope['source_metadata'] = source_metadata
         return envelope
+    return request
+
+
+def search_request_from_options(options: dict[str, str]) -> dict[str, Any]:
+    """Builds a canonical ``radius-search`` request from inline CLI flags (U15)."""
+    missing = [flag for flag in ('regions', 'radius', 'mode') if flag not in options]
+    if missing:
+        flags = ', '.join(f'--{flag}' for flag in missing)
+        raise ValueError(f'inline search needs {flags}')
+    noise_name = options.get('noise')
+    if noise_name is not None and noise_name not in _NOISE_PRESETS:
+        raise ValueError(f'unknown --noise {noise_name}')
+    noise_val = _NOISE_PRESETS.get(noise_name) if noise_name is not None else None
+    request: dict[str, Any] = {
+        'region_count': jsmath.js_number(options['regions']),
+        'radius_mm': jsmath.js_number(options['radius']),
+        'mode': options['mode'],
+    }
+    if 'masks' in options:
+        request['mask_codes'] = [trimmed for item in options['masks'].split(',') if (trimmed := jsjson.js_trim(item))]
+    if 'electrodes' in options:
+        request['electrode_count'] = jsmath.js_number(options['electrodes'])
+    if 'allocation' in options:
+        request['allocation_mode'] = options['allocation']
+    if 'objective' in options:
+        obj_aliases = {
+            'min_field_sensitivity20': 'default',
+            'subspace_info_composite': 'composite',
+        }
+        request['objective_mode'] = obj_aliases.get(options['objective'], options['objective'])
+    if noise_val:
+        request['noise_model'] = noise_val
     return request
 
 
@@ -470,11 +503,12 @@ def execute(
         return 0 if completed == len(record['cases']) else 1
 
     prior = data_prior_from_file(read_json(options['data-prior'])) if options.get('data-prior') else None
-    raw_jobs = (
-        [('request', request_from_options(options))]
-        if command == 'evaluate' and options.get('design')
-        else [(stem(path), read_json(path)) for path in files]
-    )
+    if command == 'evaluate' and options.get('design'):
+        raw_jobs = [('request', request_from_options(options))]
+    elif command == 'search' and not files:
+        raw_jobs = [('search', search_request_from_options(options))]
+    else:
+        raw_jobs = [(stem(path), read_json(path)) for path in files]
     jobs = [(name, with_data_prior(raw, prior)) for name, raw in raw_jobs]
     failed = 0
     for name, raw in jobs:

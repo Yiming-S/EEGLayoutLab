@@ -183,7 +183,7 @@ eeglayoutlab prior ./summaries --out ./empirical-prior.json
 
 ### 第二步 B：筛选最优 `K` 导通道子集（`分析 → 通道子集` 或 `channels`）
 
-在浏览器打开**分析 → 通道子集（`/channels`）**直接拖入 `.summary.json` 文件（全程在浏览器本地内存计算），或在命令行指定独立测试集并直接导出误差对比曲线 SVG：
+在浏览器打开**分析 → 通道子集（`/channels`）**直接拖入 `.summary.json` 文件（亦可直接点击**载入示例协方差摘要**一键体验内置 32 导 10-05 合成数据，全程在浏览器本地内存计算），或在命令行指定独立测试集并直接导出误差对比曲线 SVG：
 
 ```sh
 eeglayoutlab channels ./train-summaries \
@@ -218,9 +218,9 @@ eeglayoutlab channels ./train-summaries \
 | `doctor` | 检查环境与数据健康度（加 `--smoke` 跑真实计算校验） | `eeglayoutlab doctor --smoke` |
 | `serve` | 启动本地网页服务（支持 `--no-browser`、`--cache-only`） | `eeglayoutlab serve ~/my-workspace --no-browser` |
 | `data` | 管理模型数据包（`list`、`install`、`verify`、`compose`、`remove`） | `eeglayoutlab data install scalp-node-table` |
-| `design` | 将 10-05、BIDS（原生/MNI/实测地标）、`.elc`、`.sfp`、CSV 或搜索结果转为 `DESIGN.json` | `eeglayoutlab design cap64.elc --regions 4 --out cap64.json` |
-| `export` | 将 `DESIGN.json` 导出为 `bids`、`mni`、`mne`（`.elc`）、`eeglab`（`.sfp`）或二维 `svg` | `eeglayoutlab export cap64.json --format svg --out-dir figs/` |
-| `search` | 批量运行区域半径搜索请求并输出 `<名称>.result.json` | `eeglayoutlab search ear_35mm.json --out-dir runs/` |
+| `design` | 将 10-05、BIDS（原生/MNI/实测地标）、`.elc`、`.sfp`、CSV 或 64 导均分搜索结果转为 `DESIGN.json` | `eeglayoutlab design cap64.elc --regions 4 --out cap64.json` |
+| `export` | 将 `DESIGN.json` 或任意 `8–64` 导搜索 `.result.json` 导出为 `bids`、`mni`、`mne`（`.elc`）、`eeglab`（`.sfp`）或二维 `svg` | `eeglayoutlab export search.result.json --format svg --out-dir figs/` |
+| `search` | 通过请求 JSON 或内联 `--regions`/`--radius`/`--mode` 参数运行区域半径搜索 | `eeglayoutlab search --regions 2 --radius 30 --mode preset --masks AL,AR --electrodes 24 --out-dir runs/` |
 | `evaluate` | 评估或扰动测试 `DESIGN.json` / 请求 JSON | `eeglayoutlab evaluate --design cap64.json --radius 6 --seed 42 --out-dir runs/` |
 | `study` | 批量运行 `noise_seeds`、`grid_displacements` 或 `heads` 稳健性研究 | `eeglayoutlab study cross_head_study.json --out-dir study_out/` |
 | `pareto` | 对同条件下的多个 `.result.json` 计算多目标 Pareto 等级并打印 TSV 表 | `eeglayoutlab pareto runs/*.result.json --out pareto.json` |

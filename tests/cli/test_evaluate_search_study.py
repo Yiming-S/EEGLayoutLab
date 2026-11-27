@@ -226,6 +226,43 @@ def test_search_byte_parity_and_off_darwin_runtime_member(
         run_rec = cli_run.search_one(env, {'region_count': 2, 'radius_mm': 30, 'mode': 'whole_surface'})
     assert run_rec['identity']['runtime'] == fake_runtime
 
+    # Inline CLI flags for search (--regions, --radius, --mode, --masks, --electrodes, --allocation, --objective)
+    inline_out = tmp_path / 'inline-search'
+    code, _, err = run_python_cli_inproc(
+        [
+            'search',
+            '--regions', '2',
+            '--radius', '30',
+            '--mode', 'preset',
+            '--masks', 'AL,AR',
+            '--electrodes', '24',
+            '--allocation', 'adaptive',
+            '--objective', 'subspace_info_composite',
+            '--noise', 'spatial_20',
+            '--root', root,
+            '--python', str(fake_py),
+            '--out-dir', str(inline_out),
+        ],
+        capsys,
+    )
+    assert code == 0, err
+    inline_res = jsjson.parse((inline_out / 'search.result.json').read_text(encoding='utf-8'))
+    assert inline_res['request']['electrode_count'] == 24
+    assert inline_res['request']['allocation_mode'] == 'adaptive'
+    assert inline_res['request']['objective_mode'] == 'composite'
+    assert inline_res['request']['mask_codes'] == ['AL', 'AR']
+    assert len(inline_res['result']['layout']['xyzMm']) == 24
+
+    # Mixing request files with inline flags or omitting required inline flags fails cleanly with code 2
+    mix_code, _, mix_err = run_python_cli_inproc(
+        ['search', str(req1), '--regions', '2', '--out-dir', str(inline_out)], capsys
+    )
+    assert mix_code == 2 and 'not both' in mix_err
+    miss_code, _, miss_err = run_python_cli_inproc(
+        ['search', '--regions', '2', '--out-dir', str(inline_out)], capsys
+    )
+    assert miss_code == 2 and 'inline search needs' in miss_err
+
 
 @needs_node
 def test_study_byte_parity_across_noise_seeds_displacements_heads_and_partial_failure(

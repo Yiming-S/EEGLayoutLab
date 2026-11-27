@@ -2,7 +2,7 @@
 import { lazy, Suspense } from 'react';
 import { Activity, ChevronDown } from 'lucide-react';
 
-import { DataReadinessNotice } from '@/components/data-readiness-notice';
+import { DataReadinessNotice, ReceptionDirectFemNotice } from '@/components/data-readiness-notice';
 import { RuntimeMessage } from '@/components/runtime-message';
 import { localizedRecordTitle } from '@/lib/i18n/records';
 
@@ -190,6 +190,12 @@ export default function ReceptionPage() {
                   : '在所选DK图谱研究区内选择6个固定生成源。节律/间歇波形和四组干扰对照保持不变；新分区结果使用独立缓存。',
               )}
             </p>
+            <ReceptionDirectFemNotice
+              mode={mode}
+              hasCachedResult={Boolean(result)}
+              onSwitchToMultiSource={() => setMode('multi_source')}
+              className="mt-3"
+            />
             {mode === 'cross_region' && <fieldset className="mt-3.5 rounded-xl border border-border/70 bg-muted/30 p-3.5">
               <legend className="px-1 text-xs font-semibold text-foreground">{tx('选择发出信号的区域')} · <span className="font-mono text-primary tabular-nums">{crossRegions.length}/6</span></legend>
               <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">

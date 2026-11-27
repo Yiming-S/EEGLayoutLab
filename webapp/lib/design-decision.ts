@@ -3,7 +3,7 @@ import { translateText, type Locale } from './i18n/core.ts';
 import { localizedRecordTitle } from './i18n/records.ts';
 import { parseAR } from './lab-workflow.ts';
 import { validateCoordinateSource } from '../contracts/coordinate-source.mjs';
-import { CONDUCTIVITY_SCENARIOS, NOISE_MODEL_PRESETS, normalizeDataPrior } from '../contracts/scientific-options.mjs';
+import { CONDUCTIVITY_SCENARIOS, ELECTRODE_COUNTS, NOISE_MODEL_PRESETS, normalizeDataPrior } from '../contracts/scientific-options.mjs';
 import type { CoordinateSourceMetadata } from '../contracts/coordinate-source';
 import type { RobustnessBlock } from './design-robustness.ts';
 import type { DataPrior } from './local-compute';
@@ -292,6 +292,33 @@ export function exportRecordCoordinates(record: SavedRecord | null | undefined):
     region_indices: layout.regionIndices,
     ...(names && names.length === total ? { electrode_names: [...names] } : {}),
   };
+}
+
+/** Validate a completed saved layout (8–64 channels, balanced or adaptive quota) for CSV and 2D figure export. */
+export function exportValidRecordCoordinates(record: SavedRecord | null | undefined): RecordCoordinates | null {
+  if (!record || record.status !== 'completed' || !record.layout) return null;
+  const coords = exportRecordCoordinates(record);
+  if (!coords) return null;
+  const total = coords.xyz_mm.length;
+  if (!(ELECTRODE_COUNTS as readonly number[]).includes(total)) return null;
+  const r = new Set(coords.region_indices).size;
+  if (r !== record.region_count) return null;
+  const counts = Array.from({ length: r }, (_, i) => coords.region_indices.filter((n) => n === i).length);
+  if (record.request?.allocation_mode === 'adaptive') {
+    if (r < 2 || counts.some((n) => n < 4)) return null;
+  } else {
+    if (total < 2 * r) return null;
+    const sorted = [...counts].sort((a, b) => b - a);
+    if (sorted.some((n, i) => n !== Math.floor(total / r) + Number(i < total % r))) return null;
+  }
+  if (
+    coords.electrode_names !== undefined &&
+    (new Set(coords.electrode_names).size !== total ||
+      coords.electrode_names.some((n) => typeof n !== 'string' || !n.trim() || n.length > 128 || hasNameControl(n)))
+  ) {
+    return null;
+  }
+  return coords;
 }
 
 export function designCSV(design: Pick<ElectrodeDesign, 'xyz_mm' | 'region_indices' | 'electrode_names'>) {

@@ -33,6 +33,9 @@ eeglayoutlab = "eeglayoutlab.cli.main:main"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src", "scripts"]
+filterwarnings = [
+  "ignore:Using `httpx` with `starlette.testclient` is deprecated.*:UserWarning",
+]
 markers = [
   "data_bundle: requires the separately restored scientific data bundle",
   "native_runtime: requires the separately installed native scientific runtime",

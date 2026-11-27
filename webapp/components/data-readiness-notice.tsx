@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Check, Copy, Database, RefreshCw } from 'lucide-react';
+import { Check, Copy, Database, Info, RefreshCw } from 'lucide-react';
 import { apiJson } from '@/client/task-client';
 import { useLanguage } from '@/components/language-provider';
 import { Button } from '@/components/ui/button';
@@ -209,6 +209,90 @@ export function resolveDataNotice(
   }
 
   return null;
+}
+
+export function shouldShowReceptionDirectFemNotice(
+  status: DataStatus | null,
+  mode: 'multi_source' | 'cross_region' | 'single_source',
+  hasCachedResult: boolean,
+): boolean {
+  return Boolean(
+    status &&
+      !status.cache_only &&
+      status.base_ready &&
+      !status.direct_fem_available &&
+      mode !== 'multi_source' &&
+      !hasCachedResult,
+  );
+}
+
+export function ReceptionDirectFemNoticeBanner({
+  status,
+  mode,
+  hasCachedResult,
+  onSwitchToMultiSource,
+  className,
+}: {
+  status: DataStatus | null;
+  mode: 'multi_source' | 'cross_region' | 'single_source';
+  hasCachedResult: boolean;
+  onSwitchToMultiSource?: () => void;
+  className?: string;
+}) {
+  const { tx } = useLanguage();
+  if (!shouldShowReceptionDirectFemNotice(status, mode, hasCachedResult)) return null;
+  return (
+    <output
+      aria-live="polite"
+      className={cn(
+        'block rounded-xl border border-primary/25 bg-primary/[0.045] px-3.5 py-3 text-xs leading-5 text-foreground',
+        className,
+      )}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2.5">
+        <div className="min-w-0 flex-1 space-y-1">
+          <p className="flex items-center gap-1.5 font-semibold text-foreground">
+            <Info aria-hidden className="size-3.5 shrink-0 text-primary" />
+            <span>{tx('当前运行环境未配置 SimNIBS 皮层法向求解器')}</span>
+          </p>
+          <p className="text-ink-soft">
+            {tx(
+              '已保存的跨区域多源与单源结果可直接读取回放，“区域内6源”模式也可直接运行新仿真；计算未缓存的新皮层法向源场景（v2）需在已安装 SimNIBS 的 macOS Apple Silicon 源码环境中执行。',
+            )}
+          </p>
+        </div>
+        {onSwitchToMultiSource && (
+          <Button type="button" size="sm" variant="outline" onClick={onSwitchToMultiSource} className="shrink-0">
+            {tx('切换到区域内6源模式')}
+          </Button>
+        )}
+      </div>
+    </output>
+  );
+}
+
+export function ReceptionDirectFemNotice({
+  mode,
+  hasCachedResult,
+  onSwitchToMultiSource,
+  className,
+}: {
+  mode: 'multi_source' | 'cross_region' | 'single_source';
+  hasCachedResult: boolean;
+  onSwitchToMultiSource?: () => void;
+  className?: string;
+}) {
+  const { status } = useDataStatus();
+  if (SHOWCASE) return null;
+  return (
+    <ReceptionDirectFemNoticeBanner
+      status={status}
+      mode={mode}
+      hasCachedResult={hasCachedResult}
+      onSwitchToMultiSource={onSwitchToMultiSource}
+      className={className}
+    />
+  );
 }
 
 export function DataReadinessBanner({

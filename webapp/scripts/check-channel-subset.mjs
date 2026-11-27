@@ -158,3 +158,16 @@ void test('the channels command writes the report from summary files and directo
     assert.match(clash.stderr, /both write rec\.summary\.json/i);
   } finally { rmSync(directory, { recursive: true, force: true }); }
 });
+
+void test('built-in synthetic demo summaries evaluate cleanly across 8/16/24 and 19-channel 10-20 subsets', async () => {
+  const { buildDemoChannelSubsetInput } = await import('../lib/channel-subset-demo.ts');
+  const demo = buildDemoChannelSubsetInput();
+  assert.equal(demo.training.length, 4);
+  assert.equal(demo.test.length, 2);
+  assert.equal(demo.training[0].channels.length, 32);
+  const report = channelSubsets({ training: demo.training, test: demo.test });
+  assert.deepEqual(report.counts, [8, 16, 24]);
+  assert.equal(report.standard_10_20?.count, 19);
+  assert.ok(report.methods.data.counts[2].train_error < report.methods.data.counts[0].train_error);
+});
+

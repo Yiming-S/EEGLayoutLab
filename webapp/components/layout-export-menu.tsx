@@ -52,8 +52,12 @@ export function LayoutExportMenu({ record, ar, showcase = SHOWCASE }: { record: 
       <p className="px-3 py-2 text-xs font-normal leading-5 text-muted-foreground">{tx('导出只读取已有结果，不启动仿真。布局JSON与结果JSON用途不同。')}</p>
       <div className="space-y-1">
         {options.map((option) => {
-          const needsDesign = option.kind === 'coordinates_csv' || option.kind === 'design_json';
-          const blocked = needsDesign && !availability.design;
+          const blocked = option.kind === 'coordinates_csv'
+            ? !availability.coordinates
+            : option.kind === 'design_json'
+              ? !availability.design
+              : false;
+          const blockedReason = option.kind === 'coordinates_csv' ? availability.csvReason : availability.reason;
           const label = showcase && option.kind === 'bundle_json' ? '脱敏展示副本 JSON'
             : showcase && option.kind === 'result_json' ? '展示记录 JSON' : option.label;
           const note = showcase && option.kind === 'bundle_json'
@@ -63,7 +67,7 @@ export function LayoutExportMenu({ record, ar, showcase = SHOWCASE }: { record: 
           return <button key={option.kind} type="button" disabled={!!active?.pending || blocked} onClick={() => void run(option.kind)}
             className="block w-full rounded-lg px-3 py-2.5 text-left transition hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-45">
             <span className="block text-sm font-semibold text-foreground">{tx(label)}</span>
-            <span className="mt-1 block text-xs font-normal leading-5 text-muted-foreground">{tx(blocked ? availability.reason! : note)}</span>
+            <span className="mt-1 block text-xs font-normal leading-5 text-muted-foreground">{tx(blocked ? blockedReason! : note)}</span>
           </button>;
         })}
       </div>

@@ -1,6 +1,6 @@
 """Scientific command-line subcommands: ``design``, ``export``, ``evaluate``, ``search``, ``eeg-summary``,
 ``prior``, ``channels``, ``pareto`` and ``study`` (``webapp/scripts/eeglayoutlab.mjs``, phase 3 slices 4-6 & 11-13;
-decisions U5, U8, U10, U11, U13).
+decisions U5, U8, U10, U11, U13, U15).
 
 No ``json`` stdlib import: all JSON parsing, formatting and hashing go through ``eeglayoutlab.schemas.jsjson`` so
 written files and keys are byte-identical to the Node reference CLI. Pydantic and job modules are imported only
@@ -17,7 +17,7 @@ from typing import Any, Optional, Sequence
 
 from ..core import jsmath
 from ..core.bids import (
-    bids_needs_mni_surface, export_bids_electrodes, export_mni_bids_electrodes,
+    REGION_DESCRIPTION, bids_needs_mni_surface, export_bids_electrodes, export_mni_bids_electrodes,
     parse_bids_electrodes, parse_electrode_labels,
 )
 from ..core.channel_subset import SUMMARY_SCHEMA, channel_subsets
@@ -26,13 +26,13 @@ from ..core.ernie_mni import verified_surface
 from ..core.montage import export_eeglab_sfp, export_mne_elc, parse_montage_file
 from ..core.pareto import pareto_cli_report
 from ..figures.channel_subset import channel_subset_figure_svg
-from ..figures.layout import figure_spacing, layout_figure_svg
+from ..figures.layout import plot_figure_spacing, plot_figure_svg, validate_layout_plot
 from ..jobs import nodepath
 from ..jobs.runtime import repository_root
 from ..schemas import jsjson
 
 __all__ = [
-    'RUN_SCHEMA', 'HELP', 'SCIENCE_COMMANDS', 'add_commands', 'parse_science_args',
+    'RUN_SCHEMA', 'HELP', 'SCIENCE_COMMANDS', 'SEARCH_INLINE_OPTIONS', 'add_commands', 'parse_science_args',
     'read_json', 'write_json', 'stem', 'summary_files', 'design_from', 'export_files', 'run_science',
 ]
 
@@ -40,6 +40,14 @@ RUN_SCHEMA = 'eeglayoutlab-cli-run/1'
 SCIENCE_COMMANDS = frozenset({
     'design', 'export', 'evaluate', 'search', 'eeg-summary', 'prior', 'channels', 'pareto', 'study', 'help',
 })
+SEARCH_INLINE_OPTIONS = frozenset({
+    'regions', 'radius', 'mode', 'masks', 'electrodes', 'allocation', 'objective', 'noise',
+})
+_SEARCH_ELECTRODE_COUNTS = frozenset({8, 12, 16, 24, 32, 48, 64})
+_SPARSE_REGION_DESCRIPTION = (
+    'EEGLayoutLab region index (8–64 channels, balanced or adaptive regional quota), '
+    'numbered continuously from zero. Supported region counts: 1, 2, 3, 4, or 6.'
+)
 
 _ALLOWED_OPTIONS: dict[str, frozenset[str]] = {
     'design': frozenset({'name', 'regions', 'unit', 'out', 'root'}),
@@ -48,7 +56,7 @@ _ALLOWED_OPTIONS: dict[str, frozenset[str]] = {
         'design', 'radius', 'seed', 'action', 'noise', 'conductivity', 'head',
         'robustness', 'data-prior', 'out-dir', 'root', 'python',
     }),
-    'search': frozenset({'data-prior', 'out-dir', 'root', 'python'}),
+    'search': frozenset({'data-prior', 'out-dir', 'root', 'python', *SEARCH_INLINE_OPTIONS}),
     'eeg-summary': frozenset({'band', 'epoch', 'label', 'out-dir', 'root', 'python'}),
     'prior': frozenset({'out', 'root', 'python'}),
     'channels': frozenset({'test', 'prior', 'counts', 'draws', 'seed', 'figure', 'out'}),
@@ -77,14 +85,15 @@ HELP = """EEGLayoutLab command line
   eeglayoutlab design FILE... [--name NAME] [--regions 1|2|3|4|6] [--unit mm|cm|m] --out DESIGN.json
       Build a design from coordinate files: a BIDS pair (Ernie native, MNI, or a head frame
       such as CapTrak with NAS/LPA/RPA landmarks), an MNE .elc or EEGLAB .sfp file, a 10-05
-      name list, the layout CSV, a design JSON, or a search run from this tool. Head-frame,
+      name list, the layout CSV, a design JSON, or a 64-channel balanced search run. Head-frame,
       .elc and .sfp coordinates are registered onto Ernie's scalp by their landmarks.
       --regions assigns balanced spatial regions to files without a region column;
       --unit gives the unit of an .sfp file, which declares none.
 
-  eeglayoutlab export DESIGN.json --format bids|mni|mne|eeglab|svg [--labels yes|no] --out-dir DIR
-      Write the web page's coordinate files or the layout figure (SVG, English text;
-      --labels yes|no, by default names are hidden where they would overlap).
+  eeglayoutlab export DESIGN_OR_SEARCH_RUN.json --format bids|mni|mne|eeglab|svg [--labels yes|no] --out-dir DIR
+      Write BIDS/MNI/MNE/EEGLAB coordinate files or the 2D layout figure (SVG, English text;
+      --labels yes|no, by default names are hidden where they would overlap) from a design JSON
+      or any completed 8–64 channel (balanced or adaptive) search result JSON.
 
   eeglayoutlab evaluate REQUEST.json... --out-dir DIR
   eeglayoutlab evaluate --design DESIGN.json --radius 6 --seed 42
@@ -96,6 +105,11 @@ HELP = """EEGLayoutLab command line
       --data-prior applies a prior from the prior command (replaces --noise; Ernie only).
 
   eeglayoutlab search REQUEST.json... [--data-prior PRIOR.json] --out-dir DIR
+  eeglayoutlab search --regions 1|2|3|4|6 --radius MM --mode whole_surface|low_hair|preset
+      [--masks CODE,...] [--electrodes 8|12|16|24|32|48|64] [--allocation balanced|adaptive]
+      [--objective default|composite]
+      [--noise iid|spatial_10|spatial_20|spatial_40|brain_background]
+      [--data-prior PRIOR.json] --out-dir DIR
       Search a layout for a region count and radius, as /api/local-compute does.
 
   eeglayoutlab eeg-summary RECORDING... [--band 1,40] [--epoch 2] [--label TEXT] --out-dir DIR
@@ -140,7 +154,7 @@ def add_commands(commands: Any) -> None:
     design.add_argument('--out', metavar='DESIGN.json')
 
     export = commands.add_parser('export', help='export BIDS, MNI, MNE, EEGLAB or SVG layout files')
-    export.add_argument('design_file', nargs='?', metavar='DESIGN.json')
+    export.add_argument('design_file', nargs='?', metavar='DESIGN_OR_RUN.json')
     export.add_argument('--format', metavar='bids|mni|mne|eeglab|svg')
     export.add_argument('--labels', metavar='yes|no')
     export.add_argument('--root', metavar='DIR')
@@ -163,6 +177,14 @@ def add_commands(commands: Any) -> None:
 
     search = commands.add_parser('search', help='search a compact layout for a region count and radius')
     search.add_argument('files', nargs='*', metavar='REQUEST.json')
+    search.add_argument('--regions', metavar='1|2|3|4|6')
+    search.add_argument('--radius', metavar='MM')
+    search.add_argument('--mode', metavar='whole_surface|low_hair|preset')
+    search.add_argument('--masks', metavar='CODE,...')
+    search.add_argument('--electrodes', metavar='8|12|16|24|32|48|64')
+    search.add_argument('--allocation', metavar='balanced|adaptive')
+    search.add_argument('--objective', metavar='OBJECTIVE')
+    search.add_argument('--noise', metavar='PRESET')
     search.add_argument('--data-prior', metavar='PRIOR.json')
     search.add_argument('--root', metavar='DIR')
     search.add_argument('--python', metavar='PATH')
@@ -288,6 +310,55 @@ def _resolved_root(explicit: Optional[str]) -> str:
     return repository_root(nodepath.resolve(explicit) if explicit else None)
 
 
+def _exportable_layout(raw: Any) -> tuple[dict[str, Any], bool, str]:
+    """Validates either a 64-point ``eeg-electrode-design/1`` or a completed 8–64-channel ``radius-search`` run."""
+    if isinstance(raw, dict) and raw.get('schema') == RUN_SCHEMA and raw.get('service') == 'radius-search':
+        request = raw.get('request') if isinstance(raw.get('request'), dict) else {}
+        result = raw.get('result') if isinstance(raw.get('result'), dict) else {}
+        if result.get('status') != 'completed':
+            raise ValueError('the search found no layout')
+        layout = result.get('layout') if isinstance(result.get('layout'), dict) else {}
+        xyz_mm = layout.get('xyzMm')
+        region_indices = layout.get('regionIndices')
+        plot = validate_layout_plot({'xyz_mm': xyz_mm, 'region_indices': region_indices})
+        total = len(plot['xyz_mm'])
+        if total not in _SEARCH_ELECTRODE_COUNTS:
+            raise ValueError('search layout electrode count must be 8, 12, 16, 24, 32, 48 or 64')
+        reg_num = request.get('region_count')
+        if not jsjson.is_integer(reg_num):
+            raise ValueError('search request is missing region_count')
+        r = int(float(reg_num))
+        regs = [int(float(v)) for v in plot['region_indices']]
+        if len(set(regs)) != r:
+            raise ValueError('search layout region indices do not match request region_count')
+        counts = [regs.count(k) for k in range(r)]
+        is_adaptive = request.get('allocation_mode') == 'adaptive'
+        if is_adaptive:
+            if r < 2 or any(c < 4 for c in counts):
+                raise ValueError('adaptive search layout requires at least 2 regions and 4 electrodes per region')
+        else:
+            if total < 2 * r:
+                raise ValueError('balanced search layout requires at least 2 electrodes per region')
+            expected = [total // r + (1 if k < total % r else 0) for k in range(r)]
+            if sorted(counts, reverse=True) != expected:
+                raise ValueError('balanced search layout region counts must split evenly')
+        reg_str = jsjson.number_to_string(request['region_count'])
+        rad_str = jsjson.number_to_string(request['radius_mm'])
+        mode_str = str(request.get('mode', ''))
+        doc: dict[str, Any] = {
+            'schema': 'eeg-electrode-design/1',
+            'coordinate_system': 'ernie_native_mm',
+            'unit': 'mm',
+            'name': f'search {reg_str} regions, {rad_str} mm, {mode_str}'[:100],
+            'xyz_mm': [[float(v) for v in pt] for pt in plot['xyz_mm']],
+            'region_indices': regs,
+        }
+        if total == 64 and not is_adaptive:
+            return validate_design(doc), True, REGION_DESCRIPTION
+        return doc, False, _SPARSE_REGION_DESCRIPTION
+    return validate_design(raw), True, REGION_DESCRIPTION
+
+
 def design_from(files: Sequence[str], options: dict[str, str]) -> dict[str, Any]:
     """``designFrom(files, options)`` from ``webapp/scripts/eeglayoutlab.mjs``."""
     root = _resolved_root(options.get('root'))
@@ -351,25 +422,36 @@ def export_files(
     *,
     root_option: Optional[str] = None,
 ) -> list[dict[str, str]]:
-    """``exportFiles(path, format, labels)`` from ``webapp/scripts/eeglayoutlab.mjs``."""
-    design = validate_design(read_json(path))
+    """``exportFiles(path, format, labels)`` supporting 64-point designs and 8–64-channel search runs (U15)."""
+    design, is_strict_64, reg_desc = _exportable_layout(read_json(path))
     root = _resolved_root(root_option)
     if fmt == 'bids':
-        return export_bids_electrodes(design, root=root)
+        return export_bids_electrodes(
+            design,
+            root=root,
+            validate=is_strict_64,
+            region_description=None if is_strict_64 else reg_desc,
+        )
     if fmt == 'mni':
-        return export_mni_bids_electrodes(design, verified_surface(root=root))
+        return export_mni_bids_electrodes(
+            design,
+            verified_surface(root=root),
+            validate=is_strict_64,
+            region_description=None if is_strict_64 else reg_desc,
+        )
     if fmt == 'mne':
-        return [export_mne_elc(design, root=root)]
+        return [export_mne_elc(design, root=root, validate=is_strict_64)]
     if fmt == 'eeglab':
-        return [export_eeglab_sfp(design, root=root)]
+        return [export_eeglab_sfp(design, root=root, validate=is_strict_64)]
     if fmt == 'svg':
         count = max(design['region_indices']) + 1
-        show_names = figure_spacing(design, root=root) >= 16.0 if labels is None else (labels == 'yes')
-        svg = layout_figure_svg(
+        total = len(design['xyz_mm'])
+        show_names = plot_figure_spacing(design, root=root) >= 16.0 if labels is None else (labels == 'yes')
+        svg = plot_figure_svg(
             design,
             {
                 'title': design['name'],
-                'subtitle': f"64 electrodes · {count} region{'s' if count > 1 else ''} · Ernie template head",
+                'subtitle': f"{total} electrodes · {count} region{'s' if count > 1 else ''} · Ernie template head",
                 'region': lambda index, *_rest: f'Region {index + 1}',
                 'caption': [
                     'Head frame from the Ernie template landmarks NAS, LPA and RPA (x toward RPA, y toward NAS); '
@@ -583,9 +665,14 @@ def run_science(argv: Sequence[str]) -> int:
             raise ValueError(f'unknown command {command}\n\n{HELP}')
         if command == 'study' and len(files) != 1:
             raise ValueError('study takes one study file')
-        if command != 'study' and not files and not (command == 'evaluate' and options.get('design')):
-            suffix = ' or --design' if command == 'evaluate' else ''
-            raise ValueError(f'{command} needs request files{suffix}')
+        if command == 'evaluate' and not files and not options.get('design'):
+            raise ValueError('evaluate needs request files or --design')
+        if command == 'search':
+            has_inline_search = any(k in options for k in SEARCH_INLINE_OPTIONS)
+            if files and has_inline_search:
+                raise ValueError('search takes either request files or inline options, not both')
+            if not files and not has_inline_search:
+                raise ValueError('search needs request files')
 
         from . import run as cli_run
         return cli_run.execute(command, files, options)

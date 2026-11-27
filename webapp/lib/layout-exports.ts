@@ -1,5 +1,5 @@
 import type { SavedRecord } from './local-library';
-import { designCSV, exportDesign, type ElectrodeDesign } from './design-decision.ts';
+import { designCSV, exportDesign, exportValidRecordCoordinates, type ElectrodeDesign, type RecordCoordinates } from './design-decision.ts';
 import { assessment } from './lab-workflow.ts';
 import type { Locale } from './i18n/core.ts';
 import catalog from './i18n/exports-catalog.json' with { type: 'json' };
@@ -17,10 +17,27 @@ const json = (value: unknown) => JSON.stringify(value, null, 2) + '\n';
 const plain = (value: string) => value.replace(/[\r\n|]/g, ' ').replace(/[\\`*_{}[\]<>]/g, '\\$&');
 
 /** Read-only serialization. Coordinates are never repaired, reordered or padded. */
-export function layoutExportAvailability(record: SavedRecord): { design: ElectrodeDesign | null; reason: string | null } {
-  if (record.status !== 'completed' || !record.layout) return { design: null, reason: catalog.exports_no_layout.source };
-  try { return { design: exportDesign(record), reason: null }; }
-  catch { return { design: null, reason: catalog.exports_bad_design.source }; }
+export function layoutExportAvailability(record: SavedRecord): {
+  coordinates: RecordCoordinates | null;
+  design: ElectrodeDesign | null;
+  csvReason: string | null;
+  reason: string | null;
+} {
+  if (record.status !== 'completed' || !record.layout) {
+    return { coordinates: null, design: null, csvReason: catalog.exports_no_layout.source, reason: catalog.exports_no_layout.source };
+  }
+  try {
+    const design = exportDesign(record);
+    return { coordinates: design, design, csvReason: null, reason: null };
+  } catch {
+    const coordinates = exportValidRecordCoordinates(record);
+    return {
+      coordinates,
+      design: null,
+      csvReason: coordinates ? null : catalog.exports_bad_design.source,
+      reason: coordinates ? catalog.exports_design_64_only.source : catalog.exports_bad_design.source,
+    };
+  }
 }
 
 export function layoutSummaryMarkdown(record: SavedRecord, ar: number, locale: Locale = 'zh-CN', generatedAt = new Date().toISOString()) {
@@ -72,11 +89,13 @@ export function layoutExportFile(record: SavedRecord, kind: Exclude<LayoutExport
   const stem = `eeg-${fileId(record.id)}`;
   if (kind === 'result_json') return { filename: `${stem}-result.json`, mime: 'application/json', content: json(record) };
   if (kind === 'report_md') return { filename: `${stem}-report-${locale}.md`, mime: 'text/markdown;charset=utf-8', content: layoutSummaryMarkdown(record, ar, locale) };
-  const { design, reason } = layoutExportAvailability(record);
-  if (!design) throw new Error(reason ?? catalog.exports_bad_design.source);
-  return kind === 'coordinates_csv'
-    ? { filename: `${stem}-coordinates.csv`, mime: 'text/csv;charset=utf-8', content: designCSV(design) + '\n' }
-    : { filename: `${stem}-layout.json`, mime: 'application/json', content: json(design) };
+  const availability = layoutExportAvailability(record);
+  if (kind === 'coordinates_csv') {
+    if (!availability.coordinates) throw new Error(availability.csvReason ?? catalog.exports_bad_design.source);
+    return { filename: `${stem}-coordinates.csv`, mime: 'text/csv;charset=utf-8', content: designCSV(availability.coordinates) + '\n' };
+  }
+  if (!availability.design) throw new Error(availability.reason ?? catalog.exports_bad_design.source);
+  return { filename: `${stem}-layout.json`, mime: 'application/json', content: json(availability.design) };
 }
 
 /** Invoked only by the export click handler. This endpoint packages existing records. */

@@ -226,7 +226,14 @@ def _radius_result(root: Path, request: dict[str, Any], mode: str) -> dict[str, 
         return {'status': 'no_layout', 'request': request, 'provenance': provenance}
 
     regions = int(request['region_count'])
-    xyz = _grid64(5.0)
+    total = int(request.get('electrode_count', 64))
+    xyz = _grid64(5.0)[:total]
+    if request.get('allocation_mode') == 'adaptive':
+        sizes = [4] * (regions - 1) + [total - 4 * (regions - 1)]
+        reg_indices = [r for r, sz in enumerate(sizes) for _ in range(sz)]
+    else:
+        sizes = [total // regions + (1 if r < total % regions else 0) for r in range(regions)]
+        reg_indices = [r for r, sz in enumerate(sizes) for _ in range(sz)]
     if mode in ('examples_expected', 'examples_drift'):
         s = json.loads((root / 'examples/expected.json').read_text(encoding='utf-8'))['scores']['02-compact-search']['search']
         metrics = {
@@ -251,7 +258,7 @@ def _radius_result(root: Path, request: dict[str, Any], mode: str) -> dict[str, 
         'layout': {
             'xyzMm': xyz,
             'referenceXyzMm': _grid64(0.0),
-            'regionIndices': _balanced_regions(regions),
+            'regionIndices': reg_indices,
         },
         'geometry': {
             'union_connected_component_count': regions,

@@ -183,7 +183,7 @@ This fits 7-region cortical gain weights and sensor noise parameters with leave-
 
 ### Step 2B — Select optimal `K`-channel subsets (`Analysis → Channel Subsets` or `channels`)
 
-Open **Analysis → Channel Subsets (`/channels`)** in the browser and drop your `.summary.json` files (computation runs 100% client-side in the browser), or run on the command line with held-out test recordings and an SVG error plot:
+Open **Analysis → Channel Subsets (`/channels`)** in the browser and drop your `.summary.json` files—or click **Load example summaries** to explore a built-in synthetic 32-channel 10-05 dataset right away (computation runs 100% client-side in the browser)—or run on the command line with held-out test recordings and an SVG error plot:
 
 ```sh
 eeglayoutlab channels ./train-summaries \
@@ -218,9 +218,9 @@ Every scientific operation can be scripted headlessly without Node.js or a brows
 | `doctor` | Inspect installation health (`--smoke` runs real calc check) | `eeglayoutlab doctor --smoke` |
 | `serve` | Launch local web service (`--no-browser`, `--cache-only`) | `eeglayoutlab serve ~/my-workspace --no-browser` |
 | `data` | Manage model data packages (`list`, `install`, `verify`, `compose`, `remove`) | `eeglayoutlab data install scalp-node-table` |
-| `design` | Convert 10-05, BIDS (native/MNI/landmarks), `.elc`, `.sfp`, CSV, or search run into `DESIGN.json` | `eeglayoutlab design cap64.elc --regions 4 --out cap64.json` |
-| `export` | Export `DESIGN.json` to `bids`, `mni`, `mne` (`.elc`), `eeglab` (`.sfp`), or 2D `svg` | `eeglayoutlab export cap64.json --format svg --out-dir figs/` |
-| `search` | Run regional radius search request(s) to `<stem>.result.json` | `eeglayoutlab search ear_35mm.json --out-dir runs/` |
+| `design` | Convert 10-05, BIDS (native/MNI/landmarks), `.elc`, `.sfp`, CSV, or 64-channel balanced search run into `DESIGN.json` | `eeglayoutlab design cap64.elc --regions 4 --out cap64.json` |
+| `export` | Export `DESIGN.json` or any `8–64` channel search `.result.json` to `bids`, `mni`, `mne` (`.elc`), `eeglab` (`.sfp`), or 2D `svg` | `eeglayoutlab export search.result.json --format svg --out-dir figs/` |
+| `search` | Run regional radius search from JSON request(s) or inline `--regions`/`--radius`/`--mode` flags | `eeglayoutlab search --regions 2 --radius 30 --mode preset --masks AL,AR --electrodes 24 --out-dir runs/` |
 | `evaluate` | Evaluate or perturb `DESIGN.json` / request JSONs | `eeglayoutlab evaluate --design cap64.json --radius 6 --seed 42 --out-dir runs/` |
 | `study` | Execute multi-case `noise_seeds`, `grid_displacements`, or `heads` batch | `eeglayoutlab study cross_head_study.json --out-dir study_out/` |
 | `pareto` | Compute multi-objective Pareto ranks across `.result.json` files | `eeglayoutlab pareto runs/*.result.json --out pareto.json` |

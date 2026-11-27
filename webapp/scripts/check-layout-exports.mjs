@@ -47,6 +47,7 @@ void test('invalid and partial layouts disable importable exports without fabric
   ];
   for (const record of bad) {
     assert.equal(layoutExportAvailability(record).design, null);
+    assert.equal(layoutExportAvailability(record).coordinates, null);
     for (const kind of ['coordinates_csv', 'design_json']) assert.throws(() => layoutExportFile(record, kind, 32));
     assert.deepEqual(JSON.parse(layoutExportFile(record, 'result_json', 32).content), record);
     assert.match(layoutExportFile(record, 'report_md', 32, 'en').content, /Saved metrics and current criterion/);
@@ -150,12 +151,28 @@ function loadUI(file) {
   return unit.exports;
 }
 
-void test('export menu renders five distinct formats in both languages without automatic fetch', () => {
+void test('export menu and 2D figure export support sparse and adaptive layouts in both languages without automatic fetch', () => {
   const { LayoutExportMenu } = loadUI('components/layout-export-menu.tsx');
+  const { LayoutFigureExport } = loadUI('components/layout-figure-export.tsx');
   const { LanguageProvider } = loadUI('components/language-provider.tsx');
   const original = globalThis.fetch; let calls = 0;
   globalThis.fetch = async () => { calls += 1; throw new Error('Unexpected fetch'); };
   try {
+    const sparse24 = {
+      ...fixture(),
+      request: { ...fixture().request, electrode_count: 24, allocation_mode: 'adaptive' },
+      layout: {
+        ...fixture().layout,
+        xyzMm: fixture().layout.xyzMm.slice(0, 24),
+        regionIndices: [...Array(8).fill(0), ...Array(16).fill(1)],
+      },
+    };
+    const sparseAvail = layoutExportAvailability(sparse24);
+    assert.equal(sparseAvail.coordinates?.xyz_mm.length, 24);
+    assert.equal(sparseAvail.design, null);
+    assert.equal(layoutExportFile(sparse24, 'coordinates_csv', 32).content.trim().split('\n').length, 26);
+    assert.throws(() => layoutExportFile(sparse24, 'design_json', 32));
+
     for (const locale of ['en', 'zh-CN']) {
       const html = renderToStaticMarkup(React.createElement(LanguageProvider, { initialLocale: locale },
         React.createElement(LayoutExportMenu, { record: fixture(), ar: 32 })));
@@ -164,6 +181,17 @@ void test('export menu renders five distinct formats in both languages without a
       const invalid = renderToStaticMarkup(React.createElement(LanguageProvider, { initialLocale: locale },
         React.createElement(LayoutExportMenu, { record: { ...fixture(), layout: null }, ar: 32 })));
       assert.equal((invalid.match(/disabled=""/g) ?? []).length, 2);
+      const sparseHtml = renderToStaticMarkup(React.createElement(LanguageProvider, { initialLocale: locale },
+        React.createElement(LayoutExportMenu, { record: sparse24, ar: 32 })));
+      assert.equal((sparseHtml.match(/disabled=""/g) ?? []).length, 1);
+      const figHtml = renderToStaticMarkup(React.createElement(LanguageProvider, { initialLocale: locale },
+        React.createElement(LayoutFigureExport, { design: sparseAvail.coordinates })));
+      assert.match(figHtml, /data:image\/svg\+xml/);
+      if (locale === 'en') {
+        assert.doesNotMatch(sparseHtml.replace(/<[^>]+>/g, ''), /[\u3400-\u9fff]/);
+        assert.doesNotMatch(figHtml.replace(/<[^>]+>/g, ''), /[\u3400-\u9fff]/);
+        assert.match(decodeURIComponent(figHtml), /24 channels · 2 regions · Ernie template head/);
+      }
       const showcase = renderToStaticMarkup(React.createElement(LanguageProvider, { initialLocale: locale },
         React.createElement(LayoutExportMenu, { record: fixture(), ar: 32, showcase: true })));
       assert.equal((showcase.match(/<button/g) ?? []).length, 5);

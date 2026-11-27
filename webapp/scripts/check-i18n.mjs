@@ -665,8 +665,14 @@ void test('missing model data notices and runtime install hints render bilingual
     const runtimeHeadErr = render(RuntimeMessage, { message: '头模 ixi012 的头皮节点表尚未预计算。', status: 'failed' }, locale);
     assert.match(runtimeHeadErr, /eeglayoutlab data install head-ixi012/);
 
+    const { ReceptionDirectFemNoticeBanner } = loadUI('components/data-readiness-notice.tsx');
+    const v2Notice = render(ReceptionDirectFemNoticeBanner, { status: allReady, mode: 'cross_region', hasCachedResult: false, onSwitchToMultiSource() {} }, locale);
+    assert.match(v2Notice, locale === 'en' ? /SimNIBS cortical-normal solver/ : /SimNIBS 皮层法向求解器/);
+    assert.equal(render(ReceptionDirectFemNoticeBanner, { status: allReady, mode: 'multi_source', hasCachedResult: false }, locale), '');
+    assert.equal(render(ReceptionDirectFemNoticeBanner, { status: allReady, mode: 'cross_region', hasCachedResult: true }, locale), '');
+
     if (locale === 'en') {
-      for (const html of [missingBaseHome, missingBaseCheckout, missingTableCoords, missingTableHome, optionalTableCoords, runtimeTableErr, runtimeHeadErr]) {
+      for (const html of [missingBaseHome, missingBaseCheckout, missingTableCoords, missingTableHome, optionalTableCoords, runtimeTableErr, runtimeHeadErr, v2Notice]) {
         assert.doesNotMatch(visibleText(html), /[\u3400-\u9fff]/);
       }
     }

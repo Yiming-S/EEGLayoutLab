@@ -7,6 +7,8 @@ import { RuntimeMessage } from '@/components/runtime-message';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { PerformanceSummary } from '@/components/performance-summary';
 import { LayoutExportMenu } from '@/components/layout-export-menu';
+import { LayoutFigureExport } from '@/components/layout-figure-export';
+import { exportValidRecordCoordinates } from '@/lib/design-decision';
 import { localizedRecordTitle } from '@/lib/i18n/records';
 import { comparisonLink } from '@/lib/lab-workflow';
 import { metricDistance, protocolName } from '@/lib/ui-language';
@@ -119,6 +121,10 @@ export function SavedLayoutContent({ record, ar, returnHref, compact = false }: 
         <PerformanceSummary metrics={record.metrics} ar={ar} returnHref={returnHref} basis={tx(basis)} compact={compact} />
       </div> : <p className="lab-panel">{tx('记录缺少完整坐标，无法显示布局或启动后续分析。')}</p>}
 
+    {(() => {
+      const coords = exportValidRecordCoordinates(record);
+      return coords ? <LayoutFigureExport design={{ ...coords, name: localizedRecordTitle(record, locale) }} className="lab-panel text-sm" /> : null;
+    })()}
     <details className="group/prov lab-panel text-sm">
       <summary className="flex cursor-pointer list-none items-center justify-between font-semibold select-none [&::-webkit-details-marker]:hidden">
         <span>{tx('实验来源、保存信息与技术详情')}</span>

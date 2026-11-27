@@ -55,6 +55,10 @@
     "source": "坐标或区域分配不符合当前64电极导入格式；请使用完整结果JSON保留原数据。",
     "en": "Coordinates or region allocation do not match the current 64-electrode import format. Use full result JSON to preserve the original data."
   },
+  "exports_design_64_only": {
+    "source": "可导入布局JSON仅适用于64导区域均分方案；当前方案可直接导出电极坐标CSV、完整结果JSON或简明报告。",
+    "en": "Importable layout JSON requires a 64-electrode balanced layout. Export electrode coordinates CSV, full result JSON, or the summary report instead."
+  },
   "exports_fetching": {
     "source": "正在读取复现实验包…",
     "en": "Reading the reproducibility bundle…"

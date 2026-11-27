@@ -2002,5 +2002,33 @@
   "runtime_install_hint_generic_suffix": {
     "source": "安装所需数据包后重试。",
     "en": "in your terminal to install the required data packages, then try again."
+  },
+  "reception_v2_no_simnibs_title": {
+    "source": "当前运行环境未配置 SimNIBS 皮层法向求解器",
+    "en": "SimNIBS cortical-normal solver is not configured in this environment"
+  },
+  "reception_v2_no_simnibs_body": {
+    "source": "已保存的跨区域多源与单源结果可直接读取回放，“区域内6源”模式也可直接运行新仿真；计算未缓存的新皮层法向源场景（v2）需在已安装 SimNIBS 的 macOS Apple Silicon 源码环境中执行。",
+    "en": "Saved cross-region and single-source results replay directly, and new “6 Within-Region Sources” simulations run out of the box; computing uncached cortical-normal dipole scenarios (v2) requires a macOS Apple Silicon source checkout with SimNIBS installed."
+  },
+  "reception_v2_switch_v1": {
+    "source": "切换到区域内6源模式",
+    "en": "Switch to 6 Within-Region Sources"
+  },
+  "channels_cli_lead": {
+    "source": "本地生成协方差摘要（原始脑电记录仅在本机读取，不上传）：",
+    "en": "Generate covariance summaries locally (raw EEG is read in place and never uploaded):"
+  },
+  "channels_load_demo": {
+    "source": "载入示例协方差摘要",
+    "en": "Load example summaries"
+  },
+  "channels_clear_demo": {
+    "source": "清空示例数据",
+    "en": "Clear example data"
+  },
+  "channels_demo_notice": {
+    "source": "当前显示合成示例摘要（32导10-05电极 · 4份训练摘要＋2份留出检验摘要，1–40 Hz），仅用于演示子集选择流程与误差曲线，不代表真实被试统计结论。",
+    "en": "Showing synthetic example summaries (32 10-05 channels · 4 training + 2 held-out summaries, 1–40 Hz) to demonstrate the subset-selection workflow and error curves, not empirical subject findings."
   }
 }

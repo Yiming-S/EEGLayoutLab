@@ -380,12 +380,18 @@ def _tsv(design: dict[str, Any], points: list[list[float]]) -> str:
     return '\n'.join(lines) + '\n'
 
 
-def export_bids_electrodes(inp: dict[str, Any], *, root: Optional[str] = None) -> list[dict[str, str]]:
+def export_bids_electrodes(
+    inp: dict[str, Any],
+    *,
+    root: Optional[str] = None,
+    validate: bool = True,
+    region_description: Optional[str] = None,
+) -> list[dict[str, str]]:
     """``exportBIDSElectrodes`` from ``webapp/lib/bids-electrodes.ts``."""
-    design = validate_design(inp)
+    design = validate_design(inp) if validate else inp
     mapping = load_mapping(root)
     source = design.get('source_metadata')
-    regions = source['region_description'] if source else REGION_DESCRIPTION
+    regions = region_description or (source['region_description'] if source else REGION_DESCRIPTION)
     description = (
         source['coordinate_system_description']
         if source and source.get('schema') == 'electrode-coordinate-source/1'
@@ -411,14 +417,20 @@ def export_bids_electrodes(inp: dict[str, Any], *, root: Optional[str] = None) -
     ]
 
 
-def export_mni_bids_electrodes(inp: dict[str, Any], surface: ErnieMniSurface) -> list[dict[str, str]]:
+def export_mni_bids_electrodes(
+    inp: dict[str, Any],
+    surface: ErnieMniSurface,
+    *,
+    validate: bool = True,
+    region_description: Optional[str] = None,
+) -> list[dict[str, str]]:
     """``exportMniBIDSElectrodes`` from ``webapp/lib/bids-electrodes.ts``."""
-    design = validate_design(inp)
+    design = validate_design(inp) if validate else inp
     mapping = surface.mapping
     native_limit = float(mapping['method']['native_export_limit_mm'])
     mni_export_sys = mapping['mni']['coordinate_system']
     source = design.get('source_metadata')
-    regions = source['region_description'] if source else REGION_DESCRIPTION
+    regions = region_description or (source['region_description'] if source else REGION_DESCRIPTION)
     mapped = ernie_to_mni(design['xyz_mm'], surface)
     dists = mapped['distances_mm']
     maximum = max(dists)

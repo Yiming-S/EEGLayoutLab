@@ -43,8 +43,8 @@ def _ascii_lower(text: str) -> str:
     return text.lower()
 
 
-def _montage_design(inp: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
-    design = validate_design(inp)
+def _montage_design(inp: dict[str, Any], *, validate: bool = True) -> tuple[dict[str, Any], list[str]]:
+    design = validate_design(inp) if validate else inp
     names = design.get('electrode_names') or [f'E{i + 1}' for i in range(len(design['xyz_mm']))]
     spaced = next((n for n in names if _JS_WS_ONE.search(n)), None)
     if spaced is not None:
@@ -59,9 +59,9 @@ def _row(point: list[float]) -> str:
     return '\t'.join(jsjson.number_to_string(float(v)) for v in point)
 
 
-def export_mne_elc(inp: dict[str, Any], *, root: Optional[str] = None) -> dict[str, str]:
+def export_mne_elc(inp: dict[str, Any], *, root: Optional[str] = None, validate: bool = True) -> dict[str, str]:
     """``exportMneElc``: ASA ``.elc`` file."""
-    design, names = _montage_design(inp)
+    design, names = _montage_design(inp, validate=validate)
     lm = load_mapping(root)['landmarks']['native_mm']
     points = [*design['xyz_mm'], lm['Nz'], lm['LPA'], lm['RPA']]
     labels = [*names, 'Nz', 'LPA', 'RPA']
@@ -81,9 +81,9 @@ def export_mne_elc(inp: dict[str, Any], *, root: Optional[str] = None) -> dict[s
     return {'name': 'electrodes.elc', 'text': '\n'.join(lines)}
 
 
-def export_eeglab_sfp(inp: dict[str, Any], *, root: Optional[str] = None) -> dict[str, str]:
+def export_eeglab_sfp(inp: dict[str, Any], *, root: Optional[str] = None, validate: bool = True) -> dict[str, str]:
     """``exportEeglabSfp``: BESA/EGI ``.sfp`` file."""
-    design, names = _montage_design(inp)
+    design, names = _montage_design(inp, validate=validate)
     lm = load_mapping(root)['landmarks']['native_mm']
     rows = [
         ('FidNz', lm['Nz']),
