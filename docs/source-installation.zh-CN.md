@@ -124,7 +124,7 @@ Linux 使用较小的计算环境：Python 3.11.14，numpy、scipy 与 Mac 版�
 
 该环境不能求解 FEM。仅安装 `base` 数据包时，即可运行区域半径搜索（`search`）与 v1 信号仿真；若要评估导入或新构造的电极坐标（`evaluate`），还需安装名义头皮节点表数据包（`scalp-node-table`，归档约 1.40 GB，展开约 2.6 GB）；跨头模研究还需安装各头模包（`head-<id>`）。可通过[数据包工具](data-packages.md)（`eeglayoutlab data install` 与 `eeglayoutlab data compose`）安装，或从构建它们的 Mac 复制。
 
-需要 x86_64 Linux（glibc 2.28 或更新，例如 Ubuntu 24.04）、Node.js 22.18 或更新、Python 3.10 或更新，以及 Miniforge 或 micromamba；不需要 Git 和编译器。按第 2 步安装数据（Linux 上用 `sha256sum -c` 校验），复制头皮节点表，然后在仓库根目录运行：
+需要 x86_64 Linux（glibc 2.28 或更新，例如 Ubuntu 24.04）、Node.js 22.18.0 或更新（源码检出仅在构建 `webapp/` 与运行跨语言对拍测试时需要，`eeglayoutlab` 命令行本身为纯 Python）、Python 3.9 或更新，以及 Miniforge 或 micromamba；不需要编译器。推荐直接运行 `python3 scripts/setup_local.py --smoke` 后执行 `.venv/bin/eeglayoutlab data install scalp-node-table && .venv/bin/eeglayoutlab data compose`；若按分步手动安装，先按第 2 步安装基础数据（Linux 上用 `sha256sum -c` 校验），通过 `eeglayoutlab data install` 与 `data compose` 安装并链接头皮节点表，然后在仓库根目录运行：
 
 ```sh
 python3 scripts/bootstrap_runtime.py

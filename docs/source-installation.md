@@ -137,13 +137,13 @@ None of the left-hand paths imports SimNIBS. On Linux, the examples exercised ev
 ### Requirements
 
 - Linux on x86_64 with glibc 2.28 or newer (for example Ubuntu 24.04).
-- Node.js 22.18 or newer. The command line loads TypeScript files directly. Verified with Node.js 24.22.3.
-- Python 3.10 or newer to run the setup tools (Ubuntu's `python3` is enough).
+- Node.js 22.18.0 or newer, needed in a source checkout to build `webapp/` and run cross-language parity checks (the `eeglayoutlab` command line itself is pure Python and does not require Node.js at run time). Verified with Node.js 24.22.3.
+- Python 3.9 or newer to run the setup tools (Ubuntu's `python3` is enough).
 - [Miniforge](https://github.com/conda-forge/miniforge) (`conda`) or [micromamba](https://mamba.readthedocs.io/en/latest/installation/micromamba-installation.html). Git and a compiler are not needed for this environment.
 
 ### Install
 
-Install the data bundle as in [step 2](#2-install-the-model-data); on Linux, check the archive with `sha256sum -c` instead of `shasum -a 256 -c`. Copy the table, and any head packages, into `results/v2/`. Then preview and install the environment from the repository root:
+The fastest path is `python3 scripts/setup_local.py --smoke` followed by `.venv/bin/eeglayoutlab data install scalp-node-table && .venv/bin/eeglayoutlab data compose`. For step-by-step setup, install the base bundle as in [step 2](#2-install-the-model-data) (using `sha256sum -c` on Linux instead of `shasum -a 256 -c`), preview and install the runtime from the repository root, and then install and compose `scalp-node-table` (plus any optional `head-<id>` packages) via `.venv/bin/eeglayoutlab data install` and `.venv/bin/eeglayoutlab data compose`:
 
 ```sh
 python3 scripts/bootstrap_runtime.py

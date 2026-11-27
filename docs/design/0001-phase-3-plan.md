@@ -4,7 +4,7 @@
 - **Date:** 2026-11-25
 - **Design:** [0001 — Local-first application with a Python service](0001-local-first-architecture.md), migration table, phase 3; [0002 — The scientific root of an installed application](0002-installed-scientific-root.md); decision U5 of the [phase 2 plan](0001-phase-2-plan.md#decisions)
 
-Phase 3 makes EEGLayoutLab installable without a checkout. Its work, from 0001's migration table: data package commands, conda-forge packages (cortech included), CI on both platforms, the documentation site, the public repository and the static showcase. U5 adds the scientific commands of the command line, which move from the Node CLI (`webapp/scripts/eeglayoutlab.mjs`) to Python, because the installed package has no Node at run time. 0002, accepted on 2026-11-23, decides where R lies in an installed application; none of it is implemented yet.
+Phase 3 makes EEGLayoutLab installable without a checkout. Its work, from 0001's migration table: data package commands, conda-forge packages (cortech included), CI on both platforms, the documentation site, the public repository and the static showcase. U5 adds the scientific commands of the command line, which move from the Node CLI (`webapp/scripts/eeglayoutlab.mjs`) to Python, because the installed package has no Node at run time. 0002, accepted on 2026-11-23, decides where R lies in an installed application (implemented across slices 2, 3, 8 and 9 below).
 
 The exit criterion of 0001 is one sentence: on a fresh Mac and a fresh Linux machine, install from conda-forge, run `eeglayoutlab data install`, run the examples and match the expected scores. Split into what can be checked:
 

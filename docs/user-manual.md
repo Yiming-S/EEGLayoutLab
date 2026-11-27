@@ -12,7 +12,7 @@ Conventional whole-head 64-channel EEG caps provide broad spatial sampling, wher
 
 Every workflow in the browser and on the command line shares the **same request normalization, scientific provenance hash, and result cache**:
 
-1. **Create or Import (`/design`, `/coordinates`)**: Search for optimal compact regional layouts (`1 <= K <= 64` electrodes across `1–6` scalp patches) or import existing 10-05, BIDS, MNI, digitized landmark, `.elc`, or `.sfp` coordinates.
+1. **Create or Import (`/design`, `/coordinates`)**: Search for optimal compact regional layouts (`8, 12, 16, 24, 32, 48, or 64` electrodes across `1, 2, 3, 4, or 6` scalp patches, with equal or adaptive cross-region quotas) or import existing 10-05, BIDS, MNI, digitized landmark, `.elc`, or `.sfp` coordinates.
 2. **Refine or Select Subsets (`/electrodes`, `/channels`)**: Relocate or disable individual electrodes on a saved layout and re-score, or select `K`-channel subsets directly from empirical EEG recording covariances.
 3. **Compare & Rank (`/library`, `/decision`)**: Rank candidate layouts by multi-objective Pareto dominance, adjust the global **Minimum Required Retention (`AR`)** threshold without recomputing, and run side-by-side Scheme A vs. Scheme B evaluations.
 4. **Stress-Test Assumptions (`/coordinates`, `/robustness`)**: Evaluate layouts under spatially correlated noise, skull-conductivity mismatch (`skull_x0.5`, `skull_x2`), cross-session dropout/impedance/cap re-placement, or multi-case batch studies (`noise_seeds`, `grid_displacements`, and 11 `heads`).
@@ -53,12 +53,11 @@ When designing a regional layout, you constrain where patch centers and electrod
 
 - **Whole Scalp (`whole_surface` / `whole_scalp_free`)**: Patches may be placed anywhere on the admissible scalp surface.
 - **Low-Hair Scalp (`low_hair` / `low_hair_free`)**: Restricts placement to forehead and peri-auricular / low-hair regions suitable for wearable headbands or ear-EEG patches.
-- **Preset Anatomical Regions (`preset`)**: Assigns each patch explicitly to one of nine anatomical masks:
-  - `FM`: Forehead / Frontal midline
-  - `AL`, `AR`: Left and right extended peri-auricular (around-ear / temporal-mastoid) regions
-  - `PL`, `PR`: Left and right posterior parietal-temporal regions
-  - `OL`, `OR`: Left and right occipital regions
-  - `CL`, `CR`: Left and right central sensorimotor regions
+- **Preset Anatomical Regions (`preset`)**: Assigns each patch explicitly to one of nine coordinate-defined low-hair masks:
+  - `FL`, `FM`, `FR`: Left, middle, and right forehead regions
+  - `OL`, `OR`: Left and right superolateral periorbital regions
+  - `AL`, `AR`: Left and right expanded peri-auricular (around-ear) regions
+  - `PL`, `PR`: Left and right near-postauricular (behind-ear) regions
 
 ### Core evaluation metrics (relative to `standard64` at 20 dB SNR)
 
@@ -91,10 +90,10 @@ Open **Findings → Total-Area Study** to inspect the 30-condition fixed-area ca
 
 Use **Layout → Region Design (`/design`)** to discover optimal electrode placements under geometric patch constraints:
 
-1. **Choose region count (`1–6`) and placement mode**: Pick **Whole Scalp**, **Low-Hair**, or **Preset Masks** (for example `2` regions on `AL` + `AR`, or `3` regions on `PL` + `PR` + `FM`).
-2. **Set per-region geodesic radius cap (`mm`) and channel count (`K`)**:
-   - Adjust the maximum geodesic radius per patch (e.g., `20–45 mm`).
-   - Optionally choose a reduced total electrode count (`1 <= K <= 64`, e.g., `16`, `24`, or `32` channels). Notably, under tight patch caps (`25–35 mm`), `24–32` well-placed electrodes often match or exceed `64` crowded electrodes on out-of-sample localization retention while halving hardware channels.
+1. **Choose region count (`1, 2, 3, 4, or 6`), placement mode, and channel quota**: Pick **Whole Scalp**, **Low-Hair**, or **Preset Masks** (for example `2` regions on `AL` + `AR`, or `3` regions on `PL` + `PR` + `FM`), and choose **Equal split per region** (default) or **Adaptive cross-region quota** (`R >= 2`, keeping at least 4 anchor electrodes per region).
+2. **Set per-region geodesic radius cap (`15–80 mm`, step `5 mm`), channel count (`K`), and search objective**:
+   - Adjust the maximum geodesic radius per patch (e.g., `20–45 mm`) and choose **Lower-tail minimax** (default) or **Subspace-info composite**.
+   - Choose total electrodes `K` from **`8, 12, 16, 24, 32, 48, or 64`** (default `64`). Notably, under tight patch caps (`25–35 mm`), `24` or `32` well-placed electrodes often match or exceed `64` crowded electrodes on out-of-sample localization retention while halving hardware channels.
 3. **Optional noise model or empirical prior**: Keep default independent sensor noise (`iid`), choose spatially correlated noise (`spatial_10`, `spatial_20`, `spatial_40`) or `brain_background`, or upload a fitted `eeg-data-prior/1` JSON file.
 4. **Check cache or submit search**:
    - If the exact normalized request has already been computed on your installation, the button reads **Load saved result** and replays the verified cache immediately.

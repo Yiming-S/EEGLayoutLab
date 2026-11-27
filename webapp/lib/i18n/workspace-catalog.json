@@ -1712,8 +1712,8 @@
     "en": "3. New layouts"
   },
   "usage_3": {
-    "source": "区域设计固定64点并按区域均衡分配，按每区半径上限搜索；坐标导入读取已有电极坐标并在当前条件下评价；电极编辑从已有布局删减或移动点位，另存为编辑副本。新结果自动保存，相同配置优先直接读取。",
-    "en": "Region design fixes 64 points, shares them evenly among the regions and searches under a radius cap per region; coordinate import reads existing electrode coordinates and evaluates them under the current conditions; electrode editing removes or moves points of an existing layout and saves an edited copy. New results are saved automatically, and a configuration already computed is read back."
+    "source": "区域设计默认64点（支持8、12、16、24、32、48、64七档及各区均分或跨区自适应配额），按每区半径上限搜索；坐标导入读取已有电极坐标并在当前条件下评价；电极编辑从已有布局删减或移动点位，另存为编辑副本。新结果自动保存，相同配置优先直接读取。",
+    "en": "Region design places 64 points by default (supporting 8, 12, 16, 24, 32, 48 or 64 electrodes with equal or adaptive cross-region quotas) and searches under a radius cap per region; coordinate import reads existing electrode coordinates and evaluates them under the current conditions; electrode editing removes or moves points of an existing layout and saves an edited copy. New results are saved automatically, and a configuration already computed is read back."
   },
   "usage_4_title": {
     "source": "4. 布局详情",

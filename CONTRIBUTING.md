@@ -160,7 +160,7 @@ The site is written to `site/`, which Git ignores. Add each new page to `nav`; a
 
 Material for MkDocs announces its end of life for May 5, 2027 at every build (`NO_MKDOCS_2_WARNING=1` hides the notice). Its successor, Zensical, reads `mkdocs.yml` but not the hooks, so a move is a separate change.
 
-Versioned documentation for tags (design 0001, decision 11) is planned with [mike](https://github.com/jimporter/mike) and not yet wired. A release tag `vX.Y.Z` would publish its site as version `X.Y` with the alias `latest`, `main` would publish as `dev`, and `extra.version.provider: mike` in `mkdocs.yml` would show Material's version selector. The build sets `DOCS_SOURCE_REF` to the tag, so source links match the release. The versions would go under `/docs/` of the website, beside the showcase; mike's `--deploy-prefix` can place the documentation in a subdirectory of the Pages branch.
+Versioned documentation for tags (design 0001, decision 11; phase 3 slice 17) is deployed with [mike](https://github.com/jimporter/mike). A release tag `vX.Y.Z` publishes its site to the `docs-versions` branch under `/docs/` as version `X.Y` with the alias `latest`, `pages.yml` publishes `main` as `dev` alongside the stored versions beside the showcase, and `extra.version.provider: mike` in `mkdocs.yml` enables Material's version selector (`DOCS_SOURCE_REF` pins source links to the release tag).
 
 ## Licensing
 

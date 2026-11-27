@@ -17,35 +17,33 @@
     <ellipse cx="356" cy="182" rx="10" ry="24" fill="#FAF9F5" stroke="#52525B" stroke-width="2" />
     <circle cx="230" cy="182" r="118" fill="#FAF9F5" stroke="#52525B" stroke-width="2" />
 
-    <!-- FM Forehead -->
-    <rect x="184" y="76" width="92" height="34" rx="14" fill="#DBEAFE" stroke="#2451D8" stroke-width="1.8" />
-    <text x="230" y="98" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="12" font-weight="700" fill="#1E3A8A">FM</text>
+    <!-- FL / FM / FR Forehead -->
+    <rect x="160" y="92" width="42" height="28" rx="9" fill="#DBEAFE" stroke="#2451D8" stroke-width="1.6" />
+    <text x="181" y="111" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11.5" font-weight="700" fill="#1E3A8A">FL</text>
+    <rect x="206" y="74" width="48" height="28" rx="10" fill="#DBEAFE" stroke="#2451D8" stroke-width="1.8" />
+    <text x="230" y="93" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="12" font-weight="700" fill="#1E3A8A">FM</text>
+    <rect x="258" y="92" width="42" height="28" rx="9" fill="#DBEAFE" stroke="#2451D8" stroke-width="1.6" />
+    <text x="279" y="111" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11.5" font-weight="700" fill="#1E3A8A">FR</text>
 
-    <!-- AL / AR Peri-auricular -->
-    <rect x="116" y="142" width="54" height="58" rx="12" fill="#DBEAFE" stroke="#2451D8" stroke-width="1.8" />
-    <text x="143" y="176" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="12" font-weight="700" fill="#1E3A8A">AL</text>
-    <rect x="290" y="142" width="54" height="58" rx="12" fill="#DBEAFE" stroke="#2451D8" stroke-width="1.8" />
-    <text x="317" y="176" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="12" font-weight="700" fill="#1E3A8A">AR</text>
+    <!-- OL / OR Superolateral periorbital -->
+    <rect x="136" y="124" width="44" height="26" rx="8" fill="#F4F4F5" stroke="#71717A" stroke-width="1.4" />
+    <text x="158" y="141" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11" font-weight="700" fill="#3F3F46">OL</text>
+    <rect x="280" y="124" width="44" height="26" rx="8" fill="#F4F4F5" stroke="#71717A" stroke-width="1.4" />
+    <text x="302" y="141" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11" font-weight="700" fill="#3F3F46">OR</text>
 
-    <!-- CL / CR Central -->
-    <rect x="178" y="132" width="48" height="44" rx="10" fill="#F4F4F5" stroke="#71717A" stroke-width="1.4" />
-    <text x="202" y="159" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11.5" font-weight="700" fill="#3F3F46">CL</text>
-    <rect x="234" y="132" width="48" height="44" rx="10" fill="#F4F4F5" stroke="#71717A" stroke-width="1.4" />
-    <text x="258" y="159" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11.5" font-weight="700" fill="#3F3F46">CR</text>
+    <!-- AL / AR Expanded periauricular -->
+    <rect x="118" y="156" width="50" height="50" rx="12" fill="#DBEAFE" stroke="#2451D8" stroke-width="1.8" />
+    <text x="143" y="186" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="12" font-weight="700" fill="#1E3A8A">AL</text>
+    <rect x="292" y="156" width="50" height="50" rx="12" fill="#DBEAFE" stroke="#2451D8" stroke-width="1.8" />
+    <text x="317" y="186" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="12" font-weight="700" fill="#1E3A8A">AR</text>
 
-    <!-- PL / PR Parietal-temporal -->
-    <rect x="162" y="190" width="60" height="42" rx="10" fill="#FEF3C7" stroke="#D97706" stroke-width="1.5" />
-    <text x="192" y="216" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11.5" font-weight="700" fill="#92400E">PL</text>
-    <rect x="238" y="190" width="60" height="42" rx="10" fill="#FEF3C7" stroke="#D97706" stroke-width="1.5" />
-    <text x="268" y="216" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11.5" font-weight="700" fill="#92400E">PR</text>
+    <!-- PL / PR Near-postauricular -->
+    <rect x="134" y="212" width="48" height="34" rx="10" fill="#FEF3C7" stroke="#D97706" stroke-width="1.5" />
+    <text x="158" y="234" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11.5" font-weight="700" fill="#92400E">PL</text>
+    <rect x="278" y="212" width="48" height="34" rx="10" fill="#FEF3C7" stroke="#D97706" stroke-width="1.5" />
+    <text x="302" y="234" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11.5" font-weight="700" fill="#92400E">PR</text>
 
-    <!-- OL / OR Occipital -->
-    <rect x="174" y="244" width="52" height="36" rx="10" fill="#F4F4F5" stroke="#71717A" stroke-width="1.4" />
-    <text x="200" y="267" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11.5" font-weight="700" fill="#3F3F46">OL</text>
-    <rect x="234" y="244" width="52" height="36" rx="10" fill="#F4F4F5" stroke="#71717A" stroke-width="1.4" />
-    <text x="260" y="267" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="11.5" font-weight="700" fill="#3F3F46">OR</text>
-
-    <text x="230" y="318" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="600" fill="#2451D8">Popular low-hair masks: FM (forehead) + AL / AR (peri-auricular)</text>
+    <text x="230" y="318" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11" font-weight="600" fill="#2451D8">9 low-hair masks: FL/FM/FR (forehead), OL/OR (orbital), AL/AR &amp; PL/PR (ear)</text>
   </g>
 
   <!-- Right Card: 3 Metrics + AR Qualification -->

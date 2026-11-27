@@ -18,7 +18,7 @@ y_i(t) = Σ_q H_iq j_q(t) + epsilon_i(t),   q = 1, ..., Q
 - `epsilon`: noise added to the electrode observations. The main metrics use independent Gaussian electrode noise calibrated at the standard 64-electrode layout ([layout comparison](#layout-comparison)).
 - `y`: the sum of all source contributions at each electrode plus noise, in V. The interface shows waveforms in µV.
 
-For N electrodes and Q sources, `H` is N × Q, `j(t)` is Q × 1 and `y(t)` is N × 1. Automatic layouts have N = 64. The electrode editor can change the number of active electrodes; the reconstruction target remains the standard64 field.
+For N electrodes and Q sources, `H` is N × Q, `j(t)` is Q × 1 and `y(t)` is N × 1. Automatic regional searches use N = 64 by default (or an optional `electrode_count` in `{8, 12, 16, 24, 32, 48}`), and the electrode editor can also change the number of active electrodes on a 64-electrode parent layout; in every case the reconstruction target remains the standard64 field.
 
 ## Forward model
 
@@ -149,7 +149,7 @@ These values do not describe the historical batches or the separate 512-new-sour
 
 ## Local layout search
 
-The layout page calls the computation service, which runs the Python search. The search keeps 64 electrodes, a 4 mm minimum straight-line spacing and a nominal standard64 SNR of 20 dB. The forward bank holds 5,387 candidate positions, of which the [exposure screen](model-and-metrics.md#placement-sites-and-terms) admits 4,847. Changing the radius or the regions starts a new search in the screened domain, reusing the FEM rows of the candidates.
+The layout page calls the computation service, which runs the Python search. By default the search places 64 electrodes (or an optional `electrode_count` in `{8, 12, 16, 24, 32, 48}`), with a 4 mm minimum straight-line spacing and a nominal standard64 SNR of 20 dB. The forward bank holds 5,387 candidate positions, of which the [exposure screen](model-and-metrics.md#placement-sites-and-terms) admits 4,847. Changing the radius, the regions or the electrode count starts a new search in the screened domain, reusing the FEM rows of the candidates.
 
 Each region is grown by ROI-constrained paths on the edge graph of the scalp surface. The regions must form exactly R connected components that do not touch on the original surface adjacency graph. The radius control sets a common upper bound; where regions would connect, the actual radius is reduced. Both the actual radius and the area are reported. Ear-adjacent and low-hair regions are coordinate masks.
 
@@ -245,7 +245,7 @@ The workflow organization follows [SEPIO](https://github.com/TBBL-UTHealth/SEPIO
 
 The scalp, with face and ears, and the left and right central cortical surfaces come from the same SimNIBS Ernie example head. The display keeps the original geometry. Surface components were extracted, converted to metres and packed for the browser; skin colour and electrode appearance are styling.
 
-When the current configuration has no result yet, the layout page shows a radial projection as a geometric schematic. When the job completes, the schematic is replaced by the 64 MRI coordinates of the computed layout and the matching standard64 reference. After a parameter change the page shows the state of the new configuration.
+When the current configuration has no result yet, the layout page shows a radial projection as a geometric schematic. When the job completes, the schematic is replaced by the MRI coordinates of the computed layout (64 by default, or the selected `electrode_count`) and the matching standard64 reference. After a parameter change the page shows the state of the new configuration.
 
 Computed layouts and result pages use the saved FEM electrode coordinates, converted at 100 mm per display unit without radial re-projection. Contact markers are raised 1.2 mm along the surface normal so that the surface does not hide them. This is a display offset; the computation uses the original coordinates. Each figure states whether its positions are a schematic or a computed record.
 

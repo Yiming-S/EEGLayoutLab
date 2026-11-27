@@ -23,7 +23,7 @@ Both layouts are compared under the same source specification and the same physi
 
 ## Layout constraints
 
-The standard layout-design comparison holds the physical measurement count at 64. Reference and ground/bias electrodes do not count toward those 64 points. Supported region counts are 1, 2, 3, 4, and 6, with balanced allocations of 64; 32+32; 22+21+21; 16+16+16+16; and 11+11+11+11+10+10.
+The default layout-design comparison holds the physical measurement count at 64 (reference and ground/bias electrodes do not count toward those measurement points). Supported region counts are 1, 2, 3, 4, and 6, with default balanced allocations of 64; 32+32; 22+21+21; 16+16+16+16; and 11+11+11+11+10+10. Local radius search also supports optional reduced electrode counts (`8, 12, 16, 24, 32, 48`, requiring at least 2 electrodes per region in balanced mode) and cross-region `adaptive` channel allocation (`R >= 2`, preserving at least 4 electrodes per region); every layout is still scored against the same 63-dimensional reference-free `standard64` target field.
 
 The local radius search uses ROI-constrained paths on the surface edge graph, checks region separation, and enforces a 4 mm minimum straight-line sensor spacing. This graph radius approximates continuous surface distance. Area uses the original surface's vertex-area weights. A finite search that returns no layout has not proved mathematical infeasibility.
 
@@ -35,7 +35,7 @@ Electrode-editor evaluations that change the active sensor count form a separate
 
 ## Placement sites and terms
 
-A **placement region** is an area of the scalp where electrodes may go; a **source position** is a cortical location of simulated activity. A **layout** is a set of electrode coordinates: 64 for automatic layouts, fewer after electrode removal in the editor. A **configuration** gives the region count, the placement constraints and the size. A **record** is a saved result or search state.
+A **placement region** is an area of the scalp where electrodes may go; a **source position** is a cortical location of simulated activity. A **layout** is a set of electrode coordinates: 64 by default (or `8, 12, 16, 24, 32, 48` when a reduced `electrode_count` is chosen in regional search, or fewer after electrode removal in the editor). A **configuration** gives the region count, the placement constraints and the size. A **record** is a saved result or search state.
 
 The placement range is chosen directly. Besides the whole-scalp and low-hair candidate areas, 19 preset combinations come from the anatomical preset matrix of the [retained protocol file](validation.md#retained-protocol-file), with mirror variants listed separately. In layout design, each region can take any of nine sites, beyond the presets:
 
@@ -313,13 +313,13 @@ accepted at AR <=> each required metric >= AR
 
 AR is a user-selected relative acceptance threshold; an interface value of 90% is 0.90 in the formula. Each required metric must reach AR, and G is shorthand for that rule. Decisions use unrounded values; displayed decimals are for reading only.
 
-Changing AR reinterprets existing scores and does not change the head model, sensors, or computation, so existing results are reused. Changing the regions, the radius or the layout requires the result of that configuration, or a new computation when none matches. The current search objective uses reconstruction and amplitude sensitivity; localization is evaluated on the resulting fixed layouts. This does not establish a joint global optimum.
+Changing AR reinterprets existing scores and does not change the head model, sensors, or computation, so existing results are reused. Changing the regions, the radius or the layout requires the result of that configuration, or a new computation when none matches. The default search objective uses the lower of reconstruction and amplitude sensitivity (`min(R_field, R_sens)`), while the optional `composite` objective adds reference-free mutual-information retention (`R_info`) and dictionary confusion-margin screening (`R_margin`, [method details](method-details.md#local-layout-search)); out-of-sample localization on the 256 generation sources is always evaluated after the layout coordinates are fixed. Neither establishes a joint global optimum.
 
 Acceptance in the application uses model-conditional point estimates. It applies to the aggregated metrics; individual sources can fall below AR. It does not establish a population confidence bound, BCI task accuracy, or measured human performance.
 
 ## Worked example
 
-This example uses one fixed record, independent of the current configuration: record `d474e3b2006437767104367a8860d792e0b942963d08594ced8c82d96a2d722d`, saved on 2026-09-08 by `strict-radius-local/2`, an earlier version of the radius search than the current `strict-radius-local/3-external-exposure`. It is a bilateral near-postauricular layout with 32 electrodes per side, a 25 mm radius cap per region and a 4 mm minimum straight-line spacing. It was scored on the single Ernie head at a nominal standard64 SNR of 20 dB. The numbers are excerpted in [`retention-example.json`](../webapp/public/data/retention-example.json).
+This example uses one fixed record, independent of the current configuration: record `d474e3b2006437767104367a8860d792e0b942963d08594ced8c82d96a2d722d`, saved on 2026-09-08 by `strict-radius-local/2`, an earlier version of the radius search than the current `strict-radius-local/7-variable-k-composite-adaptive-fedorov`. It is a bilateral near-postauricular layout with 32 electrodes per side, a 25 mm radius cap per region and a 4 mm minimum straight-line spacing. It was scored on the single Ernie head at a nominal standard64 SNR of 20 dB. The numbers are excerpted in [`retention-example.json`](../webapp/public/data/retention-example.json).
 
 | Quantity | Standard64 | Example layout |
 | --- | --- | --- |

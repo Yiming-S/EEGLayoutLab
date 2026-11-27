@@ -69,9 +69,9 @@ Under skull-conductivity mismatch the data come from the scenario head and the i
 
 ## Installation and portability
 
-The intended initial environment is macOS on Apple Silicon, with Node.js 22.13.0 or newer and the specified native Python runtime. The pinned native wheels require macOS 14 or newer, and the installer enforces that requirement. This is a source checkout with a local Node host. It is not a signed `.app` or DMG.
+The maintained local application (`eeglayoutlab serve` and the `eeglayoutlab` command line) targets **Apple Silicon macOS** (macOS 14 or newer) and **Linux x86_64** (glibc 2.28 or newer). Conda installations bundle the pre-built web interface and numerical runtime without requiring Node.js; source checkouts require Node.js 22.18.0 or newer to build `webapp/` and use either the macOS SimNIBS runtime (`.runtime/simnibs-4.6.0`) or the table-backed Linux runtime (`.runtime/compute-linux-64`). It is a browser application served over loopback, not a signed desktop `.app` or DMG.
 
-The repository has not been validated on a second independent Mac. The dependency requirement does not establish a tested macOS support range. Peak memory for all native jobs, installation time, and support for Intel Macs, Windows, or Linux are not established by this handoff. A working source build on the preparation computer does not establish those properties.
+Linux x86_64 has been verified both in containerized `linux/amd64` Ubuntu 24.04 and on physical Ubuntu 26.04 x86_64 hardware (matching all 24 scores of `examples/expected.json` within `1e-6`, maximum numerical difference `4.1e-14` against Apple Silicon macOS; see [source installation](source-installation.md#linux-x86_64)), while direct SimNIBS finite-element solves (`source-reception/2` and un-tabled new coordinates) remain restricted to the Apple Silicon macOS SimNIBS runtime. Native Windows and Intel macOS remain unsupported and untested.
 
 ## Recording verification
 

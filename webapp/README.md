@@ -1,8 +1,8 @@
 # EEG Layout Lab
 
-首次安装请按照[源码安装说明](../docs/source-installation.zh-CN.md)完成模型数据、Python 计算环境和 `eeglayoutlab` 命令的安装。当前流程面向 Apple Silicon Mac。
+首次安装请按照[源码安装说明](../docs/source-installation.zh-CN.md)完成模型数据、Python 计算环境和 `eeglayoutlab` 命令的安装（例如在仓库根目录运行 `python3 scripts/setup_local.py --smoke`）。当前源码构建流程支持 Apple Silicon macOS 与 Linux x86_64（常规研究使用可直接参阅[完整安装手册](../docs/installation.zh-CN.md)）。
 
-For first-time setup, follow the [source installation instructions](../docs/source-installation.md): the model data, the Python computation environment and the `eeglayoutlab` command. The current setup targets Apple Silicon macOS.
+For first-time setup, follow the [source installation instructions](../docs/source-installation.md) (`python3 scripts/setup_local.py --smoke` from the repository root) to prepare the model data, Python computation environment and `eeglayoutlab` command. Source checkouts support Apple Silicon macOS and Linux x86_64 (for regular use without Node.js, see the [installation manual](../docs/installation.md)).
 
 ## 构建界面 / Build the interface
 

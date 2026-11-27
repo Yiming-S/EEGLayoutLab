@@ -28,7 +28,8 @@ formats below.
 
 | Service | Required fields | Rules |
 | --- | --- | --- |
-| `/api/local-compute` | `region_count`, `radius_mm`, `mode` | Counts: 1, 2, 3, 4, 6. Radius: 15–80 mm in steps of 5. Mode: `whole_surface`, `low_hair`, or `preset`. |
+| `/api/data-status` | *(GET only)* | Returns read-only readiness booleans (`base_installed`, `scalp_node_table_installed`, `simnibs_available`, `installed_form`, `ready_for_search`, `ready_for_coordinate_evaluation`) and ready-to-run `commands` for missing model packages. |
+| `/api/local-compute` | `region_count`, `radius_mm`, `mode` | Counts: 1, 2, 3, 4, 6. Radius: 15–80 mm in steps of 5. Mode: `whole_surface`, `low_hair`, or `preset`. Optional `electrode_count`, `allocation_mode`, `objective_mode`, `noise_model`, `data_prior`. |
 | `/api/source-reception`, legacy | `record_id`, `brain_region`, `waveform`, `artifact_scale`, `seed` | No `mode` field. Record is a lowercase 64-character hexadecimal identifier. |
 | `/api/source-reception`, version 2 | `record_id`, `mode`, mode-specific source field, `waveform`, `artifact_scale`, `seed` | Mode selects exactly one source field, described below. Optional `region_definition` must equal `dk40-six-roi-v1`. |
 | `/api/design-evaluation` | `action`, `design`, `radius_mm`, `seed` | Action: `evaluate` or `perturb`. Perturbation radius: 3, 6, 10 mm. Seed: integer 0–9999. |
@@ -45,7 +46,21 @@ The radius request permits `mask_codes`. Preset mode requires exactly
 `region_count` entries drawn from `PL`, `PR`, `AL`, `AR`, `FL`, `FM`, `FR`, `OL`,
 `OR`, retaining their supplied order. Free modes permit omission or an empty
 array, which the HTTP normalizer omits from canonical output. The Python worker
-adds an empty array. Other fields are rejected.
+adds an empty array.
+
+Radius requests also accept three optional layout-search controls, each omitted
+from canonical JSON when equal to its default so existing 64-electrode minimax
+requests keep their original cache keys:
+
+- `electrode_count`: integer in `8, 12, 16, 24, 32, 48, 64` (default `64`,
+  omitted when `64`). Balanced allocation requires `electrode_count >= 2 * region_count`;
+  adaptive allocation requires `electrode_count >= 4 * region_count`.
+- `allocation_mode`: `"balanced"` (default, omitted) or `"adaptive"` (requires
+  `region_count >= 2`).
+- `objective_mode`: `"min"` (default `min(R_field, R_sens)`, omitted) or
+  `"composite"` (joint mutual-information and dictionary confusion-margin objective).
+
+Other fields are rejected.
 
 Radius and design-evaluation requests also accept an optional `noise_model`.
 Absent means the production model, independent equal-variance electrode noise;

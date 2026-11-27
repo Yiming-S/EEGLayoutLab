@@ -113,7 +113,7 @@ eeglayoutlab data remove head-ixi002           # remove an optional package from
 
 | Capability | Conda package (`osx-arm64` & `linux-64`) | Source checkout + SimNIBS (`osx-arm64`) |
 | --- | --- | --- |
-| Regional radius search (`1 <= K <= 64`), Pareto ranking & 3D head viewer | Supported (with `base`) | Supported |
+| Regional radius search (`8, 12, 16, 24, 32, 48, or 64` electrodes), Pareto ranking & 3D head viewer | Supported (with `base`) | Supported |
 | Custom coordinate import (10-05, BIDS, MNI, landmarks, `.elc`, `.sfp`) & evaluation | Supported (via `scalp-node-table`) | Supported (via table or direct FEM) |
 | Electrode editor, cross-session dropout / impedance / re-placement checks | Supported | Supported |
 | Skull-conductivity mismatch (`skull_x0.5`, `skull_x2`) & multi-head studies (`study`) | Supported when corresponding packages are installed | Supported |

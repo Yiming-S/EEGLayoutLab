@@ -21,7 +21,7 @@ app route -> feature workspace/controller -> client/task-client
 | [`webapp/viewer/`](../webapp/viewer/) | Head assets, resource lifetime, contact/source layers and camera interaction |
 | [`webapp/components/`](../webapp/components/) | Shared UI and the React wrapper around the viewer |
 | [`webapp/lib/`](../webapp/lib/) | Display calculations, translations, URL state and compatibility exports |
-| [`webapp/server/`](../webapp/server/) | The legacy Node host (below), which the command line still runs until phase 3 and the parity tests run as the reference |
+| [`webapp/server/`](../webapp/server/) | The legacy Node host (below), frozen at `node-host-freeze` and run by the parity tests as the reference until phase 4 |
 | [`webapp/server/contracts/`](../webapp/server/contracts/) | Pure server request normalization and result validation |
 | [`webapp/server/http/`](../webapp/server/http/) | JSON responses, API metadata and explicit access policy |
 | [`webapp/server/host/`](../webapp/server/host/) | Development/production framework adapters, configuration and operator signals |
@@ -33,10 +33,10 @@ app route -> feature workspace/controller -> client/task-client
 | [`webapp/server/operations/`](../webapp/server/operations/) | Request correlation, bounded private logs, local status and resource admission |
 | [`src/compact_eeg/workflows/`](../src/compact_eeg/workflows/) | Scientific application workflows |
 | [`src/compact_eeg/`](../src/compact_eeg/) | Geometry, forward modeling, reconstruction and metrics |
-| [`src/eeglayoutlab/`](../src/eeglayoutlab/) | Request schemas and the Python service that hosts the application ([phase 2 plan](design/0001-phase-2-plan.md)): `eeglayoutlab serve` with its access policy and static pages (`server/`), the library and catalogs, radius jobs, coordinate evaluations, electrode edits and signal simulations with a durable workspace queue (`jobs/`), electrode-name annotations, signal records, robustness studies and research projects with their deliveries in the workspace, and `eeglayoutlab workspace import-legacy` |
+| [`src/eeglayoutlab/`](../src/eeglayoutlab/) | Request schemas (`schemas/`), pure-Python coordinate/subset/Pareto algorithms (`core/`), SVG generators (`figures/`), versioned data-package management (`data/`), the full scientific command line (`cli/`: `quickstart`, `doctor`, `design`, `export`, `evaluate`, `search`, `study`, `pareto`, `eeg-summary`, `prior`, `channels`, `examples run`), and the Python service (`eeglayoutlab serve` in `server/` and `jobs/`) |
 | [`scripts/`](../scripts/) | Worker entry points, data/runtime setup and release/recovery tools |
 
-Browser modules do not import server implementations. Server imports are checked for cycles. Shared layout contracts have no renderer dependency. Request fixtures exercise the existing Node and Python validators. The design-evaluation, coordinate-source, radius-search, electrode-editor, source-reception, robustness-study and research-project formats are also defined in `eeglayoutlab.schemas`, checked against the Node normalizers, and the interface's types for them are generated from those definitions ([contracts](../contracts/README.md#generated-request-types)). The other formats are not yet ported ([design 0001](design/0001-local-first-architecture.md), phase 1). See [API formats](../contracts/api-formats.md).
+Browser modules do not import server implementations. Server imports are checked for cycles. Shared layout contracts have no renderer dependency. Request fixtures exercise the existing Node and Python validators. All active request, project and study formats (`design-evaluation`, `coordinate-source`, `radius-search`, `electrode-editor`, `source-reception`, `robustness-study` and `projects`) are defined in `eeglayoutlab.schemas`, checked against the Node normalizers, and generate the interface's request types and OpenAPI schema ([contracts](../contracts/README.md#generated-request-types)). See [API formats](../contracts/api-formats.md).
 
 The viewer's asset loader validates atlas groups and hashes before use. A scene lifetime owns generated geometry, materials, labels, event listeners, observers and the renderer. `lib/anatomical-head-scene.ts` preserves the existing exports. Reception separates pure result projections, one shared playback timeline and paired receiver panels; display controls do not recalculate scientific scores.
 
@@ -76,7 +76,7 @@ Filesystem free-space checks and an optional current Node RSS threshold apply be
 
 ## Host checkout and scientific root
 
-The **scientific root** contains worker scripts, `src/`, scientific configurations, installed model inputs, generated records and the managed runtime. `eeglayoutlab serve` takes it from `--root` or `EEG_REPOSITORY_ROOT`, by default the checkout the command was installed from, and serves that root's built interface (`webapp/dist/client`, or `--static`). The **workspace** holds the user's queue, annotations, studies and projects. The legacy Node host's **host checkout** supplies `webapp/`, dependencies and the production build, `EEG_REPOSITORY_ROOT` selects its scientific root, and `EEG_QUEUE_DIRECTORY` can place its queue state elsewhere; its value must be absolute.
+The **scientific root** contains worker scripts, `src/`, scientific configurations, installed model inputs, generated records and (in a source checkout) the managed runtime. `eeglayoutlab serve` and the CLI resolve it from `--root`, else `EEG_REPOSITORY_ROOT`, else the source checkout holding the package, else the installed Conda environment's scientific root (`$PREFIX/share/eeglayoutlab/root`, [design 0002](design/0002-installed-scientific-root.md)), and `serve` hosts that root's built interface (`webapp/dist/client`, or `--static`). The **workspace** holds the user's queue, annotations, studies and projects. The legacy Node host's **host checkout** supplies `webapp/`, dependencies and the production build, `EEG_REPOSITORY_ROOT` selects its scientific root, and `EEG_QUEUE_DIRECTORY` can place its queue state elsewhere; its value must be absolute.
 
 The store preserves existing paths:
 

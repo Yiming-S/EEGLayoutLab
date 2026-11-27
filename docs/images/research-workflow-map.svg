@@ -12,7 +12,7 @@
     <text x="26" y="29" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.5" font-weight="700" fill="#2451D8">01 · CREATE / IMPORT</text>
     <text x="340" y="29" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10" fill="#63615C">/design · /coordinates</text>
     <text x="16" y="56" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#2451D8">Design or Import</text>
-    <text x="16" y="82" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.8" fill="#18181B">• Regional search (1–6 patches)</text>
+    <text x="16" y="82" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.8" fill="#18181B">• Regional search (1–6 patches, 8–64 ch)</text>
     <text x="16" y="104" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.8" fill="#18181B">• 10-05 / BIDS / MNI / .elc import</text>
     <rect x="16" y="118" width="324" height="24" rx="5" fill="#FAF9F5" stroke="#E5E2DA" />
     <text x="26" y="134" font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" font-size="10.2" fill="#52525B">CLI: search / design / evaluate</text>
