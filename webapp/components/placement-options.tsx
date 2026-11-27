@@ -6,6 +6,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { ArrowUpRight, ChevronDown } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Button } from '@/components/ui/button';
+import { ScalpMaskMap } from '@/components/scalp-mask-map';
 import { MASK_NAMES } from '@/lib/ui-language';
 import { REGION_COUNTS } from '@/lib/lab-workflow';
 import { cn } from '@/lib/utils';
@@ -83,10 +84,27 @@ const PLACEMENT_MODES = [
 ] as const;
 
 /** Placement is one decision: a free domain, or named locations for every region. */
-export function DesignPlacementOptions({ count, choices, selected, slots, onSelect, onSlot, onCount, compact = false }: {
-  count: number; choices: PlacementChoice[]; selected: string; slots: string[];
-  onSelect: (choice: PlacementChoice) => void; onSlot: (index: number, value: string) => void;
+export function DesignPlacementOptions({
+  count,
+  choices,
+  selected,
+  slots,
+  onSelect,
+  onSlot,
+  onCount,
+  electrodeCount = 64,
+  allocationMode = 'balanced',
+  compact = false,
+}: {
+  count: number;
+  choices: PlacementChoice[];
+  selected: string;
+  slots: string[];
+  onSelect: (choice: PlacementChoice) => void;
+  onSlot: (index: number, value: string) => void;
   onCount: (count: number) => void;
+  electrodeCount?: number;
+  allocationMode?: 'balanced' | 'adaptive';
   compact?: boolean;
 }) {
   const { tx } = useLanguage();
@@ -103,24 +121,33 @@ export function DesignPlacementOptions({ count, choices, selected, slots, onSele
     const next = previous && presets.some((c) => c.id === previous.id) ? previous : presets[0];
     if (next) onSelect(next); else setCustomOpen(true);
   };
+  const effectiveSlots = current?.maskCodes?.length === count ? current.maskCodes : slots;
+  const adaptiveActive = allocationMode === 'adaptive' && count > 1;
   return <section className={compact ? 'mb-4 space-y-4' : 'lab-panel mb-4 space-y-5'} aria-label={tx("布置方式与区域部位")}>
     <div>
       <h2 className="text-base font-semibold">{tx("1 · 选择区域数与布置方式")}</h2>
       <fieldset className="mt-2.5 flex flex-wrap gap-1.5 rounded-xl border border-border/75 bg-muted/55 p-1" aria-label={tx("电极分布区域数")}>
         {tx(REGION_COUNTS.map((r) => <Button key={r} size="sm" variant={count === r ? 'default' : 'ghost'} className="flex-1 px-2" aria-pressed={count === r} onClick={() => onCount(r)}>{tx(`${r}个区域`)}</Button>))}
       </fieldset>
-      <p className="mt-2 text-xs leading-5 text-muted-foreground">{tx("总电极数始终64；下方每个区域标明分配数量。")}</p>
+      <p className="mt-2 text-xs leading-5 text-muted-foreground">
+        {tx(adaptiveActive
+          ? `当前共${electrodeCount}个电极，跨区自适应配额（每区至少4个电极）。`
+          : electrodeCount === 64
+            ? '总电极数始终64；下方每个区域标明分配数量。'
+            : `当前共${electrodeCount}个电极；下方每个区域标明分配数量。`)}
+      </p>
     </div>
     <LocationRadios label={tx("布置方式")} value={mode} onChange={pickMode} options={PLACEMENT_MODES.map((m) => ({ ...m }))} stacked={compact} />
     {mode === 'regions' && <div className="space-y-3.5 rounded-xl border border-primary/25 bg-primary/[0.035] p-3.5">
       <div><p className="mb-2 text-xs font-semibold tracking-wide text-foreground/90">{tx("常用组合 · ")}{tx(`${count}个区域`)}</p><div className="flex flex-wrap gap-1.5">{tx(presets.map((c) => <Button key={c.id} size="sm" variant={selected === c.id ? 'default' : 'outline'} className="h-auto whitespace-normal py-1.5 text-left" aria-pressed={selected === c.id} onClick={() => onSelect(c)}>{tx(c.label)}</Button>))}</div></div>
+      <ScalpMaskMap count={count} slots={effectiveSlots} onSlot={onSlot} />
       <details className="group/custom border-t border-border/70 pt-3" open={customOpen} onToggle={(event) => setCustomOpen(event.currentTarget.open)}>
         <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-semibold select-none [&::-webkit-details-marker]:hidden">
           <span>{tx("自由组合部位 · 每个区域选一项")}</span>
           <ChevronDown aria-hidden className="size-4 text-muted-foreground transition-transform group-open/custom:rotate-180" />
         </summary>
         <p className="mt-1.5 text-xs leading-5 text-muted-foreground">{tx("可选择预设之外的组合，也可在多个区域选择同一部位。顺序对应各区电极数；仍须满足不同电极、最小间距与区域分离要求。")}</p>
-        <div className={'mt-3.5 grid items-start gap-4 ' + (compact ? '' : 'lg:grid-cols-2 xl:grid-cols-3')}>{tx(Array.from({ length: count }, (_, i) => <LocationRadios key={i} label={tx(`区域${i + 1} · ${Math.floor(64 / count) + Number(i < 64 % count)}个电极`)} value={slots[i] ?? ''} onChange={(v) => onSlot(i, v)} options={Object.entries(MASK_NAMES).map(([id, label]) => ({ id, label }))} compact />))}</div>
+        <div className={'mt-3.5 grid items-start gap-4 ' + (compact ? '' : 'lg:grid-cols-2 xl:grid-cols-3')}>{tx(Array.from({ length: count }, (_, i) => <LocationRadios key={i} label={tx(adaptiveActive ? `区域${i + 1} · 至少4个电极（自适应）` : `区域${i + 1} · ${Math.floor(electrodeCount / count) + Number(i < electrodeCount % count)}个电极`)} value={effectiveSlots[i] ?? ''} onChange={(v) => onSlot(i, v)} options={Object.entries(MASK_NAMES).map(([id, label]) => ({ id, label }))} compact />))}</div>
         <p className="mt-3 text-xs leading-5 text-muted-foreground">{tx("所有部位均按模型坐标近似划定。耳后邻近区覆盖近耳后外侧，耳周扩展区覆盖更大范围，眶周上外侧排除模型中的眼球近似区。眼电干扰在信号仿真页单独评价。")}</p>
       </details>
     </div>}

@@ -3,6 +3,16 @@ import type { DomainMode, RecordedLayout, XYZ } from '../../contracts/layout';
 export type { DomainMode } from '../../contracts/layout';
 
 export type ViewName = 'oblique' | 'front' | 'left' | 'right' | 'back' | 'top';
+export type HoverTarget = {
+  kind: 'electrode' | 'reference' | 'source';
+  index: number;
+  label: string;
+  color: string;
+  regionIndex?: number;
+  sourceRegionId?: string | null;
+  xyzMm?: XYZ;
+  active?: boolean;
+};
 export type LayoutOptions = {
   editor?: {
     enabled: boolean;
@@ -18,6 +28,7 @@ export type LayoutOptions = {
   domainMode: DomainMode;
   maskCodes?: string[];
   radiusCm: number;
+  electrodeNames?: string[];
   sourceXyzMm?: XYZ[];
   sourceNormals?: XYZ[];
   sourceRegions?: (string | null)[];

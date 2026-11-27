@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { useLanguage } from '@/components/language-provider';
 import biosemi from '@/lib/biosemi64-reference.json';
 import {
@@ -124,6 +124,58 @@ function computeChannelR2(
   });
 }
 
+function buildIdwContourCells(
+  scores: { cand: number | null; delta: number | null }[],
+  mode: 'candidate' | 'delta',
+  cx: number,
+  cy: number,
+  radius: number,
+) {
+  const valid = BIOSEMI_PROJECTED.points
+    .map((pt, idx) => ({
+      x: pt.cx,
+      y: pt.cy,
+      val: mode === 'candidate' ? scores[idx]?.cand : scores[idx]?.delta,
+    }))
+    .filter((item): item is { x: number; y: number; val: number } =>
+      typeof item.val === 'number' && Number.isFinite(item.val),
+    );
+  if (valid.length < 3) return [];
+  const step = 6;
+  const half = step / 2;
+  const smoothSq = 20 * 20;
+  const cells: { x: number; y: number; fill: string }[] = [];
+  for (let y = cy - radius; y <= cy + radius; y += step) {
+    for (let x = cx - radius; x <= cx + radius; x += step) {
+      const px = x + half;
+      const py = y + half;
+      if ((px - cx) ** 2 + (py - cy) ** 2 > (radius + step) ** 2) continue;
+      let num = 0;
+      let den = 0;
+      for (const s of valid) {
+        const d2 = (px - s.x) ** 2 + (py - s.y) ** 2;
+        const w = 1 / ((d2 + smoothSq) * Math.sqrt(d2 + smoothSq));
+        num += w * s.val;
+        den += w;
+      }
+      const raw = den > 0 ? num / den : 0;
+      const quantized =
+        mode === 'candidate'
+          ? Math.round(Math.max(0, Math.min(1, raw)) * 12) / 12
+          : Math.round(Math.max(-0.3, Math.min(0.3, raw)) * 20) / 20;
+      cells.push({
+        x,
+        y,
+        fill:
+          mode === 'candidate'
+            ? r2FillColor(quantized)
+            : deltaR2FillColor(quantized),
+      });
+    }
+  }
+  return cells;
+}
+
 export function TargetChannelTopography({
   result,
   condition,
@@ -136,7 +188,9 @@ export function TargetChannelTopography({
   onSelectChannel: (channel: number) => void;
 }) {
   const { tx } = useLanguage();
+  const clipId = useId();
   const [mapMode, setMapMode] = useState<'candidate' | 'delta'>('candidate');
+  const [smoothField, setSmoothField] = useState(true);
   const channelScores = useMemo(
     () => computeChannelR2(result, condition),
     [result, condition],
@@ -145,6 +199,11 @@ export function TargetChannelTopography({
     r = BIOSEMI_PROJECTED.headRadius,
     cx = 130,
     cy = 136;
+  const contourCells = useMemo(
+    () =>
+      smoothField ? buildIdwContourCells(channelScores, mapMode, cx, cy, r) : [],
+    [smoothField, channelScores, mapMode, r],
+  );
 
   return (
     <div
@@ -156,31 +215,59 @@ export function TargetChannelTopography({
           <h3 className="text-sm font-semibold">
             {tx('64导目标通道重建拓扑（点击选点）')}
           </h3>
-          <div className="inline-flex rounded-md border bg-background p-0.5 text-[11px]">
-            <button
-              type="button"
-              aria-pressed={mapMode === 'candidate'}
-              onClick={() => setMapMode('candidate')}
-              className={`rounded px-2 py-0.5 font-medium transition-colors ${
-                mapMode === 'candidate'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {tx('自定义64解释率')}
-            </button>
-            <button
-              type="button"
-              aria-pressed={mapMode === 'delta'}
-              onClick={() => setMapMode('delta')}
-              className={`rounded px-2 py-0.5 font-medium transition-colors ${
-                mapMode === 'delta'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {tx('相对标准64差值')}
-            </button>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <div className="inline-flex rounded-md border bg-background p-0.5 text-[11px]">
+              <button
+                type="button"
+                aria-pressed={mapMode === 'candidate'}
+                onClick={() => setMapMode('candidate')}
+                className={`rounded px-2 py-0.5 font-medium transition-colors ${
+                  mapMode === 'candidate'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {tx('自定义64解释率')}
+              </button>
+              <button
+                type="button"
+                aria-pressed={mapMode === 'delta'}
+                onClick={() => setMapMode('delta')}
+                className={`rounded px-2 py-0.5 font-medium transition-colors ${
+                  mapMode === 'delta'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {tx('相对标准64差值')}
+              </button>
+            </div>
+            <div className="inline-flex rounded-md border bg-background p-0.5 text-[11px]">
+              <button
+                type="button"
+                aria-pressed={smoothField}
+                onClick={() => setSmoothField(true)}
+                className={`rounded px-2 py-0.5 font-medium transition-colors ${
+                  smoothField
+                    ? 'bg-secondary text-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {tx('等势热力')}
+              </button>
+              <button
+                type="button"
+                aria-pressed={!smoothField}
+                onClick={() => setSmoothField(false)}
+                className={`rounded px-2 py-0.5 font-medium transition-colors ${
+                  !smoothField
+                    ? 'bg-secondary text-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {tx('离散点位')}
+              </button>
+            </div>
           </div>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
@@ -192,6 +279,25 @@ export function TargetChannelTopography({
           aria-label={tx('64导目标通道重建拓扑（点击选点）')}
         >
           <title>{tx('64导目标通道重建拓扑（点击选点）')}</title>
+          <defs>
+            <clipPath id={clipId}>
+              <circle cx={cx} cy={cy} r={r - 0.8} />
+            </clipPath>
+          </defs>
+          {smoothField && contourCells.length > 0 && (
+            <g clipPath={`url(#${clipId})`} opacity={0.48}>
+              {contourCells.map((cell, i) => (
+                <rect
+                  key={i}
+                  x={cell.x}
+                  y={cell.y}
+                  width={6.4}
+                  height={6.4}
+                  fill={cell.fill}
+                />
+              ))}
+            </g>
+          )}
           <circle
             cx={cx}
             cy={cy}
@@ -245,10 +351,10 @@ export function TargetChannelTopography({
                 <circle
                   cx={pt.cx}
                   cy={pt.cy}
-                  r={selected ? 6.2 : 4.8}
+                  r={selected ? 6.2 : 4.6}
                   fill={fill}
-                  stroke={selected ? '#0f172a' : '#ffffff'}
-                  strokeWidth={selected ? 1.8 : 1.1}
+                  stroke={selected ? 'var(--foreground)' : 'var(--card)'}
+                  strokeWidth={selected ? 1.8 : 1.2}
                 />
                 {selected && (
                   <text

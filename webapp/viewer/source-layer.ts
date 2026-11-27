@@ -15,9 +15,9 @@ export function createSourceLayer(scene: THREE.Scene) {
     setLayout(options: LayoutOptions) {
       releaseGroup(group);
       for (const [i, xyz] of (options.sourceXyzMm ?? []).entries()) {
+        const regionId = options.sourceRegions?.[i] ?? null;
         const color =
-          sourceRegion(options.sourceRegions?.[i])?.color ??
-          UNASSIGNED_SOURCE_COLOR;
+          sourceRegion(regionId)?.color ?? UNASSIGNED_SOURCE_COLOR;
         const markerGroup = new THREE.Group();
         group.add(markerGroup);
         markerGroup.position.set(...mriMmToDisplay(xyz));
@@ -32,7 +32,13 @@ export function createSourceLayer(scene: THREE.Scene) {
           }),
         );
         marker.renderOrder = 10;
-        markerGroup.userData = { sourceIndex: i, marker };
+        markerGroup.userData = {
+          sourceIndex: i,
+          sourceRegionId: regionId,
+          xyzMm: xyz,
+          color,
+          marker,
+        };
         markerGroup.add(marker);
         const labelCanvas = document.createElement('canvas');
         labelCanvas.width = 128;

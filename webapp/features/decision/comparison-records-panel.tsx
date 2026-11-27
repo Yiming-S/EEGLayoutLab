@@ -122,6 +122,43 @@ function DifferenceCell({
   );
 }
 
+function DeltaPill({
+  va,
+  vb,
+  unit,
+  better,
+}: {
+  va: number | null | undefined;
+  vb: number | null | undefined;
+  unit: 'pp' | 'mm';
+  better: 'higher' | 'lower';
+}) {
+  if (va == null || vb == null || !Number.isFinite(va) || !Number.isFinite(vb))
+    return null;
+  const raw = vb - va;
+  const scaled = unit === 'pp' ? raw * 100 : raw;
+  const digits = unit === 'mm' ? 1 : 2;
+  const zero = Math.abs(scaled) < 0.5 * 10 ** -digits;
+  const sign = zero ? '±' : raw > 0 ? '+' : '−';
+  const improved = !zero && ((better === 'higher') === (raw > 0));
+  const tone = zero
+    ? 'border-border bg-secondary/50 text-muted-foreground'
+    : improved
+      ? 'border-success/35 bg-success-surface/85 text-success'
+      : 'border-warning/35 bg-warning-surface/85 text-warning';
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center rounded border px-1.5 py-0.5 font-mono text-[10px] font-semibold tabular-nums',
+        tone,
+      )}
+    >
+      Δ {sign}
+      {Math.abs(scaled).toFixed(digits)} {unit}
+    </span>
+  );
+}
+
 const niceErrorCeiling = (maxVal: number) => {
   if (!Number.isFinite(maxVal) || maxVal <= 0) return 20;
   const padded = maxVal * 1.15,
@@ -176,6 +213,7 @@ function PairedMetricsVisual({
         ? Math.ceil(Math.max(...retentionVals) / 10) * 10
         : 100,
     retSpan = Math.max(1e-9, retMax - retMin);
+  const baseline100Pct = ((100 - retMin) / retSpan) * 100;
 
   const errorRows = [
     {
@@ -218,6 +256,10 @@ function PairedMetricsVisual({
             />
             <span>{tx('方案B')}</span>
           </span>
+          <span className="inline-flex items-center gap-1 text-muted-foreground">
+            <span aria-hidden="true" className="inline-block h-3 w-0.5 bg-foreground/75" />
+            <span>{tx('启用阈值')}</span>
+          </span>
         </div>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
@@ -243,10 +285,13 @@ function PairedMetricsVisual({
                   : null;
             return (
               <div key={row.label} className="space-y-1 text-xs">
-                <div className="flex items-baseline justify-between gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-medium">{tx(row.label)}</span>
-                  <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-                    A {tx(pct(row.va))} · B {tx(pct(row.vb))}
+                  <span className="inline-flex items-center gap-1.5 font-mono text-[11px] tabular-nums text-muted-foreground">
+                    <span>
+                      A {tx(pct(row.va))} · B {tx(pct(row.vb))}
+                    </span>
+                    <DeltaPill va={row.va} vb={row.vb} unit="pp" better="higher" />
                   </span>
                 </div>
                 <div
@@ -257,6 +302,12 @@ function PairedMetricsVisual({
                     <span
                       className="absolute inset-y-0 w-px bg-foreground/30"
                       style={{ left: `${zeroPct}%` }}
+                    />
+                  )}
+                  {retMax > 100 && (
+                    <span
+                      className="absolute inset-y-0 border-l border-dashed border-muted-foreground/60"
+                      style={{ left: `${baseline100Pct}%` }}
                     />
                   )}
                   {styleA && (
@@ -281,6 +332,11 @@ function PairedMetricsVisual({
               </div>
             );
           })}
+          <div className="flex justify-between pt-0.5 font-mono text-[10px] tabular-nums text-muted-foreground">
+            <span>{retMin}%</span>
+            <span>{Math.round((retMin + retMax) / 2)}%</span>
+            <span>{retMax === 100 ? `100% (${tx('标准64导')})` : `${retMax}%`}</span>
+          </div>
         </div>
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground">
@@ -297,10 +353,13 @@ function PairedMetricsVisual({
                 row.limit != null ? Math.min(100, Math.max(0, (row.limit / errMax) * 100)) : null;
             return (
               <div key={row.label} className="space-y-1 text-xs">
-                <div className="flex items-baseline justify-between gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-medium">{tx(row.label)}</span>
-                  <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-                    A {tx(mm(row.va))} · B {tx(mm(row.vb))}
+                  <span className="inline-flex items-center gap-1.5 font-mono text-[11px] tabular-nums text-muted-foreground">
+                    <span>
+                      A {tx(mm(row.va))} · B {tx(mm(row.vb))}
+                    </span>
+                    <DeltaPill va={row.va} vb={row.vb} unit="mm" better="lower" />
                   </span>
                 </div>
                 <div

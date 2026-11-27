@@ -9,7 +9,7 @@ import {
   UNASSIGNED_SOURCE_COLOR,
   sourceRegion,
 } from '../lib/source-regions.ts';
-import type { LayoutOptions, ViewName } from './types.ts';
+import type { HoverTarget, LayoutOptions, ViewName } from './types.ts';
 import { createContactsLayer } from './contacts.ts';
 import { createSourceLayer } from './source-layer.ts';
 import { createSceneLifetime, releaseGroup } from './resources.ts';
@@ -142,8 +142,17 @@ export function createHeadScene(
     const sourceLayer = createSourceLayer(scene);
     let selectElectrode: ((index: number) => void) | undefined;
     let selectSource: ((index: number) => void) | undefined;
+    let hoverListener: ((target: HoverTarget | null) => void) | undefined;
+    let hoveredKey = '';
+    const emitHover = (next: HoverTarget | null) => {
+      const nextKey = next ? `${next.kind}:${next.index}:${next.label}` : '';
+      if (nextKey === hoveredKey) return;
+      hoveredKey = nextKey;
+      hoverListener?.(next);
+    };
     let editor: LayoutOptions['editor'];
     const setLayout = (options: LayoutOptions) => {
+      emitHover(null);
       sourceLayer.setLayout(options);
       contactsLayer.setLayout(options);
     };
@@ -155,10 +164,19 @@ export function createHeadScene(
       viewportHeight = 1;
     let rearViewport = { x: 0, y: 0, width: 1, height: 1 };
     let renderedFrames = 0;
-    const render = () => {
+    const isDarkTheme = () =>
+      Boolean(
+        (document as Document & { documentElement?: HTMLElement })
+          .documentElement?.classList?.contains('dark'),
+      );
+    const renderFrame = (opaqueBackground = false) => {
+      const dark = isDarkTheme();
       renderer.setScissorTest(false);
       renderer.setViewport(0, 0, viewportWidth, viewportHeight);
-      renderer.setClearColor('#f8fafb', 0);
+      renderer.setClearColor(
+        dark ? '#141418' : opaqueBackground ? '#f3f2ef' : '#f8fafb',
+        opaqueBackground ? 1 : 0,
+      );
       renderer.clear();
       renderer.render(scene, camera);
       if (showRearView) {
@@ -166,7 +184,7 @@ export function createHeadScene(
         renderer.setViewport(x, y, width, height);
         renderer.setScissor(x, y, width, height);
         renderer.setScissorTest(true);
-        renderer.setClearColor('#eff4f6', 1);
+        renderer.setClearColor(dark ? '#1c1c21' : '#eff4f6', 1);
         renderer.clear();
         renderer.render(scene, rearCamera);
         renderer.setScissorTest(false);
@@ -174,6 +192,7 @@ export function createHeadScene(
       }
       canvas.dataset.renderCount = String(++renderedFrames);
     };
+    const render = () => renderFrame(false);
     const drawing = createDemandRenderer(() => {
       const moving = controls.update();
       render();
@@ -183,6 +202,16 @@ export function createHeadScene(
     const invalidate = drawing.invalidate;
     controls.addEventListener('change', invalidate);
     lifetime.defer(() => controls.removeEventListener('change', invalidate));
+    const rootElement = (document as Document & { documentElement?: HTMLElement })
+      .documentElement;
+    if (typeof MutationObserver !== 'undefined' && rootElement) {
+      const themeObserver = new MutationObserver(() => invalidate());
+      themeObserver.observe(rootElement, {
+        attributes: true,
+        attributeFilter: ['class'],
+      });
+      lifetime.defer(() => themeObserver.disconnect());
+    }
     const resize = () => {
       const width = Math.max(host.clientWidth, 1),
         height = Math.max(host.clientHeight, 1);
@@ -306,6 +335,90 @@ export function createHeadScene(
       position: THREE.Vector3;
       quaternion: THREE.Quaternion;
     } | null = null;
+    const pickHover = (e: PointerEvent) => {
+      if (!hoverListener) return;
+      if (overRearView(e) || Boolean(e.buttons)) {
+        emitHover(null);
+        return;
+      }
+      pointRay(e);
+      const scalpDistance = !cortex.visible
+        ? (raycaster.intersectObject(scalp, false)[0]?.distance ?? Infinity)
+        : Infinity;
+      const targets: THREE.Object3D[] = [...sourceLayer.group.children];
+      if (contactsLayer.visible) {
+        targets.push(...contactsLayer.contacts, ...contactsLayer.schematicContacts);
+      }
+      if (contactsLayer.referenceVisible) {
+        targets.push(...contactsLayer.referenceContacts);
+      }
+      if (!targets.length) {
+        emitHover(null);
+        return;
+      }
+      const hits = raycaster.intersectObjects(targets, true);
+      for (const hit of hits) {
+        let object: THREE.Object3D | null = hit.object;
+        while (object) {
+          if (Number.isInteger(object.userData.sourceIndex)) {
+            emitHover({
+              kind: 'source',
+              index: object.userData.sourceIndex as number,
+              label: `S${(object.userData.sourceIndex as number) + 1}`,
+              color: (object.userData.color as string) ?? UNASSIGNED_SOURCE_COLOR,
+              sourceRegionId:
+                (object.userData.sourceRegionId as string | null | undefined) ??
+                null,
+              xyzMm: object.userData.xyzMm as XYZ | undefined,
+            });
+            return;
+          }
+          if (hit.distance <= scalpDistance + 0.06) {
+            if (Number.isInteger(object.userData.electrodeIndex)) {
+              emitHover({
+                kind: 'electrode',
+                index: object.userData.electrodeIndex as number,
+                label:
+                  (object.userData.channelName as string | undefined) ??
+                  `E${(object.userData.electrodeIndex as number) + 1}`,
+                color: (object.userData.color as string) ?? '#2a78d6',
+                regionIndex: object.userData.regionIndex as number | undefined,
+                xyzMm: object.userData.xyzMm as XYZ | undefined,
+                active: object.userData.active !== false,
+              });
+              return;
+            }
+            if (Number.isInteger(object.userData.schematicIndex)) {
+              emitHover({
+                kind: 'electrode',
+                index: object.userData.schematicIndex as number,
+                label:
+                  (object.userData.channelName as string | undefined) ??
+                  `#${(object.userData.schematicIndex as number) + 1}`,
+                color: (object.userData.color as string) ?? '#2a78d6',
+                regionIndex: object.userData.regionIndex as number | undefined,
+                active: true,
+              });
+              return;
+            }
+            if (Number.isInteger(object.userData.referenceIndex)) {
+              emitHover({
+                kind: 'reference',
+                index: object.userData.referenceIndex as number,
+                label:
+                  (object.userData.channelName as string | undefined) ??
+                  `Ref ${(object.userData.referenceIndex as number) + 1}`,
+                color: '#8c9da7',
+                xyzMm: object.userData.xyzMm as XYZ | undefined,
+              });
+              return;
+            }
+          }
+          object = object.parent;
+        }
+      }
+      emitHover(null);
+    };
     const pointerDown = (e: PointerEvent) => {
       // The overview never ray-picks or edits. Dragging it can still rotate the
       // main view through the existing OrbitControls listener.
@@ -339,14 +452,18 @@ export function createHeadScene(
       };
     };
     const pointerMove = (e: PointerEvent) => {
+      if (!drag) {
+        pickHover(e);
+        return;
+      }
       if (
-        !drag ||
         !editor ||
         !contactsLayer.recordedLayout ||
         !pointerStart ||
         Math.hypot(e.clientX - pointerStart.x, e.clientY - pointerStart.y) < 5
       )
         return;
+      emitHover(null);
       e.stopImmediatePropagation();
       pointRay(e);
       const hit = raycaster.intersectObject(scalp, false)[0];
@@ -394,6 +511,7 @@ export function createHeadScene(
       canvas.style.cursor = drag.valid ? 'grabbing' : 'not-allowed';
       invalidate();
     };
+    const pointerLeave = () => emitHover(null);
     const pointerUp = (e: PointerEvent) => {
       if (drag) {
         e.stopImmediatePropagation();
@@ -474,6 +592,10 @@ export function createHeadScene(
     lifetime.defer(() =>
       canvas.removeEventListener('pointermove', pointerMove, true),
     );
+    canvas.addEventListener('pointerleave', pointerLeave);
+    lifetime.defer(() =>
+      canvas.removeEventListener('pointerleave', pointerLeave),
+    );
     canvas.addEventListener('pointerup', pointerUp, true);
     lifetime.defer(() =>
       canvas.removeEventListener('pointerup', pointerUp, true),
@@ -483,6 +605,7 @@ export function createHeadScene(
       canvas.removeEventListener('pointercancel', pointerUp, true),
     );
     const start = () => {
+        emitHover(null);
         canvas.style.cursor = 'grabbing';
       },
       end = () => {
@@ -524,6 +647,25 @@ export function createHeadScene(
     return {
       canvas,
       setLayout,
+      setHoverListener(listener: ((target: HoverTarget | null) => void) | undefined) {
+        hoverListener = listener;
+        if (!listener) hoveredKey = '';
+      },
+      capturePng(): Promise<Blob> {
+        return new Promise((resolve, reject) => {
+          renderFrame(true);
+          if (typeof canvas.toBlob !== 'function') {
+            invalidate();
+            reject(new Error('当前浏览器不支持导出三维视图'));
+            return;
+          }
+          canvas.toBlob((blob) => {
+            invalidate();
+            if (blob) resolve(blob);
+            else reject(new Error('导出三维视图失败'));
+          }, 'image/png');
+        });
+      },
       setEditor(value: LayoutOptions['editor']) {
         editor = value;
         contactsLayer.setEditor(value);

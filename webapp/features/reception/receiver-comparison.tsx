@@ -17,6 +17,13 @@ import type { fieldFrames } from '@/lib/source-field';
 import type { receiverTraces, layoutPresentation } from './result-view-model';
 import { DeferredHeadViewer } from './deferred-head-viewer';
 
+const TOOLTIP_STYLE = {
+  backgroundColor: 'var(--popover)',
+  borderColor: 'var(--border)',
+  color: 'var(--popover-foreground)',
+  borderRadius: '0.5rem',
+};
+
 type Props = {
   result: SourceResult;
   channels: number[];
@@ -105,7 +112,7 @@ export function ReceiverComparison({
             <div className="mt-3 h-60">
               <ResponsiveContainer width="100%" height={240}>
                 <LineChart data={traces[i]} syncId="source-receivers">
-                  <CartesianGrid strokeDasharray="3 3" />
+                  <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
                   <XAxis
                     dataKey="time"
                     type="number"
@@ -118,7 +125,7 @@ export function ReceiverComparison({
                     tick={{ fontSize: 12 }}
                     tickFormatter={(v) => tx(Number(v).toPrecision(3))}
                   />
-                  <Tooltip />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} />
                   <ReferenceLine x={times[time]} stroke="#a16716" />
                   <Line
                     dataKey="mixed"

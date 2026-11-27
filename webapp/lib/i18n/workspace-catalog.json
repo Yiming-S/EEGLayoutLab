@@ -2030,5 +2030,129 @@
   "channels_demo_notice": {
     "source": "当前显示合成示例摘要（32导10-05电极 · 4份训练摘要＋2份留出检验摘要，1–40 Hz），仅用于演示子集选择流程与误差曲线，不代表真实被试统计结论。",
     "en": "Showing synthetic example summaries (32 10-05 channels · 4 training + 2 held-out summaries, 1–40 Hz) to demonstrate the subset-selection workflow and error curves, not empirical subject findings."
+  },
+  "viewer_export_png": {
+    "source": "导出三维视图PNG",
+    "en": "Download 3D view PNG"
+  },
+  "viewer_export_unsupported": {
+    "source": "当前浏览器不支持导出三维视图",
+    "en": "3D view export is not supported in this browser"
+  },
+  "viewer_export_failed": {
+    "source": "导出三维视图失败",
+    "en": "Failed to export 3D view"
+  },
+  "viewer_hover_region": {
+    "source": "区域{{0}}",
+    "en": "Region {{0}}"
+  },
+  "viewer_hover_disabled": {
+    "source": "已停用",
+    "en": "Disabled"
+  },
+  "scalp_mask_map_title": {
+    "source": "九部位头皮俯视示意（鼻尖朝上）",
+    "en": "9-mask top-down scalp guide (nose up)"
+  },
+  "scalp_mask_map_hint": {
+    "source": "先选下方目标区域编号，再点击示意图中的解剖部位即可直接填入。",
+    "en": "Select a target region slot on the right, then click an anatomical patch to assign it."
+  },
+  "scalp_mask_map_target_group": {
+    "source": "点击示意图时填入的目标区域",
+    "en": "Target region slot when clicking the scalp map"
+  },
+  "scalp_mask_map_unset": {
+    "source": "待选",
+    "en": "Unset"
+  },
+  "scalp_mask_map_aria": {
+    "source": "九个少毛发与前额耳周候选部位俯视示意图",
+    "en": "Top-down scalp map of the nine low-hair, frontal, and periauricular candidate masks"
+  },
+  "scalp_mask_map_crown": {
+    "source": "中央有发头顶区",
+    "en": "Central hair-bearing crown"
+  },
+  "placement_total_adaptive": {
+    "source": "当前共{{0}}个电极，跨区自适应配额（每区至少4个电极）。",
+    "en": "{{0}} total electrodes with adaptive cross-region quotas (at least 4 per region)."
+  },
+  "placement_total_dynamic": {
+    "source": "当前共{{0}}个电极；下方每个区域标明分配数量。",
+    "en": "{{0}} total electrodes; each region below shows its quota."
+  },
+  "placement_slot_adaptive": {
+    "source": "区域{{0}} · 至少4个电极（自适应）",
+    "en": "Region {{0}} · at least 4 electrodes (adaptive)"
+  },
+  "channels_map_train_short": {
+    "source": "训练",
+    "en": "Train"
+  },
+  "channels_map_heldout_short": {
+    "source": "留出",
+    "en": "Held-out"
+  },
+  "channels_map_custom_skipped": {
+    "source": "当前摘要使用自定义通道名称，未匹配到标准10-05模板坐标，已略过二维头皮位置对照。",
+    "en": "Custom channel labels did not match standard 10-05 template coordinates; 2D scalp map skipped."
+  },
+  "channels_map_title": {
+    "source": "所选子集头皮分布示意（Ernie 10-05 模板投影）",
+    "en": "Selected subset scalp map (Ernie 10-05 template projection)"
+  },
+  "channels_map_desc": {
+    "source": "彩色实心点为选入子集的通道，浅色圆点为其余共同通道，直观检查空间覆盖度。",
+    "en": "Filled markers show channels in the selected subset; muted dots show remaining shared channels to inspect spatial coverage."
+  },
+  "channels_map_size_group": {
+    "source": "预览子集通道数",
+    "en": "Subset size to preview"
+  },
+  "channels_map_method_label": {
+    "source": "子集选择方法",
+    "en": "Subset selection method"
+  },
+  "channels_map_show_labels": {
+    "source": "显示通道名",
+    "en": "Show labels"
+  },
+  "channels_map_unmatched_note": {
+    "source": "注：{{0}}个非标准命名通道未包含在10-05模板示意中。",
+    "en": "Note: {{0}} non-standard channel label(s) are omitted from the 10-05 template map."
+  },
+  "topography_smooth_field": {
+    "source": "等势热力",
+    "en": "Smooth field"
+  },
+  "topography_discrete_points": {
+    "source": "离散点位",
+    "en": "Discrete sensors"
+  },
+  "reception_recovered_legend_adaptive": {
+    "source": "主色：干净脑真值 · 蓝色：标准64重建 · 绿色：自定义64重建",
+    "en": "Primary ink: clean brain truth · Blue: standard-64 reconstruction · Teal: custom-64 reconstruction"
+  },
+  "reception_strength_retention_line": {
+    "source": "相对标准64保留率 %",
+    "en": "Retention vs standard 64 %"
+  },
+  "reception_strength_legend_with_ar": {
+    "source": "蓝色：标准64解释率 · 绿色：自定义64解释率 · 橙色虚线：相对标准64保留率（对照AR阈值线）。",
+    "en": "Blue: standard-64 explained energy · Teal: custom-64 explained energy · Dashed amber: retention relative to standard 64 (compared against the AR line)."
+  },
+  "history_trajectory_summary_dynamic": {
+    "source": "共 {{0}}/{{1}} 个槽位发生移动，最大三维位移 {{2}} mm",
+    "en": "{{0}}/{{1}} slots moved · max 3D displacement {{2}} mm"
+  },
+  "history_missing_stage_coords_generic": {
+    "source": "本记录未载入这一阶段的电极坐标，原始索引见下方技术数据。",
+    "en": "Electrode coordinates for this stage are not loaded; see the technical metadata below for raw indices."
+  },
+  "decision_visual_active_threshold": {
+    "source": "启用阈值",
+    "en": "Active threshold"
   }
 }

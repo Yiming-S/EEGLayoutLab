@@ -3,7 +3,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
-import { attachContact } from '../viewer/contacts.ts';
+import { attachContact, REGION_COLORS } from '../viewer/contacts.ts';
+import { FIGURE_REGION_COLORS } from '../lib/layout-figure.ts';
 import { releaseGroup } from '../viewer/resources.ts';
 import { sceneFixture } from './helpers/viewer-fixture.mjs';
 
@@ -23,6 +24,20 @@ await test('standard contacts use square geometry; layout contacts remain circul
     assert.ok(contact.position.distanceTo(original.clone().addScaledVector(normal, .012)) < 1e-12);
     releaseGroup(parent);
   }
+});
+
+await test('3D region palette matches 2D figure palette and viewer surfaces stay dark-mode compatible', async t => {
+  assert.deepEqual(REGION_COLORS, FIGURE_REGION_COLORS);
+  assert.doesNotMatch(component, /\bbg-white\b/);
+  assert.match(component, /data-head-hover-hud/);
+  assert.match(component, /导出三维视图PNG/);
+
+  const f = sceneFixture(t);
+  f.canvas.toBlob = (cb, type) => cb(new Blob(['png'], { type }));
+  const before = f.draws.length;
+  const blob = await f.scene.capturePng();
+  assert.equal(blob.type, 'image/png');
+  assert.equal(f.draws.length, before + 2, 'snapshot renders main and rear viewports synchronously');
 });
 
 await test('rear overview reuses the scene and renderer and restores the main viewport', t => {

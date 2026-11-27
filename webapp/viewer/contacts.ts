@@ -1,19 +1,13 @@
 import * as THREE from 'three';
 import biosemiReference from '../lib/biosemi64-reference.json' with { type: 'json' };
 import { mriMmToDisplay } from '../lib/fixed64-results.ts';
+import { FIGURE_REGION_COLORS } from '../lib/layout-figure.ts';
 import { surfacePatchGeometry } from '../lib/surface-patches.ts';
 import type { XYZ } from '../../contracts/layout';
 import type { LayoutOptions, SurfacePoint } from './types.ts';
 import { releaseGroup } from './resources.ts';
 
-export const REGION_COLORS = [
-  '#128a80',
-  '#376ec6',
-  '#c8811b',
-  '#8655ac',
-  '#c34f68',
-  '#598d37',
-];
+export const REGION_COLORS = [...FIGURE_REGION_COLORS];
 const UP = new THREE.Vector3(0, 0, 1);
 const ANCHORS: Record<string, [number, number, number]> = {
   PL: [-1, -0.45, -0.22],
@@ -116,6 +110,7 @@ export const attachContact = (
   );
   contact.userData = { name, color, center, rim };
   parent.add(contact);
+  return contact;
 };
 
 export function createContactsLayer(
@@ -139,9 +134,19 @@ export function createContactsLayer(
     if (normal.dot(unit) < 0) normal.negate();
     return { position: hit.point, normal, direction: unit };
   };
-  biosemiReference.channels.forEach((channel) => {
+  let referenceContacts: THREE.Group[] = [];
+  biosemiReference.channels.forEach((channel, i) => {
     const point = project(new THREE.Vector3(...channel.xyz_m));
-    attachContact(reference, point, '#8c9da7', channel.name, true);
+    const contact = attachContact(
+      reference,
+      point,
+      '#8c9da7',
+      channel.name,
+      true,
+    );
+    contact.userData.referenceIndex = i;
+    contact.userData.channelName = channel.name;
+    referenceContacts.push(contact);
   });
   let referenceKey = 'schematic';
   const recordedPoint = (xyzMm: XYZ): SurfacePoint => {
@@ -174,6 +179,7 @@ export function createContactsLayer(
     regionPointCount = 0;
   let regionFocus: SurfacePoint[][] = [];
   let contacts: THREE.Group[] = [];
+  let schematicContacts: THREE.Group[] = [];
   let recordedOptions: LayoutOptions['recordedLayout'];
   const syncVisibility = () => {
     reference.visible = showReference;
@@ -197,6 +203,7 @@ export function createContactsLayer(
       throw new Error('实验布局必须含64个记录坐标');
     releaseGroup(regions);
     contacts = [];
+    schematicContacts = [];
     regionFocus = Array.from({ length: options.regionCount }, () => []);
     regionPointCount = 0;
     const nextReferenceKey = recorded
@@ -204,11 +211,22 @@ export function createContactsLayer(
       : 'schematic';
     if (referenceKey !== nextReferenceKey) {
       releaseGroup(reference);
+      referenceContacts = [];
       biosemiReference.channels.forEach((channel, i) => {
         const point = recorded
           ? recordedPoint(recorded.referenceXyzMm[i])
           : project(new THREE.Vector3(...channel.xyz_m));
-        attachContact(reference, point, '#8c9da7', channel.name, true);
+        const contact = attachContact(
+          reference,
+          point,
+          '#8c9da7',
+          channel.name,
+          true,
+        );
+        contact.userData.referenceIndex = i;
+        contact.userData.channelName = channel.name;
+        if (recorded) contact.userData.xyzMm = recorded.referenceXyzMm[i];
+        referenceContacts.push(contact);
       });
       referenceKey = nextReferenceKey;
     }
@@ -239,18 +257,21 @@ export function createContactsLayer(
       }
       recorded.xyzMm.forEach((xyz, i) => {
         const point = recordedPoint(xyz);
-        regionFocus[recorded.regionIndices[i]].push(point);
-        attachContact(
+        const regionIndex = recorded.regionIndices[i];
+        regionFocus[regionIndex].push(point);
+        const label = options.electrodeNames?.[i] ?? `E${i + 1}`;
+        const contact = attachContact(
           regions,
           point,
-          REGION_COLORS[recorded.regionIndices[i]],
+          REGION_COLORS[regionIndex],
           `实验电极 ${i + 1}`,
           false,
         );
-        const contact = regions.children[
-          regions.children.length - 1
-        ] as THREE.Group;
         contact.userData.electrodeIndex = i;
+        contact.userData.regionIndex = regionIndex;
+        contact.userData.xyzMm = xyz;
+        contact.userData.channelName = label;
+        contact.userData.active = true;
         contacts.push(contact);
       });
       regionPointCount = recorded.xyzMm.length;
@@ -303,7 +324,18 @@ export function createContactsLayer(
       for (let i = 0; i < count; i++) {
         const point = pointAt(i * golden, 0.86 * Math.sqrt((i + 0.5) / count));
         regionFocus[r].push(point);
-        attachContact(regions, point, color, `区域${r + 1} · ${i + 1}`, false);
+        const contact = attachContact(
+          regions,
+          point,
+          color,
+          `区域${r + 1} · ${i + 1}`,
+          false,
+        );
+        contact.userData.schematicIndex = schematicContacts.length;
+        contact.userData.regionIndex = r;
+        contact.userData.channelName = `#${i + 1}`;
+        contact.userData.active = true;
+        schematicContacts.push(contact);
         regionPointCount += 1;
       }
     });
@@ -316,6 +348,12 @@ export function createContactsLayer(
     get contacts() {
       return contacts;
     },
+    get schematicContacts() {
+      return schematicContacts;
+    },
+    get referenceContacts() {
+      return referenceContacts;
+    },
     get regionFocus() {
       return regionFocus;
     },
@@ -325,9 +363,13 @@ export function createContactsLayer(
     get visible() {
       return showRegions;
     },
+    get referenceVisible() {
+      return showReference;
+    },
     setEditor(value: LayoutOptions['editor']) {
       if (!value) return;
       contacts.forEach((contact, i) => {
+        contact.userData.active = Boolean(value.active[i]);
         contact.traverse((object) => {
           if (object instanceof THREE.Mesh) {
             object.material.transparent = !value.active[i];

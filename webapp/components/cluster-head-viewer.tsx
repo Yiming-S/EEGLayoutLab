@@ -7,6 +7,7 @@ import { RuntimeMessage } from "@/components/runtime-message";
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   Brain,
+  Camera,
   Maximize2,
   Minimize2,
   Minus,
@@ -16,12 +17,13 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { SOURCE_REGIONS } from '@/lib/source-regions';
+import { SOURCE_REGIONS, sourceRegion } from '@/lib/source-regions';
 import {
   createHeadScene,
   loadHeadAssets,
   REGION_COLORS,
   type HeadScene,
+  type HoverTarget,
   type ViewName,
   type LayoutOptions,
 } from '@/lib/anatomical-head-scene';
@@ -53,6 +55,7 @@ export function ClusterHeadViewer(props: Props) {
     [error, setError] = useState('');
   const [view, setView] = useState<ViewName | null>('oblique');
   const [focusedRegion, setFocusedRegion] = useState<number | null>(null);
+  const [hovered, setHovered] = useState<HoverTarget | null>(null);
   const editing = Boolean(props.editor?.enabled);
   const electrodeCount = props.editor
     ? props.editor.active.filter(Boolean).length
@@ -60,9 +63,14 @@ export function ClusterHeadViewer(props: Props) {
   // Callers build these small arrays inline; keyed by content, a re-render with the same
   // values does not rebuild the scene's electrodes and regions.
   const allocationKey = props.allocation.join(','),
-    maskKey = props.maskCodes ? 'm:' + props.maskCodes.join(',') : '';
+    maskKey = props.maskCodes ? 'm:' + props.maskCodes.join(',') : '',
+    namesKey = props.electrodeNames ? 'n:' + props.electrodeNames.join('\u0000') : '';
   const allocation = useMemo(() => (allocationKey ? allocationKey.split(',').map(Number) : []), [allocationKey]);
   const maskCodes = useMemo(() => (maskKey ? maskKey.slice(2).split(',').filter(Boolean) : undefined), [maskKey]);
+  const electrodeNames = useMemo(
+    () => (namesKey ? namesKey.slice(2).split('\u0000') : undefined),
+    [namesKey],
+  );
   const {
     regionCount,
     domainMode,
@@ -86,6 +94,7 @@ export function ClusterHeadViewer(props: Props) {
         }
         try {
           runtime.current = createHeadScene(host, scalp, cortex);
+          runtime.current.setHoverListener(setHovered);
           setStatus('ready');
         } catch (reason) {
           scalp.dispose();
@@ -104,6 +113,7 @@ export function ClusterHeadViewer(props: Props) {
     return () => {
       disposed = true;
       controller.abort();
+      runtime.current?.setHoverListener(undefined);
       runtime.current?.dispose();
       runtime.current = null;
     };
@@ -116,6 +126,7 @@ export function ClusterHeadViewer(props: Props) {
         domainMode,
         maskCodes,
         radiusCm,
+        electrodeNames,
         recordedLayout,
         sourceXyzMm,
         sourceNormals,
@@ -128,6 +139,7 @@ export function ClusterHeadViewer(props: Props) {
     domainMode,
     maskCodes,
     radiusCm,
+    electrodeNames,
     recordedLayout,
     sourceXyzMm,
     sourceNormals,
@@ -171,6 +183,24 @@ export function ClusterHeadViewer(props: Props) {
     setFocusedRegion(null);
     runtime.current?.setView(name);
   };
+  const exportSnapshotPng = async () => {
+    const scene = runtime.current;
+    if (!scene) return;
+    try {
+      const blob = await scene.capturePng();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const stem = recordedLayout?.id
+        ? `eeg-3d-${recordedLayout.id.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 24)}`
+        : 'eeg-3d-preview';
+      link.href = url;
+      link.download = `${stem}.png`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch {
+      // Ignore snapshot failures in restricted/headless contexts.
+    }
+  };
   useEffect(() => {
     runtime.current?.canvas.setAttribute('aria-label', props.editor
       ? tx(`可旋转的头部与电极布局，启用${props.editor.active.filter(Boolean).length}点，方向键旋转，加减键缩放`)
@@ -182,12 +212,19 @@ export function ClusterHeadViewer(props: Props) {
   const coordinateNote = recordedLayout
     ? `点位采用记录坐标；${recordedLayout.regionPatchVertexIndices ? '彩色面片与面积计算使用同一组表面顶点。点击区域按钮可转到对应区域。' : '此历史记录未保存区域边界。'} 触点大小及离表面偏移用于显示。`
     : '当前为几何示意。计算后将显示满足约束的记录坐标与对应指标。';
+  const hoveredValue =
+    hovered?.kind === 'electrode' &&
+    recordedLayout &&
+    props.electrodeValues &&
+    Number.isFinite(props.electrodeValues[hovered.index])
+      ? props.electrodeValues[hovered.index]
+      : null;
   return (
     <div
       data-compact={props.compact ? 'true' : 'false'}
       className={`head-stage @container flex flex-col overflow-hidden ${expanded ? 'fixed inset-0 z-[80] h-[100dvh] rounded-none sm:inset-4 sm:h-auto sm:rounded-2xl' : props.compact ? (brain ? 'relative rounded-2xl sm:h-[580px]' : 'relative rounded-2xl sm:h-[520px]') : brain ? 'relative rounded-2xl sm:h-[730px]' : 'relative rounded-2xl sm:h-[680px]'}`}
     >
-      <div className="relative z-10 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border bg-white/95 px-3 py-2 sm:px-4">
+      <div className="relative z-10 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border bg-card/95 px-3 py-2 sm:px-4">
         <fieldset
           className="flex shrink-0 rounded-lg bg-background p-0.5"
           aria-label={tx('解剖显示方式')}
@@ -255,6 +292,17 @@ export function ClusterHeadViewer(props: Props) {
           </label>
         </fieldset>
         <div className="ml-auto flex shrink-0 gap-1.5 @[780px]:ml-0">
+          <Button
+            className="head-tool"
+            variant="outline"
+            size="icon-sm"
+            disabled={status !== 'ready'}
+            aria-label={tx('导出三维视图PNG')}
+            title={tx('导出三维视图PNG')}
+            onClick={exportSnapshotPng}
+          >
+            <Camera className="size-4" />
+          </Button>
           <Button
             className="head-tool"
             variant="outline"
@@ -369,7 +417,7 @@ export function ClusterHeadViewer(props: Props) {
               <span className="flex items-center gap-1.5">
                 <span
                   aria-hidden="true"
-                  className="size-2.5 shrink-0 border-2 border-[#71838e] bg-white"
+                  className="size-2.5 shrink-0 border-2 border-[#71838e] bg-card"
                 />
                 <span>
                   {tx('方形：标准64导')}
@@ -381,7 +429,7 @@ export function ClusterHeadViewer(props: Props) {
               <span className="mt-1 flex items-center gap-1.5">
                 <span
                   aria-hidden="true"
-                  className="size-2.5 shrink-0 rounded-full border-2 border-primary bg-white"
+                  className="size-2.5 shrink-0 rounded-full border-2 border-primary bg-card"
                 />
                 <span>
                   {tx('圆形：当前布局')}
@@ -396,12 +444,62 @@ export function ClusterHeadViewer(props: Props) {
                 {tx(editing ? '编辑模式 · 拖动电极' : '观察模式 · 拖动旋转')}
               </span>
             </div>
+            {hovered && (
+              <div
+                data-head-hover-hud
+                className="pointer-events-none absolute bottom-3 left-3 z-10 max-w-[260px] rounded-lg border border-border bg-card/95 px-2.5 py-1.5 text-[11px] leading-4 text-foreground shadow-sm backdrop-blur-xs"
+              >
+                <div className="flex flex-wrap items-center gap-1.5 font-medium">
+                  <span
+                    aria-hidden="true"
+                    className={`size-2.5 shrink-0 ${hovered.kind === 'reference' ? 'border border-[#71838e]' : 'rounded-full'}`}
+                    style={{ backgroundColor: hovered.color }}
+                  />
+                  <span className="font-mono">{hovered.label}</span>
+                  {hovered.kind === 'electrode' && hovered.regionIndex !== undefined && (
+                    <span className="text-ink-soft">
+                      · {tx(`区域${hovered.regionIndex + 1}`)}
+                    </span>
+                  )}
+                  {hovered.kind === 'electrode' && hovered.active === false && (
+                    <span className="text-warning">· {tx('已停用')}</span>
+                  )}
+                  {hovered.kind === 'reference' && (
+                    <span className="text-ink-soft">· {tx('标准64导')}</span>
+                  )}
+                  {hovered.kind === 'source' && (
+                    <span className="text-ink-soft">
+                      ·{' '}
+                      {tx(
+                        sourceRegion(hovered.sourceRegionId)?.label ??
+                          '其他皮层或分区边界',
+                      )}
+                    </span>
+                  )}
+                </div>
+                {(hovered.xyzMm || hoveredValue !== null) && (
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 font-mono text-[10px] text-ink-soft tabular-nums">
+                    {hovered.xyzMm && (
+                      <span>
+                        ({hovered.xyzMm.map((v) => v.toFixed(1)).join(', ')}) mm
+                      </span>
+                    )}
+                    {hoveredValue !== null && (
+                      <span className="font-semibold text-foreground">
+                        {hoveredValue >= 0 ? '+' : ''}
+                        {hoveredValue.toPrecision(3)} μV
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             {showRearView && (
               <div
                 data-rear-overview className="pointer-events-none absolute right-3 top-3 aspect-[8/9] w-[clamp(96px,28%,160px)] rounded-lg border border-border shadow-sm"
                 aria-label={tx('同一布局的固定后视总览')}
               >
-                <span className="absolute inset-x-0 top-0 rounded-t-lg border-b border-border bg-white/90 px-2 py-1 text-center text-[10px] font-medium text-foreground">
+                <span className="absolute inset-x-0 top-0 rounded-t-lg border-b border-border bg-card/90 px-2 py-1 text-center text-[10px] font-medium text-foreground">
                   {tx('后视总览')}
                 </span>
               </div>

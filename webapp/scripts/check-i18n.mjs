@@ -679,3 +679,127 @@ void test('missing model data notices and runtime install hints render bilingual
   }
   assert.equal(dataInstallCommandForError("ModuleNotFoundError: No module named 'simnibs'")?.command, 'eeglayoutlab data install scalp-node-table');
 });
+
+void test('2D scalp mask selector, channel subset map, snapshot layout figure, smooth topography, and paired comparison render bilingually', () => {
+  const { ScalpMaskMap } = loadUI('components/scalp-mask-map.tsx');
+  const { DesignPlacementOptions } = loadUI('components/placement-options.tsx');
+  const { ChannelSubsetMap } = loadUI('features/data/channel-subset-map.tsx');
+  const { ProjectSnapshotViewer } = loadUI('features/projects/project-snapshot-viewer.tsx');
+  const { TargetChannelTopography } = loadUI('features/reception/target-channel-topography.tsx');
+  const { ComparisonRecordsPanel } = loadUI('features/decision/comparison-records-panel.tsx');
+  const { buildDemoChannelSubsetInput } = loadUI('lib/channel-subset-demo.ts');
+  const { channelSubsets } = loadUI('lib/channel-subset.ts');
+
+  const demoInput = buildDemoChannelSubsetInput();
+  const subsetReport = channelSubsets({ training: demoInput.training, test: demoInput.test });
+
+  const eightPts = Array.from({ length: 8 }, (_, k) => [10 + k * 5, 20 + k * 3, 40 - k * 2]);
+  const snapshotMetrics = {
+    field_relative: 0.91,
+    sensitivity_tail: 0.88,
+    localization_relative: 0.93,
+    conditional_global: 0.91,
+    median_mm: 8.2,
+    reference_median_mm: 7.5,
+    p90_mm: 16.4,
+  };
+  const layoutEntry = { id: 'layout-8', title: '8-ch dual patch', kind: 'layout', record_id: 'b'.repeat(64) };
+  const layoutSnapshot = {
+    schema: 'research-project-snapshot/1',
+    kind: 'layout',
+    record_id: layoutEntry.record_id,
+    payload: {
+      record: {
+        id: layoutEntry.record_id,
+        label: '8-ch dual patch',
+        region_count: 2,
+        dataset_id: 'cache',
+        mode: 'preset',
+        metrics: snapshotMetrics,
+        layout: {
+          xyzMm: eightPts,
+          regionIndices: [0, 0, 0, 0, 1, 1, 1, 1],
+          referenceXyzMm: Array.from({ length: 64 }, (_, c) => [c, 0, 50]),
+        },
+      },
+    },
+  };
+
+  const zeroWave = Array.from({ length: 64 }, () => [1, -1, 0.5, -0.5]);
+  const fakeReception = {
+    schema_version: 'source-reception/1',
+    request: { record_id: 'c'.repeat(64) },
+    source: { xyz_mm: [[0, 0, 40]] },
+    layout: {
+      xyzMm: Array.from({ length: 64 }, (_, c) => [c, 0, 50]),
+      referenceXyzMm: Array.from({ length: 64 }, (_, c) => [c, 0, 50]),
+      regionIndices: Array(64).fill(0),
+    },
+    waveforms: {
+      time_s: [0, 0.01, 0.02, 0.03],
+      source_nam: [[1, 0, -1, 0]],
+      baseline: { brain_uv: zeroWave, ecg_uv: zeroWave, eog_uv: zeroWave, noise_uv: zeroWave, reconstructed_brain_uv: zeroWave, reconstructed_ecg_uv: zeroWave, reconstructed_eog_uv: zeroWave, reconstructed_noise_uv: zeroWave },
+      candidate: { brain_uv: zeroWave, ecg_uv: zeroWave, eog_uv: zeroWave, noise_uv: zeroWave, reconstructed_brain_uv: zeroWave, reconstructed_ecg_uv: zeroWave, reconstructed_eog_uv: zeroWave, reconstructed_noise_uv: zeroWave },
+    },
+    conditions: [],
+    strength_curve: [],
+  };
+
+  const recA = {
+    id: 'a'.repeat(64),
+    dataset_id: 'cache',
+    label: 'Plan A',
+    mode: 'preset',
+    region_count: 2,
+    metrics: snapshotMetrics,
+    geometry: { union_area_cm2: 72.4, minimum_chord_distance_mm: 11.2, union_connected_component_count: 2, common_graph_radius_mm: 35 },
+    layout: { xyzMm: eightPts, regionIndices: [0, 0, 0, 0, 1, 1, 1, 1], referenceXyzMm: Array.from({ length: 64 }, (_, c) => [c, 0, 50]) },
+  };
+  const recB = {
+    ...recA,
+    id: 'd'.repeat(64),
+    label: 'Plan B',
+    metrics: { ...snapshotMetrics, field_relative: 0.95, median_mm: 6.9 },
+  };
+
+  for (const locale of ['zh-CN', 'en']) {
+    const maskHtml = render(ScalpMaskMap, { count: 2, slots: ['PL', 'PR'], onSlot() {} }, locale);
+    const placementHtml = render(DesignPlacementOptions, {
+      count: 2,
+      choices: [{ id: 'PL,PR', label: 'PL + PR', mode: 'preset', maskCodes: ['PL', 'PR'] }],
+      selected: 'PL,PR',
+      slots: ['PL', 'PR'],
+      electrodeCount: 24,
+      allocationMode: 'adaptive',
+      onSelect() {},
+      onSlot() {},
+      onCount() {},
+    }, locale);
+    const subsetMapHtml = render(ChannelSubsetMap, { report: subsetReport }, locale);
+    const snapshotHtml = render(ProjectSnapshotViewer, { entry: layoutEntry, snapshot: layoutSnapshot }, locale);
+    const topoHtml = render(TargetChannelTopography, { result: fakeReception, condition: 'clean', targetChannel: 0, onSelectChannel() {} }, locale);
+    const compareHtml = render(ComparisonRecordsPanel, {
+      shown: [recA, recB],
+      ids: [recA.id, recB.id],
+      thresholds: { mode: 'joint', field: 90, sensitivity: null, localization: null, p90_mm: null },
+      notes: [],
+      result: null,
+      recordA: recA,
+      recordB: recB,
+    }, locale);
+
+    assert.match(snapshotHtml, /data:image\/svg\+xml/);
+    assert.match(subsetMapHtml, /data-channel-subset-map/);
+    assert.match(topoHtml, locale === 'en' ? /Smooth field/ : /等势热力/);
+    assert.match(compareHtml, /Δ \+4\.00 pp/);
+
+    if (locale === 'en') {
+      for (const html of [maskHtml, placementHtml, subsetMapHtml, snapshotHtml, topoHtml, compareHtml]) {
+        assert.doesNotMatch(visibleText(html), /[\u3400-\u9fff]/);
+      }
+      assert.match(placementHtml, /24 total electrodes with adaptive cross-region quotas/);
+    } else {
+      assert.match(placementHtml, /当前共24个电极，跨区自适应配额/);
+    }
+  }
+});

@@ -18,6 +18,13 @@ import { FIGURE_REGION_COLORS, projectLayout } from '@/lib/layout-figure';
 import { isShowcaseDisplayCopy, verifyShowcaseDisplayCopy, type ShowcaseDisplayCopy } from '@/lib/showcase-display-copy';
 import { apiFetch } from '@/client/task-client';
 
+const TOOLTIP_STYLE = {
+  backgroundColor: 'var(--popover)',
+  borderColor: 'var(--border)',
+  color: 'var(--popover-foreground)',
+  borderRadius: '0.5rem',
+};
+
 type Snapshot = {
   label: string;
   xyzMm: [number, number, number][] | null;
@@ -49,6 +56,9 @@ type Bundle = {
   };
 };
 
+const validSnapshotCoords = (pts: [number, number, number][] | null | undefined): pts is [number, number, number][] =>
+  Boolean(pts && pts.length >= 2 && pts.length <= 64);
+
 function SnapshotTrajectoryMap({
   initial,
   optimized,
@@ -57,7 +67,12 @@ function SnapshotTrajectoryMap({
   optimized: Snapshot;
 }) {
   const { tx } = useLanguage();
-  if (initial.xyzMm?.length !== 64 || optimized.xyzMm?.length !== 64) return null;
+  if (
+    !validSnapshotCoords(initial.xyzMm) ||
+    !validSnapshotCoords(optimized.xyzMm) ||
+    initial.xyzMm.length !== optimized.xyzMm.length
+  )
+    return null;
   const projInit = projectLayout(initial.xyzMm),
     projOpt = projectLayout(optimized.xyzMm),
     maxR = Math.max(1, ...projInit.map((p) => p.r), ...projOpt.map((p) => p.r)),
@@ -98,7 +113,7 @@ function SnapshotTrajectoryMap({
           {tx('二维电极移动轨迹（初始化 → 优化后）')}
         </span>
         <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-          {tx(`共 ${movedCount}/64 个槽位发生移动，最大三维位移 ${maxMoveMm.toFixed(1)} mm`)}
+          {tx(`共 ${movedCount}/${pairs.length} 个槽位发生移动，最大三维位移 ${maxMoveMm.toFixed(1)} mm`)}
         </span>
       </div>
       <svg
@@ -178,7 +193,7 @@ function SnapshotTrajectoryMap({
                 cy={p.to.y}
                 r={3.8}
                 fill={color}
-                stroke="#ffffff"
+                stroke="var(--card)"
                 strokeWidth={1.1}
               />
             </g>
@@ -228,7 +243,7 @@ export function ExperimentHistory({ recordId }: { recordId: string }) {
   const coordinateEvaluation =
     b?.search.history_status === 'not_applicable_coordinate_evaluation';
   const position = b?.snapshots[snapshot];
-  const regionCount = position ? new Set(position.regionIndices).size : 0;
+  const regionCount = position ? Math.max(...position.regionIndices, 0) + 1 : 0;
   const download = () => {
     if (!b) return;
     const u = URL.createObjectURL(
@@ -328,7 +343,7 @@ export function ExperimentHistory({ recordId }: { recordId: string }) {
                             data={curve}
                             margin={{ top: 8, right: 12, left: 0, bottom: 4 }}
                           >
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                            <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
                             <XAxis
                               dataKey="step"
                               name={tx('接受步数')}
@@ -341,6 +356,7 @@ export function ExperimentHistory({ recordId }: { recordId: string }) {
                               tickFormatter={(v) => Number(v).toPrecision(4)}
                             />
                             <Tooltip
+                              contentStyle={TOOLTIP_STYLE}
                               formatter={(v) => [
                                 Number(v).toPrecision(5),
                                 tx('搜索目标值'),
@@ -407,7 +423,7 @@ export function ExperimentHistory({ recordId }: { recordId: string }) {
                     />
                   )}
                   {tx(
-                    showPositions && position?.xyzMm?.length === 64 ? (
+                    showPositions && validSnapshotCoords(position?.xyzMm) && position ? (
                       <Suspense fallback={<p>{tx('加载点位对照…')}</p>}>
                         <Head
                           regionCount={regionCount}
@@ -420,7 +436,7 @@ export function ExperimentHistory({ recordId }: { recordId: string }) {
                           radiusCm={3.5}
                           recordedLayout={{
                             id: recordId + '-history-' + snapshot,
-                            xyzMm: position.xyzMm,
+                            xyzMm: position.xyzMm!,
                             regionIndices: position.regionIndices,
                             referenceXyzMm: position.referenceXyzMm,
                           }}
@@ -430,7 +446,7 @@ export function ExperimentHistory({ recordId }: { recordId: string }) {
                       <p>
                         {tx(
                           b.coordinate_note ??
-                            '本记录未载入这一阶段的64点坐标，原始索引见下方技术数据。',
+                            '本记录未载入这一阶段的电极坐标，原始索引见下方技术数据。',
                         )}
                       </p>
                     ),

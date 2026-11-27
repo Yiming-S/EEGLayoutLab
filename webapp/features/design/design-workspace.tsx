@@ -69,7 +69,7 @@ export default function DesignWorkspace() {
             </summary>
             {editing && <span className="mt-1.5 block text-xs font-normal text-primary group-open:hidden">{tx('展开调整参数并开始计算')}</span>}
             <div className="mt-5 space-y-5">
-            {editing && <DesignPlacementOptions count={regions} choices={choices} selected={choice?.id ?? ''} slots={customSlots} onSelect={selectChoice} onSlot={selectSlot} onCount={changeRegions} compact />}
+            {editing && <DesignPlacementOptions count={regions} choices={choices} selected={choice?.id ?? ''} slots={customSlots} onSelect={selectChoice} onSlot={selectSlot} onCount={changeRegions} electrodeCount={electrodeCount} allocationMode={allocationMode} compact />}
             <div className="rounded-xl border border-border/70 bg-muted/30 p-3.5 space-y-3">
               <h2 className="text-base font-semibold">{tx(editing ? '2 · 设置每区半径' : '总面积上限约束记录 · 只读')}</h2>
               {tx(!editing && source ? <>

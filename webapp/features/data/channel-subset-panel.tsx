@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { DEFAULT_COUNTS, channelSubsets, type Stats } from '@/lib/channel-subset';
 import { buildDemoChannelSubsetInput } from '@/lib/channel-subset-demo';
 import { ChannelSubsetChart } from './channel-subset-chart';
+import { ChannelSubsetMap } from './channel-subset-map';
 
 type Report = ReturnType<typeof channelSubsets>;
 type MethodRow = { count: number; channels: string[]; train_error: number; test_error: Stats | null };
@@ -144,6 +145,7 @@ export function ChannelSubsetPanel() {
             {report.channels_outside_prior.length > 0 && tx(`；${report.channels_outside_prior.length}个通道不在数据先验中，已排除`)}
           </p>
           <ChannelSubsetChart report={report} />
+          <ChannelSubsetMap report={report} />
           <div className="lab-table-frame">
             <table className="w-full min-w-[640px] text-left text-sm">
               <thead>

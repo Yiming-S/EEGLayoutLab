@@ -1,18 +1,67 @@
 'use client';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useLanguage } from '@/components/language-provider';
+import { LayoutFigureExport } from '@/components/layout-figure-export';
 import { PerformanceSummary } from '@/components/performance-summary';
 import { ExperimentResult } from '@/features/reception/experiment-result';
 import type { ProjectEntry } from '@/client/projects';
+import type { RecordCoordinates } from '@/lib/design-decision';
+import { validateLayoutPlot } from '@/lib/layout-figure';
 import { metricDistance, metricPercent } from '@/lib/ui-language';
-import { projectSnapshotView } from './project-snapshot-view';
+import { projectSnapshotView, type ProjectSnapshotView } from './project-snapshot-view';
 import { ThresholdSlider } from '@/components/threshold-slider';
+
+function snapshotFigureDesign(
+  entry: ProjectEntry,
+  view: Exclude<ProjectSnapshotView, { kind: 'source' }>,
+): RecordCoordinates | null {
+  const xyz = view.kind === 'layout' ? view.record.layout?.xyzMm : view.result.evaluated_xyz_mm;
+  if (!xyz || xyz.length < 2 || xyz.length > 64) return null;
+  const regionIndices =
+    view.kind === 'layout'
+      ? view.record.layout!.regionIndices
+      : Array<number>(xyz.length).fill(0);
+  const names =
+    view.kind === 'layout'
+      ? view.record.electrode_annotation?.electrode_names?.slice(0, xyz.length)
+      : undefined;
+  try {
+    validateLayoutPlot({
+      xyz_mm: xyz,
+      region_indices: regionIndices,
+      ...(names ? { electrode_names: names } : {}),
+    });
+    const fallbackTitle =
+      view.kind === 'layout'
+        ? view.record.label || `Layout ${entry.record_id.slice(0, 8)}`
+        : `Edited layout ${entry.record_id.slice(0, 8)}`;
+    return {
+      name: entry.title || fallbackTitle,
+      xyz_mm: xyz.map((p) => [p[0], p[1], p[2]] as [number, number, number]),
+      region_indices: [...regionIndices],
+      ...(names ? { electrode_names: names } : {}),
+    };
+  } catch {
+    return null;
+  }
+}
 
 export function ProjectSnapshotViewer({ entry, snapshot }: { entry: ProjectEntry; snapshot: unknown }) {
   const { tx } = useLanguage(), [ar, setAR] = useState(90);
-  let view;
-  try { view = projectSnapshotView(entry, snapshot); }
-  catch (error) { return <p role="alert">{tx(error instanceof Error ? error.message : '项目科学副本格式无效')}</p>; }
+  const parsed = useMemo(() => {
+    try {
+      const view = projectSnapshotView(entry, snapshot);
+      const figureDesign = view.kind === 'source' ? null : snapshotFigureDesign(entry, view);
+      return { ok: true as const, view, figureDesign };
+    } catch (error) {
+      return {
+        ok: false as const,
+        message: error instanceof Error ? error.message : '项目科学副本格式无效',
+      };
+    }
+  }, [entry, snapshot]);
+  if (!parsed.ok) return <p role="alert">{tx(parsed.message)}</p>;
+  const { view, figureDesign } = parsed;
   if (view.kind === 'source') return <ExperimentResult result={view.result} label={entry.title} ar={ar} setAR={setAR} cached archived />;
   const xyz = view.kind === 'layout' ? view.record.layout!.xyzMm : view.result.evaluated_xyz_mm;
   return <div className="space-y-4">
@@ -28,6 +77,7 @@ export function ProjectSnapshotViewer({ entry, snapshot }: { entry: ProjectEntry
       <div><dt>{tx('定位90分位误差')}</dt><dd>{metricDistance(view.result.edited_metrics.p90_mm)}</dd></div>
       <div><dt>{tx('实际电极数')}</dt><dd>{view.result.electrode_count}</dd></div>
     </dl><p className="mt-3 text-xs text-muted-foreground">{tx('编辑副本保留其独立评价协议，不进入固定64点信号仿真。')}</p></section>}
+    {figureDesign && <LayoutFigureExport design={figureDesign} className="rounded-lg border p-4" />}
     <details className="rounded-lg border p-4"><summary className="cursor-pointer font-medium">{tx('查看已保存坐标')} · {xyz.length}</summary>
       <p className="mt-2 text-xs text-muted-foreground">{tx('坐标系：Ernie 原生空间，单位毫米。')}</p>
       <div className="mt-3 max-h-80 overflow-auto"><table className="w-full text-left text-sm"><thead><tr><th>{tx('电极')}</th>{view.kind === 'layout' && <th>{tx('区域')}</th>}<th>X (mm)</th><th>Y (mm)</th><th>Z (mm)</th></tr></thead><tbody>{xyz.map((point, index) => <tr key={index}><td>{view.kind === 'layout' ? view.record.electrode_annotation?.electrode_names[index] ?? `E${index + 1}` : `E${index + 1}`}</td>{view.kind === 'layout' && <td>{view.record.layout!.regionIndices[index]}</td>}{point.map((value, axis) => <td key={axis} className="font-mono">{value.toFixed(6)}</td>)}</tr>)}</tbody></table></div>

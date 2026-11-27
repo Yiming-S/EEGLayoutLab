@@ -35,6 +35,13 @@ import {
 import { TargetChannelTopography } from './target-channel-topography';
 import { useResultPlayback } from './use-result-playback';
 
+const TOOLTIP_STYLE = {
+  backgroundColor: 'var(--popover)',
+  borderColor: 'var(--border)',
+  color: 'var(--popover-foreground)',
+  borderRadius: '0.5rem',
+};
+
 export function ReceptionWaveformsSection({
   result,
   condition,
@@ -176,7 +183,7 @@ export function ReceptionWaveformsSection({
           <div className="mt-3 h-36">
             <ResponsiveContainer width="100%" height={144}>
               <LineChart data={sourceTrace}>
-                <CartesianGrid strokeDasharray="3 3" />
+                <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
                 <XAxis
                   dataKey="time"
                   type="number"
@@ -184,7 +191,7 @@ export function ReceptionWaveformsSection({
                   tick={{ fontSize: 12 }}
                 />
                 <YAxis width={60} tick={{ fontSize: 12 }} />
-                <Tooltip />
+                <Tooltip contentStyle={TOOLTIP_STYLE} />
                 <ReferenceLine x={times[time]} stroke="#a16716" />
                 <Line
                   type="linear"
@@ -290,7 +297,7 @@ export function ReceptionWaveformsSection({
               <div className="h-72">
                 <ResponsiveContainer width="100%" height={288}>
                   <LineChart data={recovered}>
-                    <CartesianGrid strokeDasharray="3 3" />
+                    <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
                     <XAxis
                       dataKey="time"
                       type="number"
@@ -300,12 +307,13 @@ export function ReceptionWaveformsSection({
                       width={65}
                       tickFormatter={(v) => tx(Number(v).toPrecision(3))}
                     />
-                    <Tooltip />
+                    <Tooltip contentStyle={TOOLTIP_STYLE} />
                     <ReferenceLine x={times[time]} stroke="#a16716" />
                     <Line
                       dataKey="truth"
                       name={tx('干净脑真值 μV')}
-                      stroke="#182f3a"
+                      stroke="var(--foreground)"
+                      strokeWidth={1.6}
                       dot={false}
                       isAnimationActive={false}
                     />
@@ -327,7 +335,7 @@ export function ReceptionWaveformsSection({
                 </ResponsiveContainer>
               </div>
               <p className="mt-2 text-sm">
-                {tx('黑色：干净脑真值 · 蓝色：标准64重建 · 绿色：自定义64重建')}
+                {tx('主色：干净脑真值 · 蓝色：标准64重建 · 绿色：自定义64重建')}
               </p>
             </div>
           </div>
@@ -352,7 +360,7 @@ export function ReceptionWaveformsSection({
               <div className="mt-4 h-72">
                 <ResponsiveContainer width="100%" height={288}>
                   <LineChart data={curve}>
-                    <CartesianGrid strokeDasharray="3 3" />
+                    <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
                     <XAxis
                       dataKey="strength"
                       type="number"
@@ -362,17 +370,40 @@ export function ReceptionWaveformsSection({
                       width={65}
                       tickFormatter={(v) => tx(Number(v).toFixed(0) + '%')}
                     />
-                    <Tooltip />
+                    <Tooltip contentStyle={TOOLTIP_STYLE} />
+                    <ReferenceLine
+                      y={ar}
+                      stroke="var(--chart-threshold)"
+                      strokeDasharray="4 4"
+                      ifOverflow="extendDomain"
+                      label={{
+                        value: `AR ${ar}%`,
+                        position: 'insideTopRight',
+                        fill: 'var(--chart-threshold)',
+                        fontSize: 11,
+                      }}
+                    />
                     <Line
                       dataKey="baseline"
                       name={tx('标准64重建解释率 %')}
                       stroke="#376ec6"
+                      dot={{ r: 3.5 }}
                       isAnimationActive={false}
                     />
                     <Line
                       dataKey="candidate"
                       name={tx('自定义64重建解释率 %')}
                       stroke="#128a80"
+                      dot={{ r: 3.5 }}
+                      isAnimationActive={false}
+                    />
+                    <Line
+                      dataKey="retention"
+                      name={tx('相对标准64保留率 %')}
+                      stroke="#d97706"
+                      strokeDasharray="4 3"
+                      dot={{ r: 3.5 }}
+                      connectNulls={false}
                       isAnimationActive={false}
                     />
                   </LineChart>
@@ -380,7 +411,7 @@ export function ReceptionWaveformsSection({
               </div>
               <p className="text-sm">
                 {tx(
-                  '蓝色：标准64 · 绿色：自定义64。纵轴是两套布局各自的重建解释率。',
+                  '蓝色：标准64解释率 · 绿色：自定义64解释率 · 橙色虚线：相对标准64保留率（对照AR阈值线）。',
                 )}
               </p>
               <p className="mt-2 text-sm">
