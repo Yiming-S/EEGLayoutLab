@@ -28,6 +28,7 @@ watch:
   - data/README.md
   - data/SOURCES.md
   - examples/README.md
+  - scripts/README.md
 
 # Broken links, broken anchors and navigation entries without a page fail the build.
 strict: true
@@ -68,6 +69,7 @@ nav:
       - Examples: examples/README.md
   - Verification:
       - Contributing: CONTRIBUTING.md
+      - Repository scripts: scripts/README.md
       - Validation scope: docs/validation.md
       - Native release check: docs/native-release-gate.md
       - Task reconciliation: docs/task-reconciliation.md
@@ -87,6 +89,7 @@ nav:
       - Projects and deliveries: contracts/project-formats.md
   - Design:
       - "0001: Local-first application": docs/design/0001-local-first-architecture.md
+      - "0001: Own surface projection": docs/design/0001-own-projection.md
       - "0001: Phase 2 plan": docs/design/0001-phase-2-plan.md
       - "0001: Phase 3 plan": docs/design/0001-phase-3-plan.md
       - "0002: Installed scientific root": docs/design/0002-installed-scientific-root.md

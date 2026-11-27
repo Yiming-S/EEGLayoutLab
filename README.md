@@ -114,11 +114,13 @@ See [server configuration](docs/server-deployment.md) and [web operations](docs/
 | [`src/compact_eeg/`](src/compact_eeg/) | Scientific methods and computation workflows |
 | [`src/eeglayoutlab/`](src/eeglayoutlab/) | The `eeglayoutlab` command: the local service (`serve`), all nine scientific CLI commands (`design`, `export`, `evaluate`, `search`, `study`, `pareto`, `eeg-summary`, `prior`, `channels`), `quickstart`, `doctor`, `examples run`, request schemas, and data-package tools |
 | [`configs/`](configs/) | Scientific configuration, runtime locks and deployment environment template |
-| [`scripts/`](scripts/) | Setup, data management, and worker entry points |
-| [`tests/`](tests/) | Scientific and workflow regression tests |
-| [`docs/`](docs/) | Architecture, methods, references, data, validation, design records and deployment documentation |
+| [`packaging/`](packaging/) | `rattler-build` Conda recipes and verification scripts for `cortech` and `eeglayoutlab` |
+| [`scripts/`](scripts/) | Identity-locked worker entry points, source setup, offline table/head builders, and release checks ([index](scripts/README.md)) |
+| [`tests/`](tests/) | Scientific, service, CLI, and cross-language parity regression tests |
+| [`.github/workflows/`](.github/workflows/) | Automated CI tiers (`checks`, `data`, `package`, `browser`, `docs`, `pages`, `release`) |
+| [`docs/`](docs/) | Architecture, manuals, methods, references, data, validation, design records and deployment documentation |
 | [`examples/`](examples/) | Reproducible command-line examples with expected scores |
-| [`data/`](data/) | Data inventory and source attribution |
+| [`data/`](data/) | Data inventory, package release index (`packages.json`), and source attribution |
 
 Git tracks application source, required display assets, configuration, documentation, and tests. Releases provide versioned source and data materials, checksums, and component notices. Installed environments, generated computation records, demo recordings, and local verification captures stay outside Git; historical calculation caches are not uploaded.
 
