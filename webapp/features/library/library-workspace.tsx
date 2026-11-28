@@ -66,7 +66,7 @@ export default function LibraryWorkspace() {
       <td data-label={tx('电极 / 区域')} className={cn(cell, 'font-mono tabular-nums md:px-3')}>{row.electrode_count ?? '—'} / {row.region_count ?? '—'}</td>
       <td data-label={tx('三项保留率')} className={cn(cell, 'md:px-3')}><span>{scoreCell(row)}{row.kind === 'source' && <span className="block text-xs text-muted-foreground">{tx('心眼混合干扰条件')}</span>}</span></td>
       <td data-label={tx('计算状态')} className={cn(cell, 'md:px-3')}><span>{tx('summary' in row && row.summary.status === 'no_layout' ? '本轮未找到完整布局' : '已完成评价')}{'summary' in row && row.summary.dataset_id === 'cache' && !row.summary.compatible && <span className="block text-xs text-warning">{tx('旧版本记录 · 仅供查阅')}</span>}</span></td>
-      <td data-label={tx('性能判断')} className={cn(cell, 'md:px-3')}>{'summary' in row && outcome ? <OutcomeBadge outcome={outcome}>{tx(resultQualification(row.summary, ar))}</OutcomeBadge> : <span className="text-xs text-muted-foreground">{tx(row.kind === 'editor' ? '按编辑协议解释' : '按干扰条件分别解释')}</span>}</td>
+      <td data-label={tx('参考线对照')} className={cn(cell, 'md:px-3')}>{'summary' in row && outcome ? <OutcomeBadge outcome={outcome}>{tx(resultQualification(row.summary, ar))}</OutcomeBadge> : <span className="text-xs text-muted-foreground">{tx(row.kind === 'editor' ? '按编辑协议解释' : '按干扰条件分别解释')}</span>}</td>
       <td className="max-md:mt-2 max-md:block md:px-4 md:py-3.5">{open(row, nested)}</td>
     </tr>;
   };
@@ -85,7 +85,7 @@ export default function LibraryWorkspace() {
       <td data-label={tx('电极 / 区域')} className={cn(cell, 'font-mono tabular-nums md:px-3')}>{first.electrode_count ?? '—'} / {first.region_count ?? '—'}</td>
       <td data-label={tx('三项保留率')} className={cn(cell, 'md:px-3')}>{values.length ? <span><RetentionBar value={score(first)} threshold={ar / 100} />{otherMetrics(first)}<span className="mt-1 block font-mono text-xs text-muted-foreground tabular-nums">{tx(`各条件场重建 ${metricPercent(Math.min(...values))}–${metricPercent(Math.max(...values))}`)}</span></span> : tx('未保存指标摘要')}</td>
       <td data-label={tx('计算状态')} className={cn(cell, 'md:px-3')}>{tx('已完成评价')}</td>
-      <td data-label={tx('性能判断')} className={cn(cell, 'md:px-3')}><OutcomeBadge outcome={passed === distinct.length ? 'pass' : 'fail'}>{tx(`${passed}/${distinct.length}种条件达到要求`)}</OutcomeBadge></td>
+      <td data-label={tx('参考线对照')} className={cn(cell, 'md:px-3')}><OutcomeBadge outcome={passed === distinct.length ? 'pass' : 'fail'}>{tx(`${passed}/${distinct.length}种条件高于参考线`)}</OutcomeBadge></td>
       <td className="max-md:mt-2 max-md:flex max-md:gap-2 md:px-4 md:py-3.5">
         <a className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'max-md:flex-1 md:mb-1.5 md:flex')} href={key ? layoutHref({ key }, ar) : layoutHref({ id: first.id }, ar)}>{tx('查看布局')}</a>
         <Button variant="ghost" size="sm" className="max-md:flex-1 md:flex" aria-expanded={expanded} onClick={() => toggleGroup(row.key)}><ChevronDown className={cn('transition-transform', expanded && 'rotate-180')} />{tx(expanded ? '收起' : `展开全部${row.entries.length}条`)}</Button>
@@ -108,7 +108,7 @@ export default function LibraryWorkspace() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_1.3fr_1.3fr]">
           <label className="lab-label">{tx('记录类型')}<select className="lab-select" value={view.kind} onChange={event => changeView({ kind: event.target.value as CatalogView['kind'], filter: 'all' })}><option value="all">{tx('全部记录类型')}</option>{Object.entries(RECORD_KIND_LABELS).map(([kind, label]) => <option value={kind} key={kind}>{tx(label)}</option>)}</select></label>
           <label className="lab-label">{tx('查找方案')}<SearchInput className="lab-select" placeholder={tx('部位、区域数、面积或编号，例如：耳后 2区')} value={view.search} onSearch={search => changeView({ search })} /></label>
-          <ThresholdSlider value={ar} onChange={setAR} ariaLabel="记录接受阈值AR" term="ar" hint="只判断原记录，不重新计算。" />
+          <ThresholdSlider value={ar} onChange={setAR} ariaLabel="场景目标参考线τ" term="ar" hint="只更新现有记录的对照标尺，不重新计算。" />
         </div>
         <button type="button" className="flex w-full items-center justify-between rounded-xl border border-border/80 bg-muted/40 px-3.5 py-2 text-sm font-medium sm:hidden" aria-expanded={filtersOpen} aria-controls="library-more-filters" onClick={() => setFiltersOpen(open => !open)}><span className="flex items-center gap-2"><SlidersHorizontal className="size-4" />{tx('更多筛选与排序')}{extraFilters > 0 && <span className="rounded-full bg-primary px-1.5 text-xs text-primary-foreground">{extraFilters}</span>}</span><ChevronDown className={cn('size-4 transition-transform', filtersOpen && 'rotate-180')} /></button>
         <div id="library-more-filters" className={cn(filtersOpen ? 'grid gap-3.5' : 'hidden', 'rounded-xl border border-border/65 bg-muted/30 p-3.5 sm:grid sm:grid-cols-2 lg:grid-cols-5')}>
@@ -134,7 +134,7 @@ export default function LibraryWorkspace() {
                   <th className="px-3 py-3">{tx('电极 / 区域')}</th>
                   <th className="px-3 py-3">{tx('三项保留率')}</th>
                   <th className="px-3 py-3">{tx('计算状态')}</th>
-                  <th className="px-3 py-3">{tx('性能判断')}</th>
+                  <th className="px-3 py-3">{tx('参考线对照')}</th>
                   <th className="px-4 py-3"><span className="sr-only">{tx('操作')}</span></th>
                 </tr>
               </thead>

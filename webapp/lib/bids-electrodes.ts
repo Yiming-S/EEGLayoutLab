@@ -121,7 +121,7 @@ export function parseBIDSElectrodes(files: CoordinateFile[], surface?: ErnieMniS
   const region = header.indexOf('region');
   if (rows.length !== 64 || rows.some(row => row.length !== header.length || !row[0].trim() || row.slice(1, 4).some(value => !numberText.test(value)) ||
       (region >= 0 && !numberText.test(row[region]))))
-    throw new Error(head ? `本软件的布局固定为64个电极；文件中有${rows.length}个带坐标的EEG电极，且不接受n/a坐标。` : 'BIDS坐标文件需要64个命名电极和完整数值；不接受n/a坐标。');
+    throw new Error(head ? `固定64点坐标评价导入需要64个电极；文件中有${rows.length}个带坐标的EEG电极，且不接受n/a坐标（8–64导方案请使用场景搜索或个体化配准）。` : 'BIDS坐标文件需要64个命名电极和完整数值；不接受n/a坐标。');
   const names = rows.map(row => row[0]), input = rows.map(row => row.slice(1, 4).map(Number) as Point);
   const fileRegions = hasRegion ? rows.map(row => Number(row[region])) : null;
   const name = typeof system.EEGLayoutLabDesignName === 'string' ? system.EEGLayoutLabDesignName : electrodes.name;

@@ -11,14 +11,14 @@ export function ComparisonConclusion({ a, b, thresholds }: { a?: SavedRecord; b?
   if (!a && !b) return null;
   const verdict = (record: SavedRecord, name: string) => {
     const q = qualification(record, thresholds);
-    return { name, state: q.state, text: q.state === 'pass' ? `${name}达到全部启用要求` : q.state === 'missing' ? `${name}数据不完整：${q.missing.join('、')}`
-      : `${name}未达到：${q.failed.join('、')}` };
+    return { name, state: q.state, text: q.state === 'pass' ? `${name}均高于启用参考线` : q.state === 'missing' ? `${name}数据不完整：${q.missing.join('、')}`
+      : `${name}低于参考线：${q.failed.join('、')}` };
   };
   const rows = [...(a ? [verdict(a, '方案A')] : []), ...(b ? [verdict(b, '方案B')] : [])];
   const passed = rows.filter(row => row.state === 'pass');
   const summary = rows.length < 2 ? (a ? '选择方案B后显示对比结论。' : '选择方案A后显示对比结论。')
-    : passed.length === 2 ? '两个方案都达到全部启用要求。'
-    : passed.length === 1 ? `只有${passed[0].name}达到全部启用要求。` : '两个方案都未达到全部启用要求。';
+    : passed.length === 2 ? '两个方案均高于全部启用参考线。'
+    : passed.length === 1 ? `${passed[0].name}高于全部启用参考线。` : '两个方案均有分项低于当前参考线（全头64导仅作100%刻度，请按目标场景权衡）。';
   const fa = a?.metrics?.field_relative, fb = b?.metrics?.field_relative;
   const gap = a && b && Number.isFinite(fa) && Number.isFinite(fb) ? (fb! - fa!) * 100 : null;
   const sameConditions = a && b && JSON.stringify(evaluationLabels(a).slice(1)) === JSON.stringify(evaluationLabels(b).slice(1));

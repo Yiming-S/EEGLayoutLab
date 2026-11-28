@@ -564,7 +564,9 @@ class RadiusJobs(RadiusCache):
                 return
             job.result = terminal
             status = terminal['status']
-            self.finish(job, status, '当前配置已计算' if status == 'completed' else '本次搜索预算内未构造出64点布局')
+            raw_ec = _member(job.request, 'electrode_count')
+            expected_count = 64 if raw_ec in (None, UNDEFINED) else int(raw_ec)
+            self.finish(job, status, '当前配置已计算' if status == 'completed' else f'本次搜索预算内未构造出{expected_count}点布局')
         else:
             self.finish(job, 'failed', f'Python启动失败：{job.spawn_error}' if job.spawn_error
                         else '计算未成功完成；错误记录已保存，可重新计算')

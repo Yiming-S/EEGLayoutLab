@@ -90,7 +90,7 @@ void test('plain comparison links use the same three-metric decision as the over
   assert.equal(qualification(record, thresholds).state, 'fail');
   assert.equal(qualification(record, thresholds).failed.length, 2);
   assert.equal(qualification(record, { ...thresholds, sensitivity: null, localization: null }).failed.length, 2);
-  assert.match(decisionCriteriaSummary(thresholds), /均不低于90%/);
+  assert.match(decisionCriteriaSummary(thresholds), /τ = 90%/);
   assert.deepEqual(parseDecisionThresholds(new URL(decisionHref(['a'], thresholds), 'http://localhost').searchParams), thresholds);
   assert.deepEqual(parseDecisionThresholds(new URLSearchParams('ar=1')), jointDecisionThresholds(90));
   assert.equal(parseDecisionThresholds(new URLSearchParams('ar=1&thresholdMode=custom')).field, 1);
@@ -100,7 +100,7 @@ void test('custom reconstruction-only requirements and legacy independent limits
   const thresholds = { mode: 'custom', field: 90, sensitivity: null, localization: null, p90_mm: null };
   const q = new URL(decisionHref(['a'], thresholds), 'http://localhost').searchParams;
   assert.deepEqual(parseDecisionThresholds(q), thresholds);
-  assert.match(decisionCriteriaSummary(thresholds), /^仅检查/);
+  assert.match(decisionCriteriaSummary(thresholds), /^仅对照场重建/);
   assert.equal(qualification({ metrics: { field_relative: 0.95, sensitivity_tail: 0.1, localization_relative: 0.2 } }, thresholds).state, 'pass');
   assert.deepEqual(parseDecisionThresholds(new URLSearchParams('ar=68&sensitivity=30&p90=20')), { mode: 'custom', field: 68, sensitivity: 30, localization: null, p90_mm: 20 });
 });

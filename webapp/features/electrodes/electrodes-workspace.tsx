@@ -313,7 +313,7 @@ export default function ElectrodesPage() {
               exportResult={exportResult}
               arControl={
                 <label className="mt-4 block text-sm font-medium">
-                  {tx('最低保留要求')} · {ar}%
+                  {tx('场景参考线 τ')} · {ar}%
                   <input
                     type="range"
                     min={1}

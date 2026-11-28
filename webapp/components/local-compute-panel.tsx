@@ -155,6 +155,7 @@ export function LocalComputePanel({ request, arPercent, onResult, onStatus, comp
   };
   const pass = currentAR(result?.metrics?.conditional_global, arPercent);
   const thisJob = shownJob && requestKey(shownJob.request) === currentKey;
+  const targetChannels = request.electrode_count ?? 64;
 
   return (
     <div
@@ -171,7 +172,7 @@ export function LocalComputePanel({ request, arPercent, onResult, onStatus, comp
         <span>{tx(compact ? '3 · 生成布局并评估' : '生成布局并评估（优先复用结果）')}</span>
       </div>
       {!compact && <p className="mt-2 text-sm leading-6 text-ink-soft">
-        {tx("先查相同配置的已有记录；没有结果时才优化64个点并保存。复用预计算的电位传递矩阵，直接计算各项指标。")}</p>}
+        {tx(`先查相同配置的已有记录；没有结果时才搜索${targetChannels}导最佳点位并保存。复用预计算的电位传递矩阵，直接计算各项指标。`)}</p>}
       {tx(connection === 'checking' ? <p className="mt-3 text-sm text-ink-soft">{tx("正在连接计算服务…")}</p> : connection === 'unavailable' && SHOWCASE ? <ShowcaseComputeNotice className="mt-3" /> : connection === 'unavailable' && health?.maintenance ? (
         <div className="mt-3 space-y-2 rounded-xl border border-warning/30 bg-warning-surface/70 p-3 text-sm leading-6 text-warning">
           <p>{tx("当前服务以只读缓存模式（--cache-only）启动，已有结果仍可查看；如需提交新计算，请去掉 --cache-only 重新启动。")}</p>
@@ -196,7 +197,7 @@ export function LocalComputePanel({ request, arPercent, onResult, onStatus, comp
               <Switch id="automatic-local-compute" checked={automatic} onCheckedChange={setAutomatic} />
               {tx("无已有结果时自动启动计算")}
             </label>
-            {compact && <p className="mt-2 text-xs leading-5 text-ink-soft">{tx("先查相同配置的已有记录；没有结果时才优化64个点并保存。复用预计算的电位传递矩阵，直接计算各项指标。")}</p>}
+            {compact && <p className="mt-2 text-xs leading-5 text-ink-soft">{tx(`先查相同配置的已有记录；没有结果时才搜索${targetChannels}导最佳点位并保存。复用预计算的电位传递矩阵，直接计算各项指标。`)}</p>}
             {compact && <p className="mt-1.5 text-xs leading-5 text-ink-soft">{tx("关闭自动计算仍会读取已有结果。新计算：每次1个任务 · 2线程 · 运行上限180秒，超时后可重新提交。")}</p>}
           </details>
           {!compact && <p className="mt-2 text-xs leading-5 text-ink-soft">{tx("关闭自动计算仍会读取已有结果。新计算：每次1个任务 · 2线程 · 运行上限180秒，超时后可重新提交。")}</p>}
@@ -228,11 +229,11 @@ export function LocalComputePanel({ request, arPercent, onResult, onStatus, comp
               ['全头64导中位误差', mm(result.metrics.reference_median_mm)],
             ].map(([label, value]) => <div key={label} className="flex justify-between gap-2 py-1.5"><dt className="text-ink-soft">{tx(label)}</dt><dd className="font-mono font-semibold tabular-nums">{tx(value)}</dd></div>))}
           </dl>
-          <p className="mt-3 text-sm font-semibold">{tx("最低保留要求 ")}{tx(arPercent)}%：{tx(pass === null ? '指标未定义，无法判断' : pass ? '当前模型点估计达到阈值' : '当前搜索结果未达到阈值')}</p>
+          <p className="mt-3 text-sm font-semibold">{tx("场景参考线 τ = ")}{tx(arPercent)}%：{tx(pass === null ? '指标未定义，无法对照' : pass ? '综合下界 G 高于场景参考线' : '综合下界 G 低于场景参考线（全头64导仅作100%刻度）')}</p>
           {tx(result.geometry && <p className="mt-2 text-xs leading-5 text-ink-soft">
             {tx("实际")}{tx(result.geometry.union_connected_component_count)}{tx("个分离区域 · 半径")}{tx((result.geometry.common_graph_radius_mm / 10).toFixed(2))} {tx(" cm · 总面积")}{tx(result.geometry.union_area_cm2.toFixed(2))} {tx(" cm²。设定值为半径上限，实际半径由区域分离约束共同确定。")}</p>)}
         </> : thisJob && shownJob?.status === 'no_layout' ? <div className="rounded-xl border border-warning/30 bg-warning-surface/70 p-3 text-sm text-warning">
-          <p>{tx(shownJob.cached ? '已读取搜索记录：' : '')}{tx("本次搜索未找到完整64点布局，尚无性能指标。AR仅用于性能判定，布局构造由间距、半径和区域分离要求决定。")}</p>
+          <p>{tx(shownJob.cached ? '已读取搜索记录：' : '')}{tx(`本次搜索未找到完整${targetChannels}导布局，尚无性能指标。参考线 τ 仅用于效用对照，布局构造由间距、半径和区域分离要求决定。`)}</p>
           <p className="mt-2">{tx("相同版本和参数会复用这条记录。可增大半径或扩大允许位置范围后启动新搜索；该配置的整体几何可行性仍待判定。")}</p>
         </div>
           : thisJob && shownJob && ['failed', 'timeout', 'cancelled'].includes(shownJob.status) ? <p className="text-sm text-warning"><RuntimeMessage message={shownJob.message} status={shownJob.status} /></p>

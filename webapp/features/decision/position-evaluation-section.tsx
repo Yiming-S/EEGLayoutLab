@@ -555,10 +555,10 @@ export function PositionEvaluationSection({
                 {tx('本次坐标评价：')}
                 {tx(
                   resultQualification?.state === 'pass'
-                    ? '达到全部启用要求'
+                    ? '均高于启用参考线'
                     : resultQualification?.state === 'missing'
-                      ? '所选判据数据不完整'
-                      : '未达到：' + resultQualification?.failed.join('、'),
+                      ? '所选参考条件数据不完整'
+                      : '低于参考线：' + resultQualification?.failed.join('、'),
                 )}
                 。
               </span>

@@ -29,9 +29,7 @@ export function LayoutFigureExport({
   const [error, setError] = useState('');
   const count = Math.max(...design.region_indices) + 1;
   const total = design.xyz_mm.length;
-  const subtitle = total === 64
-    ? tx(`64个电极 · ${count}个区域 · Ernie模板头`)
-    : tx(`${total}导 · ${count}个区域 · Ernie模板头`);
+  const subtitle = tx(`${total}导 · ${count}个区域 · Ernie模板头`);
   const svg = useMemo(() => plotFigureSvg(design, {
     title: design.name,
     subtitle,

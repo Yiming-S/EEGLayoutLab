@@ -258,14 +258,14 @@ function PairedMetricsVisual({
           </span>
           <span className="inline-flex items-center gap-1 text-muted-foreground">
             <span aria-hidden="true" className="inline-block h-3 w-0.5 bg-foreground/75" />
-            <span>{tx('启用阈值')}</span>
+            <span>{tx('参考线')}</span>
           </span>
         </div>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground">
-            {tx('保留率对比（%，越高越优；竖线为启用阈值）')}
+            {tx('保留率对比（%，越高越优；竖线为参考线）')}
           </p>
           {retentionRows.map((row) => {
             const zeroPct = ((0 - retMin) / retSpan) * 100;
@@ -513,7 +513,7 @@ export function ComparisonRecordsPanel({
               )),
             )}
             <tr className="bg-muted/25">
-              <th className="px-4 py-3 font-medium">{tx('所选条件判定')}</th>
+              <th className="px-4 py-3 font-medium">{tx('所选参考线对照')}</th>
               {tx(
                 shown.map((r) => {
                   const q = qualification(r, thresholds);
@@ -531,10 +531,10 @@ export function ComparisonRecordsPanel({
                       >
                         {tx(
                           q.state === 'pass'
-                            ? '达到全部启用要求'
+                            ? '均高于启用参考线'
                             : q.state === 'missing'
                               ? '数据不完整'
-                              : '未达到：' + q.failed.join('、'),
+                              : '低于参考线：' + q.failed.join('、'),
                         )}
                       </OutcomeBadge>
                     </td>

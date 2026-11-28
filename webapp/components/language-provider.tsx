@@ -25,8 +25,8 @@ export function LanguageProvider({ initialLocale, children }: { initialLocale: L
     document.documentElement.lang = locale;
     const description = document.querySelector('meta[name="description"]');
     description?.setAttribute('content', locale === 'en'
-      ? 'Explore fixed 64-electrode EEG layouts, compare region size and placement, and evaluate signal retention using local simulations.'
-      : '固定64电极，比较区域大小与空间布局，通过仿真评价相对全头64导的性能保留。');
+      ? 'Design scenario-driven 8–64 channel EEG layouts with fMRI/EEG priors, individual head personalization, and wearable hardware sizing simulations.'
+      : '结合实验范式、EEG/fMRI功能先验、个体头型配准与硬件尺码公差，对8–64导脑电电极布局进行有限元数字仿真寻优。');
   }, [locale]);
   useEffect(() => {
     const restore = window.setTimeout(() => {

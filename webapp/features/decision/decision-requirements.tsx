@@ -19,11 +19,11 @@ export function DecisionRequirements({
   const { tx } = useLanguage();
   const joint = decisionThresholdMode(thresholds) === 'joint';
   return (
-    <section className="lab-panel" aria-label={tx('判定要求')}>
-      <h2 className="text-lg font-semibold">{tx('判定要求')}</h2>
+    <section className="lab-panel" aria-label={tx('场景参考条件')}>
+      <h2 className="text-lg font-semibold">{tx('场景参考条件')}</h2>
       <div className="mt-3 grid gap-4 sm:grid-cols-2">
         <label className="lab-label">
-          {tx('判定方式')}
+          {tx('对照方式')}
           <select
             className="lab-select mt-2"
             value={joint ? 'joint' : 'custom'}
@@ -31,12 +31,12 @@ export function DecisionRequirements({
               ? jointDecisionThresholds(thresholds.field)
               : { ...thresholds, mode: 'custom' })}
           >
-            <option value="joint">{tx('三项共同要求（与实验总览一致）')}</option>
-            <option value="custom">{tx('自定义各项要求')}</option>
+            <option value="joint">{tx('三项统一参考线 τ（与实验总览一致）')}</option>
+            <option value="custom">{tx('自定义分项参考条件')}</option>
           </select>
         </label>
         <ThresholdSlider
-          label={joint ? '三项最低保留要求' : '场重建保留率下限'}
+          label={joint ? '场景目标参考线 τ' : '场重建参考线'}
           min={joint ? 10 : 1}
           value={thresholds.field}
           onChange={(field) => onChange(joint ? jointDecisionThresholds(field) : { ...thresholds, field })}
@@ -69,7 +69,7 @@ export function DecisionRequirements({
         </div>
       )}
       <p className="mt-3 text-sm font-medium" aria-live="polite">{tx(decisionCriteriaSummary(thresholds))}</p>
-      <p className="mt-2 text-sm text-muted-foreground">{tx('修改要求只重新判断现有指标，不启动计算。自定义模式下，留空的指标不参与判定。')}</p>
+      <p className="mt-2 text-sm text-muted-foreground">{tx('修改参考条件只重新对照现有指标，不启动计算。自定义模式下，留空的指标不参与对照。')}</p>
     </section>
   );
 }

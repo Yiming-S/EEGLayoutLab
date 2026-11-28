@@ -6126,7 +6126,7 @@
   },
   "scenario_personalize_050": {
     "source": "参考线对照",
-    "en": "Ref comparison"
+    "en": "Reference comparison"
   },
   "scenario_personalize_051": {
     "source": "三项高于 τ",
@@ -6138,7 +6138,7 @@
   },
   "scenario_personalize_053": {
     "source": "场景参考线 τ",
-    "en": "Scenario ref τ"
+    "en": "Scenario reference line τ"
   },
   "scenario_personalize_054": {
     "source": "场景参考线 τ {{0}}%",
@@ -6639,5 +6639,277 @@
   "scenario_personalize_301": {
     "source": "漂移",
     "en": "drift"
+  },
+  "unified_terminology_001": {
+    "source": "先查相同配置的已有记录；没有结果时才搜索{{0}}导最佳点位并保存。复用预计算的电位传递矩阵，直接计算各项指标。",
+    "en": "Checks saved records for the same configuration first; searches and saves optimal {{0}}-channel positions only on a miss, reusing precomputed forward matrices."
+  },
+  "unified_terminology_002": {
+    "source": "场景参考线 τ =",
+    "en": "Scenario reference line τ ="
+  },
+  "unified_terminology_003": {
+    "source": "指标未定义，无法对照",
+    "en": "Metrics undefined; cannot compare"
+  },
+  "unified_terminology_004": {
+    "source": "综合下界 G 高于场景参考线",
+    "en": "Global lower bound G is at or above scenario reference line"
+  },
+  "unified_terminology_005": {
+    "source": "综合下界 G 低于场景参考线（全头64导仅作100%刻度）",
+    "en": "Global lower bound G is below scenario reference line (64-ch is a 100% ruler only)"
+  },
+  "unified_terminology_006": {
+    "source": "本次搜索未找到完整{{0}}导布局，尚无性能指标。参考线 τ 仅用于效用对照，布局构造由间距、半径和区域分离要求决定。",
+    "en": "No complete {{0}}-channel layout was found in this search, so metrics are unavailable. Reference line τ only compares utility; layout construction depends on spacing, radius, and region separation."
+  },
+  "unified_terminology_007": {
+    "source": "已新建每区半径约束方案：仅保留区域数和允许位置域，半径初始值为35 mm。区域中心、电极点位和场景效用指标将按新配置重新计算。",
+    "en": "Created a per-region radius layout draft keeping only region count and placement domain (initial radius 35 mm). Region centers, electrode positions, and scenario utility metrics will be recomputed."
+  },
+  "unified_terminology_008": {
+    "source": "可旋转的真实头部与{{0}}导电极布局，方向键旋转，加减键缩放",
+    "en": "Rotatable anatomical head with {{0}}-channel electrode layout; arrow keys rotate, plus and minus zoom"
+  },
+  "unified_terminology_009": {
+    "source": "该记录暂无可绘制的模板坐标。",
+    "en": "No plottable template coordinates are available for this record."
+  },
+  "unified_terminology_010": {
+    "source": "固定64点坐标评价导入需要64个电极；文件中有{{0}}个带坐标的EEG电极，且不接受n/a坐标（8–64导方案请使用场景搜索或个体化配准）。",
+    "en": "Fixed 64-point coordinate evaluation requires 64 electrodes; the file has {{0}} EEG electrodes with coordinates and n/a values are not accepted (use scenario search or head personalization for 8–64 channels)."
+  },
+  "unified_terminology_011": {
+    "source": "固定64点坐标评价导入需要64个电极；文件中有{{0}}个电极（不含基准点、参考和地线；8–64导方案请使用场景搜索或个体化配准）。",
+    "en": "Fixed 64-point coordinate evaluation requires 64 electrodes; the file has {{0}} electrodes excluding fiducials, reference, and ground (use scenario search or head personalization for 8–64 channels)."
+  },
+  "unified_terminology_012": {
+    "source": "高于参考线 τ",
+    "en": "At or above τ"
+  },
+  "unified_terminology_013": {
+    "source": "低于参考线 τ",
+    "en": "Below τ"
+  },
+  "unified_terminology_015": {
+    "source": "{{0}}/{{1}}种条件高于参考线",
+    "en": "{{0}}/{{1}} conditions at or above τ"
+  },
+  "unified_terminology_016": {
+    "source": "场景目标参考线τ",
+    "en": "Scenario reference line τ"
+  },
+  "unified_terminology_017": {
+    "source": "只更新现有记录的对照标尺，不重新计算。",
+    "en": "Updates the comparison ruler on saved records without recomputing."
+  },
+  "unified_terminology_018": {
+    "source": "场景参考条件",
+    "en": "Scenario reference settings"
+  },
+  "unified_terminology_019": {
+    "source": "对照方式",
+    "en": "Comparison mode"
+  },
+  "unified_terminology_020": {
+    "source": "三项统一参考线 τ（与实验总览一致）",
+    "en": "Unified three-metric reference line τ (matches overview)"
+  },
+  "unified_terminology_021": {
+    "source": "自定义分项参考条件",
+    "en": "Custom per-metric reference bounds"
+  },
+  "unified_terminology_023": {
+    "source": "场重建参考线",
+    "en": "Field reconstruction reference line"
+  },
+  "unified_terminology_024": {
+    "source": "修改参考条件只重新对照现有指标，不启动计算。自定义模式下，留空的指标不参与对照。",
+    "en": "Changing reference settings only re-compares existing metrics without starting a computation. In custom mode, blank metrics are not checked."
+  },
+  "unified_terminology_025": {
+    "source": "三项统一参考线 τ = {{0}}%（场重建、幅度和定位效用对照标尺；全头64导记作100%刻度）。",
+    "en": "Unified three-metric reference line τ = {{0}}% (comparison ruler for field reconstruction, amplitude, and localization utility; whole-head 64-channel = 100% scale)."
+  },
+  "unified_terminology_026": {
+    "source": "仅对照场重建保留率参考线 τ = {{0}}%。",
+    "en": "Compares only field reconstruction retention against reference line τ = {{0}}%."
+  },
+  "unified_terminology_027": {
+    "source": "自定义参考条件：{{0}}。",
+    "en": "Custom reference bounds: {{0}}."
+  },
+  "unified_terminology_028": {
+    "source": "{{0}}均高于启用参考线",
+    "en": "{{0}} is at or above all active reference bounds"
+  },
+  "unified_terminology_029": {
+    "source": "{{0}}低于参考线：{{1}}",
+    "en": "{{0}} below reference line: {{1}}"
+  },
+  "unified_terminology_030": {
+    "source": "两个方案均高于全部启用参考线。",
+    "en": "Both layouts are at or above all active reference bounds."
+  },
+  "unified_terminology_031": {
+    "source": "{{0}}高于全部启用参考线。",
+    "en": "{{0}} is at or above all active reference bounds."
+  },
+  "unified_terminology_032": {
+    "source": "两个方案均有分项低于当前参考线（全头64导仅作100%刻度，请按目标场景权衡）。",
+    "en": "Both layouts have metrics below the current reference line (whole-head 64-channel is a 100% ruler only; weigh against your target scenario)."
+  },
+  "unified_terminology_033": {
+    "source": "参考线",
+    "en": "Reference line"
+  },
+  "unified_terminology_034": {
+    "source": "保留率对比（%，越高越优；竖线为参考线）",
+    "en": "Retention comparison (%, higher is better; vertical marker shows reference line)"
+  },
+  "unified_terminology_035": {
+    "source": "所选参考线对照",
+    "en": "Reference comparison"
+  },
+  "unified_terminology_036": {
+    "source": "均高于启用参考线",
+    "en": "At or above all active bounds"
+  },
+  "unified_terminology_037": {
+    "source": "低于参考线：{{0}}",
+    "en": "Below reference line: {{0}}"
+  },
+  "unified_terminology_038": {
+    "source": "所选参考条件数据不完整",
+    "en": "Incomplete metrics for selected reference bounds"
+  },
+  "unified_terminology_039": {
+    "source": "- 参考线 τ 是场景对照标尺（全头64导记作100%物理归一化刻度）；三项相对指标分别对应重建、幅度和定位效用。",
+    "en": "- Reference line τ is a scenario comparison ruler (whole-head 64-channel normalized to 100%); the three relative metrics cover reconstruction, amplitude, and localization utility."
+  },
+  "unified_terminology_040": {
+    "source": "|方案|区域数|实际面积 cm²|重建保留率|幅度保留率（最差10%）|相对定位评分|定位中位数|定位P90|参考线对照|",
+    "en": "|Layout|Regions|Actual area cm²|Field retention|Amplitude retention (worst 10%)|Relative localization|Median error|P90 error|Reference check|"
+  },
+  "unified_terminology_041": {
+    "source": "|方案|电极数|区域数|实际面积 cm²|重建保留率|幅度保留率（最差10%）|相对定位评分|定位中位数|定位P90|参考线对照|",
+    "en": "|Layout|Electrodes|Regions|Actual area cm²|Field retention|Amplitude retention (worst 10%)|Relative localization|Median error|P90 error|Reference check|"
+  },
+  "unified_terminology_043": {
+    "source": "两个电极只有一个参考无关维度；当前未知振幅定位模型无法辨识源位置，不计算三项联合相对下界 G。",
+    "en": "Two electrodes provide only one reference-free dimension; the unknown-amplitude localization model cannot identify source position, so joint lower bound G is not computed."
+  },
+  "unified_terminology_044": {
+    "source": "场景参考线 τ（仅对照本场景重建） ·",
+    "en": "Scenario reference line τ (this reconstruction only) ·"
+  },
+  "unified_terminology_045": {
+    "source": "本场景信号重建高于参考线 τ",
+    "en": "Scenario signal reconstruction is at or above reference line τ"
+  },
+  "unified_terminology_046": {
+    "source": "本场景信号重建低于参考线 τ",
+    "en": "Scenario signal reconstruction is below reference line τ"
+  },
+  "unified_terminology_047": {
+    "source": "基准重建解释率非正或过小，相对指标无法计算，无法与参考线 τ 对照",
+    "en": "Baseline explained energy is non-positive or too small to compute relative retention for comparison with τ"
+  },
+  "unified_terminology_048": {
+    "source": "这是自定义64与标准64的重建解释率之比（标准64记作100%刻度）。绝对重建质量见左侧重建解释率与均方误差；参考线 τ 仅作本场景相对对照标尺。",
+    "en": "Ratio of candidate-64 to standard-64 explained energy (standard-64 = 100% ruler). Inspect left-hand explained energy and NMSE for absolute quality; τ serves strictly as this scenario's relative comparison ruler."
+  },
+  "unified_terminology_049": {
+    "source": "按实验场景选择部位、8–64导与每区半径，搜索并保存最佳布局。",
+    "en": "Choose regions, 8–64 channels, and per-region radius for your experimental scenario to search and save an optimal layout."
+  },
+  "unified_terminology_050": {
+    "source": "对照三项相对指标与当前参考线 τ 的位置关系。",
+    "en": "Compares the three relative metrics against the current scenario reference line τ."
+  },
+  "unified_terminology_051": {
+    "source": "参考线 {{0}}%",
+    "en": "Ref {{0}}%"
+  },
+  "unified_terminology_052": {
+    "source": "曲线虚线对应当前所选指标的场景参考线 τ；下方汇总要求三项相对指标均高于参考线 τ。",
+    "en": "The dashed line marks scenario reference line τ for the selected metric; the summary below checks where all three relative metrics sit at or above τ."
+  },
+  "unified_terminology_053": {
+    "source": "“首个高于参考线 τ”指三个已计算面积档位中三项均高于当前参考线 τ 的最小面积上限。本历史批次固定64导、单Ernie头模；8–64导场景搜索请前往布局设计。",
+    "en": "\"First cap at or above τ\" denotes the smallest tested area budget where all three metrics reach τ. This archived study uses fixed 64 channels on Ernie; open Region Design for 8–64 channel scenario searches."
+  },
+  "unified_terminology_054": {
+    "source": "数据不完整；已知{{0}} cm²上限高于参考线 τ",
+    "en": "Incomplete data; {{0}} cm² cap is known to be at or above τ"
+  },
+  "unified_terminology_055": {
+    "source": "首个高于参考线 τ 的面积上限：{{0}} cm²",
+    "en": "First area cap at or above τ: {{0}} cm²"
+  },
+  "unified_terminology_056": {
+    "source": "已测范围内低于参考线 τ",
+    "en": "Below reference line τ across tested range"
+  },
+  "unified_terminology_058": {
+    "source": "工作区：最近的布局、计算任务、稳健性研究和项目。布局：新建布局（区域场景搜索、坐标导入与头型配准、电极编辑）和布局列表。分析：方案对比、稳健性与硬件尺码研究、信号仿真和通道子集。研究结果：总面积研究与历史批次。文档：本指南与建模原理。",
+    "en": "Workspace: recent layouts, tasks, robustness studies, and projects. Layout: create layouts (scenario region search, coordinate import & head personalization, electrode editor) and the layout list. Analysis: layout comparison, robustness & S/M/L hardware sizing, signal simulation, and channel subsets. Findings: total-area study and historical batches. Documentation: this guide and Models & Methods."
+  },
+  "unified_terminology_059": {
+    "source": "总面积研究比较相同总面积上限下1、2、3、4、6个区域各保留多少信号（本历史批次固定64导）。选择一行查看点位与三项保留率；查看、筛选和调整场景参考线 τ 不会启动新计算。",
+    "en": "The total-area study compares how much signal 1, 2, 3, 4, or 6 regions retain under the same total area budget (fixed 64 channels in this archived batch). Select a row to inspect positions and metrics; browsing, filtering, and adjusting scenario reference line τ never start a computation."
+  },
+  "unified_terminology_060": {
+    "source": "3. 新建布局与个体适配",
+    "en": "3. Creating & personalizing layouts"
+  },
+  "unified_terminology_061": {
+    "source": "区域设计支持8、12、16、24、32、48、64七档导数、均分或跨区自适应配额，并可加载真实EEG或fMRI（NIfTI/MNI152峰值）任务先验；坐标导入既可评估外部64点坐标，也可通过头围/头长宽指数或正侧面头型照片标定生成个体化3D电极坐标；电极编辑可从已有64点布局删减或微调点位。",
+    "en": "Region Design supports 8, 12, 16, 24, 32, 48, or 64 channels with equal or adaptive quotas and empirical EEG or fMRI (NIfTI / MNI152 peak) task priors; Coordinate Import evaluates external 64-point designs and morphs 8–64 channel layouts to individual 3D heads via circumference/cephalic-index sliders or front/lateral photos; Electrode Editor prunes or relocates channels on saved 64-point layouts."
+  },
+  "unified_terminology_062": {
+    "source": "5. 稳健性与硬件尺码公差",
+    "en": "5. Robustness & wearable S/M/L sizing"
+  },
+  "unified_terminology_063": {
+    "source": "单次操作可检查位置偏移、跨条件复评或双方案对比；批量稳健性研究可跨随机种子、网格位移和11个头模汇总分位数，并提供成人 S/M/L 头围分档与弹簧顶针行程、切向漂移的硬件结构设计参考（支持CAD坐标表导出）。",
+    "en": "Single actions check grid offsets, cross-condition evaluations, or paired comparisons; batch robustness studies summarize quantiles across random seeds, grid shifts, and 11 heads, alongside adult S/M/L head-tier plunger stroke, tangential drift, and pod-mount CAD references."
+  },
+  "unified_terminology_064": {
+    "source": "7. 场景效能画像与参考线 τ",
+    "en": "7. Scenario profile & reference line τ"
+  },
+  "unified_terminology_065": {
+    "source": "全头64导仅作为同条件100%物理归一化刻度尺，并非所有穿戴应用都要追求100%。综合下界 G 与定位中位误差直观反映当前场景效能；拖动参考线 τ（如轻便穿戴35%、靶向脑区60%、全脑高密85%）只更新对照标尺，不改变点位、不重新计算。",
+    "en": "Whole-head 64-channel serves strictly as a matched-protocol 100% physical normalization ruler—compact wearables need not target 100%. Global lower bound G and median localization error summarize scenario performance; moving reference line τ (35% light wearable, 60% targeted ROI, 85% dense array) updates comparison markers without changing positions or recomputing."
+  },
+  "unified_terminology_066": {
+    "source": "根据具体实验场景、任务脑功能先验（EEG/fMRI）、个体头型与硬件分尺码约束，对8–64导脑电布局进行数字仿真寻优。界面分五个板块，顶栏从左到右依次排列。",
+    "en": "Simulate and optimize 8–64 channel EEG layouts for your experimental paradigm, EEG/fMRI functional priors, individual head geometry, and wearable S/M/L hardware constraints across five top-bar areas."
+  },
+  "unified_terminology_067": {
+    "source": "先看已归档的总面积基准实验：相同面积上限下，区域数量如何影响信号保留？跨记录比较前先核对实验协议、面积或半径约束以及电极总数。",
+    "en": "Start with the archived total-area benchmark: under a matched area cap, how does region count shape signal retention? Verify protocol, area or radius bounds, and channel count before comparing records."
+  },
+  "unified_terminology_068": {
+    "source": "按实验范式选择布置范围、区域数、8–64导通道预算、每区半径上限及可选EEG/fMRI先验后计算；也可进入坐标导入做外部坐标评价或个体头型照片配准。",
+    "en": "Select placement domain, region count, 8–64 channel budget, per-region radius cap, and optional EEG/fMRI priors to search, or open Coordinate Import for external montage evaluation and head-photo personalization."
+  },
+  "unified_terminology_069": {
+    "source": "布局列表每个布局一行；“查看布局”打开详情页，从那里发起跨条件评价、方案对比、稳健性研究、信号仿真、编辑和导出。",
+    "en": "The Layout List shows one row per layout; View Layout opens its detail page for cross-condition evaluations, comparisons, robustness studies, signal simulation, editing, and exports."
+  },
+  "unified_terminology_070": {
+    "source": "方案对比并排核对两套方案相对场景参考线 τ 的位置关系与指标差值；稳健性工作台进一步提供跨头模批处理与成人 S/M/L 头戴硬件公差参考。",
+    "en": "Compare Layouts checks two designs side by side against scenario reference line τ and metric deltas, while Robustness Studies adds cross-head batches and adult S/M/L wearable hardware tolerance references."
+  },
+  "unified_terminology_071": {
+    "source": "研究项目把多个布局、对比条件和交付包整理在一起，便于导出和交给合作者离线审阅。方案对比与详情页支持简明报告、JSON和坐标CSV导出。",
+    "en": "Research Projects group layouts, comparison settings, and delivery packages for offline collaborator review; Compare Layouts and Layout Detail export Markdown summaries, JSON, and coordinate CSVs."
+  },
+  "unified_terminology_072": {
+    "source": "深入阅读：完整图文使用手册涵盖九大头皮解剖分区、场景参考线 τ 解读、EEG/fMRI先验映射、个体头型照片配准、硬件 S/M/L 尺码公差、通道子集筛选及全部14个命令行工具；完整安装手册提供Conda三行安装、数据包管理与排障指南。",
+    "en": "Read further: the Complete Illustrated User Manual covers the nine scalp masks, scenario reference line τ, EEG/fMRI priors, head-photo personalization, wearable S/M/L hardware sizing, channel subsets, and all 14 CLI commands; the Installation Manual covers 3-line Conda setup, data packages, and troubleshooting."
   }
 }

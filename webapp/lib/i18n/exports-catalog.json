@@ -32,8 +32,8 @@
     "en": "Summary report Markdown"
   },
   "exports_report_note": {
-    "source": "当前指标、最低保留要求和模型来源，适合阅读与分享。",
-    "en": "Current metrics, minimum retention requirement and model provenance, formatted for reading and sharing."
+    "source": "当前指标、场景参考线对照与模型来源，适合阅读与分享。",
+    "en": "Current metrics, scenario reference-line comparison and model provenance, formatted for reading and sharing."
   },
   "exports_bundle": {
     "source": "复现实验包 JSON",
@@ -156,16 +156,16 @@
     "en": "Recorded minimum-spacing requirement"
   },
   "exports_metrics": {
-    "source": "原始指标与当前判据",
-    "en": "Saved metrics and current criterion"
+    "source": "原始指标与场景参考线对照",
+    "en": "Saved metrics and scenario reference comparison"
   },
   "exports_requirement": {
-    "source": "本次报告的最低保留要求",
-    "en": "Minimum retention requirement for this report"
+    "source": "本次报告的场景参考线 τ",
+    "en": "Scenario reference line τ for this report"
   },
   "exports_rule": {
-    "source": "判据：场重建、最差10%源幅度、定位效用三项保留率均达到此要求。改变要求只改变判定，不改变保存分数。",
-    "en": "Criterion: field reconstruction, lower-10% source amplitude and localization utility retention must each meet this requirement. Changing the requirement changes the assessment, not the saved scores."
+    "source": "对照标尺：全头64导记作100%物理归一化刻度；对照场重建、最差10%源幅度和定位效用三项相对保留率与参考线 τ 的位置关系。改变参考线只更新对照，不改变保存分数。",
+    "en": "Reference scale: standard whole-head 64-channel is normalized to 100%; compares field reconstruction, lower-10% source amplitude and localization utility retention against scenario reference line τ without changing saved scores."
   },
   "exports_metric_column": {
     "source": "报告指标",
@@ -208,24 +208,24 @@
     "en": "Standard 64's median localization error"
   },
   "exports_assessment": {
-    "source": "三项共同判定",
-    "en": "Joint three-metric assessment"
+    "source": "三项联合对照",
+    "en": "Joint three-metric reference comparison"
   },
   "exports_pass": {
-    "source": "三项均达到要求",
-    "en": "All three metrics meet the requirement"
+    "source": "三项均高于场景参考线 τ",
+    "en": "All three metrics are at or above scenario reference line τ"
   },
   "exports_fail": {
-    "source": "至少一项未达到要求",
-    "en": "At least one metric is below the requirement"
+    "source": "至少一项低于场景参考线 τ（请按目标场景权衡）",
+    "en": "At least one metric is below scenario reference line τ (weigh against target scenario needs)"
   },
   "exports_unknown": {
-    "source": "未记录或不可判定",
+    "source": "未记录或不可对照",
     "en": "Not recorded or not assessable"
   },
   "exports_metric_scope": {
-    "source": "三项分别比较重建解释能量、幅度下尾和定位误差效用，不是统一的准确率；标准64导的100%是相对基准。",
-    "en": "The three metrics compare explained reconstruction energy, lower-tail amplitude and localization-error utility. They are not a unified accuracy measure; standard 64's 100% is a relative baseline."
+    "source": "三项分别比较重建解释能量、幅度下尾和定位误差效用，不是统一的准确率；全头64导的100%仅作物理归一化刻度，轻便局部方案无需追求100%。",
+    "en": "The three metrics compare explained reconstruction energy, lower-tail amplitude and localization-error utility. Standard whole-head 64-channel at 100% serves strictly as a physical normalization ruler rather than a universal pass/fail target."
   },
   "exports_provenance": {
     "source": "模型、算法及原始来源",

@@ -218,7 +218,7 @@ def parse_bids_electrodes(
         )
     ):
         raise ValueError(
-            f'本软件的布局固定为64个电极；文件中有{len(rows)}个带坐标的EEG电极，且不接受n/a坐标。'
+            f'固定64点坐标评价导入需要64个电极；文件中有{len(rows)}个带坐标的EEG电极，且不接受n/a坐标（8–64导方案请使用场景搜索或个体化配准）。'
             if head is not None
             else 'BIDS坐标文件需要64个命名电极和完整数值；不接受n/a坐标。'
         )

@@ -58,9 +58,9 @@ export function resultQualification(record: SavedSummary, ar: number) {
   if (record.status !== 'completed') return '无法判断';
   const state = assessment(record.metrics, ar).state;
   return state === 'pass'
-    ? '达到要求'
+    ? '高于参考线 τ'
     : state === 'fail'
-      ? '未达到要求'
+      ? '低于参考线 τ'
       : '无法判断';
 }
 

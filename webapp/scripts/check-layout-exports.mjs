@@ -50,7 +50,7 @@ void test('invalid and partial layouts disable importable exports without fabric
     assert.equal(layoutExportAvailability(record).coordinates, null);
     for (const kind of ['coordinates_csv', 'design_json']) assert.throws(() => layoutExportFile(record, kind, 32));
     assert.deepEqual(JSON.parse(layoutExportFile(record, 'result_json', 32).content), record);
-    assert.match(layoutExportFile(record, 'report_md', 32, 'en').content, /Saved metrics and current criterion/);
+    assert.match(layoutExportFile(record, 'report_md', 32, 'en').content, /Saved metrics and scenario reference comparison/);
   }
 });
 
@@ -66,18 +66,18 @@ void test('full-result JSON remains the original record and is distinct from imp
 void test('summary uses the current common threshold, preserves real scores and does not invent metadata', () => {
   const record = fixture(), before = JSON.stringify(record);
   let text = layoutSummaryMarkdown(record, 32, 'en', '2026-09-15T00:00:00Z');
-  assert.match(text, /At least one metric is below the requirement/);
+  assert.match(text, /At least one metric is below scenario reference line τ/);
   assert.match(text, /82\.00%/); assert.match(text, /31\.00%/); assert.match(text, /32\.10 mm/);
   assert.match(text, /32%/); assert.match(text, /2026-09-15T00:00:00Z/);
   assert.doesNotMatch(text, /[\u3400-\u9fff]|4096|20 dB/);
-  assert.match(layoutSummaryMarkdown(record, 30, 'en'), /All three metrics meet the requirement/);
-  assert.match(layoutSummaryMarkdown(record, 30, 'zh-CN'), /三项均达到要求/);
+  assert.match(layoutSummaryMarkdown(record, 30, 'en'), /All three metrics are at or above scenario reference line τ/);
+  assert.match(layoutSummaryMarkdown(record, 30, 'zh-CN'), /三项均高于场景参考线 τ/);
   assert.equal(JSON.stringify(record), before);
   record.metrics.field_relative = -0.2; record.metrics.field_absolute = 1.1;
   text = layoutSummaryMarkdown(record, 30, 'en');
   assert.match(text, /-20\.00%/); assert.match(text, /110\.00%/);
   record.metrics.localization_relative = null;
-  assert.match(layoutSummaryMarkdown(record, 30, 'en'), /Joint three-metric assessment: Not recorded or not assessable/);
+  assert.match(layoutSummaryMarkdown(record, 30, 'en'), /Joint three-metric reference comparison: Not recorded or not assessable/);
   const empty = { ...record, status: 'no_layout', layout: null, metrics: null };
   assert.match(layoutSummaryMarkdown(empty, 30, 'en'), /Not recorded or not assessable/);
   assert.doesNotMatch(layoutSummaryMarkdown(empty, 30, 'en'), /\| 0\.00%/);

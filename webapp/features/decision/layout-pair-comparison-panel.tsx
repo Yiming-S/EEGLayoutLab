@@ -63,10 +63,7 @@ export function LayoutPairComparisonPanel({
         if (!card.plot) return { ...card, titleText, svg: null, preview: null };
         const regionCount = Math.max(...card.plot.region_indices) + 1;
         const total = card.plot.xyz_mm.length;
-        const subtitle =
-          total === 64
-            ? tx(`64个电极 · ${regionCount}个区域 · Ernie模板头`)
-            : tx(`${total}导 · ${regionCount}个区域 · Ernie模板头`);
+        const subtitle = tx(`${total}导 · ${regionCount}个区域 · Ernie模板头`);
         const svg = plotFigureSvg(
           card.plot,
           {
@@ -164,7 +161,7 @@ export function LayoutPairComparisonPanel({
                   />
                 ) : (
                   <p className="mt-3 rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-                    {tx('该记录暂无可绘制的64点模板坐标。')}
+                    {tx('该记录暂无可绘制的模板坐标。')}
                   </p>
                 )}
               </div>

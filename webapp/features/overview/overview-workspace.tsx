@@ -23,7 +23,7 @@ function GettingStarted({ ar }: { ar: number }) {
   const { tx } = useLanguage();
   const steps = [
     { title: '查看已有结果', text: '比较1–6个区域在相同面积下保留多少信号。', href: '#area-comparison' },
-    { title: '设计新布局', text: '选择部位和每区半径，计算并保存新的64电极布局。', href: '/design?ar=' + ar },
+    { title: '设计新布局', text: '按实验场景选择部位、8–64导与每区半径，搜索并保存最佳布局。', href: '/design?ar=' + ar },
     { title: '信号仿真', text: '用同一模拟脑源，对照标准64导与新布局的接收信号。', href: '/reception?ar=' + ar },
   ];
   return (
@@ -97,7 +97,7 @@ export default function OverviewWorkspace() {
             {REGION_COUNTS.map(count => <Button key={count} size="sm" variant={r === count ? 'default' : 'ghost'} className="flex-1 px-2" aria-pressed={r === count} onClick={() => setR(count)}>{tx(`${count}区`)}</Button>)}
           </div>
         </fieldset>
-        <ThresholdSlider value={ar} onChange={setAR} ariaLabel="比较接受阈值AR" term="ar" hint="要求三项相对指标分别达到此阈值。" />
+        <ThresholdSlider value={ar} onChange={setAR} ariaLabel="场景目标参考线τ" term="ar" hint="对照三项相对指标与当前参考线 τ 的位置关系。" />
       </div>
       <p className="text-xs leading-5 text-muted-foreground">{tx('切换以上条件只读取已有结果。单Ernie头模 · 标准64导名义SNR 20 dB。')}</p>
       </HomePlacementOptions>
@@ -140,15 +140,15 @@ export default function OverviewWorkspace() {
         <section className="lab-panel mt-5">
           <div className="flex flex-wrap items-end justify-between gap-4"><div><h2 className="text-base font-semibold">{tx("扩大总面积后，性能怎样变化？")}</h2><p className="mt-1 text-[0.8125rem] text-muted-foreground">{tx("仅连接已测的60、120、180 cm²条件。点击曲线上的已计算点查看对应方案。")}</p></div>
             <label className="lab-label min-w-[200px]">{tx("曲线指标")}<select value={metric} onChange={(e) => setMetric(e.target.value as typeof metric)} className="lab-select">{tx(METRICS.map((m) => <option value={m.key} key={m.key}>{tx(m.label)}</option>))}</select></label></div>
-          <div className="mt-4 h-[310px] rounded-lg border border-border bg-secondary/20 p-3"><ResponsiveContainer width="100%" height="100%"><LineChart data={curve} margin={{ top: 12, right: 76, left: 4, bottom: 8 }}><CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} /><XAxis dataKey="area" unit=" cm²" tick={{ fontSize: 12 }} /><YAxis unit="%" domain={[yMin, yMax]} allowDecimals={false} tick={{ fontSize: 12 }} /><Tooltip contentStyle={{ backgroundColor: 'var(--popover)', borderColor: 'var(--border)', color: 'var(--popover-foreground)', borderRadius: '0.5rem' }} formatter={(v) => tx(v == null ? '未定义' : `${Number(v).toFixed(2)}%`)} labelFormatter={(v) => tx(`总面积上限 ${v} cm²`)} /><Legend /><ReferenceLine y={ar} stroke="var(--chart-threshold)" strokeDasharray="4 4" ifOverflow="extendDomain" label={{ value: tx(`要求 ${ar}%`), position: 'right', fill: 'var(--chart-threshold)', fontSize: 12 }} /><ReferenceLine y={100} stroke="var(--chart-reference)" strokeDasharray="2 3" ifOverflow="extendDomain" label={{ value: tx('标准64导'), position: 'right', fill: 'var(--chart-reference)', fontSize: 12 }} />
+          <div className="mt-4 h-[310px] rounded-lg border border-border bg-secondary/20 p-3"><ResponsiveContainer width="100%" height="100%"><LineChart data={curve} margin={{ top: 12, right: 76, left: 4, bottom: 8 }}><CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} /><XAxis dataKey="area" unit=" cm²" tick={{ fontSize: 12 }} /><YAxis unit="%" domain={[yMin, yMax]} allowDecimals={false} tick={{ fontSize: 12 }} /><Tooltip contentStyle={{ backgroundColor: 'var(--popover)', borderColor: 'var(--border)', color: 'var(--popover-foreground)', borderRadius: '0.5rem' }} formatter={(v) => tx(v == null ? '未定义' : `${Number(v).toFixed(2)}%`)} labelFormatter={(v) => tx(`总面积上限 ${v} cm²`)} /><Legend /><ReferenceLine y={ar} stroke="var(--chart-threshold)" strokeDasharray="4 4" ifOverflow="extendDomain" label={{ value: tx(`参考线 ${ar}%`), position: 'right', fill: 'var(--chart-threshold)', fontSize: 12 }} /><ReferenceLine y={100} stroke="var(--chart-reference)" strokeDasharray="2 3" ifOverflow="extendDomain" label={{ value: tx('标准64导'), position: 'right', fill: 'var(--chart-reference)', fontSize: 12 }} />
             {tx(REGION_COUNTS.map((n, i) => <Line key={n} name={tx(`${n}区`)} dataKey={`r${n}`} stroke={colors[i]} strokeWidth={2} connectNulls={false} isAnimationActive={false} dot={{ r: 3.5 }} activeDot={(point) => <Dot {...point} r={6} style={{ cursor: 'pointer' }} onClick={() => { const a = (point.payload as { area?: number })?.area; if (a && AREA_CAPS.includes(a)) { setArea(a); openDetails(n); } }} />} />))}
           </LineChart></ResponsiveContainer></div>
-          <p className="mt-3 text-xs text-muted-foreground">{tx('曲线阈值线对应当前所选指标；下方结论要求三项指标均达到最低保留要求。')}</p>
+          <p className="mt-3 text-xs text-muted-foreground">{tx('曲线虚线对应当前所选指标的场景参考线 τ；下方汇总要求三项相对指标均高于参考线 τ。')}</p>
           <h3 className="mt-5 text-sm font-semibold">{tx('各区域数相对场景参考线 τ 的面积分布')}</h3>
-          <ul className="mt-2.5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{conclusions(data.records).map(({ text, counts }) => <li key={text} className={cn('flex items-start gap-3 rounded-lg border p-3 text-sm', text.startsWith('首个达标') ? 'border-success/30 bg-success-surface/75' : 'border-border bg-secondary/40')}>
+          <ul className="mt-2.5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{conclusions(data.records).map(({ text, counts }) => <li key={text} className={cn('flex items-start gap-3 rounded-lg border p-3 text-sm', text.startsWith('首个高于参考线') ? 'border-success/30 bg-success-surface/75' : 'border-border bg-secondary/40')}>
             <span className="flex shrink-0 flex-wrap gap-1">{counts.map(n => <span key={n} className="rounded border border-border bg-card px-1.5 py-0.5 font-mono text-xs font-medium tabular-nums">{tx(`${n}区`)}</span>)}</span>
-            <span className={cn('text-[0.8125rem] font-medium', text.startsWith('首个达标') ? 'text-success' : 'text-ink-soft')}>{tx(text)}</span></li>)}</ul>
-          <p className="mt-3 text-xs text-muted-foreground">{tx("“首个达标”指三个已计算面积档位中达到AR的最小上限。当前结果采用单Ernie头模，独立头模验证另列阶段。")}</p>
+            <span className={cn('text-[0.8125rem] font-medium', text.startsWith('首个高于参考线') ? 'text-success' : 'text-ink-soft')}>{tx(text)}</span></li>)}</ul>
+          <p className="mt-3 text-xs text-muted-foreground">{tx('“首个高于参考线 τ”指三个已计算面积档位中三项均高于当前参考线 τ 的最小面积上限。本历史批次固定64导、单Ernie头模；8–64导场景搜索请前往布局设计。')}</p>
         </section>
       </>)}
       <PlacementDesignPresets ar={ar} />

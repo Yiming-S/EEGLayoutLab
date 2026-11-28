@@ -66,9 +66,9 @@ void test('area conclusions distinguish missing, incomplete, undefined and teste
   const full = AREA_CAPS.map((area) => ({ ...row, area_cap_cm2: area }));
   assert.equal(areaConclusion([], row.mode, 2, 90), '暂无同协议可判断数据');
   assert.equal(areaConclusion([row], row.mode, 2, 90), '数据不完整，不能判定整个已测范围');
-  assert.equal(areaConclusion([row], row.mode, 2, 50), '数据不完整；已知60 cm²上限达标');
-  assert.equal(areaConclusion(full, row.mode, 2, 90), '已测范围内未达标');
-  assert.equal(areaConclusion(full, row.mode, 2, 50), '首个达标面积上限：60 cm²');
+  assert.equal(areaConclusion([row], row.mode, 2, 50), '数据不完整；已知60 cm²上限高于参考线 τ');
+  assert.equal(areaConclusion(full, row.mode, 2, 90), '已测范围内低于参考线 τ');
+  assert.equal(areaConclusion(full, row.mode, 2, 50), '首个高于参考线 τ 的面积上限：60 cm²');
   full[0] = { ...row, metrics: { ...row.metrics, localization_relative: null } };
   assert.equal(areaConclusion(full, row.mode, 2, 90), '数据不完整，不能判定整个已测范围');
 });
@@ -331,7 +331,7 @@ void test('public copy uses factual scope and correct AR, metric and reference t
   const metrics = await readFile(new URL('../../docs/model-and-metrics.md', import.meta.url), 'utf8');
   assert.ok(metrics.includes("it passes the model's point-estimate rule at AR = 10%"));
   const reception = (await Promise.all(['features/reception/experiment-result.tsx', 'features/reception/reception-workspace.tsx', 'features/reception/receiver-comparison.tsx', 'features/reception/result-view-model.ts'].map(p => readFile(p, 'utf8')))).join('\n');
-  assert.ok(reception.includes('相对指标无法计算，无法判断是否达到AR'));
+  assert.ok(reception.includes('相对指标无法计算，无法与参考线 τ 对照'));
   assert.ok(reception.includes('方法背景参考：'));
   assert.ok(reception.includes('假设性空间场'));
   assert.equal(MASK_NAMES.OL, '左眶周上外侧');

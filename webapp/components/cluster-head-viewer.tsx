@@ -204,8 +204,8 @@ export function ClusterHeadViewer(props: Props) {
   useEffect(() => {
     runtime.current?.canvas.setAttribute('aria-label', props.editor
       ? tx(`可旋转的头部与电极布局，启用${props.editor.active.filter(Boolean).length}点，方向键旋转，加减键缩放`)
-      : tx('可旋转的真实头部与64电极布局，方向键旋转，加减键缩放'));
-  }, [status, tx, props.editor]);
+      : tx(`可旋转的真实头部与${electrodeCount}导电极布局，方向键旋转，加减键缩放`));
+  }, [status, tx, props.editor, electrodeCount]);
   const gestureNote = editing
     ? '编辑模式下拖动电极，吸附到原区域候选点；空白处旋转。灰色点已停用。'
     : '拖动旋转视角（不移动电极）· 双指 / 滚轮缩放 · 右键平移。';

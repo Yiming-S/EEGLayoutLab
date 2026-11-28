@@ -216,7 +216,7 @@ def parse_montage_file(
     if read['unit'] and unit and unit != read['unit']:
         raise ValueError(f"文件声明的单位是{read['unit']}，与所选单位不一致。")
     if len(read['points']) != 64:
-        raise ValueError(f"本软件的布局固定为64个电极；文件中有{len(read['points'])}个电极（不含基准点、参考和地线）。")
+        raise ValueError(f"固定64点坐标评价导入需要64个电极；文件中有{len(read['points'])}个电极（不含基准点、参考和地线；8–64导方案请使用场景搜索或个体化配准）。")
     if len({_ascii_lower(n) for n in read['names']}) != 64:
         raise ValueError('电极名称不能重复。')
     missing = [n for n in ('NAS', 'LPA', 'RPA') if n not in read['landmarks']]

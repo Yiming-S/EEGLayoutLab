@@ -167,7 +167,7 @@ function NewLayout({ ar }: { ar: number }) {
       <ArchitecturalMatrix
         framed
         items={[
-          { href: '/design?ar=' + ar, icon: Search, title: '按区域搜索', text: '选择部位、区域数、电极总数（默认64导）和每区半径，搜索最优布局。' },
+          { href: '/design?ar=' + ar, icon: Search, title: '按区域搜索', text: '按实验场景选择部位、8–64导与每区半径，搜索并保存最佳布局。' },
           { href: '/coordinates?ar=' + ar, icon: Import, title: '坐标导入', text: '读取已有电极坐标文件，在当前条件下评价。' },
           { href: '/library?ar=' + ar, icon: PencilRuler, title: '复制并编辑', text: '从布局列表打开一个布局，移动或停用电极。' },
         ]}
@@ -303,7 +303,7 @@ export default function HomeWorkspace() {
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
           <span className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 font-mono text-xs text-muted-foreground tabular-nums">
-            <span>AR τ = {ar}%</span>
+            <span>{tx('参考线')} τ = {ar}%</span>
             {layoutCount != null && (
               <>
                 <span aria-hidden className="text-border">|</span>

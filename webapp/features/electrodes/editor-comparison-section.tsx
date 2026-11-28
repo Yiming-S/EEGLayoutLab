@@ -283,7 +283,7 @@ export function EditorComparisonSection({
             'single_contrast_unknown_amplitude' && (
             <p className="mt-3 text-sm">
               {tx(
-                '两个电极只有一个参考无关维度；当前未知振幅定位模型无法辨识源位置，不提供三项共同达标结论。',
+                '两个电极只有一个参考无关维度；当前未知振幅定位模型无法辨识源位置，不计算三项联合相对下界 G。',
               )}
             </p>
           )}

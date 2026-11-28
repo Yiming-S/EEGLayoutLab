@@ -132,14 +132,14 @@ export function decisionHref(ids: string[], t: DecisionThresholds) {
 /** Display the complete active requirement beside every decision result. */
 export function decisionCriteriaSummary(thresholds: DecisionThresholds) {
   if (decisionThresholdMode(thresholds) === 'joint')
-    return `三项共同要求：场重建、幅度和定位效用保留率均不低于${thresholds.field}%。`;
+    return `三项统一参考线 τ = ${thresholds.field}%（场重建、幅度和定位效用对照标尺；全头64导记作100%刻度）。`;
   if (thresholds.sensitivity == null && thresholds.localization == null && thresholds.p90_mm == null)
-    return `仅检查场重建保留率 ≥ ${thresholds.field}%。`;
+    return `仅对照场重建保留率参考线 τ = ${thresholds.field}%。`;
   const rules = [`信号重建保留率 ≥ ${thresholds.field}%`];
   if (thresholds.sensitivity != null) rules.push(`幅度保留率（最差10%） ≥ ${thresholds.sensitivity}%`);
   if (thresholds.localization != null) rules.push(`相对定位评分 ≥ ${thresholds.localization}%`);
   if (thresholds.p90_mm != null) rules.push(`定位误差P90 ≤ ${thresholds.p90_mm} mm`);
-  return `自定义要求：${rules.join('；')}。`;
+  return `自定义参考条件：${rules.join('；')}。`;
 }
 export const pct = (n: unknown) =>
   finite(n) ? `${(100 * n).toFixed(2)}%` : '未提供';
@@ -535,15 +535,15 @@ export function decisionMarkdown(
     '## 原记录指标',
     '',
     allFixed64
-      ? '|方案|区域数|实际面积 cm²|重建保留率|幅度保留率（最差10%）|相对定位评分|定位中位数|定位P90|条件判定|'
-      : '|方案|电极数|区域数|实际面积 cm²|重建保留率|幅度保留率（最差10%）|相对定位评分|定位中位数|定位P90|条件判定|',
+      ? '|方案|区域数|实际面积 cm²|重建保留率|幅度保留率（最差10%）|相对定位评分|定位中位数|定位P90|参考线对照|'
+      : '|方案|电极数|区域数|实际面积 cm²|重建保留率|幅度保留率（最差10%）|相对定位评分|定位中位数|定位P90|参考线对照|',
     allFixed64
       ? '|---|---:|---:|---:|---:|---:|---:|---:|---|'
       : '|---|---:|---:|---:|---:|---:|---:|---:|---:|---|',
   ];
   for (const r of records) {
     const q = qualification(r, thresholds);
-    const verdict = q.state === 'pass' ? '达到全部启用要求' : q.state === 'missing' ? '数据不完整' : '未达到：' + q.failed.join('、');
+    const verdict = q.state === 'pass' ? '均高于启用参考线' : q.state === 'missing' ? '数据不完整' : '低于参考线：' + q.failed.join('、');
     lines.push(
       allFixed64
         ? `|${reportName(r)}|${r.region_count}|${r.geometry?.union_area_cm2?.toFixed(2) ?? '未提供'}|${pct(r.metrics?.field_relative)}|${pct(r.metrics?.sensitivity_tail)}|${pct(r.metrics?.localization_relative)}|${mm(r.metrics?.median_mm)}|${mm(r.metrics?.p90_mm)}|${verdict}|`
@@ -557,7 +557,7 @@ export function decisionMarkdown(
     '- 本表读取原实验记录；总面积实验使用原4096字典／256生成源评分。',
     '- 后续512独立源复评单独存档，本表不混用其分数。',
     '- 单头模模型条件性结果；独立头模、实体模型及人体同步验证另列阶段。',
-    '- AR是设计接受阈值；三项相对指标分别对应重建、幅度和定位效用。',
+    '- 参考线 τ 是场景对照标尺（全头64导记作100%物理归一化刻度）；三项相对指标分别对应重建、幅度和定位效用。',
     '',
     '## 标准64参照的绝对值',
     '',

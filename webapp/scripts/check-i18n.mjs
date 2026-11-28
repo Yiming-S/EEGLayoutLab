@@ -167,7 +167,7 @@ void test('shared saved-layout details separate evaluation from qualification an
   }, geometry: { ...record.geometry, common_graph_radius_mm: 35 } };
   const noLayout = { ...fixture, status: 'no_layout', layout: null, metrics: null };
   assert.equal(resultQualification(noLayout, 32), '无法判断');
-  assert.equal(resultQualification(fixture, 32), '未达到要求');
+  assert.equal(resultQualification(fixture, 32), '低于参考线 τ');
   const before = JSON.stringify(fixture);
   for (const locale of ['zh-CN', 'en']) {
     const html = render(SavedLayoutContent, { record: fixture, ar: 32, returnHref: '/library?ar=32' }, locale);
@@ -242,7 +242,7 @@ void test('decision controls disclose all active requirements in both languages'
     const custom = render(DecisionRequirements, { thresholds: { mode: 'custom', field: 90, sensitivity: null, localization: null, p90_mm: null }, onChange() {} }, locale);
     const mixed = render(DecisionRequirements, { thresholds: { mode: 'custom', field: 68, sensitivity: 30, localization: null, p90_mm: 20 }, onChange() {} }, locale);
     assert.match(joint, /90%/);
-    assert.match(custom, locale === 'en' ? /Checks only field reconstruction/ : /仅检查场重建/);
+    assert.match(custom, locale === 'en' ? /Compares only field reconstruction/ : /仅对照场重建/);
     assert.match(mixed, /68%/); assert.match(mixed, /30%/); assert.match(mixed, /20 mm/);
     if (locale === 'en') for (const html of [joint, custom, mixed]) assert.doesNotMatch(visibleText(html), /[\u3400-\u9fff]/);
   }

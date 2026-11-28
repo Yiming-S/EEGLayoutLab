@@ -9,7 +9,7 @@ import './globals.css';
 // (saved choice, then the browser's languages) by LanguageProvider.
 export const metadata: Metadata = {
   title: { default: 'EEG Layout Lab | EEG Electrode Layout Simulation', template: '%s｜EEG Layout Lab' },
-  description: 'Explore fixed 64-electrode EEG layouts, compare region size and placement, and evaluate signal retention using local simulations.',
+  description: 'Design scenario-driven 8–64 channel EEG layouts with fMRI/EEG priors, individual head personalization, and wearable hardware sizing simulations.',
 };
 
 const THEME_INIT_SCRIPT = `(function(){try{var k='eeg-layout-lab/theme',v=localStorage.getItem(k),d=v==='dark'||((!v||v==='system')&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);}catch(e){}})();`;

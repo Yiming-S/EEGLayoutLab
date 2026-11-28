@@ -201,7 +201,7 @@ export function ExperimentResult({
         </div>
         <div className="rounded-lg bg-muted/40 p-4">
           <label className="lab-label">
-            {tx('接受阈值 AR（仅判断本场景重建） · ')}
+            {tx('场景参考线 τ（仅对照本场景重建） · ')}
             {tx(ar)}%
             <input
               className="mt-3 w-full accent-primary"
@@ -221,15 +221,15 @@ export function ExperimentResult({
           <p className="mt-2 text-sm font-medium">
             {tx(
               status === 'pass'
-                ? '本场景信号重建达到AR'
+                ? '本场景信号重建高于参考线 τ'
                 : status === 'fail'
-                  ? '本场景信号重建未达到AR'
-                  : '基准重建解释率非正或过小，相对指标无法计算，无法判断是否达到AR',
+                  ? '本场景信号重建低于参考线 τ'
+                  : '基准重建解释率非正或过小，相对指标无法计算，无法与参考线 τ 对照',
             )}
           </p>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
             {tx(
-              '这是自定义64与标准64的重建解释率之比。绝对重建质量见左侧重建解释率与均方误差；AR用于本场景的相对重建判定。',
+              '这是自定义64与标准64的重建解释率之比（标准64记作100%刻度）。绝对重建质量见左侧重建解释率与均方误差；参考线 τ 仅作本场景相对对照标尺。',
             )}
           </p>
         </div>

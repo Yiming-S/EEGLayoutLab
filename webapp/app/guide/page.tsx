@@ -14,13 +14,13 @@ import { USAGE_EXPLANATIONS, guideManualHrefs, guideStepHref } from '@/lib/usage
 
 // One step per area of the interface; each opens its page and the matching method chapter.
 const STEPS = [
-  { id: 'usage-purpose', paragraph: 0, action: '打开工作区', path: '/', section: 'simulation-overview', note: '比较电极集中到少数区域后，相对标准全头64导的采集表现。界面分五个板块，顶栏从左到右依次排列。' },
-  { id: 'usage-compare', paragraph: 1, action: '打开总面积研究', path: '/findings', section: 'retention-reading', note: '先看已发表的结果：相同面积上限下，区域越少，保留的信号越少吗？比较前先核对实验协议、面积或半径约束，以及电极总数。' },
-  { id: 'usage-design', paragraph: 2, action: '打开区域设计', path: '/design', section: 'local-compute', note: '依次选择允许布置范围、区域数量和每区半径上限，再点击计算；已有电极坐标时，直接进入坐标导入。尚未生成完整布局时，扩大半径或调整区域后重试。' },
-  { id: 'usage-electrodes', paragraph: 3, action: '打开布局列表', path: '/library', section: 'design-decision', note: '布局列表每个布局一行；“查看布局”打开详情页，从那里发起评价、对比、研究、信号仿真、编辑和导出。' },
-  { id: 'usage-reading', paragraph: 4, action: '打开方案对比', path: '/decision', section: 'retention-guide', note: '方案对比先选布局，再选评价条件；结论栏先说明两个布局是否达到要求以及相差多少，详细指标在下方。' },
+  { id: 'usage-purpose', paragraph: 0, action: '打开工作区', path: '/', section: 'simulation-overview', note: '根据具体实验场景、任务脑功能先验（EEG/fMRI）、个体头型与硬件分尺码约束，对8–64导脑电布局进行数字仿真寻优。界面分五个板块，顶栏从左到右依次排列。' },
+  { id: 'usage-compare', paragraph: 1, action: '打开总面积研究', path: '/findings', section: 'retention-reading', note: '先看已归档的总面积基准实验：相同面积上限下，区域数量如何影响信号保留？跨记录比较前先核对实验协议、面积或半径约束以及电极总数。' },
+  { id: 'usage-design', paragraph: 2, action: '打开区域设计', path: '/design', section: 'local-compute', note: '按实验范式选择布置范围、区域数、8–64导通道预算、每区半径上限及可选EEG/fMRI先验后计算；也可进入坐标导入做外部坐标评价或个体头型照片配准。' },
+  { id: 'usage-electrodes', paragraph: 3, action: '打开布局列表', path: '/library', section: 'design-decision', note: '布局列表每个布局一行；“查看布局”打开详情页，从那里发起跨条件评价、方案对比、稳健性研究、信号仿真、编辑和导出。' },
+  { id: 'usage-reading', paragraph: 4, action: '打开方案对比', path: '/decision', section: 'retention-guide', note: '方案对比并排核对两套方案相对场景参考线 τ 的位置关系与指标差值；稳健性工作台进一步提供跨头模批处理与成人 S/M/L 头戴硬件公差参考。' },
   { id: 'usage-reception', paragraph: 5, action: '打开信号仿真', path: '/reception', section: 'source-field-interaction', note: '比较同一场景下的标准64导、当前布局接收信号和重建结果。编辑后的减导记录不进入此实验。' },
-  { id: 'usage-records', paragraph: 6, action: '打开研究项目', path: '/projects', section: 'retention-ar', note: '研究项目把多个布局、对比和交付包放在一起，便于导出和交给合作者。方案对比支持报告、JSON和坐标CSV导出。' },
+  { id: 'usage-records', paragraph: 6, action: '打开研究项目', path: '/projects', section: 'retention-ar', note: '研究项目把多个布局、对比条件和交付包整理在一起，便于导出和交给合作者离线审阅。方案对比与详情页支持简明报告、JSON和坐标CSV导出。' },
 ] as const;
 
 export default function GuidePage() {
@@ -90,7 +90,7 @@ export default function GuidePage() {
       <section id="usage-manuals" aria-labelledby="usage-manuals-title" className="lab-panel scroll-mt-36 space-y-3">
         <h2 id="usage-manuals-title" className="text-base font-semibold sm:text-lg">{tx('完整手册与命令行参考')}</h2>
         <p className="text-[0.8125rem] leading-6.5 text-ink-soft">
-          {tx('深入阅读：完整图文使用手册涵盖九大头皮解剖分区、外部坐标配准、真实脑电先验与通道子集筛选及全部14个命令行工具；完整安装手册提供Conda三行安装、数据包管理与排障指南。')}
+          {tx('深入阅读：完整图文使用手册涵盖九大头皮解剖分区、场景参考线 τ 解读、EEG/fMRI先验映射、个体头型照片配准、硬件 S/M/L 尺码公差、通道子集筛选及全部14个命令行工具；完整安装手册提供Conda三行安装、数据包管理与排障指南。')}
         </p>
         <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3.5">
           <a href={manuals.userManual} {...external} className={buttonVariants({ size: 'sm' })}>

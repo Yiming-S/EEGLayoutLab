@@ -30,8 +30,8 @@ export function areaConclusion(records: SavedSummary[], domain: string, r: numbe
   if (rows.every((row) => !row)) return '暂无同协议可判断数据';
   const complete = rows.every((row) => row && assessment(row.metrics, ar).state !== 'undefined');
   const pass = minimumTestedArea(records, domain, r, ar);
-  if (!complete) return pass ? `数据不完整；已知${pass.area_cap_cm2} cm²上限达标` : '数据不完整，不能判定整个已测范围';
-  return pass ? `首个达标面积上限：${pass.area_cap_cm2} cm²` : '已测范围内未达标';
+  if (!complete) return pass ? `数据不完整；已知${pass.area_cap_cm2} cm²上限高于参考线 τ` : '数据不完整，不能判定整个已测范围';
+  return pass ? `首个高于参考线 τ 的面积上限：${pass.area_cap_cm2} cm²` : '已测范围内低于参考线 τ';
 }
 export function methodLink(returnHref: string, ar: number, hash = '') {
   return `/method?ar=${ar}&returnTo=${encodeURIComponent(returnHref)}${hash}`;

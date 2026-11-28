@@ -6,16 +6,16 @@ This manual covers every feature of **EEGLayoutLab** across both the interactive
 
 ## 1. Overview and end-to-end research workflow
 
-Conventional whole-head 64-channel EEG caps provide broad spatial sampling, whereas wearable, ambulatory, sleep, or peri-auricular / forehead devices restrict electrodes to compact scalp patches. EEGLayoutLab quantifies what a compact or custom electrode layout retains—and what it loses—relative to the whole-head 64-electrode BioSemi reference (`standard64`) on a realistic finite-element head model (SimNIBS subject **Ernie**, plus 11 cross-subject validation heads).
+Many BCI, sleep, ambulatory, forehead, and peri-auricular (ear-EEG) applications do not aim to replicate a whole-head 64-channel cap; instead, developers optimize electrode placement for a specific experimental paradigm, target cortical network, and wearable form factor. EEGLayoutLab provides scenario-driven digital simulation on realistic finite-element head models (SimNIBS subject **Ernie**, plus 11 cross-subject validation heads), treating whole-head `standard64` strictly as a **100% physical normalization ruler** rather than a universal pass/fail threshold while supporting EEG/fMRI functional priors, individual head-photo personalization, and S/M/L wearable hardware tolerance CAD analysis.
 
 ![End-to-end six-stage research workflow map from layout creation and coordinate import to stress-testing, signal simulation, and offline project deliveries](images/research-workflow-map.svg)
 
 Every workflow in the browser and on the command line shares the **same request normalization, scientific provenance hash, and result cache**:
 
-1. **Create or Import (`/design`, `/coordinates`)**: Search for optimal compact regional layouts (`8, 12, 16, 24, 32, 48, or 64` electrodes across `1, 2, 3, 4, or 6` scalp patches, with equal or adaptive cross-region quotas) or import existing 10-05, BIDS, MNI, digitized landmark, `.elc`, or `.sfp` coordinates.
-2. **Refine or Select Subsets (`/electrodes`, `/channels`)**: Relocate or disable individual electrodes on a saved layout and re-score, or select `K`-channel subsets directly from empirical EEG recording covariances.
-3. **Compare & Rank (`/library`, `/decision`)**: Rank candidate layouts by multi-objective Pareto dominance, adjust the global **Minimum Required Retention (`AR`)** threshold without recomputing, and run side-by-side Scheme A vs. Scheme B evaluations.
-4. **Stress-Test Assumptions (`/coordinates`, `/robustness`)**: Evaluate layouts under spatially correlated noise, skull-conductivity mismatch (`skull_x0.5`, `skull_x2`), cross-session dropout/impedance/cap re-placement, or multi-case batch studies (`noise_seeds`, `grid_displacements`, and 11 `heads`).
+1. **Design, Personalize, or Import (`/design`, `/coordinates`)**: Search for optimal `8, 12, 16, 24, 32, 48, or 64` channel layouts under EEG/fMRI task priors, import 10-05 / BIDS / MNI / `.elc` / `.sfp` coordinates, or morph any `8–64` channel layout onto an individual's 3D head geometry via anthropometric sliders and front/lateral head-photo landmarks.
+2. **Refine or Select Subsets (`/electrodes`, `/channels`)**: Relocate or disable individual electrodes on a saved 64-channel layout and re-score, or select `K`-channel subsets directly from empirical EEG recording covariances.
+3. **Compare & Rank (`/library`, `/decision`)**: Rank candidate layouts by multi-objective Pareto dominance, adjust the **Scenario Reference Line (`τ`)** (`35%` light wearable, `60%` targeted ROI, `85%` dense array) without recomputing, and run side-by-side Scheme A vs. Scheme B comparisons.
+4. **Stress-Test & Size Hardware (`/coordinates`, `/robustness`)**: Evaluate layouts under spatially correlated noise, skull-conductivity mismatch (`skull_x0.5`, `skull_x2`), cross-session dropout/impedance/cap re-placement, multi-case batch studies (`noise_seeds`, `grid_displacements`, 11 `heads`), and adult `S / M / L` head-tier spring-plunger tolerance CAD analysis.
 5. **Simulate Signals (`/reception`)**: Inspect multi-source regional (`v1`) or single-dipole cortical (`v2`) EEG waveforms and dual 3D scalp potential topographies side by side with `standard64`.
 6. **Archive & Share (`/projects`, `/deliveries`)**: Save immutable snapshots, comparison thresholds, and study notes into a **Research Project**, then export a self-contained, SHA-256-verified **Project Delivery Package** that any colleague can inspect offline in their browser.
 
@@ -37,11 +37,11 @@ Start the local application with `eeglayoutlab quickstart` (or `eeglayoutlab ser
 
 ### Global controls that never trigger recomputation
 
-- **Minimum Required Retention (`AR`) slider**: Retained across page navigation (`?ar=...`). Changing `AR` (for example from `45%` to `60%`) immediately updates pass/fail badges and comparison verdicts using already-saved scores—**it never starts a background job**.
+- **Scenario Reference Line (`τ`) slider**: Retained across page navigation (`?ar=...` for URL compatibility), with one-click presets for **Light Wearable (`35%`)**, **Targeted ROI (`60%`)**, and **Whole-Brain Dense (`85%`)**. Moving `τ` immediately updates reference-line comparisons on already-saved scores—**it never starts a background job**.
 - **Language (`English` / `简体中文`) & theme toggle**: Switching language translates all system labels, anatomical region names, worker diagnostics, and exported Markdown reports while keeping raw JSON blocks, numerical scores, and scientific cache keys byte-identical.
 - **Tasks / Queue badge**: Shows `0` with a green dot when idle and connected. One computation runs at a time per installation so multi-threaded numerical workers never contend for CPU or memory; additional submissions wait cleanly in your workspace queue (`<workspace>/.eeglayoutlab/queue.json`) and can be cancelled at any moment.
 
-## 3. Scalp placement regions, metrics, and qualification rules
+## 3. Scalp placement regions, scenario simulation profile, and reference line `τ`
 
 Understanding the nine anatomical scalp masks and the three core retention metrics makes every chart and table in EEGLayoutLab straightforward to read (full mathematical derivations live in [Model and metrics](model-and-metrics.md) and [Method details](method-details.md)).
 
@@ -69,7 +69,7 @@ When designing a regional layout, you constrain where patch centers and electrod
 | **Median / P90 Localization Error (`mm`)** | `median_mm`, `p90_mm` | Point-localization error quantiles in millimeters (lower is better; compare directly against `reference_median_mm` and `reference_p90_mm`) |
 | **Union Patch Area (`cm²`)** | `union_area_cm2` | Total scalp surface area covered by the active regional patches |
 
-**Qualification rule:** Under **Joint (`AR`)** mode, a layout passes (`Pass`) if and only if `R_field >= AR%`, `R_sens >= AR%`, and `R_loc >= AR%`. In **Compare Layouts (`/decision`)**, switch to **Custom** mode whenever you want independent thresholds per metric or an explicit millimeter cap on `P90` localization error (for example `R_field >= 65%`, `R_sens >= 20%`, `P90 <= 25 mm`).
+**Scenario reference comparison:** Whole-head `standard64` (`100%`) is a matched-protocol physical normalization ruler rather than a mandatory pass/fail standard. Under **Joint (`τ`)** mode, the interface highlights `G = min(R_field, R_sens, R_loc)` alongside median localization error (`mm`) and indicates whether metrics lie above or below reference line `τ`. In **Compare Layouts (`/decision`)**, switch to **Custom** mode whenever you want independent per-metric reference bounds or an explicit millimeter bound on `P90` localization error (for example `R_field >= 65%`, `R_sens >= 20%`, `P90 <= 25 mm`).
 
 ## 4. Exploring Findings, the Layout List, and the 3D Head Viewer
 
@@ -94,7 +94,7 @@ Use **Layout → Region Design (`/design`)** to discover optimal electrode place
 2. **Set per-region geodesic radius cap (`15–80 mm`, step `5 mm`), channel count (`K`), and search objective**:
    - Adjust the maximum geodesic radius per patch (e.g., `20–45 mm`) and choose **Lower-tail minimax** (default) or **Subspace-info composite**.
    - Choose total electrodes `K` from **`8, 12, 16, 24, 32, 48, or 64`** (default `64`). Notably, under tight patch caps (`25–35 mm`), `24` or `32` well-placed electrodes often match or exceed `64` crowded electrodes on out-of-sample localization retention while halving hardware channels.
-3. **Optional noise model or empirical prior**: Keep default independent sensor noise (`iid`), choose spatially correlated noise (`spatial_10`, `spatial_20`, `spatial_40`) or `brain_background`, or upload a fitted `eeg-data-prior/1` JSON file.
+3. **Optional noise model, cognitive paradigm preset, or EEG / fMRI prior**: Keep default independent sensor noise (`iid`), choose spatially correlated noise (`spatial_10`, `spatial_20`, `spatial_40`), or generate an `eeg-data-prior/1` cortical prior directly in the browser from cognitive scenario presets (SSVEP occipital, SMR motor imagery, frontal working memory, bilateral auditory/sleep ear-EEG), MNI152 activation peak coordinates, binary NIfTI-1 (`.nii` / `.nii.gz`) statistical volumes, or recorded-EEG fits.
 4. **Check cache or submit search**:
    - If the exact normalized request has already been computed on your installation, the button reads **Load saved result** and replays the verified cache immediately.
    - Otherwise click **Start search**; the convergent Fedorov exchange + confusion-margin reranking worker runs in the background and saves the resulting record to your library automatically.
@@ -118,6 +118,7 @@ Evaluate any existing cap, CAD layout, or digitized montage registered to the Er
    - Electrode names and coordinate-source metadata are saved privately in `<workspace>/annotations/electrode-names/` so your custom labels persist across sessions without changing numerical cache keys.
 3. **Choose evaluation condition**: Run **Evaluate** (or **Position-offset perturbation**) with configurable jitter radius (`mm`, default `6 mm`), random seed (`42`), optional noise model, skull conductivity (`skull_x0.5` / `skull_x2`), or cross-session robustness (`standard/1`: dropout, contact-impedance spread, and cap re-placement).
 4. **Export in standard neuroinformatics formats**: Download your design as Ernie native BIDS, MNI BIDS, MNE `.elc`, EEGLAB `.sfp`, CSV, 2D publication SVG/PNG layout figure, or full reproducibility JSON bundle.
+5. **Individual head-photo & anthropometric personalization**: In the **Individual Head Personalization** panel on `/coordinates`, select any `8–64` channel layout, adjust subject head circumference (`50–63 cm`), cephalic index (`CI`), and crown height—or upload front and lateral head photos to mark 5 surface landmarks (`Nz`, `Iz`, `LPA`, `RPA`, `Cz`)—and export personalized 3D subject coordinates (`eeg-personalized-montage/1` CSV/JSON).
 
 ### Electrode Editor (`Layout → Electrode Editor`, `/electrodes`)
 
@@ -127,17 +128,17 @@ To prune channels or test hardware knockouts starting from a saved 64-electrode 
 2. Uncheck individual electrodes (e.g., disable `E1` to test a 63-channel failure, or prune down to a custom subset) or move an electrode to another admissible vertex within its patch.
 3. Click **Evaluate and save copy**. The original 64-electrode parent record remains untouched while the edited copy is scored and linked under the parent's history.
 
-## 7. Comparing layouts and running robustness studies
+## 7. Comparing layouts, robustness studies, and wearable S/M/L hardware sizing
 
 ### Side-by-side comparison (`Analysis → Compare Layouts`, `/decision`)
 
-1. Choose **Scheme A** (for example a whole-head reference or 4-patch design) and **Scheme B** (for example a 2-patch `AL + AR` ear-EEG design). When a layout has multiple evaluations (nominal, correlated noise, skull `x2`), a second dropdown lets you pick the exact condition on each side.
-2. Choose **Joint (`AR`)** or **Custom** qualification requirements (`R_field`, `R_sens`, `R_loc`, `P90 mm`).
-3. Read the structured side-by-side verdict, metric deltas, and geometry comparison, then click **Export comparison report (Markdown)** to download a clean, bilingual report containing byte-identical provenance JSON blocks for supplementary material.
+1. Choose **Scheme A** and **Scheme B** (`8–64` channels, equal or adaptive quota). When a layout has multiple evaluations (nominal, correlated noise, skull `x2`), a second dropdown lets you pick the exact condition on each side.
+2. Choose **Joint (`τ`)** or **Custom** scenario reference bounds (`R_field`, `R_sens`, `R_loc`, `P90 mm`).
+3. Read the structured side-by-side reference comparison, metric deltas, and paired 2D projection, then click **Export comparison report (Markdown)** to download a clean, bilingual report containing byte-identical provenance JSON blocks.
 
-### Multi-case batch studies (`Analysis → Robustness Studies`, `/robustness`)
+### Multi-case batch studies & wearable S/M/L sizing (`Analysis → Robustness Studies`, `/robustness`)
 
-Single evaluations use one random seed or nominal head. **Robustness Studies** ([protocol details](robustness-studies.md)) quantify empirical variability across `1–12` explicit cases in one batch:
+Alongside multi-case **Robustness Studies** ([protocol details](robustness-studies.md)) on 64-electrode designs, `/robustness` includes the **Wearable Hardware S/M/L Sizing & Plunger Tolerance** panel for any `8–64` channel layout—comparing 3-tier (`S / M / L`) shells vs. universal one-size shells across adult P10/P50/P90 and dolichocephalic/brachycephalic archetypes, computing outward spring-plunger strokes, tangential drift, and pod mount recommendations (`rigid_pod`, `spring_plunger`, `slotted_rail`) with CAD CSV/JSON export (`eeg-hardware-sizing-reference/1`). To run a multi-case forward study:
 
 1. Start from **Coordinate Import → Create a robustness study with these coordinates**, from a saved 64-electrode layout, or directly on `/robustness`.
 2. Pick one of the three batch protocols:
@@ -250,8 +251,8 @@ eeglayoutlab export /tmp/standard64.json --format svg --labels yes --out-dir /tm
 
 - **Why do request keys (`job.key`) differ between my Mac and my Linux workstation when scores match?**
   Scientific cache keys intentionally hash the exact worker Python path and numerical package metadata (`numpy`, `scipy`, `cortech`, `numba`) so caches from one runtime never silently contaminate another. Across machines and platforms, compare **numerical scores** (which agree to roughly `1e-14` between macOS arm64 and Linux x86_64 and are tested within `1e-6` in `examples/expected.json`), not raw cache keys.
-- **Why does moving the `AR` slider not start a computation?**
-  `AR` (`Minimum Required Retention`) is a decision threshold applied to already-computed retention ratios (`R_field`, `R_sens`, `R_loc`). You can explore stricter or looser qualification criteria instantaneously.
+- **Why does moving the scenario reference line `τ` slider not start a computation?**
+  `τ` (carried in URLs as `?ar=...` for backward compatibility) is a scenario reference ruler compared against already-computed retention ratios (`R_field`, `R_sens`, `R_loc`), letting you switch between light-wearable (`35%`), targeted-ROI (`60%`), or whole-brain (`85%`) reference scales instantaneously.
 - **Why is the "Simulate Signals" button hidden on a layout searched under spatially correlated noise?**
   The signal simulation workspace models independent channel noise; EEGLayoutLab blocks silent cross-protocol handoffs when a layout was optimized under spatially correlated noise (`spatial_*`) or a non-default empirical prior, displaying a clear explanation on the layout card.
 - **Can I use EEGLayoutLab results and figures in academic papers or commercial R&D?**

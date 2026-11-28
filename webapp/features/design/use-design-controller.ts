@@ -181,7 +181,7 @@ export function useDesignController() {
     setRegions(source.region_count); setChoiceId(source.mode.includes('whole') ? 'whole_surface' : 'low_hair'); setRadius(35); setAllocationMode('balanced'); setObjectiveMode('min'); setElectrodeCount(64); setNoiseModelId('iid'); setDataPrior(null); setDataPriorSource('');
     setCustomSlots([]);
     setEditing(true); setDraft(true);
-    setNotice('已新建每区半径约束方案：仅保留区域数和允许位置域，半径初始值为35 mm。区域中心、64点位置和指标由新配置重新计算。');
+    setNotice('已新建每区半径约束方案：仅保留区域数和允许位置域，半径初始值为35 mm。区域中心、电极点位和场景效用指标将按新配置重新计算。');
   };
   const pendingText = currentStatus?.status === 'no_layout' ? '本次搜索未找到完整布局。可扩大半径、减少电极总数或调整位置范围后再次计算。' :
     currentStatus && ['failed', 'timeout', 'cancelled'].includes(currentStatus.status) ? currentStatus.message :

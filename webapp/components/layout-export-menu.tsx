@@ -12,7 +12,7 @@ const options: { kind: LayoutExportKind; label: string; note: string }[] = [
   { kind: 'coordinates_csv', label: '电极坐标 CSV', note: 'Ernie原生毫米坐标；保留原电极顺序与区域编号。' },
   { kind: 'design_json', label: '可导入布局 JSON', note: '仅布局坐标与区域标签，可用于本App的坐标导入。' },
   { kind: 'result_json', label: '完整结果 JSON', note: '原始保存记录，包括指标、坐标和来源字段。' },
-  { kind: 'report_md', label: '简明结果报告 Markdown', note: '当前指标、最低保留要求和模型来源，适合阅读与分享。' },
+  { kind: 'report_md', label: '简明结果报告 Markdown', note: '当前指标、场景参考线对照与模型来源，适合阅读与分享。' },
   { kind: 'bundle_json', label: '复现实验包 JSON', note: '读取原始配置、轨迹与校验身份；不包含代码、头模或前向矩阵文件。' },
 ];
 

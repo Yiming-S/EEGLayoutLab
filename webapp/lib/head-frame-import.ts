@@ -65,7 +65,7 @@ export function parseMontageFile(file: CoordinateFile, surface: ErnieMniSurface 
   if (!unit) throw new Error('.sfp文件没有单位字段，请选择坐标单位（mm、cm或m）。');
   if (read.unit && options.unit && options.unit !== read.unit) throw new Error(`文件声明的单位是${read.unit}，与所选单位不一致。`);
   if (read.points.length !== 64)
-    throw new Error(`本软件的布局固定为64个电极；文件中有${read.points.length}个电极（不含基准点、参考和地线）。`);
+    throw new Error(`固定64点坐标评价导入需要64个电极；文件中有${read.points.length}个电极（不含基准点、参考和地线；8–64导方案请使用场景搜索或个体化配准）。`);
   if (new Set(read.names.map(name => name.toLowerCase())).size !== 64) throw new Error('电极名称不能重复。');
   const missing = (['NAS', 'LPA', 'RPA'] as const).filter(name => !read.landmarks[name]);
   if (missing.length) throw new Error(`文件缺少基准点${missing.join('、')}（如Nz/LPA/RPA或FidNz/FidT9/FidT10），无法放到Ernie头上。`);

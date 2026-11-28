@@ -56,11 +56,11 @@ void test('each term hint has both languages and opens an existing method chapte
   }
 });
 
-void test('the home page starts newcomers with the question, three goals and how to read a score', () => {
+void test('the home page starts newcomers with the scenario simulation platform, three goals and how to read the profile', () => {
   const home = readFileSync('features/workspace/home-workspace.tsx', 'utf8');
-  for (const href of ["'/findings?ar='", "'/coordinates?ar='", "'/design?ar='"]) assert.ok(home.includes(href), href);
+  for (const href of ["'/findings?ar='", "'/coordinates?ar='", "'/design?ar='", "'/robustness?ar='"]) assert.ok(home.includes(href), href);
   const texts = [...home.matchAll(/tx\('([^']+)'\)/g)].map(match => match[1]);
-  for (const text of ['从这里开始', '打开示例布局', '怎么读分数', '我已了解，收起', '新手入门']) assert.ok(texts.includes(text), text);
+  for (const text of ['面向实验场景与头戴硬件的脑电布局仿真平台', '打开示例布局', '怎么读仿真效能画像', '我已了解，收起', '新手入门']) assert.ok(texts.includes(text), text);
   for (const text of texts) assert.doesNotMatch(translateText(text, 'en'), /[㐀-鿿]/, text);
   // The browser remembers a closed panel; reading storage never breaks the page.
   assert.match(home, /try \{ dismissed = localStorage\.getItem\(START_DISMISSED_KEY\)/);
