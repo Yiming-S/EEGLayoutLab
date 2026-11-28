@@ -487,7 +487,12 @@ class ReceptionJobs:
         record = await self._record(id)
         if _nullish(record):
             record = await call(design_reception_record, self.root, id, self.store)
+        layout = _member(record, 'layout') if js_truthy(record) else None
+        xyz = _member(layout, 'xyzMm') if js_truthy(layout) else None
         if (not js_truthy(record) or not _same(_member(record, 'status'), 'completed')
+                or not js_truthy(layout)
+                or js_truthy(_opt(_member(record, 'request'), 'electrode_count'))
+                or (isinstance(xyz, list) and len(xyz) != 64)
                 or not _one_of(_member(record, 'dataset_id'), ('cache', 'strict_area', 'design_evaluation'))):
             raise ReceptionError(V2_LAYOUT)
         assert_independent_noise_parent(record)

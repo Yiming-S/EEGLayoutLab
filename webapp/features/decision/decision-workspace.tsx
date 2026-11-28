@@ -7,6 +7,7 @@ import { RuntimeMessage } from '@/components/runtime-message';
 import { SiteHeader } from '@/components/site-header';
 import { Button } from '@/components/ui/button';
 import { decisionMarkdown } from '@/lib/design-decision';
+import { HeadPhotoPersonalizer } from '@/features/personalize/head-photo-personalizer';
 import { ComparisonConclusion } from './comparison-conclusion';
 import { ComparisonRecordsPanel } from './comparison-records-panel';
 import { DecisionRequirements } from './decision-requirements';
@@ -112,12 +113,12 @@ export default function DecisionPage({
         <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border pt-7 pb-5">
           <div>
             <h1 className="text-2xl font-semibold tracking-[-0.028em] sm:text-[1.65rem]">
-              {tx(mode === 'coordinates' ? '坐标导入与评价' : '方案对比与设计报告')}
+              {tx(mode === 'coordinates' ? '坐标导入、评价与个体头型适配' : '方案对比与设计报告')}
             </h1>
             <p className="mt-1.5 text-sm text-muted-foreground">
               {tx(
                 mode === 'coordinates'
-                  ? '导入已有64点坐标，评价后保存为独立布局；不运行区域布局搜索。'
+                  ? '导入外部坐标结合场景/fMRI先验进行有限元评价，或通过受试者头围与正侧面头型照片标定生成个体专属电极方案。'
                   : '选择两个已保存布局（支持8–64导及跨区自适应配额），并排核对约束、空间分布与三项保留率；64导均衡方案还可检查网格位置偏移。',
               )}
             </p>
@@ -243,6 +244,9 @@ export default function DecisionPage({
         {/* Import comes first; the requirements only re-judge the result above. */}
         {mode === 'coordinates' && (
           <DecisionRequirements thresholds={thresholds} onChange={setThresholds} />
+        )}
+        {mode === 'coordinates' && (
+          <HeadPhotoPersonalizer importedDesign={design} />
         )}
         <section className="lab-panel">
           <h2 className="text-lg font-semibold">{tx('验证阶段')}</h2>

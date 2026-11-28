@@ -30,7 +30,7 @@ from ..schemas import jsjson
 from ..schemas.electrode_editor import normalize_editor_request
 from . import nodefs, nodepath
 from .design import DesignJob, DesignJobError, DesignJobs
-from .editor_records import parents, records, validate_editor_result
+from .editor_records import _length, parents, records, validate_editor_result
 from .identity import EDITOR_WORKFLOW, UNDEFINED, _member, _path, _same, js_truthy, request_key
 from .reception_records import _spread
 
@@ -148,7 +148,8 @@ class EditorJobs(DesignJobs):
     def _parent_digest(request: Any, parent: Any) -> str:
         """The checks of the parent record, then its digest, ``sha256(JSON.stringify(parent))``."""
         if (not _same(_opt(parent, 'status'), 'completed')
-                or not js_truthy(_opt(_member(parent, 'layout'), 'regionPatchVertexIndices'))):
+                or not js_truthy(_opt(_member(parent, 'layout'), 'regionPatchVertexIndices'))
+                or not _same(_length(_opt(_member(parent, 'layout'), 'xyzMm')), 64)):
             raise EditorContextError(NOT_A_PARENT)
         if js_truthy(_opt(_member(parent, 'request'), 'noise_model')):
             raise EditorContextError(NOT_INDEPENDENT)

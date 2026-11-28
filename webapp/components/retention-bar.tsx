@@ -1,6 +1,6 @@
 'use client';
 import type { ReactNode } from 'react';
-import { Check, Minus, X } from 'lucide-react';
+import { Check, Minus } from 'lucide-react';
 import { useLanguage } from '@/components/language-provider';
 import { metricPercent } from '@/lib/ui-language';
 import { cn } from '@/lib/utils';
@@ -9,11 +9,11 @@ export type Outcome = 'pass' | 'fail' | 'undefined';
 
 const OUTCOME_STYLE: Record<Outcome, string> = {
   pass: 'bg-success-surface text-success ring-1 ring-inset ring-success/25',
-  fail: 'bg-secondary/90 text-foreground/85 ring-1 ring-inset ring-border',
+  fail: 'bg-secondary/90 text-foreground/80 ring-1 ring-inset ring-border',
   undefined: 'bg-secondary/70 text-muted-foreground ring-1 ring-inset ring-border/70',
 };
 
-/** Pass or shortfall at a glance: colour, icon and words together, never colour alone. */
+/** Reference comparison at a glance: calm neutral pill when below tau, never a punitive error badge. */
 export function OutcomeBadge({
   outcome,
   children,
@@ -23,7 +23,7 @@ export function OutcomeBadge({
   children: ReactNode;
   className?: string;
 }) {
-  const Icon = outcome === 'pass' ? Check : outcome === 'fail' ? X : Minus;
+  const Icon = outcome === 'pass' ? Check : Minus;
   return (
     <span
       className={cn(
@@ -39,8 +39,7 @@ export function OutcomeBadge({
 }
 
 /**
- * A retention ratio as a number and a bar against the requirement. The bar is
- * decorative; the number and the optional badge carry the reading.
+ * A retention ratio as a number and a bar against the scenario reference line.
  */
 export function RetentionBar({
   value,
@@ -49,7 +48,7 @@ export function RetentionBar({
   className,
 }: {
   value: number | null | undefined;
-  /** Requirement as a ratio (0.9 for 90%); omitted when no requirement applies. */
+  /** Reference line as a ratio (0.6 for 60%); omitted when no reference line applies. */
   threshold?: number;
   showBadge?: boolean;
   className?: string;
@@ -72,7 +71,7 @@ export function RetentionBar({
         </span>
         {showBadge && threshold != null && (
           <OutcomeBadge outcome={outcome}>
-            {tx(outcome === 'pass' ? '达标' : '未达标')}
+            {tx(outcome === 'pass' ? '高于参考线' : '低于参考线')}
           </OutcomeBadge>
         )}
       </span>
@@ -84,9 +83,9 @@ export function RetentionBar({
           className={cn(
             'absolute inset-y-0 left-0 rounded-full transition-[width] duration-200',
             outcome === 'pass'
-              ? 'bg-success'
+              ? 'bg-primary'
               : outcome === 'fail'
-                ? 'bg-foreground/35'
+                ? 'bg-primary/55'
                 : 'bg-foreground/65',
           )}
           style={{ width: `${Math.max(0, Math.min(1, value)) * 100}%` }}

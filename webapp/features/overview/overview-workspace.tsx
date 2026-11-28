@@ -117,7 +117,7 @@ export default function OverviewWorkspace() {
                   <th className="px-4 py-2.5">{tx("区域数 / 各区电极数")}</th>
                   <th className="px-3 py-2.5">{tx("实际区域总面积")}</th>
                   {tx(METRICS.map((m) => <th key={m.key} className="px-3 py-2.5">{tx(m.label)}</th>))}
-                  <th className="px-3 py-2.5">{tx("最低保留要求 ")}{tx(ar)}%</th>
+                  <th className="px-3 py-2.5">{tx("场景参考线 τ")} {tx(ar)}%</th>
                   <th className="px-4 py-2.5"><span className="sr-only">{tx("操作")}</span></th>
                 </tr>
               </thead>
@@ -127,7 +127,7 @@ export default function OverviewWorkspace() {
                     <th className={cn('font-semibold md:px-4 md:py-3.5', stackedTitle)}>{tx(count)}{tx("个区域")}<span className="mt-1 block font-mono text-xs font-normal text-muted-foreground tabular-nums">{tx(Array.from({ length: count }, (_, j) => Math.floor(64 / count) + Number(j < 64 % count)).join(' + '))}</span></th>
                     <td data-label={tx('实际区域总面积')} className={cn(stackedCell, 'md:px-3')}><span className="font-mono text-[0.8125rem] tabular-nums">{tx(row?.geometry ? `${row.geometry.union_area_cm2.toFixed(1)} cm²` : '未记录')}{tx(shortfall && <span className="mt-0.5 block font-sans text-xs text-warning">{tx("未用满面积预算")}</span>)}</span></td>
                     {tx(METRICS.map((m) => <td data-label={tx(m.label)} className={cn(stackedCell, 'md:px-3')} key={m.key}><RetentionBar value={row?.metrics?.[m.key]} threshold={ar / 100} showBadge /></td>))}
-                    <td data-label={tx(`最低保留要求 ${ar}%`)} className={cn(stackedCell, 'md:px-3')}>{!row ? <span className="text-muted-foreground">{tx('暂无数据')}</span> : <span><OutcomeBadge outcome={a.state as 'pass' | 'fail' | 'undefined'}>{tx(a.state === 'pass' ? '三项达标' : a.state === 'undefined' ? '无法判断' : `${METRICS.filter(m => row.metrics?.[m.key] != null && row.metrics[m.key]! >= ar / 100).length}/3项达标`)}</OutcomeBadge>{a.state === 'fail' && <span className="mt-1 block text-xs text-muted-foreground">{tx('联合要求未通过')}</span>}</span>}</td>
+                    <td data-label={tx(`场景参考线 τ ${ar}%`)} className={cn(stackedCell, 'md:px-3')}>{!row ? <span className="text-muted-foreground">{tx('暂无数据')}</span> : <span><OutcomeBadge outcome={a.state as 'pass' | 'fail' | 'undefined'}>{tx(a.state === 'pass' ? '三项高于 τ' : a.state === 'undefined' ? '无法判断' : `${METRICS.filter(m => row.metrics?.[m.key] != null && row.metrics[m.key]! >= ar / 100).length}/3项高于 τ`)}</OutcomeBadge></span>}</td>
                     <td className={cn(stackedAction, 'md:px-4')}><Button size="sm" variant={r === count ? 'default' : 'outline'} className="max-md:w-full" disabled={!row} onClick={() => openDetails(count)}>{tx("查看布局与指标")}</Button></td>
                   </tr>;
                 }))}
@@ -144,10 +144,10 @@ export default function OverviewWorkspace() {
             {tx(REGION_COUNTS.map((n, i) => <Line key={n} name={tx(`${n}区`)} dataKey={`r${n}`} stroke={colors[i]} strokeWidth={2} connectNulls={false} isAnimationActive={false} dot={{ r: 3.5 }} activeDot={(point) => <Dot {...point} r={6} style={{ cursor: 'pointer' }} onClick={() => { const a = (point.payload as { area?: number })?.area; if (a && AREA_CAPS.includes(a)) { setArea(a); openDetails(n); } }} />} />))}
           </LineChart></ResponsiveContainer></div>
           <p className="mt-3 text-xs text-muted-foreground">{tx('曲线阈值线对应当前所选指标；下方结论要求三项指标均达到最低保留要求。')}</p>
-          <h3 className="mt-5 text-sm font-semibold">{tx('三项联合达标情况')}</h3>
-          <ul className="mt-2.5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{conclusions(data.records).map(({ text, counts }) => <li key={text} className={cn('flex items-start gap-3 rounded-lg border p-3 text-sm', text.startsWith('首个达标') ? 'border-success/30 bg-success-surface/75' : text === '已测范围内未达标' ? 'border-warning/30 bg-warning-surface/75' : 'border-border bg-secondary/40')}>
+          <h3 className="mt-5 text-sm font-semibold">{tx('各区域数相对场景参考线 τ 的面积分布')}</h3>
+          <ul className="mt-2.5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{conclusions(data.records).map(({ text, counts }) => <li key={text} className={cn('flex items-start gap-3 rounded-lg border p-3 text-sm', text.startsWith('首个达标') ? 'border-success/30 bg-success-surface/75' : 'border-border bg-secondary/40')}>
             <span className="flex shrink-0 flex-wrap gap-1">{counts.map(n => <span key={n} className="rounded border border-border bg-card px-1.5 py-0.5 font-mono text-xs font-medium tabular-nums">{tx(`${n}区`)}</span>)}</span>
-            <span className={cn('text-[0.8125rem] font-medium', text.startsWith('首个达标') ? 'text-success' : text === '已测范围内未达标' ? 'text-warning' : '')}>{tx(text)}</span></li>)}</ul>
+            <span className={cn('text-[0.8125rem] font-medium', text.startsWith('首个达标') ? 'text-success' : 'text-ink-soft')}>{tx(text)}</span></li>)}</ul>
           <p className="mt-3 text-xs text-muted-foreground">{tx("“首个达标”指三个已计算面积档位中达到AR的最小上限。当前结果采用单Ernie头模，独立头模验证另列阶段。")}</p>
         </section>
       </>)}

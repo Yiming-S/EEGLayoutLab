@@ -9,22 +9,22 @@ await test('metric status uses original precision, with equality passing', () =>
   assert.equal(metricReading(0.9, 90).state, 'pass');
   assert.equal(metricReading(0.899999999999, 90).state, 'fail');
   assert.equal(metricReading(0.900000000001, 90).state, 'pass');
-  assert.equal(marginText(metricReading(0.9, 90)), '恰好达到最低保留要求');
-  assert.equal(marginText(metricReading(0.899999999999, 90)), '还差不足0.01个百分点');
-  assert.equal(marginText(metricReading(0.900000000001, 90)), '超过要求不足0.01个百分点');
+  assert.equal(marginText(metricReading(0.9, 90)), '恰好位于参考线 τ');
+  assert.equal(marginText(metricReading(0.899999999999, 90)), '低于参考线不足0.01个百分点');
+  assert.equal(marginText(metricReading(0.900000000001, 90)), '高于参考线不足0.01个百分点');
   assert.equal(metricPercent(0.899999999999), '90.00%');
 });
 
 await test('margins are percentage points, not percent error or a clipped progress bar', () => {
   assert.ok(Math.abs(metricReading(0.72, 90).gapPoints + 18) < 1e-12);
-  assert.equal(marginText(metricReading(0.72, 90)), '还差 18.00 个百分点');
-  assert.equal(marginText(metricReading(0.95, 90)), '超过要求 5.00 个百分点');
+  assert.equal(marginText(metricReading(0.72, 90)), '距参考线 -18.00 个百分点');
+  assert.equal(marginText(metricReading(0.95, 90)), '高于参考线 +5.00 个百分点');
   assert.equal(metricReading(-0.25, 90).value, -0.25);
   assert.equal(metricPercent(-0.25), '-25.00%');
-  assert.equal(marginText(metricReading(-0.25, 90)), '还差 115.00 个百分点');
+  assert.equal(marginText(metricReading(-0.25, 90)), '距参考线 -115.00 个百分点');
   assert.equal(metricReading(1.25, 90).value, 1.25);
   assert.equal(metricPercent(1.25), '125.00%');
-  assert.equal(marginText(metricReading(1.25, 90)), '超过要求 35.00 个百分点');
+  assert.equal(marginText(metricReading(1.25, 90)), '高于参考线 +35.00 个百分点');
 });
 
 await test('missing and unavailable metrics never become zero or pass', () => {

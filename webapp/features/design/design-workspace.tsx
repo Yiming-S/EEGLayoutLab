@@ -102,7 +102,7 @@ export default function DesignWorkspace() {
                       );
                     })}
                   </div>
-                  <p className="text-[11px] leading-4 text-muted-foreground">{tx('默认64导（与标准全头64导参考基线一致）；指定更少导联（如8、16、24、32导）可在固定贴片半径下测试通道饱和拐点。')}</p>
+                  <p className="text-[11px] leading-4 text-muted-foreground">{tx('可按具体实验场景选择8–64导（如8/16导耳周或前额轻便穿戴、24/32导局部靶向高密、64导全头参考），在固定贴片半径下测试通道饱和拐点与最佳布局。')}</p>
                 </fieldset>
                 {regions > 1 && <fieldset className="space-y-1.5">
                   <legend className="block text-xs font-medium text-foreground">{tx('区域通道配额')}</legend>
@@ -173,7 +173,7 @@ export default function DesignWorkspace() {
             {tx(choice || !editing ? <Suspense fallback={<div className="lab-panel min-h-[520px]">{tx("加载三维头部…")}</div>}><Head compact regionCount={count} allocation={actualAllocation} domainMode={!editing ? source?.mode.includes('whole') ? 'whole_surface' : 'low_hair' : choice!.mode} maskCodes={editing ? choice?.maskCodes : undefined} radiusCm={!editing ? (geometry?.common_graph_radius_mm ?? 35) / 10 : radius / 10} recordedLayout={layout ?? undefined} /></Suspense> : <div className="lab-panel min-h-[400px] grid place-items-center text-muted-foreground">{tx("选择位置组合后显示示意预览")}</div>)}
             {tx(geometry && <div className="mt-3 rounded-xl border border-border/80 bg-card/95 px-4 py-3 text-xs leading-6 text-ink-soft shadow-2xs font-mono tabular-nums">{tx("实际 ")}{tx(geometry.union_connected_component_count)} {tx(" 个分离区域 · 实际共用表面半径 ")}{tx(geometry.common_graph_radius_mm.toFixed(2))} {tx(" mm · 总面积 ")}{tx(geometry.union_area_cm2.toFixed(2))} {tx(" cm² · 最小电极直线间距 ")}{tx(geometry.minimum_chord_distance_mm.toFixed(2))} mm</div>)}
           </div>
-          <div className="xl:sticky xl:top-[calc(var(--workspace-header-height,7rem)+1rem)]"><PerformanceSummary compact metrics={metrics} ar={ar} returnHref={here} basis={tx(editing ? '每区半径上限约束搜索；新结果自动保存为计算记录' : '总面积上限约束原实验；只读，不触发计算')} empty={tx('计算完成后，这里显示三项保留率与达标判断。')} emptyTitle={tx('尚无评价结果')} /></div>
+          <div className="xl:sticky xl:top-[calc(var(--workspace-header-height,7rem)+1rem)]"><PerformanceSummary compact metrics={metrics} ar={ar} returnHref={here} basis={tx(editing ? '每区半径上限约束搜索；新结果自动保存为计算记录' : '总面积上限约束原实验；只读，不触发计算')} empty={tx('计算完成后，这里显示当前实验场景的三项仿真效用与定位误差画像。')} emptyTitle={tx('尚无评价结果')} /></div>
           </div>
         </div>
         <section aria-labelledby="design-next" className="lab-panel mt-5 flex flex-wrap items-center gap-3">

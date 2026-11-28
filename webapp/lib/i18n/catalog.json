@@ -5927,5 +5927,717 @@
   "service_unreachable": {
     "source": "无法连接本地服务：服务已停止，或已在新的地址重新启动。请在终端重新运行 eeglayoutlab 命令，并使用它打开的页面。",
     "en": "Cannot reach the local service: it has stopped, or it was restarted at a new address. Run the eeglayoutlab command again in a terminal and use the page it opens."
+  },
+  "scenario_personalize_001": {
+    "source": "当前布局能捕获目标实验场景多少比例的头皮空间电场信息？",
+    "en": "What share of the target scenario scalp spatial electric-field information does this layout capture?"
+  },
+  "scenario_personalize_002": {
+    "source": "对当前场景中接收最弱的10%脑源，电位差幅度保留了多少？",
+    "en": "For the weakest 10% of cortical sources in this scenario, how much potential-difference amplitude is preserved?"
+  },
+  "scenario_personalize_003": {
+    "source": "基于这套电极采集的信号，对场景脑源定位的相对效用如何？",
+    "en": "Given the signals captured by these electrodes, what is the relative utility for localizing scenario brain sources?"
+  },
+  "scenario_personalize_004": {
+    "source": "恰好位于参考线 τ",
+    "en": "Exactly at reference line τ"
+  },
+  "scenario_personalize_005": {
+    "source": "高于参考线不足0.01个百分点",
+    "en": "Less than 0.01 percentage points above reference line"
+  },
+  "scenario_personalize_006": {
+    "source": "低于参考线不足0.01个百分点",
+    "en": "Less than 0.01 percentage points below reference line"
+  },
+  "scenario_personalize_007": {
+    "source": "高于参考线 +{{0}} 个百分点",
+    "en": "+{{0}} percentage points above reference line"
+  },
+  "scenario_personalize_008": {
+    "source": "距参考线 -{{0}} 个百分点",
+    "en": "-{{0}} percentage points from reference line"
+  },
+  "scenario_personalize_009": {
+    "source": "参考线 τ {{0}}% · 64导刻度 100%",
+    "en": "Ref τ {{0}}% · 64-ch scale 100%"
+  },
+  "scenario_personalize_010": {
+    "source": "当前场景仿真效能画像",
+    "en": "Scenario Simulation Profile"
+  },
+  "scenario_personalize_011": {
+    "source": "综合下界 {{0}}",
+    "en": "Overall lower bound {{0}}"
+  },
+  "scenario_personalize_012": {
+    "source": "三项场景仿真指标",
+    "en": "Three Scenario Simulation Metrics"
+  },
+  "scenario_personalize_013": {
+    "source": "定位中位误差 {{0}}",
+    "en": "Median error {{0}}"
+  },
+  "scenario_personalize_014": {
+    "source": "有 {{0}} 项指标不可计算，请结合有效指标与定位误差综合评估。",
+    "en": "{{0}} metric(s) cannot be calculated; evaluate using the available metrics and localization error below."
+  },
+  "scenario_personalize_015": {
+    "source": "共 {{0}}/3 项高于当前场景参考线（τ = {{1}}%）；轻便穿戴或局部脑区方案请结合目标区域效用与毫米级误差权衡。",
+    "en": "{{0}}/3 metrics exceed the scenario reference line (τ = {{1}}%); for compact wearables or focal ROI layouts, weigh target-region utility against millimetre localization error."
+  },
+  "scenario_personalize_016": {
+    "source": "场景参考线 τ = {{0}}% · 全头64导仅作100%归一化刻度，不作硬性及格限制",
+    "en": "Scenario reference τ = {{0}}% · Whole-head 64-ch serves only as the 100% physical normalization scale, not a pass/fail gate"
+  },
+  "scenario_personalize_017": {
+    "source": "高于参考线",
+    "en": "Above ref"
+  },
+  "scenario_personalize_018": {
+    "source": "低于参考线",
+    "en": "Below ref"
+  },
+  "scenario_personalize_019": {
+    "source": "64导参考刻度定位中位误差",
+    "en": "64-ch reference scale median error"
+  },
+  "scenario_personalize_020": {
+    "source": "评分口径与刻度说明",
+    "en": "Metric Definitions & Scale Notes"
+  },
+  "scenario_personalize_021": {
+    "source": "；以同条件全头64导记作100%参考刻度。",
+    "en": "; whole-head 64-ch under identical conditions defines the 100% normalization scale."
+  },
+  "scenario_personalize_022": {
+    "source": "G取三项中的短板值，便于跨方案横向比较整体下界。",
+    "en": "G equals the minimum of the three ratios for cross-layout lower-bound comparison."
+  },
+  "scenario_personalize_023": {
+    "source": "此结果对应当前所选头模、脑源先验与实验条件。",
+    "en": "This result applies to the selected head model, source prior, and experimental condition."
+  },
+  "scenario_personalize_024": {
+    "source": "。三项相对效用以同条件64导作100%刻度归一；参考线按完整精度数值对照。",
+    "en": ". Relative utilities are normalized to the matched 64-ch scale (100%); reference comparisons use full numeric precision."
+  },
+  "scenario_personalize_025": {
+    "source": "场景目标参考线 τ",
+    "en": "Scenario reference line τ"
+  },
+  "scenario_personalize_026": {
+    "source": "典型场景参考档位",
+    "en": "Scenario reference presets"
+  },
+  "scenario_personalize_027": {
+    "source": "轻便穿戴 35%",
+    "en": "Compact wearable 35%"
+  },
+  "scenario_personalize_028": {
+    "source": "靶向脑区 60%",
+    "en": "Focal ROI 60%"
+  },
+  "scenario_personalize_029": {
+    "source": "全脑高密 85%",
+    "en": "Whole-head 85%"
+  },
+  "scenario_personalize_030": {
+    "source": "相对保留效用是什么？",
+    "en": "What is relative retention utility?"
+  },
+  "scenario_personalize_031": {
+    "source": "当前布局在实验场景下的得分除以同条件标准64导刻度。100%是归一化标尺，轻便局部方案无需追求100%。",
+    "en": "The layout score in your scenario divided by the matched 64-channel reference scale. 100% is a normalization ruler—compact focal wearables need not target 100%."
+  },
+  "scenario_personalize_032": {
+    "source": "场景目标参考线 τ 是什么？",
+    "en": "What is the scenario reference line τ?"
+  },
+  "scenario_personalize_033": {
+    "source": "你按具体应用设定的对照参考线（如耳周穿戴35%、靶向脑区60%、全脑高密85%）。调整它只更新对照标尺，不重新计算。",
+    "en": "A user-chosen comparison line tailored to your application (e.g., 35% ear wearable, 60% focal ROI, 85% high-density). Adjusting it updates visual markers without recomputing."
+  },
+  "scenario_personalize_034": {
+    "source": "头模与个体适配是什么？",
+    "en": "What are head models and personalization?"
+  },
+  "scenario_personalize_035": {
+    "source": "用于三维电场仿真的头部几何模型。默认使用Ernie有限元头模，同时支持个体头型照片/解剖尺度配准与跨头模尺码公差评估。",
+    "en": "3D anatomical head models for electric-field simulation. Uses the Ernie FEM head by default, with individual head-photo/anthropometric calibration and multi-size hardware tolerance analysis."
+  },
+  "scenario_personalize_036": {
+    "source": "按实验场景搜索最佳布局",
+    "en": "Optimize Layout for Scenario"
+  },
+  "scenario_personalize_037": {
+    "source": "结合任务脑源先验（EEG/fMRI）、佩戴部位与8–64导通道预算，数字仿真寻优最佳电极排布。",
+    "en": "Combine task brain priors (EEG/fMRI), wearable zones, and an 8–64 channel budget to simulate and find optimal electrode placements."
+  },
+  "scenario_personalize_038": {
+    "source": "个体头型适配与坐标评估",
+    "en": "Personalize Head Shape & Evaluate"
+  },
+  "scenario_personalize_039": {
+    "source": "通过多视角头型照片/人类学参数或BIDS/.elc/.sfp文件，生成个体化电极方案并仿真评估。",
+    "en": "Calibrate individual montages from front/side head photos, anthropometrics, or BIDS/.elc/.sfp coordinates and evaluate via FEM."
+  },
+  "scenario_personalize_040": {
+    "source": "硬件分尺码与公差设计参考",
+    "en": "Hardware Sizing & Tolerance CAD"
+  },
+  "scenario_personalize_041": {
+    "source": "评估不同头型（S/M/L及长头/圆头）的电极偏移、弹性行程与跨被试稳健性，输出硬件CAD参考。",
+    "en": "Quantify sensor shifts, spring plunger stroke, and cross-subject robustness across S/M/L and dolicho/brachycephalic heads for headset CAD."
+  },
+  "scenario_personalize_042": {
+    "source": "三项核心指标分别衡量：实验场景头皮空间电场的重建比例、最弱10%目标脑源的电位差幅度保留率、以及脑源定位相对效用（另附毫米级定位误差）。",
+    "en": "Three core metrics quantify scenario scalp electric-field capture, worst-10% target source amplitude retention, and relative localization utility (with millimetre localization error)."
+  },
+  "scenario_personalize_043": {
+    "source": "100%仅代表同条件全头64导的物理归一化刻度尺，并非所有应用都要追求全头64导；耳周、前额等轻便设备只需关注目标脑区效用与导联性价比。",
+    "en": "100% simply denotes the matched whole-head 64-channel physical ruler—not every application aims for 64 whole-head channels; ear and forehead wearables optimize target-ROI utility per channel."
+  },
+  "scenario_personalize_044": {
+    "source": "场景参考线 τ（可一键切换35% / 60% / 85%）仅用于辅助横向筛选，调整它不会重新运行有限元计算。",
+    "en": "Scenario reference line τ (with 35% / 60% / 85% presets) assists visual screening without re-running finite-element computations."
+  },
+  "scenario_personalize_045": {
+    "source": "面向实验场景与头戴硬件的脑电布局仿真平台",
+    "en": "Scenario-Driven EEG Layout Digital Twin & Hardware Sizing Workbench"
+  },
+  "scenario_personalize_046": {
+    "source": "根据具体实验范式、任务脑功能激活先验（EEG/fMRI）与穿戴形态约束，对8–64导电极方案进行有限元数字仿真寻优；支持个体头型照片配准定制，并为硬件厂商提供分尺码与机械公差参考。",
+    "en": "Simulate and optimize 8–64 channel EEG layouts under task functional priors (EEG/fMRI) and wearable constraints, personalize montages from subject head photos, and export S/M/L mechanical tolerances for headset engineering."
+  },
+  "scenario_personalize_047": {
+    "source": "怎么读仿真效能画像",
+    "en": "How to Read the Simulation Profile"
+  },
+  "scenario_personalize_048": {
+    "source": "可按具体实验场景选择8–64导（如8/16导耳周或前额轻便穿戴、24/32导局部靶向高密、64导全头参考），在固定贴片半径下测试通道饱和拐点与最佳布局。",
+    "en": "Select 8–64 electrodes for your experimental scenario (e.g., 8/16-ch ear or frontal wearables, 24/32-ch focal high-density, 64-ch full-head reference) to test channel saturation and optimal layout."
+  },
+  "scenario_personalize_049": {
+    "source": "计算完成后，这里显示当前实验场景的三项仿真效用与定位误差画像。",
+    "en": "Once computed, this panel displays the three scenario simulation utilities and localization error profile."
+  },
+  "scenario_personalize_050": {
+    "source": "参考线对照",
+    "en": "Ref comparison"
+  },
+  "scenario_personalize_051": {
+    "source": "三项高于 τ",
+    "en": "All 3 ≥ τ"
+  },
+  "scenario_personalize_052": {
+    "source": "部分低于 τ",
+    "en": "Some < τ"
+  },
+  "scenario_personalize_053": {
+    "source": "场景参考线 τ",
+    "en": "Scenario ref τ"
+  },
+  "scenario_personalize_054": {
+    "source": "场景参考线 τ {{0}}%",
+    "en": "Scenario ref τ {{0}}%"
+  },
+  "scenario_personalize_055": {
+    "source": "{{0}}/3项高于 τ",
+    "en": "{{0}}/3 ≥ τ"
+  },
+  "scenario_personalize_056": {
+    "source": "各区域数相对场景参考线 τ 的面积分布",
+    "en": "Area Distribution Across Region Counts vs. Reference τ"
+  },
+  "scenario_personalize_057": {
+    "source": "部分指标不可用，请结合上方可用指标与定位误差评估",
+    "en": "Some metrics are unavailable; evaluate using the available metrics and localization error above"
+  },
+  "scenario_personalize_058": {
+    "source": "三项相对效用均高于当前场景参考线 τ",
+    "en": "All three relative utilities exceed the current scenario reference line τ"
+  },
+  "scenario_personalize_059": {
+    "source": "部分相对效用低于当前场景参考线 τ，请结合目标区域与导联精简需求权衡",
+    "en": "Some relative utilities lie below reference line τ; weigh target-ROI coverage against channel reduction goals"
+  },
+  "scenario_personalize_060": {
+    "source": "坐标导入、评价与个体头型适配",
+    "en": "Coordinate Import, Evaluation & Head Personalization"
+  },
+  "scenario_personalize_061": {
+    "source": "导入外部坐标结合场景/fMRI先验进行有限元评价，或通过受试者头围与正侧面头型照片标定生成个体专属电极方案。",
+    "en": "Import coordinates for FEM evaluation with scenario/fMRI priors, or calibrate individualized montages from head circumference and front/side head photos."
+  },
+  "scenario_personalize_062": {
+    "source": "稳态视觉诱发 SSVEP（枕区主导）",
+    "en": "SSVEP Visual BCI (Occipital Priority)"
+  },
+  "scenario_personalize_063": {
+    "source": "强化初级与外侧枕叶视觉皮层权重，适用于枕部头带或AR/VR视觉脑机接口布局寻优。",
+    "en": "Boosts primary and lateral occipital visual cortex weights for occipital headbands and AR/VR visual BCI optimization."
+  },
+  "scenario_personalize_064": {
+    "source": "运动想象与感觉运动节律 SMR",
+    "en": "Motor Imagery & Sensorimotor Rhythm (SMR)"
+  },
+  "scenario_personalize_065": {
+    "source": "聚焦中央前/后回与旁中央小叶感觉运动皮层，适用于运动康复与肢体意图解码头环。",
+    "en": "Focuses on precentral, postcentral, and paracentral sensorimotor cortex for neurorehabilitation and motor decoding bands."
+  },
+  "scenario_personalize_066": {
+    "source": "前额工作记忆、注意与情绪评估",
+    "en": "Frontal Working Memory, Attention & Affect"
+  },
+  "scenario_personalize_067": {
+    "source": "聚焦背外侧与眶额前额叶皮层，适用于无发区前额贴片、专注度与情绪监测穿戴设备。",
+    "en": "Targets dorsolateral and orbitofrontal cortex for hairless forehead patches and cognitive/affective wearables."
+  },
+  "scenario_personalize_068": {
+    "source": "双侧听觉诱发与耳周睡眠监测",
+    "en": "Bilateral Auditory & Ear-EEG Sleep Monitoring"
+  },
+  "scenario_personalize_069": {
+    "source": "强化左右颞上回与颞叶听觉皮层权重，适用于双侧耳周/耳后紧凑贴片布局设计。",
+    "en": "Emphasizes bilateral superior temporal and auditory cortices for compact behind-the-ear and periauricular patches."
+  },
+  "scenario_personalize_070": {
+    "source": "实验场景脑源先验（范式预设 / fMRI激活图 / EEG协方差）",
+    "en": "Scenario Source Prior (Presets / fMRI Map / EEG Covariance)"
+  },
+  "scenario_personalize_071": {
+    "source": "脑源先验来源类型",
+    "en": "Source prior input mode"
+  },
+  "scenario_personalize_072": {
+    "source": "场景预设",
+    "en": "Scenario Presets"
+  },
+  "scenario_personalize_073": {
+    "source": "fMRI 图像/峰值",
+    "en": "fMRI Volume / Peaks"
+  },
+  "scenario_personalize_074": {
+    "source": "EEG 先验文件",
+    "en": "EEG Prior File"
+  },
+  "scenario_personalize_075": {
+    "source": "针对具体实验范式聚焦目标功能脑区权重，使算法将有限电极优先排布在目标脑源信噪比最高的位置（不选则默认全皮层按面积均匀加权）。",
+    "en": "Weights target functional brain regions for your experimental paradigm so limited electrodes prioritize high-SNR positions (defaults to uniform cortical-area weighting when unselected)."
+  },
+  "scenario_personalize_076": {
+    "source": "导入个体或组水平任务态 fMRI 三维统计图（NIfTI-1 .nii / .nii.gz，MNI152 空间）或激活峰值表，自动投影至皮层 DK40 脑区源权重以定制该受试者/任务的电极布局。",
+    "en": "Import individual or group task fMRI 3D statistical maps (NIfTI-1 .nii / .nii.gz in MNI152 space) or peak cluster tables, projecting activation onto DK40 cortical ROIs to tailor electrode placement."
+  },
+  "scenario_personalize_077": {
+    "source": "载入 NIfTI 三维统计图（.nii / .nii.gz）",
+    "en": "Load NIfTI 3D statistical volume (.nii / .nii.gz)"
+  },
+  "scenario_personalize_078": {
+    "source": "选择 fMRI NIfTI 文件",
+    "en": "Choose fMRI NIfTI file"
+  },
+  "scenario_personalize_079": {
+    "source": "统计量阈值 |t| ≥",
+    "en": "Stat threshold |t| ≥"
+  },
+  "scenario_personalize_080": {
+    "source": "或输入 MNI152 激活峰值簇（x, y, z, t_stat, fwhm_mm）",
+    "en": "Or enter MNI152 activation peaks (x, y, z, t_stat, fwhm_mm)"
+  },
+  "scenario_personalize_081": {
+    "source": "一键载入合成 NIfTI 体素示例",
+    "en": "Load synthetic NIfTI volume demo"
+  },
+  "scenario_personalize_082": {
+    "source": "MNI激活峰值坐标列表",
+    "en": "MNI activation peak coordinate table"
+  },
+  "scenario_personalize_083": {
+    "source": "将 MNI 峰值映射为脑源先验",
+    "en": "Map MNI peaks to source prior"
+  },
+  "scenario_personalize_084": {
+    "source": "选择 eeg-data-prior/1 文件",
+    "en": "Select eeg-data-prior/1 file"
+  },
+  "scenario_personalize_085": {
+    "source": "由真实 EEG 记录协方差拟合的区域源功率与空间相关噪声结构（eeglayoutlab prior），1 表示与均匀面积先验相同。",
+    "en": "Regional source power and spatial noise covariance fitted from EEG recordings (eeglayoutlab prior); 1.0 matches uniform area weighting."
+  },
+  "scenario_personalize_086": {
+    "source": "导出先验JSON",
+    "en": "Export Prior JSON"
+  },
+  "scenario_personalize_087": {
+    "source": "恢复均匀先验",
+    "en": "Reset to Uniform"
+  },
+  "scenario_personalize_088": {
+    "source": "已激活 {{0}}/{{1}} 个皮层锚点源（阈值 ≥ {{2}}）",
+    "en": "Activated {{0}}/{{1}} cortical anchor sources (threshold ≥ {{2}})"
+  },
+  "scenario_personalize_089": {
+    "source": "权重分布",
+    "en": "Relative weight"
+  },
+  "scenario_personalize_090": {
+    "source": "fMRI统计图文件超过64 MB",
+    "en": "fMRI volume exceeds 64 MB"
+  },
+  "scenario_personalize_091": {
+    "source": "fMRI图像解析失败",
+    "en": "Failed to parse fMRI volume"
+  },
+  "scenario_personalize_092": {
+    "source": "MNI峰值解析失败",
+    "en": "Failed to parse MNI peak coordinates"
+  },
+  "scenario_personalize_093": {
+    "source": "合成fMRI示例加载失败",
+    "en": "Failed to load synthetic fMRI demo"
+  },
+  "scenario_personalize_094": {
+    "source": "长头型（CI < 75）",
+    "en": "Dolichocephalic (CI < 75)"
+  },
+  "scenario_personalize_095": {
+    "source": "中头型（75 ≤ CI ≤ 80）",
+    "en": "Mesocephalic (75 ≤ CI ≤ 80)"
+  },
+  "scenario_personalize_096": {
+    "source": "圆阔头型（CI > 80）",
+    "en": "Brachycephalic (CI > 80)"
+  },
+  "scenario_personalize_097": {
+    "source": "紧凑圆阔头型（头围 53.8 cm · CI 82.5）",
+    "en": "Compact Brachycephalic (53.8 cm · CI 82.5)"
+  },
+  "scenario_personalize_098": {
+    "source": "标准中头型基准（头围 56.5 cm · CI 77.6）",
+    "en": "Standard Mesocephalic Reference (56.5 cm · CI 77.6)"
+  },
+  "scenario_personalize_099": {
+    "source": "大头围长头型（头围 60.6 cm · CI 73.2）",
+    "en": "Large Dolichocephalic (60.6 cm · CI 73.2)"
+  },
+  "scenario_personalize_100": {
+    "source": "宽颅高顶头型（头围 59.0 cm · CI 84.0）",
+    "en": "Broad High-Crown (59.0 cm · CI 84.0)"
+  },
+  "scenario_personalize_101": {
+    "source": "左耳屏 LPA",
+    "en": "Left Tragus LPA"
+  },
+  "scenario_personalize_102": {
+    "source": "右耳屏 RPA",
+    "en": "Right Tragus RPA"
+  },
+  "scenario_personalize_103": {
+    "source": "颅顶最高点 Cz",
+    "en": "Crown Apex Cz"
+  },
+  "scenario_personalize_104": {
+    "source": "鼻根 Nz",
+    "en": "Nasion Nz"
+  },
+  "scenario_personalize_105": {
+    "source": "枕外隆凸 Iz",
+    "en": "Inion Iz"
+  },
+  "scenario_personalize_106": {
+    "source": "耳屏中心",
+    "en": "Tragus Center"
+  },
+  "scenario_personalize_107": {
+    "source": "自定义个体头型",
+    "en": "Custom Subject Head"
+  },
+  "scenario_personalize_108": {
+    "source": "照片标定受试者",
+    "en": "Photo-Calibrated Subject"
+  },
+  "scenario_personalize_109": {
+    "source": "16导前额+双耳周穿戴示例",
+    "en": "16-ch Frontal + Bilateral Ear Wearable Demo"
+  },
+  "scenario_personalize_110": {
+    "source": "已导入布局",
+    "en": "Imported Layout"
+  },
+  "scenario_personalize_111": {
+    "source": "个体头型适配 · 照片标志点与三维解剖配准",
+    "en": "Individual Head Personalization · Photo Landmarks & 3D Cranial Morphing"
+  },
+  "scenario_personalize_112": {
+    "source": "针对具体使用者的个体化电极布局建议",
+    "en": "Subject-Specific Electrode Montage Recommendation"
+  },
+  "scenario_personalize_113": {
+    "source": "不同头围、长圆头型（头长宽指数 CI）与颅顶曲率会让最佳电极落点产生数毫米至十余毫米偏移。上传受试者正侧面头型照片点选标志点，或直接输入头围与头型参数，即可将该实验场景的最佳布局映射为该受试者的专属三维电极坐标。",
+    "en": "Differences in head circumference, cephalic index (CI), and crown height shift optimal electrode sites by several to over ten millimetres. Mark anatomical landmarks on front/side photos or set cranial dimensions to morph any layout into personalized 3D subject coordinates."
+  },
+  "scenario_personalize_114": {
+    "source": "个体头型标定方式",
+    "en": "Head calibration method"
+  },
+  "scenario_personalize_115": {
+    "source": "头围与头型参数",
+    "en": "Anthropometric Sliders"
+  },
+  "scenario_personalize_116": {
+    "source": "正侧面头型照片标定",
+    "en": "Front & Side Photo Calibration"
+  },
+  "scenario_personalize_117": {
+    "source": "选择要适配的源布局方案（支持8–64导任意已算方案或上方导入布局）",
+    "en": "Source layout to personalize (any 8–64 ch saved or imported layout)"
+  },
+  "scenario_personalize_118": {
+    "source": "上方当前导入的设计",
+    "en": "Currently imported design above"
+  },
+  "scenario_personalize_119": {
+    "source": "一键切换典型头型样本",
+    "en": "Quick anthropometric head archetypes"
+  },
+  "scenario_personalize_120": {
+    "source": "受试者水平头围",
+    "en": "Subject horizontal head circumference"
+  },
+  "scenario_personalize_121": {
+    "source": "头长宽指数 CI（100 × 头宽 ÷ 头长）",
+    "en": "Cephalic Index CI (100 × breadth ÷ length)"
+  },
+  "scenario_personalize_122": {
+    "source": "双耳连线至颅顶高度",
+    "en": "Inter-auricular to vertex crown height"
+  },
+  "scenario_personalize_123": {
+    "source": "照片仅在本地浏览器内存中读取，不上传任何服务器。分别上传正视图与侧视图，选择要标定的解剖点后在图上点击位置，结合实测头围即可消去拍摄距离差异并解算三维头型比例。",
+    "en": "Photos stay strictly in local browser memory and are never uploaded. Load front and side views, click to place landmarks, and combine with measured circumference to cancel camera zoom differences and solve 3D cranial proportions."
+  },
+  "scenario_personalize_124": {
+    "source": "1 · 正面头型照",
+    "en": "1 · Front Head Photo"
+  },
+  "scenario_personalize_125": {
+    "source": "选择正视图",
+    "en": "Choose front photo"
+  },
+  "scenario_personalize_126": {
+    "source": "2 · 侧面头型照",
+    "en": "2 · Lateral Head Photo"
+  },
+  "scenario_personalize_127": {
+    "source": "选择侧视图",
+    "en": "Choose side photo"
+  },
+  "scenario_personalize_128": {
+    "source": "卷尺实测水平头围基准（mm）",
+    "en": "Measured head circumference reference (mm)"
+  },
+  "scenario_personalize_129": {
+    "source": "根据正侧面标志点解算个体头型",
+    "en": "Solve 3D Head Profile from Landmarks"
+  },
+  "scenario_personalize_130": {
+    "source": "头宽 × 头长",
+    "en": "Breadth × Length"
+  },
+  "scenario_personalize_131": {
+    "source": "平均点位偏移",
+    "en": "Mean Electrode Shift"
+  },
+  "scenario_personalize_132": {
+    "source": "最大点位偏移",
+    "en": "Max Electrode Shift"
+  },
+  "scenario_personalize_133": {
+    "source": "个体最小电极间距",
+    "en": "Subject Min Spacing"
+  },
+  "scenario_personalize_134": {
+    "source": "导出个体专属电极坐标 CSV",
+    "en": "Export Subject Montage CSV"
+  },
+  "scenario_personalize_135": {
+    "source": "导出个体专属方案 JSON",
+    "en": "Export Subject Montage JSON"
+  },
+  "scenario_personalize_136": {
+    "source": "俯视双轮廓对照：模板头 vs 个体头型电极偏移",
+    "en": "Top-Down Dual Contour: Template vs. Individual Electrode Shifts"
+  },
+  "scenario_personalize_137": {
+    "source": "个体头型与模板头电极位置俯视对照图",
+    "en": "Top-down comparison of template head vs. personalized subject electrode coordinates"
+  },
+  "scenario_personalize_138": {
+    "source": "Ernie 标准模板轮廓",
+    "en": "Ernie template contour"
+  },
+  "scenario_personalize_139": {
+    "source": "当前个体头型轮廓与专属落点",
+    "en": "Subject head contour & personalized sites"
+  },
+  "scenario_personalize_140": {
+    "source": "照片标志点间距过小，请分别点选左右耳屏、鼻根、枕外隆凸与颅顶最高点",
+    "en": "Photo landmarks are too close together; mark left/right tragus, nasion, inion, and crown apex distinctly"
+  },
+  "scenario_personalize_141": {
+    "source": "照片标志点标定失败",
+    "en": "Photo landmark calibration failed"
+  },
+  "scenario_personalize_142": {
+    "source": "刚性壳体直装（≤3.5 mm）",
+    "en": "Rigid Shell Pod (≤3.5 mm)"
+  },
+  "scenario_personalize_143": {
+    "source": "弹性顶针/硅胶悬臂（±5 mm）",
+    "en": "Spring Plunger / Elastomer Arm (±5 mm)"
+  },
+  "scenario_personalize_144": {
+    "source": "分档滑槽/可调悬臂（>6.5 mm）",
+    "en": "Slotted Detent Rail (>6.5 mm)"
+  },
+  "scenario_personalize_145": {
+    "source": "研究草稿布局",
+    "en": "Study Draft Layout"
+  },
+  "scenario_personalize_146": {
+    "source": "12导前额+双耳周头戴参考示例",
+    "en": "12-ch Frontal + Bilateral Ear Headset Reference"
+  },
+  "scenario_personalize_147": {
+    "source": "头戴式硬件工业设计参考 · S/M/L 分尺码与弹性公差",
+    "en": "Wearable Hardware CAD Reference · S/M/L Sizing & Spring Tolerances"
+  },
+  "scenario_personalize_148": {
+    "source": "跨头型分尺码电极坐标与机械结构公差分析",
+    "en": "Multi-Size (S/M/L) Sensor Coordinates & Mechanical Tolerance Analysis"
+  },
+  "scenario_personalize_149": {
+    "source": "面向头戴式脑电设备厂商：将选定的最佳布局（8–64导均可）投射至成人 S（P10）/ M（P50）/ L（P90）头围分档及长头型/圆阔头型极值，计算各电极位的三维壳体坐标、弹簧顶针法向行程与切向漂移包络，直接辅助刚性壳体、弹性悬臂或滑槽结构选型。",
+    "en": "For wearable EEG hardware engineering: projects any 8–64 channel layout across adult S (P10), M (P50), and L (P90) head sizes plus dolichocephalic/brachycephalic extremes to compute 3D pod coordinates, outward normal plunger strokes, and tangential drift envelopes."
+  },
+  "scenario_personalize_150": {
+    "source": "头戴壳体分码策略",
+    "en": "Headset shell sizing strategy"
+  },
+  "scenario_personalize_151": {
+    "source": "S / M / L 三尺码分档壳体",
+    "en": "S / M / L Three-Size Shells"
+  },
+  "scenario_personalize_152": {
+    "source": "单均码通用可调壳体",
+    "en": "Universal One-Size Shell"
+  },
+  "scenario_personalize_153": {
+    "source": "选择用于硬件结构评估的布局方案（8–64导）",
+    "en": "Select layout for hardware tolerance analysis (8–64 ch)"
+  },
+  "scenario_personalize_154": {
+    "source": "当前研究草稿布局",
+    "en": "Current study draft layout"
+  },
+  "scenario_personalize_155": {
+    "source": "最大法向弹簧行程",
+    "en": "Max Radial Plunger Stroke"
+  },
+  "scenario_personalize_156": {
+    "source": "最大切向弧面漂移",
+    "en": "Max Tangential Drift"
+  },
+  "scenario_personalize_157": {
+    "source": "长/圆头型极值偏移",
+    "en": "Dolicho–Brachy Span"
+  },
+  "scenario_personalize_158": {
+    "source": "全尺码最小电极间距",
+    "en": "Worst-Case Min Spacing"
+  },
+  "scenario_personalize_159": {
+    "source": "各电极位机械结构选型建议汇总",
+    "en": "Recommended Sensor Mounting Architecture Breakdown"
+  },
+  "scenario_personalize_160": {
+    "source": "采用 S/M/L 三尺码分档壳体后，大跨度头围差异由尺码承接，单个尺码壳体主要只需吸收长圆头型差异，显著降低弹簧顶针所需行程。",
+    "en": "Splitting shells into S/M/L absorbs bulk head-circumference variance across sizes, leaving each shell mainly to accommodate dolicho-to-brachycephalic shape variation with much shorter plunger stroke."
+  },
+  "scenario_personalize_161": {
+    "source": "单均码壳体需同时覆盖 54.0–60.5 cm 头围与长圆头型差异，外周颞区与额极电极通常需要更大行程的弹性悬臂或分档滑槽。",
+    "en": "A single universal shell must span 54.0–60.5 cm circumferences plus cranial shape extremes, requiring longer-stroke compliant arms or slotted rails at temporal and frontopolar sites."
+  },
+  "scenario_personalize_162": {
+    "source": "导出硬件 CAD 坐标与法向表 CSV",
+    "en": "Export Hardware CAD Coordinates & Normals CSV"
+  },
+  "scenario_personalize_163": {
+    "source": "导出分尺码公差工程规范 JSON",
+    "en": "Export Multi-Size Engineering Spec JSON"
+  },
+  "scenario_personalize_164": {
+    "source": "S / M / L 传感器散布包络与顶针法向俯视图",
+    "en": "S / M / L Sensor Dispersion & Outward Plunger Normal Map"
+  },
+  "scenario_personalize_165": {
+    "source": "通道",
+    "en": "ch"
+  },
+  "scenario_personalize_166": {
+    "source": "S、M、L多尺码传感器坐标散布与法向矢量俯视图",
+    "en": "Top-down orthographic view of S, M, L sensor coordinates and outward plunger normals"
+  },
+  "scenario_personalize_167": {
+    "source": "内虚线：S 小码",
+    "en": "Inner dashed: Size S"
+  },
+  "scenario_personalize_168": {
+    "source": "实线蓝点：M 中码基准与法向轴",
+    "en": "Solid blue: Size M & normal axis"
+  },
+  "scenario_personalize_169": {
+    "source": "外虚线：L 大码",
+    "en": "Outer dashed: Size L"
+  },
+  "scenario_personalize_170": {
+    "source": "橙色线段：S–L 尺码跨度",
+    "en": "Amber bar: S–L span"
+  },
+  "scenario_personalize_171": {
+    "source": "展开逐通道 S / M / L 坐标、法向矢量与结构选型明细表",
+    "en": "Expand per-channel S / M / L coordinates, normal vectors & mount BOM table"
+  },
+  "scenario_personalize_172": {
+    "source": "M 中码坐标 (mm)",
+    "en": "Size M (x, y, z mm)"
+  },
+  "scenario_personalize_173": {
+    "source": "外法向轴 (nx, ny, nz)",
+    "en": "Outward Normal (nx, ny, nz)"
+  },
+  "scenario_personalize_174": {
+    "source": "法向行程",
+    "en": "Radial Stroke"
+  },
+  "scenario_personalize_175": {
+    "source": "切向漂移",
+    "en": "Tangential Drift"
+  },
+  "scenario_personalize_176": {
+    "source": "推荐硬件安装结构",
+    "en": "Recommended Pod Mount"
+  },
+  "scenario_personalize_300": {
+    "source": "行程",
+    "en": "stroke"
+  },
+  "scenario_personalize_301": {
+    "source": "漂移",
+    "en": "drift"
   }
 }

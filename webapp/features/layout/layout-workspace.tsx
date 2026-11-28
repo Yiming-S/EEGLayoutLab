@@ -131,7 +131,7 @@ export default function LayoutWorkspace() {
                     <th className="px-3 py-3">{tx('场重建保留率')}</th>
                     <th className="px-3 py-3">{tx('幅度保留率（最差10%）')}</th>
                     <th className="px-3 py-3">{tx('定位效用保留率')}</th>
-                    <th className="px-3 py-3">{tx('性能判断')}</th>
+                    <th className="px-3 py-3">{tx('参考线对照')}</th>
                     <th className="px-4 py-3"><span className="sr-only">{tx('操作')}</span></th>
                   </tr>
                 </thead>
@@ -146,7 +146,7 @@ export default function LayoutWorkspace() {
                     <td className="px-3 py-3 font-mono tabular-nums">{metricPercent(row.metrics?.field_relative)}</td>
                     <td className="px-3 py-3 font-mono tabular-nums">{metricPercent(row.metrics?.sensitivity_tail)}</td>
                     <td className="px-3 py-3 font-mono tabular-nums">{metricPercent(row.metrics?.localization_relative)}</td>
-                    <td className="px-3 py-3"><OutcomeBadge outcome={outcome}>{tx(outcome === 'pass' ? '三项达标' : outcome === 'fail' ? '未全部达标' : '无指标')}</OutcomeBadge></td>
+                    <td className="px-3 py-3"><OutcomeBadge outcome={outcome}>{tx(outcome === 'pass' ? '三项高于 τ' : outcome === 'fail' ? '部分低于 τ' : '无指标')}</OutcomeBadge></td>
                     <td className="px-4 py-3 text-right">{row.id === shown.id ? <span className="lab-chip text-primary">{tx('当前显示')}</span>
                       : <Button type="button" size="xs" variant="outline" onClick={() => select(row.id)}>{tx('查看')}</Button>}</td>
                   </tr>;

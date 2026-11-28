@@ -1,7 +1,7 @@
 'use client';
 /* oxlint-disable next/no-html-link-for-pages -- preserve established vinext navigation */
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { ArrowUpRight, BookOpen, FlaskConical, FolderKanban, Grid3x3, Import, PencilRuler, Search } from 'lucide-react';
+import { ArrowUpRight, FlaskConical, FolderKanban, Grid3x3, Import, PencilRuler, Search } from 'lucide-react';
 import { DataReadinessNotice } from '@/components/data-readiness-notice';
 import { useLanguage } from '@/components/language-provider';
 import { RuntimeMessage } from '@/components/runtime-message';
@@ -80,14 +80,14 @@ function ArchitecturalMatrix({
 function StartHere({ ar, example, onClose }: { ar: number; example: string | null; onClose: () => void }) {
   const { tx } = useLanguage();
   const goals = [
-    { href: '/findings?ar=' + ar, icon: BookOpen, title: '先看现成结论', text: '浏览总面积研究：1–6个区域在不同面积上限下各保留多少信号。只读，不需要计算。' },
-    { href: '/coordinates?ar=' + ar, icon: Import, title: '评价我已有的电极位置', text: '导入CSV、JSON、BIDS、.elc或.sfp坐标文件，或按10-05电极名称导入，得到三项保留率。' },
-    { href: '/design?ar=' + ar, icon: Search, title: '设计一个新布局', text: '选择头部部位、区域数、电极总数（8–64导）和每区大小，搜索布局并评价。' },
+    { href: '/design?ar=' + ar, icon: Search, title: '按实验场景搜索最佳布局', text: '结合任务脑源先验（EEG/fMRI）、佩戴部位与8–64导通道预算，数字仿真寻优最佳电极排布。' },
+    { href: '/coordinates?ar=' + ar, icon: Import, title: '个体头型适配与坐标评估', text: '通过多视角头型照片/人类学参数或BIDS/.elc/.sfp文件，生成个体化电极方案并仿真评估。' },
+    { href: '/robustness?ar=' + ar, icon: FlaskConical, title: '硬件分尺码与公差设计参考', text: '评估不同头型（S/M/L及长头/圆头）的电极偏移、弹性行程与跨被试稳健性，输出硬件CAD参考。' },
   ];
   const rules = [
-    '保留率 = 布局的得分 ÷ 标准64导全头布置的得分；100%表示与全头64导相同。',
-    '三项保留率分别回答：标准64导记录到的头皮电场能重建多少（场重建）；损失最多的10%脑源还能记录到多大的电位差（幅度）；源定位与标准64导相比如何（定位效用）。',
-    '最低保留要求是你设定的合格线：三项保留率都达到它才算合格。调整它只重新判断，不重新计算。',
+    '三项核心指标分别衡量：实验场景头皮空间电场的重建比例、最弱10%目标脑源的电位差幅度保留率、以及脑源定位相对效用（另附毫米级定位误差）。',
+    '100%仅代表同条件全头64导的物理归一化刻度尺，并非所有应用都要追求全头64导；耳周、前额等轻便设备只需关注目标脑区效用与导联性价比。',
+    '场景参考线 τ（可一键切换35% / 60% / 85%）仅用于辅助横向筛选，调整它不会重新运行有限元计算。',
   ] as const;
   const here = '/?ar=' + ar;
   return (
@@ -96,13 +96,13 @@ function StartHere({ ar, example, onClose }: { ar: number; example: string | nul
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="max-w-3xl">
             <span className="font-mono text-[11px] font-medium tracking-[0.12em] text-muted-foreground uppercase">
-              8–64 CH · ERNIE FEM
+              SCENARIO DIGITAL TWIN · 8–64 CH · PERSONALIZED &amp; CAD
             </span>
             <h2 id="start-here" className="mt-1.5 text-lg font-semibold tracking-[-0.02em] text-foreground sm:text-xl">
-              {tx('从这里开始')}
+              {tx('面向实验场景与头戴硬件的脑电布局仿真平台')}
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-6.5 text-ink-soft">
-              {tx('把电极集中放在头上少数几个区域（默认64导，支持8–64导探索），相比标准64导全头布置还能保留多少信号？本应用用头模仿真回答这个问题，并帮你设计、评价和比较这样的布局。')}
+              {tx('根据具体实验范式、任务脑功能激活先验（EEG/fMRI）与穿戴形态约束，对8–64导电极方案进行有限元数字仿真寻优；支持个体头型照片配准定制，并为硬件厂商提供分尺码与机械公差参考。')}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -129,7 +129,7 @@ function StartHere({ ar, example, onClose }: { ar: number; example: string | nul
       <div className="bg-secondary/35 px-5 py-4 sm:px-7 sm:py-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-xs font-semibold tracking-wide text-foreground/90 uppercase">
-            {tx('怎么读分数')}
+            {tx('怎么读仿真效能画像')}
           </h3>
           <div className="flex flex-wrap gap-2">
             <a href={methodLink(here, ar, '#retention-guide')} className="lab-link-pill">

@@ -67,7 +67,7 @@ function EditedMetricBar({
       className="relative mt-1 block h-1.5 w-28 rounded-full bg-muted"
     >
       <span
-        className={`absolute inset-y-0 rounded-full ${belowThreshold ? 'bg-warning' : 'bg-primary'}`}
+        className={`absolute inset-y-0 rounded-full ${belowThreshold ? 'bg-primary/60' : 'bg-primary'}`}
         style={{
           left: `${Math.min(zeroPos, edPos) * 100}%`,
           width: `${Math.max(1, Math.abs(edPos - zeroPos) * 100)}%`,
@@ -288,13 +288,13 @@ export function EditorComparisonSection({
             </p>
           )}
           {arControl}
-          <p className="mt-2 font-medium">
+          <p className="mt-2 text-sm text-ink-soft">
             {tx(
               result.edited_metrics.conditional_global == null
-                ? '部分指标不可用，不能给出三项共同达标结论'
+                ? '部分指标不可用，请结合上方可用指标与定位误差评估'
                 : result.edited_metrics.conditional_global >= ar / 100
-                  ? '三项均达到最低保留要求'
-                  : '尚未全部达到最低保留要求',
+                  ? '三项相对效用均高于当前场景参考线 τ'
+                  : '部分相对效用低于当前场景参考线 τ，请结合目标区域与导联精简需求权衡',
             )}
           </p>
           <Button className="mt-4" variant="outline" onClick={exportResult}>

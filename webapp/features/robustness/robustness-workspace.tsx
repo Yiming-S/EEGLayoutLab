@@ -19,6 +19,7 @@ import {
   fillHeads,
   type CaseDraft,
 } from "./robustness-draft";
+import { HardwareSizingPanel } from "./hardware-sizing-panel";
 import { StudyDraftSection } from "./study-draft-section";
 import { StudyDetailSection } from "./study-detail-section";
 
@@ -220,6 +221,7 @@ export default function RobustnessWorkspace() {
             exporting={exporting}
           />
         )}
+        <HardwareSizingPanel draftDesign={design} />
       </div>
     </main>
   );
