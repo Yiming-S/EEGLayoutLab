@@ -122,6 +122,7 @@ def test_the_command_line_rejects_incomplete_commands_before_starting_a_calculat
         ['search'],
         ['study', 'a.json', 'b.json', '--out-dir', 'x'],
         ['unknown', '--out-dir', 'x'],
+        ['unknown'],
         ['export', 'd.json', '--out-dir', 'x'],
         ['design', 'x.tsv'],
         ['design', 'x.tsv', '--regions'],
@@ -132,6 +133,14 @@ def test_the_command_line_rejects_incomplete_commands_before_starting_a_calculat
         assert p_err.startswith('error: '), p_err
         # First line of error matches Node's error message verbatim.
         assert p_err.splitlines()[0] == n_res.stderr.splitlines()[0], (args, p_err, n_res.stderr)
+
+
+def test_version_prints_the_package_version(capsys) -> None:
+    from eeglayoutlab.cli.main import main
+    from eeglayoutlab.data.store import code_version
+    for flag in ('--version', '-V', 'version'):
+        assert main([flag]) == 0
+        assert capsys.readouterr().out == f'eeglayoutlab {code_version()}\n'
 
 
 def test_export_supports_sparse_and_adaptive_search_runs_across_all_formats(tmp_path: Path, capsys) -> None:

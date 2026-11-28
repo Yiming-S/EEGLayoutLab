@@ -370,6 +370,7 @@ async function main(argv) {
     process.stderr.write(`wrote ${options.out} (${prior.channels.length} channels, id ${prior.id})\n`);
     return 0;
   }
+  if (!['eeg-summary', 'export', 'evaluate', 'search', 'study'].includes(command)) throw new Error(`unknown command ${command}\n\n${HELP}`);
   if (!options['out-dir']) throw new Error(`${command} needs --out-dir`);
   if (command === 'eeg-summary') {
     if (!files.length) throw new Error('eeg-summary needs recording files');

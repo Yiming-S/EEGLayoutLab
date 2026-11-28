@@ -424,6 +424,10 @@ def import_legacy(args: argparse.Namespace) -> int:
 def main(argv: Optional[Sequence[str]] = None) -> int:
     actual = list(sys.argv[1:] if argv is None else argv)
     logging.basicConfig(level=logging.WARNING, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
+    if actual and actual[0] in ('--version', '-V', 'version'):
+        from ..data.store import code_version
+        print(f'{PROGRAM} {code_version()}', flush=True)
+        return 0
     if not actual or actual[0] in ('design', 'export', 'evaluate', 'search', 'study', 'help'):
         from . import science as science_cli
         return science_cli.run_science(actual)

@@ -40,13 +40,15 @@ export function retentionTerminology(text: string): string {
     regions.push(codes);
     return `\uE010${regions.length - 1}\uE011`;
   });
+  // "AR/VR" (augmented reality) is not the threshold abbreviation.
+  const threshold = /(?<!VR\s*\/\s*)\bAR\b(?!\s*\/\s*VR)/g;
   const result = /Pass|â|G\s*[≥=]|≥\s*AR/.test(protectedText)
-    ? protectedText.replace(/\bAR\b/g, 'τ')
+    ? protectedText.replace(threshold, 'τ')
     : protectedText
     .replace(/(?:接受阈值|接受率|接受条件)\s*AR/g, '最低保留要求')
     .replace(/AR\s*(?:接受阈值|阈值|接受率)/g, '最低保留要求')
     .replace(/接受阈值|接受率/g, '最低保留要求')
-    .replace(/\bAR\b/g, '最低保留要求')
+    .replace(threshold, '最低保留要求')
     .replace(/信号重建保留率/g, '场重建保留率')
     .replace(/相对定位评分/g, '定位效用保留率');
   return result.replace(/\uE010(\d+)\uE011/g, (_, index) => regions[Number(index)]);

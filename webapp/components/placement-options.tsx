@@ -132,9 +132,7 @@ export function DesignPlacementOptions({
       <p className="mt-2 text-xs leading-5 text-muted-foreground">
         {tx(adaptiveActive
           ? `当前共${electrodeCount}个电极，跨区自适应配额（每区至少4个电极）。`
-          : electrodeCount === 64
-            ? '总电极数始终64；下方每个区域标明分配数量。'
-            : `当前共${electrodeCount}个电极；下方每个区域标明分配数量。`)}
+          : `当前共${electrodeCount}个电极；下方每个区域标明分配数量。`)}
       </p>
     </div>
     <LocationRadios label={tx("布置方式")} value={mode} onChange={pickMode} options={PLACEMENT_MODES.map((m) => ({ ...m }))} stacked={compact} />

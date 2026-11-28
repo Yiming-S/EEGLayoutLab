@@ -329,11 +329,15 @@ export function DataPriorPicker({
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs font-semibold text-foreground">
               {tx(dataPriorLabel(value))}
-              {source && (
-                <span className="ml-2 font-mono font-normal text-muted-foreground">
-                  {source}
-                </span>
-              )}
+              {source && (() => {
+                // A preset is stored by its id; show its name instead.
+                const preset = SCENARIO_PRIOR_PRESETS.find((p) => p.id === source);
+                return (
+                  <span className={cn('ml-2 font-normal text-muted-foreground', !preset && 'font-mono')}>
+                    {preset ? tx(preset.label) : source}
+                  </span>
+                );
+              })()}
             </span>
             <div className="flex flex-wrap gap-1.5">
               <Button

@@ -66,6 +66,9 @@ _ALLOWED_OPTIONS: dict[str, frozenset[str]] = {
 
 HELP = """EEGLayoutLab command line
 
+  eeglayoutlab --version
+      Print the installed version.
+
   eeglayoutlab quickstart [WORKSPACE] [--from URL|DIR] [--base-only] [--examples] [--verify] [--no-browser]
       First-run and daily launch: install/link missing model data, create ~/eeglayoutlab-workspace
       if needed, and open the local web application on 127.0.0.1.
@@ -623,6 +626,8 @@ def run_science(argv: Sequence[str]) -> int:
             from . import run as cli_run
             return cli_run.execute('prior', files, options)
 
+        if command not in ('eeg-summary', 'export', 'evaluate', 'search', 'study'):
+            raise ValueError(f'unknown command {command}\n\n{HELP}')
         if not options.get('out-dir'):
             raise ValueError(f'{command} needs --out-dir')
 

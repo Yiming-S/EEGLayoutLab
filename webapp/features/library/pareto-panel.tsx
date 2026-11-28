@@ -25,6 +25,31 @@ const format = (value: number, unit: string) =>
     : unit === 'mm'
       ? `${value.toFixed(1)} mm`
       : `${value.toFixed(1)} cm²`;
+/**
+ * Axis ticks at round steps (1, 2, 2.5 or 5 × 10^k) that cover the values. Every objective is
+ * non-negative, so an axis never extends below zero.
+ */
+export function niceAxis(values: number[]): { ticks: number[]; step: number } {
+  if (!values.length) return { ticks: [0, 0.25, 0.5, 0.75, 1], step: 0.25 };
+  const lo = Math.min(...values),
+    hi = Math.max(...values),
+    range = hi - lo || Math.abs(hi) * 0.1 || 1;
+  const raw = range / 4,
+    magnitude = 10 ** Math.floor(Math.log10(raw)),
+    step = ([1, 2, 2.5, 5, 10].find((m) => m * magnitude >= raw) ?? 10) * magnitude;
+  const start = Math.max(0, Math.floor((lo - range * 0.04) / step) * step),
+    end = Math.ceil((hi + range * 0.04) / step) * step;
+  const ticks: number[] = [];
+  for (let k = 0; start + k * step <= end + step * 1e-9; k++) ticks.push(Number((start + k * step).toPrecision(12)));
+  return { ticks: ticks.length > 1 ? ticks : [start, start + step], step };
+}
+/** A tick label with only as many decimals as the step needs. */
+const tickLabel = (value: number, unit: string, step: number) => {
+  const scale = unit === 'ratio' ? 100 : 1,
+    digits = Math.min(2, (String(Number((step * scale).toPrecision(6))).split('.')[1] ?? '').length);
+  const text = (value * scale).toFixed(digits);
+  return unit === 'ratio' ? `${text}%` : unit === 'mm' ? `${text} mm` : `${text} cm²`;
+};
 const groupLabel = (key: string, locale: string): string[] => {
   const g = JSON.parse(key) as {
     noise: unknown;
@@ -91,14 +116,10 @@ export function ParetoPanel({
     v: Record<ObjectiveId, number>;
   }[];
   const rankOf = new Map(analysis?.rows.map((row) => [row.item.id, row.rank]) ?? []);
-  const span = (values: number[]) => {
-    const lo = Math.min(...values),
-      hi = Math.max(...values),
-      pad = ((hi - lo) || Math.abs(hi) || 1) * 0.08;
-    return [lo - pad, hi + pad];
-  };
-  const [x0, x1] = plotted.length ? span(plotted.map((p) => p.v[x.id])) : [0, 1],
-    [y0, y1] = plotted.length ? span(plotted.map((p) => p.v[y.id])) : [0, 1];
+  const xAxis = niceAxis(plotted.map((p) => p.v[x.id])),
+    yAxis = niceAxis(plotted.map((p) => p.v[y.id]));
+  const [x0, x1] = [xAxis.ticks[0], xAxis.ticks[xAxis.ticks.length - 1]],
+    [y0, y1] = [yAxis.ticks[0], yAxis.ticks[yAxis.ticks.length - 1]];
   const W = 560,
     H = 320,
     L = 64,
@@ -107,8 +128,8 @@ export function ParetoPanel({
     B = 42;
   const px = (v: number) => L + ((v - x0) / (x1 - x0)) * (W - L - R),
     py = (v: number) => H - B - ((v - y0) / (y1 - y0)) * (H - T - B);
-  const xTicks = [0, 0.25, 0.5, 0.75, 1].map((t) => x0 + (x1 - x0) * t),
-    yTicks = [0, 0.25, 0.5, 0.75, 1].map((t) => y0 + (y1 - y0) * t);
+  const xTicks = xAxis.ticks,
+    yTicks = yAxis.ticks;
 
   const envelopePath = (() => {
     if (plotted.length < 2 || x.id === y.id) return '';
@@ -395,7 +416,7 @@ export function ParetoPanel({
                   fill="currentColor"
                   opacity=".72"
                 >
-                  {format(v, x.unit)}
+                  {tickLabel(v, x.unit, xAxis.step)}
                 </text>
               </g>
             ))}
@@ -418,7 +439,7 @@ export function ParetoPanel({
                   fill="currentColor"
                   opacity=".72"
                 >
-                  {format(v, y.unit)}
+                  {tickLabel(v, y.unit, yAxis.step)}
                 </text>
               </g>
             ))}

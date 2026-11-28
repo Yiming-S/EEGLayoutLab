@@ -43,7 +43,7 @@ export default function DesignWorkspace() {
     (target ?? settingsRef.current).scrollIntoView({ block: 'start' });
   };
   return <main className="lab-page">
-    <SiteHeader current="design" arPercent={ar} labHref={comparison} returnHref={here} selection={{ id: receptionId ?? null, phase: receptionId ? "saved" : "draft", channels: activeChannelTotal, regions: count }} receptionHref={receptionId ? sourceExperimentLink(receptionId, ar, here) : undefined} />
+    <SiteHeader current="design" arPercent={ar} labHref={comparison} returnHref={here} selection={{ id: savedId ?? null, phase: savedId ? "saved" : "draft", channels: activeChannelTotal, regions: count }} receptionHref={receptionId ? sourceExperimentLink(receptionId, ar, here) : undefined} />
     <div className="lab-container">
       <header className="mb-5 flex flex-wrap items-end justify-between gap-4 border-b border-border pt-7 pb-5" data-design-state={state.phase}>
         <div>

@@ -121,6 +121,7 @@ function outwardNormal(p: Point): Point {
   return [Number((wx / len).toFixed(4)), Number((wy / len).toFixed(4)), Number((wz / len).toFixed(4))];
 }
 
+/** The labels in podMountLabel state these same limits. */
 export function classifyPodMount(radialStrokeMm: number, tangentialDriftMm: number): PodMountType {
   if (radialStrokeMm <= 3.5 && tangentialDriftMm <= 2.5) return 'rigid_pod';
   if (radialStrokeMm <= 9.0 && tangentialDriftMm <= 6.5) return 'spring_plunger';
@@ -130,11 +131,11 @@ export function classifyPodMount(radialStrokeMm: number, tangentialDriftMm: numb
 export function podMountLabel(kind: PodMountType): string {
   switch (kind) {
     case 'rigid_pod':
-      return '刚性壳体直装（≤3.5 mm）';
+      return '刚性壳体直装（行程≤3.5 mm且漂移≤2.5 mm）';
     case 'spring_plunger':
-      return '弹性顶针/硅胶悬臂（±5 mm）';
+      return '弹性顶针/硅胶悬臂（行程≤9 mm且漂移≤6.5 mm）';
     case 'slotted_rail':
-      return '分档滑槽/可调悬臂（>6.5 mm）';
+      return '分档滑槽/可调悬臂（行程>9 mm或漂移>6.5 mm）';
   }
 }
 

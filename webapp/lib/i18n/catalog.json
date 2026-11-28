@@ -6136,6 +6136,26 @@
     "source": "部分低于 τ",
     "en": "Some < τ"
   },
+  "layout_outcome_all_below": {
+    "source": "三项均低于 τ",
+    "en": "All 3 < τ"
+  },
+  "photo_calibration_missing": {
+    "source": "待完成：",
+    "en": "Still needed:"
+  },
+  "photo_calibration_stale": {
+    "source": "照片标定尚未成功：下方结果仍是上一次的头型参数，解算成功后才能导出。",
+    "en": "Photo calibration has not succeeded: the results below still use the previous head parameters. Export becomes available after a successful solve."
+  },
+  "photo_calibration_ci_range": {
+    "source": "解算头长宽指数 {{0}} 超出成人范围 67–92，请检查标志点位置",
+    "en": "The solved cephalic index {{0}} is outside the adult range 67–92. Check the landmark positions."
+  },
+  "photo_calibration_height_range": {
+    "source": "解算颅顶高度 {{0}} mm 超出成人范围 112–152 mm，请检查标志点位置",
+    "en": "The solved vertex height of {{0}} mm is outside the adult range 112–152 mm. Check the landmark positions."
+  },
   "scenario_personalize_053": {
     "source": "场景参考线 τ",
     "en": "Scenario reference line τ"
@@ -6493,16 +6513,16 @@
     "en": "Photo landmark calibration failed"
   },
   "scenario_personalize_142": {
-    "source": "刚性壳体直装（≤3.5 mm）",
-    "en": "Rigid Shell Pod (≤3.5 mm)"
+    "source": "刚性壳体直装（行程≤3.5 mm且漂移≤2.5 mm）",
+    "en": "Rigid Shell Pod (stroke ≤3.5 mm, drift ≤2.5 mm)"
   },
   "scenario_personalize_143": {
-    "source": "弹性顶针/硅胶悬臂（±5 mm）",
-    "en": "Spring Plunger / Elastomer Arm (±5 mm)"
+    "source": "弹性顶针/硅胶悬臂（行程≤9 mm且漂移≤6.5 mm）",
+    "en": "Spring Plunger / Elastomer Arm (stroke ≤9 mm, drift ≤6.5 mm)"
   },
   "scenario_personalize_144": {
-    "source": "分档滑槽/可调悬臂（>6.5 mm）",
-    "en": "Slotted Detent Rail (>6.5 mm)"
+    "source": "分档滑槽/可调悬臂（行程>9 mm或漂移>6.5 mm）",
+    "en": "Slotted Detent Rail (stroke >9 mm or drift >6.5 mm)"
   },
   "scenario_personalize_145": {
     "source": "研究草稿布局",

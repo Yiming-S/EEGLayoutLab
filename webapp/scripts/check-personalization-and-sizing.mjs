@@ -134,6 +134,20 @@ await test('anthropometric & photo-landmark head personalization preserves refer
   const cal2 = calibrateFromPhotoLandmarks(frontZoomed, sideA, 582);
   assert.equal(cal1.cephalicIndex, cal2.cephalicIndex);
   assert.equal(cal1.vertexHeightMm, cal2.vertexHeightMm);
+  // The page's untouched default marks solve to CI ≈ 92.2; out-of-range solves are reported, not clamped.
+  assert.throws(
+    () => calibrateFromPhotoLandmarks(
+      { leftTragus: [0.22, 0.58], rightTragus: [0.78, 0.58], vertexTop: [0.5, 0.14] },
+      { nasion: [0.18, 0.52], inion: [0.84, 0.58], tragus: [0.52, 0.62], vertexTop: [0.5, 0.14] },
+      585,
+    ),
+    /超出成人范围 67–92/,
+  );
+  assert.throws(
+    // CI stays ≈ 82 but the side view implies a ~185 mm vertex height.
+    () => calibrateFromPhotoLandmarks({ ...frontA, vertexTop: [0.5, 0.022] }, { ...sideA, tragus: [0.5, 0.739] }, 582),
+    /颅顶高度 .* 超出成人范围/,
+  );
 
   const sample8 = [
     [-74.5, 42.8, 6.8],

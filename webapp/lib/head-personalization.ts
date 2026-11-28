@@ -212,9 +212,16 @@ export function calibrateFromPhotoLandmarks(
   // Use crown height present in BOTH views to cancel camera distance / zoom difference between front and side photos!
   const widthToHeight = frontWidthPx / frontHeightPx;
   const lengthToHeight = sideLengthPx / sideHeightPx;
-  const rawCi = Math.min(92, Math.max(67, (100 * widthToHeight) / lengthToHeight));
+  // Values outside the adult ranges mean misplaced landmarks; they are reported, not clamped.
+  const rawCi = (100 * widthToHeight) / lengthToHeight;
+  if (!(rawCi >= 67 && rawCi <= 92)) {
+    throw new Error(`解算头长宽指数 ${rawCi.toFixed(1)} 超出成人范围 67–92，请检查标志点位置`);
+  }
   const { lengthMm } = dimensionsFromCircumferenceAndCi(circumferenceMm, rawCi);
-  const rawHeightMm = Math.min(152, Math.max(112, lengthMm / lengthToHeight));
+  const rawHeightMm = lengthMm / lengthToHeight;
+  if (!(rawHeightMm >= 112 && rawHeightMm <= 152)) {
+    throw new Error(`解算颅顶高度 ${rawHeightMm.toFixed(0)} mm 超出成人范围 112–152 mm，请检查标志点位置`);
+  }
 
   return {
     id: 'photo_calibrated',

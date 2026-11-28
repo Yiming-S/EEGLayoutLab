@@ -14,7 +14,7 @@ import { apiJson } from '@/client/task-client';
 import { CoordinateStudyLink } from '@/features/robustness/coordinate-study-link';
 import { exportDesign, decisionHref, jointDecisionThresholds } from '@/lib/design-decision';
 import { localizedRecordTitle } from '@/lib/i18n/records';
-import { assessment, parseAR } from '@/lib/lab-workflow';
+import { assessment, METRICS, parseAR } from '@/lib/lab-workflow';
 import { evaluationLabels, layoutHref, primaryRecord, layoutEvaluations } from '@/lib/layout-page';
 import { canSimulateRecord, type LocalLibrary, type SavedRecord, type SavedSummary } from '@/lib/local-library';
 import { editorRecordLink, type ExperimentReceipt } from '@/lib/records-catalog';
@@ -136,7 +136,10 @@ export default function LayoutWorkspace() {
                   </tr>
                 </thead>
                 <tbody>{records.map(row => {
-                  const outcome = (row.status === 'completed' ? assessment(row.metrics, ar).state : 'undefined') as Outcome;
+                  const judged = row.status === 'completed' ? assessment(row.metrics, ar) : null;
+                  const outcome = (judged?.state ?? 'undefined') as Outcome;
+                  // 'fail' means at least one metric is below τ; say so when all three are.
+                  const belowAll = judged?.limiting.length === METRICS.length;
                   const labels = evaluationLabels(row);
                   return <tr key={row.id} className={cn('border-b border-border/65 transition-colors last:border-0 hover:bg-primary/[0.03]', row.id === shown.id && 'bg-primary/[0.055]')}>
                     <th className="px-4 py-3 font-normal">
@@ -146,7 +149,7 @@ export default function LayoutWorkspace() {
                     <td className="px-3 py-3 font-mono tabular-nums">{metricPercent(row.metrics?.field_relative)}</td>
                     <td className="px-3 py-3 font-mono tabular-nums">{metricPercent(row.metrics?.sensitivity_tail)}</td>
                     <td className="px-3 py-3 font-mono tabular-nums">{metricPercent(row.metrics?.localization_relative)}</td>
-                    <td className="px-3 py-3"><OutcomeBadge outcome={outcome}>{tx(outcome === 'pass' ? '三项高于 τ' : outcome === 'fail' ? '部分低于 τ' : '无指标')}</OutcomeBadge></td>
+                    <td className="px-3 py-3"><OutcomeBadge outcome={outcome}>{tx(outcome === 'pass' ? '三项高于 τ' : outcome === 'fail' ? belowAll ? '三项均低于 τ' : '部分低于 τ' : '无指标')}</OutcomeBadge></td>
                     <td className="px-4 py-3 text-right">{row.id === shown.id ? <span className="lab-chip text-primary">{tx('当前显示')}</span>
                       : <Button type="button" size="xs" variant="outline" onClick={() => select(row.id)}>{tx('查看')}</Button>}</td>
                   </tr>;

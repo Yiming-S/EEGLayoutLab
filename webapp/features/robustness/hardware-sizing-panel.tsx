@@ -40,80 +40,93 @@ export function HardwareSizingPanel({
   const { tx, locale } = useLanguage();
   const [sizingMode, setSizingMode] = useState<ShellSizingMode>('three_size_sml');
   const [library, setLibrary] = useState<SavedSummary[]>([]);
+  const [libraryState, setLibraryState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [selectedId, setSelectedId] = useState<string>('');
   const [loadedRecord, setLoadedRecord] = useState<SavedRecord | null>(null);
+  const [failedId, setFailedId] = useState<string | null>(null);
+  // Until the user picks one, the draft (when there is one) or the newest saved layout is shown.
+  const activeId = selectedId || (draftDesign ? '__draft__' : library[0]?.id ?? '');
+  const recordId = activeId && activeId !== '__draft__' ? activeId : null;
 
   useEffect(() => {
     const ctrl = new AbortController();
     apiJson<LocalLibrary>('/api/local-compute/library', { signal: ctrl.signal })
       .then((res) => {
-        const completed = res.records.filter((r) => r.status === 'completed');
-        setLibrary(completed);
-        if (completed.length > 0) setSelectedId((prev) => prev || completed[0].id);
+        setLibrary(res.records.filter((r) => r.status === 'completed'));
+        setLibraryState('ready');
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!ctrl.signal.aborted) setLibraryState('error');
+      });
     return () => ctrl.abort();
   }, []);
 
   useEffect(() => {
-    if (!selectedId || selectedId === '__draft__') return;
+    if (!recordId) return;
     const ctrl = new AbortController();
-    apiJson<{ record: SavedRecord }>('/api/local-compute/library/' + selectedId, {
+    apiJson<{ record: SavedRecord }>('/api/local-compute/library/' + recordId, {
       signal: ctrl.signal,
     })
       .then((res) => setLoadedRecord(res.record))
-      .catch(() => {});
+      .catch(() => {
+        if (!ctrl.signal.aborted) setFailedId(recordId);
+      });
     return () => ctrl.abort();
-  }, [selectedId]);
+  }, [recordId]);
 
+  const draftLayout = useMemo(
+    () =>
+      draftDesign
+        ? {
+            name: draftDesign.name || '研究草稿布局',
+            xyzMm: draftDesign.xyz_mm as Point[],
+            regionIndices: draftDesign.region_indices,
+            electrodeNames: draftDesign.electrode_names,
+          }
+        : null,
+    [draftDesign],
+  );
+
+  // Null while the catalog or the chosen record is loading, or when the record has no coordinates.
   const targetLayout = useMemo(() => {
-    if ((selectedId === '__draft__' || !selectedId) && draftDesign) {
+    if (!recordId) {
+      if (draftLayout) return draftLayout;
+      if (libraryState === 'loading') return null;
+      // No saved layout and no draft: the labelled reference example.
+      const wearable12 = [
+        'AF7', 'Fp1', 'Fpz', 'Fp2', 'AF8', 'Fz',
+        'FT7', 'T7', 'TP7', 'FT8', 'T8', 'TP8',
+      ];
+      const capMap = new Map(
+        ERNIE_MNI_MAPPING.labels.positions_mm.map((r) => [
+          String(r[0]),
+          [Number(r[1]), Number(r[2]), Number(r[3])] as Point,
+        ]),
+      );
+      const pts = wearable12.map((n) => capMap.get(n)!).filter(Boolean);
       return {
-        name: draftDesign.name || '研究草稿布局',
-        xyzMm: draftDesign.xyz_mm as Point[],
-        regionIndices: draftDesign.region_indices,
-        electrodeNames: draftDesign.electrode_names,
+        name: '12导前额+双耳周头戴参考示例',
+        xyzMm: pts,
+        regionIndices: pts.map((_, i) => (i < 6 ? 0 : i < 9 ? 1 : 2)),
+        electrodeNames: wearable12,
       };
     }
-    if (loadedRecord?.layout?.xyzMm?.length) {
-      return {
-        name: localizedRecordTitle(loadedRecord, locale),
-        xyzMm: loadedRecord.layout.xyzMm as Point[],
-        regionIndices:
-          loadedRecord.layout.regionIndices ??
-          loadedRecord.layout.xyzMm.map(() => 0),
-        electrodeNames: undefined,
-      };
-    }
-    if (draftDesign) {
-      return {
-        name: draftDesign.name || '研究草稿布局',
-        xyzMm: draftDesign.xyz_mm as Point[],
-        regionIndices: draftDesign.region_indices,
-        electrodeNames: draftDesign.electrode_names,
-      };
-    }
-    const wearable12 = [
-      'AF7', 'Fp1', 'Fpz', 'Fp2', 'AF8', 'Fz',
-      'FT7', 'T7', 'TP7', 'FT8', 'T8', 'TP8',
-    ];
-    const capMap = new Map(
-      ERNIE_MNI_MAPPING.labels.positions_mm.map((r) => [
-        String(r[0]),
-        [Number(r[1]), Number(r[2]), Number(r[3])] as Point,
-      ]),
-    );
-    const pts = wearable12.map((n) => capMap.get(n)!).filter(Boolean);
+    if (loadedRecord?.id !== recordId || !loadedRecord.layout?.xyzMm?.length) return null;
     return {
-      name: '12导前额+双耳周头戴参考示例',
-      xyzMm: pts,
-      regionIndices: pts.map((_, i) => (i < 6 ? 0 : i < 9 ? 1 : 2)),
-      electrodeNames: wearable12,
+      name: localizedRecordTitle(loadedRecord, locale),
+      xyzMm: loadedRecord.layout.xyzMm as Point[],
+      regionIndices:
+        loadedRecord.layout.regionIndices ?? loadedRecord.layout.xyzMm.map(() => 0),
+      electrodeNames: undefined,
     };
-  }, [selectedId, draftDesign, loadedRecord, locale]);
+  }, [recordId, draftLayout, libraryState, loadedRecord, locale]);
+  const unavailable =
+    !targetLayout &&
+    (recordId ? failedId === recordId || loadedRecord?.id === recordId : libraryState === 'error');
 
   const report = useMemo(
     () =>
+      targetLayout &&
       analyzeHardwareSizing(targetLayout.xyzMm, targetLayout.regionIndices, {
         designName: targetLayout.name,
         sizingMode,
@@ -174,7 +187,7 @@ export function HardwareSizingPanel({
             {tx('选择用于硬件结构评估的布局方案（8–64导）')}
             <select
               className="lab-select mt-1.5"
-              value={selectedId}
+              value={activeId}
               onChange={(e) => setSelectedId(e.target.value)}
             >
               {draftDesign && (
@@ -189,11 +202,15 @@ export function HardwareSizingPanel({
                 </option>
               ))}
               {!draftDesign && library.length === 0 && (
-                <option value="">{tx('12导前额+双耳周头戴参考示例')}</option>
+                <option value="">
+                  {tx(libraryState === 'loading' ? '读取方案目录…' : '12导前额+双耳周头戴参考示例')}
+                </option>
               )}
             </select>
           </label>
 
+          {report ? (
+            <>
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
             <div className="rounded-xl border border-border/80 bg-card p-3">
               <span className="block text-[11px] text-muted-foreground">
@@ -284,8 +301,15 @@ export function HardwareSizingPanel({
               {tx('导出分尺码公差工程规范 JSON')}
             </Button>
           </div>
+            </>
+          ) : (
+            <output className="block rounded-xl border border-border/80 bg-card p-3 text-sm text-muted-foreground">
+              {tx(unavailable ? '指定记录无法读取，请刷新记录或重新选择。' : '读取方案目录…')}
+            </output>
+          )}
         </div>
 
+        {report && (
         <div className="rounded-xl border border-border/80 bg-card p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-sm font-semibold">
@@ -353,8 +377,10 @@ export function HardwareSizingPanel({
             <span className="text-amber-600 dark:text-amber-400">{tx('橙色线段：S–L 尺码跨度')}</span>
           </div>
         </div>
+        )}
       </div>
 
+      {report && (
       <details className="group/bom rounded-xl border border-border/75 bg-muted/20 p-3.5">
         <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-semibold select-none [&::-webkit-details-marker]:hidden">
           <span>{tx('展开逐通道 S / M / L 坐标、法向矢量与结构选型明细表')}</span>
@@ -409,6 +435,7 @@ export function HardwareSizingPanel({
           </table>
         </div>
       </details>
+      )}
     </section>
   );
 }
